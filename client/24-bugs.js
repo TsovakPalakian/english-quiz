@@ -222,6 +222,43 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function renderCustomOverridesList() {
+      const container = document.getElementById('feedbackCustomOverridesList');
+      const countEl = document.getElementById('feedbackOverridesCount');
+      if (!container) return;
+      const entries = Object.entries(feedbackUserLimits || {}).filter(([_, lim]) => lim != null && Number.isSafeInteger(Number(lim)));
+      if (countEl) countEl.textContent = entries.length;
+      if (!entries.length) {
+        container.innerHTML = '<span style="font-size:12px;color:var(--ink-sub);font-style:italic;">No custom user overrides configured. All users use role defaults.</span>';
+        return;
+      }
+      container.innerHTML = entries.map(([uKey, lim]) => `
+        <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-sub, #f1f5f9);border:1px solid var(--line, #cbd5e1);border-radius:6px;font-size:12px;" data-override-user="${esc(uKey)}">
+          <b style="color:var(--ink);">${esc(uKey)}</b>
+          <span class="chip" style="font-size:11px;font-weight:600;background:rgba(234,179,8,0.15);color:#ca8a04;">${Number(lim)} / hr</span>
+          <button type="button" class="btn tiny ghost" data-fb-remove-override="${esc(uKey)}" style="padding:0 4px;font-size:11px;line-height:16px;" title="Reset ${esc(uKey)} to role default">✕</button>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('[data-fb-remove-override]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const uKey = btn.dataset.fbRemoveOverride;
+          accountFetch('/api/feedback/limit', {
+            method: 'POST',
+            body: JSON.stringify({ userId: uKey, limit: null })
+          }).then(() => {
+            delete feedbackUserLimits[uKey];
+            renderCustomOverridesList();
+            const listContainer = document.getElementById('feedbackCardsList');
+            if (listContainer) renderFeedbackCards(feedbackLoadedItems, listContainer);
+            notice(`Feedback limit for ${uKey} reset to role default`);
+          }).catch(err => {
+            notice(err.message, true);
+          });
+        });
+      });
+    }
+
     function renderFeedbackCards(items, container) {
       if (!container) return;
       const filtered = filterFeedbackItems(items);
@@ -355,8 +392,11 @@
             method: 'POST',
             body: JSON.stringify({ userId: userKey, limit })
           }).then(() => {
+            if (limit !== null) feedbackUserLimits[userKey] = limit;
+            else delete feedbackUserLimits[userKey];
+            renderCustomOverridesList();
+            renderFeedbackCards(feedbackLoadedItems, container);
             notice(`Feedback limit updated for ${userKey}: ${limit !== null ? limit + '/hr' : 'role default'}`);
-            paintBugs();
           }).catch(err => {
             notice(err.message, true);
           });
@@ -446,11 +486,72 @@
                 ${qCount ? `<button type="button" class="btn chip ${feedbackFilterCategory === 'question' ? 'on' : ''}" data-fb-filter="question">❓ Questions (${qCount})</button>` : ''}
               </div>
             </div>
+            <div class="card feedback-limits-panel" style="padding:14px;margin-bottom:14px;display:flex;flex-direction:column;gap:12px;border:1px solid var(--accent, #0284c7);">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                <div>
+                  <b style="font-size:14px;display:flex;align-items:center;gap:6px;">⚙ Custom User Feedback Limits</b>
+                  <small style="color:var(--ink-sub);display:block;margin-top:2px;">
+                    Configure hourly feedback limits for specific user accounts (overrides role defaults: Developer 20/hr, Teacher 10/hr, Student 5/hr, Guest 1/hr).
+                  </small>
+                </div>
+                <span class="chip" style="font-size:11px;opacity:0.8;">Admin &amp; Dev Control</span>
+              </div>
+              <form id="feedbackCustomLimitForm" style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;padding:10px;background:var(--bg-sub, rgba(15,23,42,0.03));border-radius:8px;border:1px solid var(--line);">
+                <div style="flex:1;min-width:180px;">
+                  <label for="feedbackCustomUserInput" style="display:block;font-size:12px;font-weight:500;color:var(--ink-sub);margin-bottom:4px;">User login or ID</label>
+                  <input type="text" id="feedbackCustomUserInput" required placeholder="e.g. student_alice or ID" style="width:100%;height:32px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
+                </div>
+                <div style="width:120px;">
+                  <label for="feedbackCustomLimitInput" style="display:block;font-size:12px;font-weight:500;color:var(--ink-sub);margin-bottom:4px;">Limit / hour</label>
+                  <input type="number" id="feedbackCustomLimitInput" min="0" max="1000" required placeholder="e.g. 15" style="width:100%;height:32px;padding:0 8px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
+                </div>
+                <button type="submit" class="btn small" id="feedbackCustomSaveBtn" style="height:32px;white-space:nowrap;">Set user limit</button>
+              </form>
+              <div id="feedbackCustomOverridesSection" style="display:flex;flex-direction:column;gap:6px;">
+                <small style="font-weight:600;color:var(--ink-sub);text-transform:uppercase;letter-spacing:0.5px;font-size:11px;">
+                  Active Custom Overrides (<span id="feedbackOverridesCount">0</span>)
+                </small>
+                <div id="feedbackCustomOverridesList" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+              </div>
+            </div>
             <div id="feedbackCardsList"></div>
           `;
 
           const listContainer = box.querySelector('#feedbackCardsList');
           renderFeedbackCards(feedbackLoadedItems, listContainer);
+          renderCustomOverridesList();
+
+          const customLimitForm = box.querySelector('#feedbackCustomLimitForm');
+          if (customLimitForm) {
+            customLimitForm.addEventListener('submit', (e) => {
+              e.preventDefault();
+              const userInput = box.querySelector('#feedbackCustomUserInput');
+              const limitInput = box.querySelector('#feedbackCustomLimitInput');
+              const uKey = (userInput?.value || '').trim();
+              const limVal = Number((limitInput?.value || '').trim());
+              if (!uKey) {
+                notice('Please enter a user login or ID.', true);
+                return;
+              }
+              if (!Number.isSafeInteger(limVal) || limVal < 0 || limVal > 1000) {
+                notice('Limit must be an integer between 0 and 1000.', true);
+                return;
+              }
+              accountFetch('/api/feedback/limit', {
+                method: 'POST',
+                body: JSON.stringify({ userId: uKey, limit: limVal })
+              }).then(() => {
+                feedbackUserLimits[uKey] = limVal;
+                renderCustomOverridesList();
+                renderFeedbackCards(feedbackLoadedItems, listContainer);
+                if (userInput) userInput.value = '';
+                if (limitInput) limitInput.value = '';
+                notice(`Feedback limit set for ${uKey}: ${limVal} / hr`);
+              }).catch(err => {
+                notice(err.message, true);
+              });
+            });
+          }
 
           box.querySelector('#feedbackSaveBreadcrumbsBtn')?.addEventListener('click', () => {
             const input = box.querySelector('#feedbackBreadcrumbsLimitInput');

@@ -2,6 +2,7 @@ import { analyzerHeaders, analyzerOutcome, analyzerTimeoutMs } from "./analyzer-
 import {chatCall} from './chat-durable.mjs';
 import {observeSession,finishSessionRecord} from './security-sessions.mjs';
 import {studyClient} from './study-database.mjs';
+import {stageContentPolicy} from './learning-embed.mjs';
 
 const ITERATIONS = 100000;
 const SESSION_SECONDS = 3 * 3600;
@@ -1460,6 +1461,39 @@ function absolutizeUrl(base, value) {
   }
 }
 
+const ALLOWED_PREVIEW_PROVIDERS = [
+  "youtube.com",
+  "youtu.be",
+  "wikipedia.org",
+  "wikimedia.org",
+  "wordwall.net",
+  "youglish.com",
+  "playphrase.me",
+  "britishcouncil.org",
+  "cambridgeenglish.org",
+  "cambridge.org",
+  "bbc.com",
+  "bbc.co.uk",
+  "github.com",
+  "developer.mozilla.org",
+  "developers.cloudflare.com",
+  "openai.com",
+  "google.com"
+];
+
+const ALLOWED_PREVIEW_IMAGES = [
+  ...ALLOWED_PREVIEW_PROVIDERS,
+  "ytimg.com",
+  "googleusercontent.com",
+  "gstatic.com",
+  "githubusercontent.com"
+];
+
+function isAllowedPreviewHost(host, list = ALLOWED_PREVIEW_PROVIDERS) {
+  const h = String(host || "").toLowerCase().replace(/\.+$/, "");
+  return list.some((domain) => h === domain || h.endsWith("." + domain));
+}
+
 function isPublicHttpUrl(target) {
   if (!target || (target.protocol !== "http:" && target.protocol !== "https:")) return false;
   const host = String(target.hostname || "").toLowerCase().replace(/\.+$/, "");
@@ -1484,7 +1518,7 @@ function isPublicHttpUrl(target) {
 async function fetchPublicPage(url, signal, hops) {
   if ((hops || 0) > 3) throw new Error("Too many redirects");
   const target = new URL(url);
-  if (!isPublicHttpUrl(target)) throw new Error("Private host");
+  if (!isPublicHttpUrl(target) || !isAllowedPreviewHost(target.hostname)) throw new Error("Private host");
   const res = await fetch(target.toString(), {
     method: "GET",
     redirect: "manual",
@@ -1497,7 +1531,9 @@ async function fetchPublicPage(url, signal, hops) {
   if (res.status >= 300 && res.status < 400) {
     const loc = res.headers.get("Location");
     if (!loc) throw new Error("Bad redirect");
-    return fetchPublicPage(new URL(loc, target).toString(), signal, (hops || 0) + 1);
+    const nextTarget = new URL(loc, target);
+    if (!isPublicHttpUrl(nextTarget) || !isAllowedPreviewHost(nextTarget.hostname)) throw new Error("Private host redirect");
+    return fetchPublicPage(nextTarget.toString(), signal, (hops || 0) + 1);
   }
   return res;
 }
@@ -1509,6 +1545,15 @@ async function linkPreview(env, request) {
   let target;
   try { target = new URL(raw); } catch (e) { return json({ error: "Enter a valid link." }, 400); }
   if (!isPublicHttpUrl(target)) return json({ error: "Enter a valid link." }, 400);
+  if (!isAllowedPreviewHost(target.hostname)) {
+    return json({
+      url: target.toString(),
+      host: target.hostname.replace(/^www\./, ""),
+      title: target.hostname.replace(/^www\./, ""),
+      description: "",
+      image: ""
+    });
+  }
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
@@ -1533,7 +1578,7 @@ async function linkPreview(env, request) {
     try {
       const img = new URL(image);
       if (img.protocol !== "http:" && img.protocol !== "https:") image = "";
-      else if (!isPublicHttpUrl(img)) image = "";
+      else if (!isPublicHttpUrl(img) || !isAllowedPreviewHost(img.hostname, ALLOWED_PREVIEW_IMAGES)) image = "";
     } catch (e) {
       image = "";
     }
@@ -4795,7 +4840,14 @@ export default {
         return json({ error: problem }, problemStatus(error, problem));
       }
     }
-    if (env.ASSETS) return env.ASSETS.fetch(request);
+    if (env.ASSETS) {
+      const response = await env.ASSETS.fetch(request);
+      const headers = new Headers(response.headers);
+      headers.set("Cache-Control", response.ok && url.searchParams.get("v") ? "public, max-age=31536000, immutable" : "no-cache");
+      headers.set("X-Content-Type-Options", "nosniff");
+      headers.set("Content-Security-Policy", stageContentPolicy);
+      return new Response(response.body, { status: response.status, headers });
+    }
     return new Response("Not found", { status: 404 });
   },
 };

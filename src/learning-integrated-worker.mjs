@@ -468,7 +468,8 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(passkey&&!actor)throw new StudyError(401,'Sign in first.');
         const federatedToken=federated?oauth.cookie(request):'';
         if(federated)await new oauth.Service(studyDatabase(env),url.origin).peek(federatedToken,'email');
-        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:recovery?'password-reset':passkey?'passkey':federated?provider+':'+federatedToken:'login'});
+        const clientIp=(request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]||'').trim();
+        const issued=await new EmailOtp(studyDatabase(env)).issue(passkey?actor.email:value?.email,{purpose:recovery?'password-reset':passkey?'passkey':federated?provider+':'+federatedToken:'login',clientIp});
         if(federated)await new oauth.Service(studyDatabase(env),url.origin).setEmail(federatedToken,issued.email);
         const from=String(env.EMAIL_FROM||'noreply@lumiscia.org');
         try{

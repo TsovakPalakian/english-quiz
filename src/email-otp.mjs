@@ -1,9 +1,12 @@
 import {StudyError,statement as s} from './learning-study.mjs';
 
 const namespace='email-otp';
+const ipNamespace='email-otp-ip';
 const TTL_MS=10*60*1000;
 const MAX_ATTEMPTS=5;
 const RESEND_MS=45*1000;
+const IP_WINDOW_MS=15*60*1000;
+const IP_RATE_LIMIT=5;
 const encoder=new TextEncoder();
 const fail=(status,message)=>{throw new StudyError(status,message);};
 
@@ -75,11 +78,40 @@ export class EmailOtp{
     ]);
   }
 
-  async issue(rawEmail,{purpose='login'}={}){
+  async #loadIp(ipKey, now){
+    const [row]=await this.db.read('SELECT value_json FROM catalog_documents WHERE namespace=? AND key=?',[ipNamespace,ipKey]);
+    if(!row)return [];
+    try{
+      const parsed=JSON.parse(row.value_json);
+      if(Array.isArray(parsed?.timestamps)){
+        return parsed.timestamps.filter(t=>typeof t==='number'&&now-t<IP_WINDOW_MS);
+      }
+    }catch{}
+    return [];
+  }
+
+  async #saveIp(ipKey, timestamps){
+    const payload=JSON.stringify({ipKey,timestamps});
+    await this.db.atomic([
+      s('DELETE FROM catalog_documents WHERE namespace=? AND key=?',[ipNamespace,ipKey]),
+      s('INSERT INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[ipNamespace,ipKey,payload]),
+    ]);
+  }
+
+  async issue(rawEmail,{purpose='login',clientIp=''}={}){
     const email=normalizeEmail(rawEmail);
+    const now=Date.now();
+    const cleanIp=String(clientIp||'').trim();
+    let ipKey=null,ipHistory=[];
+    if(cleanIp){
+      ipKey=await sha256Hex('ip:'+cleanIp);
+      ipHistory=await this.#loadIp(ipKey,now);
+      if(ipHistory.length>=IP_RATE_LIMIT){
+        fail(429,'Too many OTP requests from this address. Try again later.');
+      }
+    }
     const key=await sha256Hex(email);
     const current=await this.#load(key);
-    const now=Date.now();
     if(current?.sentAt&&now-current.sentAt<RESEND_MS)fail(429,'Wait a moment before requesting another code.');
     const code=String(100000+crypto.getRandomValues(new Uint32Array(1))[0]%900000);
     const next={
@@ -94,6 +126,10 @@ export class EmailOtp{
       await this.db.atomic([s('DELETE FROM catalog_documents WHERE namespace=? AND key=?',[namespace,key])]);
     }
     await this.#save(key,next,null);
+    if(cleanIp&&ipKey){
+      ipHistory.push(now);
+      await this.#saveIp(ipKey,ipHistory);
+    }
     return {email,code,expiresAt:next.expiresAt,ttlSec:Math.floor(TTL_MS/1000)};
   }
 
@@ -124,4 +160,4 @@ export class EmailOtp{
   }
 }
 
-export {normalizeEmail};
+export {normalizeEmail, IP_WINDOW_MS, IP_RATE_LIMIT};

@@ -95,3 +95,56 @@ test('password recovery requires a dedicated code, validates input and changes o
     assert.equal((await call('reset',{email:unknown.email,code:unknown.code,password:'new-password'})).status,200);
   }finally{f.close();}
 });
+
+test('email otp enforces client IP rate limit across distinct email targets',async()=>{
+  const f=fixture();
+  try{
+    const clientIp='198.51.100.42';
+    for(let i=1;i<=5;i++){
+      const res=await f.service.issue(`student${i}@example.com`,{clientIp});
+      assert.equal(res.email,`student${i}@example.com`);
+    }
+    await assert.rejects(
+      f.service.issue('student6@example.com',{clientIp}),
+      e=>e.status===429&&e.message==='Too many OTP requests from this address. Try again later.'
+    );
+    // Distinct IP is not blocked
+    const otherIpRes=await f.service.issue('student6@example.com',{clientIp:'198.51.100.43'});
+    assert.equal(otherIpRes.email,'student6@example.com');
+  }finally{f.close();}
+});
+
+test('integrated worker /api/auth/otp/request enforces client IP throttling',async()=>{
+  const f=fixture();
+  try{
+    const sent=[];
+    const env={
+      STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'accounts.example',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',ACCOUNT_QUERY_LIMIT_ENABLED:'false',
+      EMAIL_FROM:'noreply@lumiscia.org',
+      EMAIL:{async send(message){sent.push(message);return {messageId:'msg-1'};}},
+      DB:{prepare(){return {bind(){return {async first(){return null;}};}};}},
+    };
+    const app=integratedWorker({
+      authenticate:async()=>null,
+      studyDatabase:()=>f.db,
+      accountWorker:{async fetch(){return Response.json({error:'no'},404);}},
+    });
+    const ip='198.51.100.55';
+    for(let i=1;i<=5;i++){
+      const res=await app.fetch(new Request('https://accounts.example/api/auth/otp/request',{
+        method:'POST',
+        headers:{Origin:'https://accounts.example','Content-Type':'application/json','CF-Connecting-IP':ip},
+        body:JSON.stringify({email:`flood${i}@example.com`}),
+      }),env,{});
+      assert.equal(res.status,200);
+    }
+    const blocked=await app.fetch(new Request('https://accounts.example/api/auth/otp/request',{
+      method:'POST',
+      headers:{Origin:'https://accounts.example','Content-Type':'application/json','CF-Connecting-IP':ip},
+      body:JSON.stringify({email:'flood6@example.com'}),
+    }),env,{});
+    assert.equal(blocked.status,429);
+    const body=await blocked.json();
+    assert.match(body.error,/Too many OTP requests from this address/);
+  }finally{f.close();}
+});

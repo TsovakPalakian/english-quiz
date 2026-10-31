@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import {
   saveFeedback,
@@ -578,3 +579,10 @@ test('integrated worker feedback settings, custom limit override and multi-file 
   assert.equal(found.attachments[0].name, 'shot.png'); // image sorted first
   assert.equal(found.attachments[1].name, 'test.log'); // text sorted second
 });
+
+test('feedback file chip rendering in preview.js escapes malicious XSS file names', () => {
+  const previewSource = readFileSync(new URL('../preview.js', import.meta.url), 'utf8');
+  assert.ok(previewSource.includes('title="${esc(a.name)}">${esc(a.name)}</span>'), 'preview.js must escape a.name in feedback file chip');
+  assert.ok(previewSource.includes('data-remove-id="${esc(a.id)}"'), 'preview.js must escape a.id in feedback file chip remove button');
+});
+

@@ -14,6 +14,7 @@ import {applyLearningSchema} from './learning-test-schema.mjs';
 import {generateKeyPair,exportJWK,SignJWT,createLocalJWKSet} from 'jose';
 import {AccountInvites} from '../src/account-invites.mjs';
 import {EmailOtp} from '../src/email-otp.mjs';
+import {stageContentPolicy} from '../src/learning-embed.mjs';
 const devId='a'.repeat(32),password='FixturePassword1';
 test('Verified email teacher invitation creates a pending ADMIN registration, not a session or automatic approval',async()=>{
   const f=fixture();try{
@@ -513,4 +514,49 @@ test('Unused pair login Tsovak can be restored as a student; rename onto the pai
     const renamed=await dev.call('/api/admin/users/'+userId+'/profile','POST',{login:'TsovakDev',email:'other@example.invalid',name:'Other'});
     assert.equal(renamed.status,403);assert.equal(renamed.value.error,'That login is reserved.');
   }finally{f.close();}
+});
+test('link-preview enforces domain allowlist and rejects SSRF and DNS rebinding vectors', async () => {
+  const f = fixture();
+  try {
+    const dev = f.client();
+    assert.equal((await dev.call('/api/login', 'POST', {login: 'FixtureDev', password})).status, 200);
+
+    // 1. Private IP literal is rejected with 400
+    const priv = await dev.call('/api/link-preview?url=' + encodeURIComponent('http://127.0.0.1:8080/secret'));
+    assert.equal(priv.status, 400);
+
+    // 2. Metadata IP literal is rejected with 400
+    const meta = await dev.call('/api/link-preview?url=' + encodeURIComponent('http://169.254.169.254/latest/meta-data'));
+    assert.equal(meta.status, 400);
+
+    // 3. Unlisted external domain does not issue outbound fetch and returns safe placeholder
+    const unlisted = await dev.call('/api/link-preview?url=' + encodeURIComponent('https://untrusted-rebinding.attacker.invalid/foo'));
+    assert.equal(unlisted.status, 200);
+    assert.equal(unlisted.value.title, 'untrusted-rebinding.attacker.invalid');
+    assert.equal(unlisted.value.description, '');
+    assert.equal(unlisted.value.image, '');
+  } finally { f.close(); }
+});
+test('root worker static asset responses include Content-Security-Policy and nosniff headers', async () => {
+  const fakeAssetResponse = new Response('<html><body>preview</body></html>', {
+    status: 200,
+    headers: {'Content-Type': 'text/html; charset=utf-8'},
+  });
+  const env = {
+    ASSETS: {
+      fetch: async () => fakeAssetResponse,
+    },
+  };
+  const request = new Request('https://fixture.invalid/preview.html');
+  const response = await accounts.fetch(request, env, {});
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('Content-Security-Policy'), stageContentPolicy);
+  assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+  assert.equal(response.headers.get('Cache-Control'), 'no-cache');
+
+  const versionedRequest = new Request('https://fixture.invalid/preview.js?v=123456');
+  const versionedResponse = await accounts.fetch(versionedRequest, env, {});
+  assert.equal(versionedResponse.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+  assert.equal(versionedResponse.headers.get('Content-Security-Policy'), stageContentPolicy);
+  assert.equal(versionedResponse.headers.get('X-Content-Type-Options'), 'nosniff');
 });
