@@ -2,6 +2,7 @@ import { analyzerHeaders, analyzerOutcome, analyzerTimeoutMs } from "./analyzer-
 import {chatCall} from './chat-durable.mjs';
 import {observeSession,finishSessionRecord} from './security-sessions.mjs';
 import {studyClient} from './study-database.mjs';
+import {teacherMayManageStudent} from './teacher-group-access.mjs';
 import {stageContentPolicy} from './learning-embed.mjs';
 
 const ITERATIONS = 100000;
@@ -3540,6 +3541,14 @@ export async function managedAccount(env, actor, userId) {
   if (row.hidden && actor.role !== "DEVELOPER") return { error: json({ error: "No such account." }, 404) };
   if (actor.role === "ADMIN") {
     if (row.role !== "USER") return { error: json({ error: "You cannot do that." }, 403) };
+    if (!actor.id) return { error: json({ error: "You cannot do that." }, 403) };
+    let allowed = false;
+    try {
+      allowed = await teacherMayManageStudent(studyClient(env), actor, userId);
+    } catch (error) {
+      allowed = false;
+    }
+    if (!allowed) return { error: json({ error: "You cannot do that." }, 403) };
     return { row: row, songs: false };
   }
   if (row.role !== "USER" && row.role !== "ADMIN") return { error: json({ error: "Only student and teacher accounts can be opened." }, 403) };

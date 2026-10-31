@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import {accountRoute,accountDatabase,integratedWorker} from '../src/learning-integrated-worker.mjs';
 import {ACCOUNT_AUTH} from '../src/learning-stage-worker.mjs';
 import {managedAccount} from '../src/worker.js';
+import {STUDY_DATABASE} from '../src/study-database.mjs';
 const id='a'.repeat(32);
+const teacherId='c'.repeat(32);
+const otherTeacher='d'.repeat(32);
 test('Accounts groups reject students and unauthorized targets before study access',async()=>{
   let reads=0,role='USER';
   const worker=integratedWorker({authenticate:async()=>({id,role}),authorizeManaged:async()=>({error:Response.json({error:'denied'},{status:403})}),studyDatabase:()=>{reads++;throw Error('Must not read');}});
@@ -183,14 +186,24 @@ test('Managed study reads reuse source authorization and read only the target Le
 });
 test('Original managed authorization rejects learner, teacher targets, revoked/hidden and developer targets',async()=>{
   let row={id,role:'USER',login:'Synthetic',active:1};let queries=0;
-  const env={DB:{prepare:()=>({bind:()=>({first:async()=>{queries++;return row;}})})}};
+  const study={
+    async read(sql,args){
+      if(sql.includes('class_group_students'))return args[0]===id?[{group_id:7}]:[];
+      if(sql.includes('accounts-group-teachers'))return [{value_json:JSON.stringify({revision:1,teacherIds:[teacherId]})}];
+      return [];
+    }
+  };
+  const env={DB:{prepare:()=>({bind:()=>({first:async()=>{queries++;return row;}})})},[STUDY_DATABASE]:study};
   assert.equal((await managedAccount(env,{role:'USER'},id)).error.status,403);assert.equal(queries,0);
-  assert.ok((await managedAccount(env,{role:'ADMIN'},id)).row);
-  row={...row,role:'ADMIN'};assert.equal((await managedAccount(env,{role:'ADMIN'},id)).error.status,403);
-  row={...row,role:'DEVELOPER'};assert.equal((await managedAccount(env,{role:'DEVELOPER'},id)).error.status,403);
+  assert.ok((await managedAccount(env,{id:teacherId,role:'ADMIN'},id)).row);
+  assert.equal((await managedAccount(env,{id:otherTeacher,role:'ADMIN'},id)).error.status,403);
+  assert.equal((await managedAccount(env,{role:'ADMIN'},id)).error.status,403);
+  row={...row,role:'ADMIN'};assert.equal((await managedAccount(env,{id:teacherId,role:'ADMIN'},id)).error.status,403);
+  row={...row,role:'DEVELOPER'};assert.equal((await managedAccount(env,{id:teacherId,role:'ADMIN'},id)).error.status,403);
   for(const changes of [{active:0},{is_personal_data_revoked:1},{hidden:1}]){
-    row={id,role:'USER',active:1,...changes};assert.equal((await managedAccount(env,{role:'ADMIN'},id)).error.status,404);
+    row={id,role:'USER',active:1,...changes};assert.equal((await managedAccount(env,{id:teacherId,role:'ADMIN'},id)).error.status,404);
   }
+  assert.ok((await managedAccount(env,{id:teacherId,role:'DEVELOPER'},id)).row);
 });
 test('Managed lessons overlay only the target responses, never teacher responses',async()=>{
   const targetId='b'.repeat(32);let queries;
