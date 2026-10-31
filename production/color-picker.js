@@ -24,6 +24,7 @@
         field.dispatchEvent(new Event('change',{bubbles:true}));
         sync();
       });
+      spectrum.addEventListener('change',()=>{if(valid(spectrum.value))close();});
       const label=document.createElement('label');label.textContent='HEX';const input=document.createElement('input');input.type='text';input.value=field.value;input.maxLength=7;input.setAttribute('aria-label','HEX color');label.append(input);popup.append(spectrumLabel,grid,label);
       input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(valid(input.value))apply(input.value);else input.setCustomValidity('Use #RRGGBB.');}});
       input.addEventListener('change',()=>{if(valid(input.value))apply(input.value);});input.addEventListener('input',()=>input.setCustomValidity(''));

@@ -14,7 +14,7 @@ try{
       TextColors.mount(field,mode==='plain'?{}:{format:{runs:[{text:field.value,marks:{color:'#173832'}}]},richTools:mode==='rich-tools'});
       document.getElementById('toolbar').append(document.querySelector('.text-color-tools'));
     },mode);
-    await page.addScriptTag({content:readFileSync('rollback/production-assets/color-picker.js','utf8')});
+    await page.addScriptTag({content:readFileSync('production/color-picker.js','utf8')});
     const select=async()=>page.evaluate(()=>{
       const field=document.getElementById('field'),rich=document.querySelector('.text-color-rich');
       if(rich.hidden){field.focus();field.setSelectionRange(6,10);return;}
@@ -31,10 +31,16 @@ try{
     };
     await select();await page.locator('.color-picker-button').click();
     await page.getByLabel('Choose any color and shade').fill('#3aebee');await check('#3aebee');
+    assert.equal(await page.locator('.color-picker-popup').count(),0,mode+' closes after spectrum commit');
+    await select();await page.locator('.color-picker-button').click();
     await page.getByLabel('Choose any color and shade').fill('#ff2244');await check('#ff2244');
+    assert.equal(await page.locator('.color-picker-popup').count(),0,mode+' closes after second spectrum commit');
+    await select();await page.locator('.color-picker-button').click();
     await page.getByLabel('HEX color').fill('#119955');await page.getByLabel('HEX color').press('Enter');await check('#119955');
+    assert.equal(await page.locator('.color-picker-popup').count(),0,mode+' closes after HEX enter');
     await select();await page.locator('.color-picker-button').click();
     await page.getByRole('button',{name:'#2563eb',exact:true}).click();await check('#2563eb');
+    assert.equal(await page.locator('.color-picker-popup').count(),0,mode+' closes after swatch click');
     await page.evaluate(()=>{const field=document.getElementById('field'),format=TextColors.format(field);TextColors.sync(field,format);});
     await check('#2563eb');await page.close();
   }
