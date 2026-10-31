@@ -1,7 +1,16 @@
 (() => {
   'use strict';
   const valid=value=>/^#[a-f0-9]{6}$/i.test(value),bound=new WeakSet();let open;
-  function close(restore=false){if(!open)return;const current=open;open=null;current.popup.remove();current.button.setAttribute('aria-expanded','false');if(restore)current.button.focus({preventScroll:true});}
+  function resumeEditing(field){
+    const rich=field?.parentElement?.querySelector('.text-color-rich');
+    if(rich&&!rich.hidden){rich.focus({preventScroll:true});return;}
+    if(field&&!field.disabled&&field.getAttribute('type')!=='color')field.focus({preventScroll:true});
+  }
+  function close(restore=false){
+    if(!open)return;
+    const current=open;open=null;current.popup.remove();current.button.setAttribute('aria-expanded','false');
+    if(restore)current.button.focus({preventScroll:true});
+  }
   function mount(field){
     if(bound.has(field)||field.dataset.fullColorPicker)return;bound.add(field);
     const button=document.createElement('button');button.type='button';button.className='color-picker-button';button.title=field.title||'Text color';button.setAttribute('aria-label',field.getAttribute('aria-label')||button.title);button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded','false');
@@ -14,7 +23,15 @@
       const popup=document.createElement('div');popup.className='color-picker-popup';popup.setAttribute('role','dialog');popup.setAttribute('aria-label','Text color');
       const colors=['#173832','#000000','#ffffff','#dc2626','#ea580c','#ca8a04','#16a34a','#0891b2','#2563eb','#7c3aed','#db2777','#64748b'];
       const grid=document.createElement('div');grid.className='color-picker-swatches';
-      const apply=value=>{if(!valid(value))return;field.value=value.toLowerCase();field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));sync();close();};
+      const apply=value=>{
+        if(!valid(value))return;
+        field.value=value.toLowerCase();
+        field.dispatchEvent(new Event('input',{bubbles:true}));
+        field.dispatchEvent(new Event('change',{bubbles:true}));
+        sync();
+        close();
+        resumeEditing(field);
+      };
       colors.forEach(color=>{const swatch=document.createElement('button');swatch.type='button';swatch.style.background=color;swatch.title=color;swatch.setAttribute('aria-label',color);swatch.addEventListener('click',()=>apply(color));grid.append(swatch);});
       const spectrum=document.createElement('input');spectrum.type='color';spectrum.dataset.fullColorPicker='true';spectrum.value=field.value;spectrum.setAttribute('aria-label','Choose any color and shade');
       const spectrumLabel=document.createElement('label');spectrumLabel.textContent='All colors';spectrumLabel.append(spectrum);
@@ -24,7 +41,7 @@
         field.dispatchEvent(new Event('change',{bubbles:true}));
         sync();
       });
-      spectrum.addEventListener('change',()=>{if(valid(spectrum.value))close();});
+      spectrum.addEventListener('change',()=>apply(spectrum.value));
       const label=document.createElement('label');label.textContent='HEX';const input=document.createElement('input');input.type='text';input.value=field.value;input.maxLength=7;input.setAttribute('aria-label','HEX color');label.append(input);popup.append(spectrumLabel,grid,label);
       input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();if(valid(input.value))apply(input.value);else input.setCustomValidity('Use #RRGGBB.');}});
       input.addEventListener('change',()=>{if(valid(input.value))apply(input.value);});input.addEventListener('input',()=>input.setCustomValidity(''));
