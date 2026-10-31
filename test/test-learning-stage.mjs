@@ -139,8 +139,12 @@ test('Quiz create/edit/delete persists, only selected quiz deleted, duplicate ra
   await service.deleteQuiz(teacher,first.id,deletion);
   assert.deepEqual((await service.card(student,1)).quizzes.map(q=>q.id),[second.id]);
   assert.equal((await service.card(student,1)).collections[0].revision,4);
+  const third=await service.createQuiz(teacher,1,{mutationId:id(),expectedRevision:1,expectedCollectionRevision:0,quiz:{type:'Spell',items:[{word:'test',hint:'тест'}]}});
+  assert.equal(third.collectionRevision,5);
+  assert.equal((await service.card(student,1)).collections[0].revision,5);
+  await rejects(service.createQuiz(teacher,1,{mutationId:id(),expectedRevision:1,expectedCollectionRevision:99,quiz:{type:'Spell',items:[{word:'test',hint:'тест'}]}}),409);
   await rejects(service.editQuiz(dev,first.id,{mutationId:id(),expectedRevision:1,quiz:request.quiz}),409);
-  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM quizzes').get().n,2);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM quizzes').get().n,3);
   sqlite.close();
 });
 test('Student mutation denied, private/draft/hidden visibility and card delete',async()=>{

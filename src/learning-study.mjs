@@ -204,9 +204,9 @@ export class StudyService {
   }
   async card(actor,id) {
     const record=await this.readableCard(actor,id);
-    const collections=await this.db.read(`SELECT q.id,q.revision FROM quiz_collections q JOIN card_quiz_collections c ON c.collection_id=q.id WHERE c.card_id=? ORDER BY q.id`,[id]);
-    const quizzes=await this.db.read(`SELECT q.id,q.type,q.items_json,q.revision FROM quizzes q JOIN card_quiz_collections c ON c.collection_id=q.collection_id
-      WHERE c.card_id=? AND q.deleted_at IS NULL ORDER BY q.position,q.id`,[id]);
+    const collectionKey=(()=>{try{return JSON.parse(record.extra_json||'{}').quizKey;}catch{return '';}})()||record.word_key;
+    const collections=await this.db.read(`SELECT q.id,q.revision FROM quiz_collections q WHERE q.id IN (SELECT collection_id FROM card_quiz_collections WHERE card_id=?) OR q.legacy_word_key=? ORDER BY q.id`,[id,collectionKey]);
+    const quizzes=await this.db.read(`SELECT q.id,q.type,q.items_json,q.revision FROM quizzes q WHERE (q.collection_id IN (SELECT collection_id FROM card_quiz_collections WHERE card_id=?) OR q.collection_id IN (SELECT id FROM quiz_collections WHERE legacy_word_key=?)) AND q.deleted_at IS NULL ORDER BY q.position,q.id`,[id,collectionKey]);
     return {...cardDto(record),canEdit:reviewer(actor),collections,quizzes:quizzes.map(quizDto)};
   }
   async receipt(actor,mutationId,hash) {
@@ -535,16 +535,25 @@ export class StudyService {
       if (!Number.isSafeInteger(expectedCollection) || expectedCollection<0) fail(400,'A valid collection revision is required.');
       const card=await this.readableCard(actor,cardKey);
       if (card.scope!=='shared') fail(403,'This staged quiz editor handles shared cards only.');
-      const collectionKey=JSON.parse(card.extra_json).quizKey||card.word_key;
+      const collectionKey=(()=>{try{return JSON.parse(card.extra_json||'{}').quizKey;}catch{return '';}})()||card.word_key;
+      const [existingCollection]=await this.db.read('SELECT id, revision FROM quiz_collections WHERE legacy_word_key=?',[collectionKey]);
       const statements=[stmt('INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards WHERE id=? AND revision=? AND deleted_at IS NULL)',[cardKey,expected])];
-      if (expectedCollection===0) statements.push(stmt('INSERT INTO quiz_collections(legacy_word_key) VALUES(?)',[collectionKey]),stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'));
-      else statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[collectionKey,expectedCollection]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=?',[collectionKey]));
-      statements.push(this.guard(),
+      if (!existingCollection) {
+        if (expectedCollection===0) {
+          statements.push(stmt('INSERT INTO quiz_collections(legacy_word_key) VALUES(?)',[collectionKey]),stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard());
+        } else {
+          statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[collectionKey,expectedCollection]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=? AND revision=?',[collectionKey,expectedCollection+1]),this.guard());
+        }
+      } else {
+        const targetRevision=expectedCollection===0?existingCollection.revision:expectedCollection;
+        statements.push(stmt('UPDATE quiz_collections SET revision=revision+1 WHERE legacy_word_key=? AND revision=?',[collectionKey,targetRevision]),stmt('INSERT INTO created_rows(id) SELECT id FROM quiz_collections WHERE legacy_word_key=? AND revision=?',[collectionKey,targetRevision+1]),this.guard());
+      }
+      statements.push(
         stmt("INSERT INTO card_quiz_collections(card_id,collection_id) SELECT c.id,r.id FROM cards c JOIN created_rows r ON r.seq=1 WHERE COALESCE(json_extract(c.extra_json,'$.quizKey'),c.word_key)=? AND c.deleted_at IS NULL ON CONFLICT(card_id,collection_id) DO NOTHING",[collectionKey]),
         stmt(`INSERT INTO quizzes(collection_id,position,type,items_json)
           SELECT id,COALESCE((SELECT max(position)+1 FROM quizzes WHERE collection_id=created_rows.id),0),?,? FROM created_rows WHERE seq=1`,[quiz.type,stable(quiz.items)]),
         stmt('INSERT INTO created_rows(id) VALUES(last_insert_rowid())'),this.guard());
-      return {statements,resultSql:`SELECT json_object('id',q.id,'type',q.type,'items',json(q.items_json),'revision',q.revision) result_json
+      return {statements,resultSql:`SELECT json_object('id',q.id,'type',q.type,'items',json(q.items_json),'revision',q.revision,'collectionId',q.collection_id,'collectionRevision',(SELECT revision FROM quiz_collections WHERE id=q.collection_id)) result_json
         FROM quizzes q WHERE q.id=(SELECT id FROM created_rows ORDER BY seq DESC LIMIT 1)`,resultArgs:[]};
     });
   }

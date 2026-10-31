@@ -277,7 +277,12 @@
       if(bare==='/api/me/state'||/\/state$/.test(bare)){registerState(value,bare==='/api/me/state');void drainPersonal();}
       if(bare==='/api/me/themes'&&(!value.accountId||value.accountId===actorId))registerThemes({...value,stats:{theme:value.theme,customThemes:value.themes}});
       if(bare==='/api/me/cards'&&String(options.method||'GET').toUpperCase()==='GET')register(value.cards||[]);
-      if(bare==='/api/me/quizzes')for(const quiz of value.quizzes||[])quizzes.set(quiz.id,{...quiz,word:quiz.word});
+      if(bare==='/api/me/quizzes'){
+        for(const quiz of value.quizzes||[]){
+          quizzes.set(quiz.id,{...quiz,word:quiz.word});
+          if(quiz.word && quiz.collectionRevision!=null)collections.set(quiz.word,{id:quiz.collectionId,revision:quiz.collectionRevision,legacy_word_key:quiz.word});
+        }
+      }
       if(bare==='/api/me/progress'){for(const row of value.stageCardProgress||[])cardProgress.set(row.id,row.revision);for(const row of value.stageQuizProgress||[])quizProgress.set(row.id+'|'+row.type,row.revision);}
       const managedState=path.match(/^\/api\/admin\/users\/([a-f0-9]{16,64})\/state$/);
       if(managedState)managedLinkRevisions.set(managedState[1],value.stageAddedRevision||0);
@@ -790,8 +795,29 @@
         candidates=[...cards.values()].filter(c=>c.stageScope==='shared' && String(c.quizKey||c.en||'').toLowerCase()===word.toLowerCase());
       }
       if(candidates.length!==1)throw new Error('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.');
-      const c=candidates[0],collection=collections.get(word);
-      return write('/api/cards/'+encodeURIComponent(c.stageId)+'/quizzes','POST',{expectedRevision:c.stageRevision,expectedCollectionRevision:collection?.revision||0,quiz:content});
+      const c=candidates[0];
+      if(!cards.has(c.stageId) || !collections.has(word)){
+        try{
+          const remoteCard=await accountFetch('/api/cards/'+encodeURIComponent(c.stageId));
+          if(remoteCard){
+            if(remoteCard.revision)c.stageRevision=remoteCard.revision;
+            if(Array.isArray(remoteCard.collections) && remoteCard.collections.length){
+              collections.set(word,{...remoteCard.collections[0],legacy_word_key:word});
+            }
+          }
+        }catch{}
+      }
+      const collection=collections.get(word);
+      const result=await write('/api/cards/'+encodeURIComponent(c.stageId)+'/quizzes','POST',{expectedRevision:c.stageRevision,expectedCollectionRevision:collection?.revision||0,quiz:content});
+      if(result?.collectionRevision!=null){
+        collections.set(word,{id:result.collectionId,revision:result.collectionRevision,legacy_word_key:word});
+      }else if(collection){
+        collections.set(word,{...collection,revision:collection.revision+1});
+      }
+      if(result?.id){
+        quizzes.set(result.id,{...result,stageRevision:result.revision,word});
+      }
+      return result;
     }
   };
   document.addEventListener('DOMContentLoaded',()=>{

@@ -337,10 +337,10 @@ export async function accountQuizzes(db,actor,{after='',limit=50}={}){
   await profileOf(db,actor);
   const size=pageLimit(limit),cursor=cardCursor(after);
   const visibleCollection=`EXISTS(SELECT 1 FROM card_quiz_collections link JOIN cards c ON c.id=link.card_id WHERE link.collection_id=q.id AND ${cardAccess})`;
-  const rows=await db.read(`SELECT z.id,z.type,z.revision,z.items_json,q.legacy_word_key word FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id
+  const rows=await db.read(`SELECT z.id,z.type,z.revision,z.items_json,q.legacy_word_key word,q.id collection_id,q.revision collection_revision FROM quizzes z JOIN quiz_collections q ON q.id=z.collection_id
     WHERE z.deleted_at IS NULL AND z.id>? AND ${visibleCollection} ORDER BY z.id LIMIT ?`,[cursor,...accessArgs(actor),size+1]);
   const more=rows.length>size,page=rows.slice(0,size);
-  return {quizzes:page.map(row=>({id:row.id,type:row.type,word:row.word,items:JSON.parse(row.items_json),stageRevision:row.revision})),next:more?page.at(-1).id:null};
+  return {quizzes:page.map(row=>({id:row.id,type:row.type,word:row.word,items:JSON.parse(row.items_json),stageRevision:row.revision,collectionId:row.collection_id,collectionRevision:row.collection_revision})),next:more?page.at(-1).id:null};
 }
 export async function accountProgress(db,actor,{after='',limit=50}={}){
   const profile=await profileOf(db,actor),size=pageLimit(limit),cursor=cardCursor(after);

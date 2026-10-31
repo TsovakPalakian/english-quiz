@@ -1424,7 +1424,8 @@ test('Open form baseline survives later registry/state refresh',async()=>{
       if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'teacher'}})};
       if(path==='/api/me/state')return {ok:true,json:async()=>({stageCollections:[],added:[],stats:{cardQuizzes:{competitive:[{id:'quiz_'+'a'.repeat(64),type:'Flip',items:[{}],stageRevision:2}]}}})};
       if(path==='/api/cards?exact=1&q=isolated')return {ok:true,json:async()=>({cards:[{id:42,en:'isolated',stageScope:'shared',revision:1}]})};
-      sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({id:path.split('/').at(-1),ru:'saved',revision:3})};
+      if(path==='/api/cards/42')return {ok:true,json:async()=>({id:42,en:'isolated',stageScope:'shared',revision:1,collections:[{id:101,revision:7}]})};
+      if(options?.body)sent.push(JSON.parse(options.body));return {ok:true,json:async()=>({id:path.split('/').at(-1),ru:'saved',revision:3,collectionRevision:8})};
     }
   };
   runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),context);
@@ -1439,6 +1440,9 @@ test('Open form baseline survives later registry/state refresh',async()=>{
   assert.equal(draftDel.deleted,true);assert.equal(draftDel.id,'unsaved_draft');assert.equal(draftDel.localOnly,true);
   await bridge.writeQuiz('isolated',{id:'new_quiz',type:'Choice',items:[{options:['a','b'],answer:0}]},false);
   assert.equal(sent[2].expectedRevision,1);
+  assert.equal(sent[2].expectedCollectionRevision,7);
+  await bridge.writeQuiz('isolated',{id:'another_quiz',type:'Flip',items:[{front:'c',back:'d'}]},false);
+  assert.equal(sent[3].expectedCollectionRevision,8);
 });
 test('Successful login clears a stale provider error without reading or persisting the password',async()=>{
   const memory=new Map(),window={},status={textContent:'',classList:{toggle(name,bad){this.bad=bad;}}};let fail=true;
