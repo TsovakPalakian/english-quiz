@@ -586,3 +586,12 @@ test('feedback file chip rendering in preview.js escapes malicious XSS file name
   assert.ok(previewSource.includes('data-remove-id="${esc(a.id)}"'), 'preview.js must escape a.id in feedback file chip remove button');
 });
 
+test('feedback ui in preview.js safely invokes feedbackNotice without bare notice ReferenceError', () => {
+  const previewSource = readFileSync(new URL('../preview.js', import.meta.url), 'utf8');
+  assert.ok(previewSource.includes('function feedbackNotice(message, bad = false)'), 'preview.js must define feedbackNotice');
+  assert.ok(previewSource.includes('window.LearningMain.notice(message, bad)'), 'feedbackNotice must delegate to LearningMain.notice');
+  assert.ok(!previewSource.includes('notice(`Feedback limit for'), 'preview.js must not invoke bare notice');
+  assert.ok(!previewSource.includes('notice(\'Please enter a user login'), 'preview.js must not invoke bare notice');
+  assert.ok(!previewSource.includes('notice(\'Saved User actions limit:'), 'preview.js must not invoke bare notice');
+});
+

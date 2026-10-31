@@ -267,7 +267,11 @@
         const nextActor=value.user?.id||'';
         const workbenchChanged=nextActor!==actorId||workbenchRole!==(value.user?.role||'')||backendCapabilities.learningWorkbench!==(value.user?value.migrationCapabilities?.learningWorkbench:undefined);
         workbenchRole=value.user?.role||'';
-        if(nextActor!==actorId){confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;}
+        if(nextActor!==actorId){
+          confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;
+          cards.clear();collections.clear();quizzes.clear();
+          try{window.ContentCache?.clear?.();}catch(e){}
+        }
         actorId=nextActor;backendCapabilities=value.user?value.migrationCapabilities||{}:{};
         if(workbenchChanged)window.LearningWorkbench?.reset();
       }

@@ -347,3 +347,14 @@ test('Worker real-password path, signed session, live role/password/revocation a
   await auth.logout(request);const before=queries;await assert.rejects(auth.current(request),e=>e.status===401);assert.equal(queries,before);
   let state;for(let i=0;i<50;i++){const result=reserveBudget(state,'read',1);assert.equal(result.status,200);state=result.state;}assert.equal(reserveBudget(state,'read',1).status,503);
 });
+test('Account switch isolates personal library caches and removes unowned texts on 404', () => {
+  const bridgeSource = readFileSync(new URL('../client/main/main-bridge.js', import.meta.url), 'utf8');
+  assert.ok(bridgeSource.includes("nextActor!==actorId"), 'main-bridge.js must detect actor changes');
+  assert.ok(bridgeSource.includes("window.ContentCache?.clear?.()"), 'main-bridge.js must clear ContentCache on actor transition');
+
+  const hooksSource = readFileSync(new URL('../client/main/main-hooks.js', import.meta.url), 'utf8');
+  assert.ok(hooksSource.includes("'texts:list:'+(forId||authUser?.id||'own')+':after:'"), 'main-hooks.js must scope texts:list cache by actor');
+  assert.ok(hooksSource.includes("'songs:list:'+(target||actor||'own')+':after:'"), 'main-hooks.js must scope songs:list cache by actor');
+  assert.ok(hooksSource.includes("localStorage.removeItem(TEXT_KEY)"), 'main-hooks.js must purge TEXT_KEY on audience transition');
+  assert.ok(hooksSource.includes("error?.status===404)stageRemoveLibrary(item,kind)"), 'main-hooks.js must drop ghost item when backend responds 404');
+});

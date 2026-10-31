@@ -877,14 +877,19 @@ function stageLibraryAction(action,kind,rawId){
   if(action==='delete'&&!confirm('Move this '+kind+' to Archive?'))return;
   const managed=!!viewAccount,accountId=viewAccount?.id||'',generation=viewGen;
   return window.LearningMain.perform(async()=>{
-    if(action==='toggle'){
-      const result=managed?await window.LearningMain.saveManagedLibrary(accountId,item,kind,{archived:!item.archived}):await window.LearningMain.saveLibrary(item,kind,{archived:!item.archived});
-      if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-      stageInstallLibrary(result.item,kind);stagePaintLibraryList(kind);
-    }else{
-      if(managed)await window.LearningMain.deleteManagedLibrary(accountId,item,kind);else await window.LearningMain.deleteLibrary(item);
-      if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-      stageRemoveLibrary(item,kind);
+    try{
+      if(action==='toggle'){
+        const result=managed?await window.LearningMain.saveManagedLibrary(accountId,item,kind,{archived:!item.archived}):await window.LearningMain.saveLibrary(item,kind,{archived:!item.archived});
+        if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
+        stageInstallLibrary(result.item,kind);stagePaintLibraryList(kind);
+      }else{
+        if(managed)await window.LearningMain.deleteManagedLibrary(accountId,item,kind);else await window.LearningMain.deleteLibrary(item);
+        if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
+        stageRemoveLibrary(item,kind);
+      }
+    }catch(error){
+      if(error?.status===404)stageRemoveLibrary(item,kind);
+      throw error;
     }
   });
 }
@@ -1705,7 +1710,8 @@ function stagePaintTexts(after){
   if(box&&!loadTexts().length)box.innerHTML='<p class="hint">Loading…</p>';
   const epoch=stageListEpoch.texts,forId=viewAccount&&viewAccount.id||'',gen=viewGen,base=textsApiPath(forId);
   const path=base+(base.includes('?')?'&':'?')+'summary=1&limit=50'+(cursor?'&after='+encodeURIComponent(cursor):'');
-  return window.ContentCache.load('texts:list:after:'+(cursor||'start'),()=>accountFetch(path)).then(data=>{
+  const cacheKey='texts:list:'+(forId||authUser?.id||'own')+':after:'+(cursor||'start');
+  return window.ContentCache.load(cacheKey,()=>accountFetch(path)).then(data=>{
     if(gen!==viewGen)return data;
     if(stageListStale('texts',epoch,'texts:list'))return data;
     const seen=stageCycle('texts',cursor);
@@ -2120,6 +2126,7 @@ function stageApplyBootstrap(state){
   if(stageCacheAudience&&stageCacheAudience!==audience){
     groupReset();examResetAccount();
     localStorage.removeItem('enquiz-exams');
+    try{localStorage.removeItem(TEXT_KEY);}catch(e){}
     for(const prefix of ['account:','cards:personal:','progress:','quizzes:','songs:','texts:','lesson:','library:summary','block:'])window.ContentCache?.invalidate(prefix);
     for(const key of Object.keys(stageListEpoch))stageListEpoch[key]++;
     stageProgressEpoch++;stageLessonOpenToken++;stageSettled={};stageCycles.clear();stagePreloadOn=false;
@@ -2348,7 +2355,8 @@ function stageSongPage(after){
   if(hideStudentSongs())return Promise.resolve({songs:[],next:null});
   const epoch=stageListEpoch.songs,cursor=after||'';
   const generation=viewGen,target=viewAccount?.id||'',actor=authUser?.id;
-  return window.ContentCache.load('songs:list:after:'+(cursor||'start'),()=>accountFetch(stageAccountBase()+'/songs?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
+  const cacheKey='songs:list:'+(target||actor||'own')+':after:'+(cursor||'start');
+  return window.ContentCache.load(cacheKey,()=>accountFetch(stageAccountBase()+'/songs?limit=50'+(cursor?'&after='+encodeURIComponent(cursor):''))).then(page=>{
     if(generation!==viewGen||target!==(viewAccount?.id||'')||actor!==authUser?.id)return page;
     if(stageListStale('songs',epoch,'songs:list'))return page;
     const seen=stageCycle('songs',cursor);

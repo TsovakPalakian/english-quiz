@@ -1862,6 +1862,10 @@ a.btn { text-decoration: none; }
   z-index: 1;
   background: transparent;
   padding: 4px 0;
+  pointer-events: none;
+}
+.meta > * {
+  pointer-events: auto;
 }
 .meta h1 {
   display: flex;
@@ -1873,6 +1877,7 @@ a.btn { text-decoration: none; }
   min-width: 0;
   white-space: normal;
   padding-right: 6px;
+  pointer-events: none;
 }
 .meta-side { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
 .page-heading { flex: 1; min-width: 0; }

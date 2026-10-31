@@ -36,5 +36,8 @@ test('guide visits endpoint accepts anonymous POST',async()=>{
     const post=await app.fetch(new Request('https://accounts.example/api/guide/visits',{method:'POST',headers:{Origin:'https://accounts.example','Content-Type':'application/json'},body:JSON.stringify({visitor:'device-abcdef12'})}),env,{});
     assert.equal(post.status,200);
     assert.deepEqual(await post.json(),{views:1,uniques:1});
+    const post2=await app.fetch(new Request('https://accounts.example/api/guide/visits',{method:'POST',headers:{Origin:'https://accounts.example','Content-Type':'application/json'},body:JSON.stringify({visitor:'device-abcdef12'})}),env,{});
+    assert.equal(post2.status,200);
+    assert.deepEqual(await post2.json(),{views:2,uniques:1});
   }finally{f.close();}
 });

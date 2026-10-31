@@ -226,3 +226,15 @@ test('large parameter-only IN lists preserve values and binding order within D1 
   assert.deepEqual(await db.read('SELECT ? AS first WHERE ? IN ('+ids.map(()=>'?').join(',')+') AND ?=?',['kept','value-149',...ids,'tail','tail']),[{first:'kept'}]);
   assert.deepEqual(await db.read('SELECT 1 AS n WHERE ? NOT IN ('+ids.map(()=>'?').join(',')+')',['absent',...ids]),[{n:1}]);
 });
+test('GuideVisits hits and multiple sequential visits work on actual D1 with temp guard',async()=>{
+  const {GuideVisits} = await import('../src/guide-visits.mjs');
+  const visits = new GuideVisits(db);
+  const first = await visits.hit('visitor-d1-1');
+  assert.equal(first.uniques, 1);
+  const second = await visits.hit('visitor-d1-1');
+  assert.equal(second.views, 2);
+  assert.equal(second.uniques, 1);
+  const third = await visits.hit('visitor-d1-2');
+  assert.equal(third.views, 3);
+  assert.equal(third.uniques, 2);
+});

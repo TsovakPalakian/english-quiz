@@ -16576,6 +16576,14 @@ const STUDIO_CONSTELLATIONS = [{
     let feedbackBreadcrumbsLimit = 10;
     const FEEDBACK_PAGE_LIMIT = 20;
 
+    function feedbackNotice(message, bad = false) {
+      if (window.LearningMain && typeof window.LearningMain.notice === 'function') {
+        window.LearningMain.notice(message, bad);
+      } else if (typeof alert === 'function') {
+        alert(message);
+      }
+    }
+
     function formatFileSize(bytes) {
       const num = Number(bytes) || 0;
       if (num < 1024) return num + ' B';
@@ -16704,9 +16712,9 @@ const STUDIO_CONSTELLATIONS = [{
             renderCustomOverridesList();
             const listContainer = document.getElementById('feedbackCardsList');
             if (listContainer) renderFeedbackCards(feedbackLoadedItems, listContainer);
-            notice(`Feedback limit for ${uKey} reset to role default`);
+            feedbackNotice(`Feedback limit for ${uKey} reset to role default`);
           }).catch(err => {
-            notice(err.message, true);
+            feedbackNotice(err.message, true);
           });
         });
       });
@@ -16838,7 +16846,7 @@ const STUDIO_CONSTELLATIONS = [{
           const trimmed = input.trim();
           const limit = trimmed === '' ? null : Number(trimmed);
           if (limit !== null && (!Number.isSafeInteger(limit) || limit < 0)) {
-            notice('Please enter a valid positive number.', true);
+            feedbackNotice('Please enter a valid positive number.', true);
             return;
           }
           accountFetch('/api/feedback/limit', {
@@ -16849,9 +16857,9 @@ const STUDIO_CONSTELLATIONS = [{
             else delete feedbackUserLimits[userKey];
             renderCustomOverridesList();
             renderFeedbackCards(feedbackLoadedItems, container);
-            notice(`Feedback limit updated for ${userKey}: ${limit !== null ? limit + '/hr' : 'role default'}`);
+            feedbackNotice(`Feedback limit updated for ${userKey}: ${limit !== null ? limit + '/hr' : 'role default'}`);
           }).catch(err => {
-            notice(err.message, true);
+            feedbackNotice(err.message, true);
           });
         });
       });
@@ -16916,7 +16924,7 @@ const STUDIO_CONSTELLATIONS = [{
           const qCount = feedbackLoadedItems.filter(i => i.category === 'question').length;
 
           box.innerHTML = `
-            <div class="feedback-filter-toolbar card" style="padding:12px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;">
+            <div class="feedback-filter-toolbar card" style="padding:12px;margin-bottom:14px;display:flex;flex-direction:column;gap:10px;scroll-margin-top:60px;">
               <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                 <div class="steps" style="margin:0;">
                   <button type="button" class="step ${feedbackStatusTab === 'active' ? 'on' : ''}" data-fb-status="active">Active (${data.counts?.open ?? bugCount})</button>
@@ -16928,7 +16936,7 @@ const STUDIO_CONSTELLATIONS = [{
                     <input type="number" id="feedbackBreadcrumbsLimitInput" min="0" max="50" style="width:50px;height:28px;padding:0 6px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12px;" value="${feedbackBreadcrumbsLimit}">
                     <button type="button" class="btn tiny ghost" id="feedbackSaveBreadcrumbsBtn" title="Save global User actions history limit">Save</button>
                   </div>
-                  <button type="button" class="btn tiny ghost" id="feedbackExportCsv" title="Export filtered feedback to CSV">📥 CSV</button>
+                  <button type="button" class="btn tiny ghost" id="feedbackExportCsv" title="Export filtered feedback to CSV" style="scroll-margin-top:60px;">📥 CSV</button>
                   <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:180px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
                 </div>
               </div>
@@ -16983,11 +16991,11 @@ const STUDIO_CONSTELLATIONS = [{
               const uKey = (userInput?.value || '').trim();
               const limVal = Number((limitInput?.value || '').trim());
               if (!uKey) {
-                notice('Please enter a user login or ID.', true);
+                feedbackNotice('Please enter a user login or ID.', true);
                 return;
               }
               if (!Number.isSafeInteger(limVal) || limVal < 0 || limVal > 1000) {
-                notice('Limit must be an integer between 0 and 1000.', true);
+                feedbackNotice('Limit must be an integer between 0 and 1000.', true);
                 return;
               }
               accountFetch('/api/feedback/limit', {
@@ -16999,9 +17007,9 @@ const STUDIO_CONSTELLATIONS = [{
                 renderFeedbackCards(feedbackLoadedItems, listContainer);
                 if (userInput) userInput.value = '';
                 if (limitInput) limitInput.value = '';
-                notice(`Feedback limit set for ${uKey}: ${limVal} / hr`);
+                feedbackNotice(`Feedback limit set for ${uKey}: ${limVal} / hr`);
               }).catch(err => {
-                notice(err.message, true);
+                feedbackNotice(err.message, true);
               });
             });
           }
@@ -17010,7 +17018,7 @@ const STUDIO_CONSTELLATIONS = [{
             const input = box.querySelector('#feedbackBreadcrumbsLimitInput');
             const val = Number(input?.value);
             if (!Number.isSafeInteger(val) || val < 0 || val > 100) {
-              notice('User actions limit must be between 0 and 100.', true);
+              feedbackNotice('User actions limit must be between 0 and 100.', true);
               return;
             }
             accountFetch('/api/feedback/settings', {
@@ -17019,9 +17027,9 @@ const STUDIO_CONSTELLATIONS = [{
             }).then(res => {
               feedbackBreadcrumbsLimit = res.breadcrumbsLimit;
               window.__breadcrumbsLimit = res.breadcrumbsLimit;
-              notice('Saved User actions limit: ' + res.breadcrumbsLimit);
+              feedbackNotice('Saved User actions limit: ' + res.breadcrumbsLimit);
             }).catch(err => {
-              notice(err.message, true);
+              feedbackNotice(err.message, true);
             });
           });
 
