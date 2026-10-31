@@ -15,6 +15,16 @@ yield "00. Fixture and browser setup";
     browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
+    const nav=async view=>{
+      await page.waitForFunction(()=>!document.querySelector('#account')?.disabled);
+      for(let i=0;i<5;i++){
+        await page.locator('[data-view="'+view+'"]').click();
+        try{
+          await page.waitForFunction(v=>document.querySelector('[data-view="'+v+'"]')?.getAttribute('aria-current')==='page'&&!document.querySelector('#account')?.disabled,view,{timeout:4000});
+          return;
+        }catch(e){if(i===4)throw e;}
+      }
+    };
     // Seed all job outcomes through the authenticated API; kit selection has its own UI tests.
     const prepare=()=>page.evaluate(async types=>{
       const {contexts}=await(await fetch('/local/boot')).json(),c=contexts[0];
@@ -24,7 +34,7 @@ yield "00. Fixture and browser setup";
     await page.goto(url);await page.locator('#context').waitFor();
     yield "01. checks";
     await prepare();
-    await page.locator('[data-view="word"]').click();
+    await nav('word');
     await page.waitForFunction(async()=>{const response=await fetch('/local/generation'),{jobs}=await response.json();return jobs.length===16&&jobs.every(j=>!['queued','running','retry'].includes(j.state));},{},{timeout:20000});
     await page.waitForFunction(()=>document.querySelectorAll('[data-job]').length===16&&![...document.querySelectorAll('[data-job]')].some(n=>['queued','running','retry'].includes(n.dataset.jobState)));
     yield "02. evaluate";
@@ -64,7 +74,7 @@ yield "00. Fixture and browser setup";
       const {quiz}=await(await fetch('/local/quizzes/'+id)).json();
       const response=await fetch('/local/quizzes/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),expectedRevision:quiz.revision,checks:{meaning:true,answers:true,level:true}})});if(!response.ok)throw new Error('Approval failed');
     },gap.versionId);
-    await page.locator('[data-view="word"]').click();
+    await nav('word');
     yield "08. [data-job=\"'+gap.id+'\"] / checks";
     await page.locator('[data-job="'+gap.id+'"]').waitFor({state:'attached'});
     await page.locator('[data-job="'+gap.id+'"]').evaluate(n=>n.open=true);
@@ -92,13 +102,14 @@ yield "00. Fixture and browser setup";
     assert.equal(await page.locator('[data-item="'+replacementId+'"] [data-action="approve"]').count(),0,'No self approval');
     await page.locator('#account').selectOption('second');await page.waitForFunction(()=>document.querySelector('#account').value==='second'&&!document.querySelector('#account').disabled);
     yield "13. [data-view=\"queue\"] / click";
-    await page.locator('[data-view="queue"]').click();await page.locator('[data-item="'+replacementId+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
+    await nav('queue');
+    await page.locator('[data-item="'+replacementId+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
     assert.equal(await page.locator('[data-job="'+choice.id+'"]').count(),1,'Issue stays active until approval');
     await page.locator('[data-item="'+replacementId+'"] [data-action="approve"]').click();for(const box of await page.locator('#decision input[type="checkbox"]').all())await box.check();
     yield "14. #decision-confirm / click";
     await page.locator('#decision-confirm').click();await page.locator('#decision').waitFor({state:'hidden'});
     await page.waitForFunction(id=>!document.querySelector('[data-job="'+id+'"]'),choice.id);
-    await page.locator('[data-view="word"]').click();
+    await nav('word');
     yield "15. [data-item=\"'+replacementId+'\"] / evaluate";
     await page.locator('[data-item="'+replacementId+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
     await page.locator('[data-item="'+replacementId+'"] .verified').scrollIntoViewIfNeeded();
