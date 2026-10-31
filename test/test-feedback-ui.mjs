@@ -225,6 +225,7 @@ try {
   // 8. Test Export CSV
   const exportBtn = page.locator('#feedbackExportCsv');
   assert.ok(await exportBtn.isVisible(), 'Export CSV button must be visible');
+  await exportBtn.scrollIntoViewIfNeeded();
   await exportBtn.click(); // Should execute smoothly without throwing
 
   // 9. Test Resolved archive toggle

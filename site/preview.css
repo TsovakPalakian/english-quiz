@@ -1862,10 +1862,6 @@ a.btn { text-decoration: none; }
   z-index: 1;
   background: transparent;
   padding: 4px 0;
-  pointer-events: none;
-}
-.meta > * {
-  pointer-events: auto;
 }
 .meta h1 {
   display: flex;
@@ -4370,6 +4366,54 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 .feedback-preview-box img { max-width: 100%; max-height: 220px; object-fit: contain; display: block; }
 .feedback-preview-remove { position: absolute; top: 8px; right: 8px; background: color-mix(in srgb, var(--ink) 80%, transparent); color: var(--card, #fff); border: 1px solid var(--line); border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: background 0.15s ease; }
 .feedback-preview-remove:hover { background: var(--bad); color: #fff; }
+.feedback-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: var(--card, #f8fafc);
+  border: 1px solid var(--line, #cbd5e1);
+  border-radius: 6px;
+  font-size: 12px;
+  margin: 2px 4px 2px 0;
+  color: var(--ink);
+}
+.feedback-file-chip .feedback-file-name {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feedback-file-chip .feedback-file-size {
+  opacity: 0.6;
+  font-size: 11px;
+}
+.feedback-file-chip .feedback-file-remove {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--mute, #64748b);
+  font-size: 12px;
+  padding: 0 2px;
+}
+.feedback-file-chip .feedback-file-remove:hover {
+  color: var(--bad, #ef4444);
+}
+.feedback-files-summary {
+  margin-bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--mute, #64748b);
+}
+.feedback-files-summary button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--acc, #0284c7);
+  font-size: 11px;
+}
 .feedback-footer { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
 .feedback-btn { padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.15s ease; }
 .feedback-btn-cancel { background: var(--bg); color: var(--mute); border-color: var(--line); }
@@ -4421,6 +4465,33 @@ body:is(.guest-home,.guest-auth) .feedback-dropzone p { color: #edf2f3; }
 body:is(.guest-home,.guest-auth) .feedback-dropzone small { color: #b3c5ce; }
 body:is(.guest-home,.guest-auth) .feedback-btn-cancel { background: rgba(22, 40, 58, 0.7); color: #b3c5ce; border-color: rgba(82, 112, 128, 0.6); }
 body:is(.guest-home,.guest-auth) .feedback-btn-cancel:hover { color: #ffffff; background: rgba(30, 55, 80, 0.9); }
+body:is(.guest-home,.guest-auth) .feedback-btn-primary {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0d9488;
+  box-shadow: 0 0 12px rgba(13, 148, 136, 0.35);
+}
+body:is(.guest-home,.guest-auth) .feedback-btn-primary:hover {
+  background: #0f766e;
+  border-color: #0f766e;
+}
+body:is(.guest-home,.guest-auth) .feedback-file-chip {
+  background: rgba(22, 40, 58, 0.85);
+  color: #edf2f3;
+  border-color: rgba(82, 112, 128, 0.7);
+}
+body:is(.guest-home,.guest-auth) .feedback-file-chip .feedback-file-remove {
+  color: #b3c5ce;
+}
+body:is(.guest-home,.guest-auth) .feedback-file-chip .feedback-file-remove:hover {
+  color: #ff9aab;
+}
+body:is(.guest-home,.guest-auth) .feedback-files-summary {
+  color: #b3c5ce;
+}
+body:is(.guest-home,.guest-auth) .feedback-files-summary button {
+  color: #ffd885;
+}
 :root[data-high-visibility="1"] .feedback-floating-btn { background: #000000 !important; color: #ffffff !important; border: 2px solid #ffffff !important; }
 :root[data-high-visibility="1"] body:is(.guest-home,.guest-auth) .feedback-floating-btn { background: #000000 !important; color: #ffffff !important; border: 2px solid #ffffff !important; }
 
@@ -5593,6 +5664,10 @@ details[data-review-key] > summary {
 /* 3. System Logs & Diagnostics (#bugs) */
 #bugs {
   padding-bottom: 40px;
+}
+
+#bugs > .meta {
+  position: static;
 }
 
 .saas-bugs-kpis {

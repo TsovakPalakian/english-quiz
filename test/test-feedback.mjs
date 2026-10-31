@@ -595,3 +595,12 @@ test('feedback ui in preview.js safely invokes feedbackNotice without bare notic
   assert.ok(!previewSource.includes('notice(\'Saved User actions limit:'), 'preview.js must not invoke bare notice');
 });
 
+test('feedback guest styles and bugs section header styling in preview.css', () => {
+  const cssSource = readFileSync(new URL('../site/preview.css', import.meta.url), 'utf8');
+  assert.ok(cssSource.includes('body:is(.guest-home,.guest-auth) .feedback-btn-primary'), 'site/preview.css must define guest override for .feedback-btn-primary');
+  assert.ok(cssSource.includes('body:is(.guest-home,.guest-auth) .feedback-file-chip'), 'site/preview.css must define guest override for .feedback-file-chip');
+  assert.ok(cssSource.includes('#bugs > .meta'), 'site/preview.css must define #bugs > .meta static positioning');
+  const prodCss = readFileSync(new URL('../rollback/production-assets/preview.css', import.meta.url), 'utf8');
+  assert.ok(prodCss.includes('body:is(.guest-home,.guest-auth) .feedback-btn-primary'), 'production preview.css must include guest override for .feedback-btn-primary');
+});
+

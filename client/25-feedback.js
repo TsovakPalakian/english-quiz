@@ -197,18 +197,18 @@
     currentAttachments = sorted;
 
     const itemsHtml = sorted.map(a => `
-      <div class="feedback-file-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-sub,#f1f5f9);border:1px solid var(--line,#cbd5e1);border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">
+      <div class="feedback-file-chip">
         <span>${fileTypeIcon(a.mime)}</span>
-        <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(a.name)}">${esc(a.name)}</span>
-        <span style="opacity:0.6;font-size:11px;">(${formatFileSize(a.size)})</span>
-        <button type="button" class="feedback-file-remove" data-remove-id="${esc(a.id)}" style="border:none;background:transparent;cursor:pointer;color:var(--ink,#334155);font-size:12px;padding:0 2px;" title="Remove this file">✕</button>
+        <span class="feedback-file-name" title="${esc(a.name)}">${esc(a.name)}</span>
+        <span class="feedback-file-size">(${formatFileSize(a.size)})</span>
+        <button type="button" class="feedback-file-remove" data-remove-id="${esc(a.id)}" title="Remove this file">✕</button>
       </div>
     `).join('');
 
     listEl.innerHTML = `
-      <div style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-sub,#64748b);">
+      <div class="feedback-files-summary">
         <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
-        <button type="button" id="feedbackClearAllFiles" style="border:none;background:transparent;cursor:pointer;color:var(--accent,#0284c7);font-size:11px;">Clear all</button>
+        <button type="button" id="feedbackClearAllFiles">Clear all</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
     `;

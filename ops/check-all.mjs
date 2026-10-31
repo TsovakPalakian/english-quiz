@@ -83,8 +83,7 @@ async function pool(jobs,width){
       results.push({name,...result,skipped});
       completed++;
       const prefix='['+String(completed).padStart(String(totalJobs).length,' ')+'/'+totalJobs+'] ';
-      console.log(prefix+(result.code===0?'ok  ':'FAIL')+' '+name+' ('+result.seconds+'s)'+(result.subtests.length?'; '+result.subtests.length+' subtests; longest '+(Math.max(...result.subtests.map(t=>t.milliseconds))/1000).toFixed(2)+'s':'')+(skipped?'; '+skipped+' inner tests SKIPPED (not passed)':''));
-      for(const step of result.subtests.filter(step=>step.milliseconds>5000))console.log('  SLOW '+step.name+' ('+(step.milliseconds/1000).toFixed(2)+'s)');}
+      console.log(prefix+(result.code===0?'ok  ':'FAIL')+' '+name+' ('+result.seconds+'s)'+(result.subtests.length?'; '+result.subtests.length+' subtests; longest '+(Math.max(...result.subtests.map(t=>t.milliseconds))/1000).toFixed(2)+'s':'')+(skipped?'; '+skipped+' inner tests SKIPPED (not passed)':''));}
   }));
 }
 await pool(fast,parallel);
