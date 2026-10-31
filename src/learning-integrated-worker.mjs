@@ -38,7 +38,7 @@ import {essayCopilot} from './learning-essay-copilot.mjs';
 import {ErrorBankService} from './learning-error-bank.mjs';
 import {LearningSpeechScenariosService} from './learning-speech-scenarios.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
-import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit} from './feedback.mjs';
+import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit,defaultFeedbackLimitForRole,getUserFeedbackLimit,setUserFeedbackLimit,listUserFeedbackLimits,getFeedbackBreadcrumbsLimit,setFeedbackBreadcrumbsLimit,DEFAULT_ROLE_FEEDBACK_LIMITS,DEFAULT_BREADCRUMBS_LIMIT} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
@@ -760,21 +760,84 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(path==='/api/feedback'&&method==='POST'){
         let actor=null;try{actor=await identify(accountEnv,request);}catch{actor=null;}
+        const db=studyDatabase(env);
         const clientIp=(request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]||'anonymous').trim();
         const rateKey=actor?.id?`user:${actor.id}`:`ip:${clientIp}`;
-        const rate=checkFeedbackRateLimit(rateKey);
+
+        let effectiveLimit=null;
+        if(actor?.id){
+          effectiveLimit=await getUserFeedbackLimit(db,actor.id);
+          if(effectiveLimit===null&&actor.login){
+            effectiveLimit=await getUserFeedbackLimit(db,actor.login);
+          }
+        }
+        if(effectiveLimit===null){
+          effectiveLimit=defaultFeedbackLimitForRole(actor?.role);
+        }
+
+        const rate=checkFeedbackRateLimit(rateKey,Date.now(),effectiveLimit);
         if(!rate.ok){
           const minutes=Math.max(1,Math.ceil(rate.retryAfterSec/60));
-          throw new StudyError(429,`Отправка отзыва возможна не чаще одного раза в час. Пожалуйста, подождите ${minutes} мин. перед отправкой следующего сообщения.`);
+          const msg=effectiveLimit===1
+            ?`Отправка отзыва возможна не чаще одного раза в час. Пожалуйста, подождите ${minutes} мин. перед отправкой следующего сообщения.`
+            :`Лимит отправки отзывов исчерпан (${effectiveLimit} в час, не чаще одного раза в час при превышении). Пожалуйста, подождите ${minutes} мин. перед отправкой следующего сообщения.`;
+          throw new StudyError(429,msg);
         }
-        const raw=await request.text();if(raw.length>500000)throw new StudyError(413,'Feedback report too large.');
+        const raw=await request.text();if(raw.length>35000000)throw new StudyError(413,'Feedback report too large (max 25 MiB).');
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         if(!body.message||!String(body.message).trim())throw new StudyError(400,'Message is required.');
-        const db=studyDatabase(env);
+
+        // Process attachments and store large binaries in R2 if available
+        const processedAttachments=[];
+        let totalAttachmentBytes=0;
+        const incomingAttachments=Array.isArray(body.attachments)?body.attachments:(body.screenshot?[{name:'screenshot.png',mime:'image/png',dataUrl:body.screenshot}]:[]);
+
+        for(const item of incomingAttachments){
+          if(!item||typeof item!=='object')continue;
+          const fileId=crypto.randomUUID();
+          const name=String(item.name||'attachment').slice(0,150);
+          const mime=String(item.mime||item.type||'application/octet-stream').slice(0,100);
+          let size=Number(item.size)||0;
+          let storageKey='';
+          let dataUrl=typeof item.dataUrl==='string'&&item.dataUrl.startsWith('data:')?item.dataUrl:'';
+
+          if(dataUrl){
+            const comma=dataUrl.indexOf(',');
+            if(comma>0){
+              const b64=dataUrl.slice(comma+1);
+              try{
+                const binary=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+                size=binary.length;
+                totalAttachmentBytes+=size;
+                storageKey=`feedback-attachments/${fileId}/${name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+                if(env.MEDIA?.put){
+                  await env.MEDIA.put(storageKey,binary,{httpMetadata:{contentType:mime}});
+                }
+              }catch{}
+            }
+          }else{
+            totalAttachmentBytes+=size;
+          }
+
+          processedAttachments.push({
+            id:fileId,
+            name,
+            mime,
+            size,
+            storageKey,
+            ...(size<65536&&dataUrl?{dataUrl}:{})
+          });
+        }
+
+        if(totalAttachmentBytes>25*1024*1024){
+          throw new StudyError(413,'Total attachments size exceeds 25 MiB.');
+        }
+
         const saved=await saveFeedback(db,{
           category:body.category,
           message:body.message,
           screenshot:body.screenshot,
+          attachments:processedAttachments,
           user:actor,
           contact:body.contact,
           context:body.context
@@ -791,13 +854,57 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const offset=Math.max(0,Number(url.searchParams.get('offset'))||0);
         const counts=await countFeedback(db);
         const feedback=await listFeedback(db,{resolved,limit,offset});
+        const breadcrumbsLimit=await getFeedbackBreadcrumbsLimit(db);
+        const userLimits=await listUserFeedbackLimits(db);
         return json({
           feedback,
           total:resolved?counts.resolved:counts.open,
           counts,
           limit,
-          offset
+          offset,
+          breadcrumbsLimit,
+          defaultLimits:DEFAULT_ROLE_FEEDBACK_LIMITS,
+          userLimits
         });
+      }
+      if(path==='/api/feedback/settings'&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['DEVELOPER','ADMIN'].includes(actor.role))throw new StudyError(403,'You cannot do that.');
+        const db=studyDatabase(env);
+        return json({
+          breadcrumbsLimit:await getFeedbackBreadcrumbsLimit(db),
+          defaultLimits:DEFAULT_ROLE_FEEDBACK_LIMITS,
+          userLimits:await listUserFeedbackLimits(db)
+        });
+      }
+      if(path==='/api/feedback/settings'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer access required.');
+        const raw=await request.text();if(raw.length>1000)throw new StudyError(413,'Request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        const db=studyDatabase(env);
+        const breadcrumbsLimit=await setFeedbackBreadcrumbsLimit(db,body.breadcrumbsLimit);
+        return json({ok:true,breadcrumbsLimit});
+      }
+      if(path==='/api/feedback/limit'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer access required.');
+        const raw=await request.text();if(raw.length>1000)throw new StudyError(413,'Request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        if(!body.userId&&!body.login)throw new StudyError(400,'userId or login is required.');
+        const db=studyDatabase(env);
+        const targetId=String(body.userId||body.login).trim();
+        await setUserFeedbackLimit(db,targetId,body.limit);
+        return json({ok:true,userId:targetId,limit:body.limit??null});
+      }
+      if(path==='/api/feedback/attachment'&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['DEVELOPER','ADMIN'].includes(actor.role))throw new StudyError(403,'You cannot do that.');
+        const key=url.searchParams.get('key');
+        if(!key||!key.startsWith('feedback-attachments/'))throw new StudyError(400,'Invalid attachment key.');
+        const obj=await env.MEDIA?.get?.(key);
+        if(!obj)throw new StudyError(404,'Attachment not found.');
+        return new Response(obj.body,{headers:{'Content-Type':obj.httpMetadata?.contentType||'application/octet-stream','Content-Disposition':'inline','Cache-Control':'private, max-age=86400'}});
       }
       if(path==='/api/feedback/resolve'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

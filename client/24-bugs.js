@@ -119,7 +119,51 @@
     let feedbackSearchQuery = "";
     let feedbackLoadedItems = [];
     let feedbackTotal = 0;
+    let feedbackUserLimits = {};
+    let feedbackBreadcrumbsLimit = 10;
     const FEEDBACK_PAGE_LIMIT = 20;
+
+    function formatFileSize(bytes) {
+      const num = Number(bytes) || 0;
+      if (num < 1024) return num + ' B';
+      if (num < 1024 * 1024) return (num / 1024).toFixed(1) + ' KB';
+      return (num / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function fileTypeIcon(mime) {
+      const m = String(mime || '').toLowerCase();
+      if (m.startsWith('image/')) return '🖼️';
+      if (m.startsWith('audio/')) return '🎵';
+      if (m.startsWith('video/')) return '🎥';
+      if (m.includes('pdf')) return '📕';
+      if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return '📄';
+      if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return '📦';
+      return '📎';
+    }
+
+    function sortFeedbackAttachments(list) {
+      if (!Array.isArray(list)) return [];
+      const typePriority = mime => {
+        const m = String(mime || '').toLowerCase();
+        if (m.startsWith('image/')) return 1;
+        if (m.startsWith('video/')) return 2;
+        if (m.startsWith('audio/')) return 3;
+        if (m.includes('pdf')) return 4;
+        if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return 5;
+        if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return 6;
+        return 7;
+      };
+      return list.slice().sort((a, b) => {
+        const pA = typePriority(a.mime || a.type);
+        const pB = typePriority(b.mime || b.type);
+        if (pA !== pB) return pA - pB;
+        const tA = String(a.mime || a.type || '');
+        const tB = String(b.mime || b.type || '');
+        const mimeComp = tA.localeCompare(tB);
+        if (mimeComp !== 0) return mimeComp;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+    }
 
     function updateFeedbackTabBadge(openCount) {
       const tabBtn = document.querySelector('button[data-bug-tab="feedback"]');
@@ -187,45 +231,90 @@
         return;
       }
 
-      const cardsHtml = filtered.map(fb => `
-        <article class="bug-item card">
-          <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
-            <div style="flex:1;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-                <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
-                <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
-                <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
-                ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
+      const cardsHtml = filtered.map(fb => {
+        const userKey = fb.userId || fb.userLogin;
+        const customLimit = userKey && feedbackUserLimits && feedbackUserLimits[userKey] != null ? feedbackUserLimits[userKey] : null;
+        const limitTag = userKey ? `
+          <span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px;">
+            <span class="chip" style="font-size:11px;${customLimit != null ? 'background:rgba(234,179,8,0.15);color:#ca8a04;font-weight:600;' : 'opacity:0.7;'}">${customLimit != null ? customLimit + '/hr (custom)' : 'role default'}</span>
+            <button type="button" class="btn tiny ghost" data-fb-set-limit="${esc(userKey)}" data-current-limit="${customLimit ?? ''}" style="padding:1px 5px;font-size:11px;" title="Configure feedback limit for ${esc(userKey)}">⚙ Limit</button>
+          </span>
+        ` : '';
+
+        const attachments = sortFeedbackAttachments(Array.isArray(fb.attachments) && fb.attachments.length
+          ? fb.attachments
+          : (fb.screenshot ? [{ id: 'screenshot', name: 'screenshot.png', mime: 'image/png', dataUrl: fb.screenshot }] : []));
+
+        const attachmentsHtml = (() => {
+          if (!attachments.length) return '';
+          const images = attachments.filter(a => a.mime && a.mime.startsWith('image/'));
+          const others = attachments.filter(a => !a.mime || !a.mime.startsWith('image/'));
+
+          const imgHtml = images.map(img => {
+            const src = img.dataUrl || (img.storageKey ? `/api/feedback/attachment?key=${encodeURIComponent(img.storageKey)}` : '');
+            if (!src) return '';
+            return `<div style="display:inline-block;margin:4px 6px 4px 0;"><img src="${src}" alt="${esc(img.name)}" class="feedback-screenshot-thumb" style="max-width:180px;max-height:140px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" title="${esc(img.name)} (${formatFileSize(img.size)})"></div>`;
+          }).join('');
+
+          const otherHtml = others.map(f => {
+            const href = f.dataUrl || (f.storageKey ? `/api/feedback/attachment?key=${encodeURIComponent(f.storageKey)}` : '');
+            return `
+              <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-sub,#f1f5f9);border:1px solid var(--line,#cbd5e1);border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">
+                <span>${fileTypeIcon(f.mime)}</span>
+                <span style="font-weight:500;">${esc(f.name)}</span>
+                <small style="opacity:0.7;">(${formatFileSize(f.size)})</small>
+                ${href ? `<a href="${href}" target="_blank" download="${esc(f.name)}" style="color:var(--accent,#0284c7);text-decoration:none;font-weight:600;margin-left:4px;" title="Download file">⬇</a>` : ''}
               </div>
-              <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
-              ${(() => {
-                if (!fb.url) return '';
-                const isSafe = /^https?:\/\//i.test(fb.url);
-                return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
-              })()}
-              ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
-                <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
-                  <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
-                  <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
-                    ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
-                  </ul>
-                </details>
-              ` : ''}
-              ${(() => {
-                if (!fb.screenshot || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(fb.screenshot)) return '';
-                return `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" class="feedback-screenshot-thumb" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;"></div>`;
-              })()}
+            `;
+          }).join('');
+
+          return `
+            <div class="feedback-card-attachments" style="margin-top:8px;">
+              <small style="display:block;font-weight:600;color:var(--ink-sub);margin-bottom:4px;">Attachments (${attachments.length}):</small>
+              ${imgHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;">${imgHtml}</div>` : ''}
+              ${otherHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${otherHtml}</div>` : ''}
             </div>
-            <div>
-              ${fb.resolved ? `
-                <button class="btn tiny ghost" type="button" data-feedback-unresolve="${esc(fb.id)}" title="Reopen this report">Reopen</button>
-              ` : `
-                <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
-              `}
+          `;
+        })();
+
+        return `
+          <article class="bug-item card">
+            <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                  <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
+                  <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
+                  ${limitTag}
+                  <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
+                  ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
+                </div>
+                <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
+                ${(() => {
+                  if (!fb.url) return '';
+                  const isSafe = /^https?:\/\//i.test(fb.url);
+                  return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
+                })()}
+                ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
+                  <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
+                    <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
+                    <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
+                      ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
+                    </ul>
+                  </details>
+                ` : ''}
+                ${attachmentsHtml}
+              </div>
+              <div>
+                ${fb.resolved ? `
+                  <button class="btn tiny ghost" type="button" data-feedback-unresolve="${esc(fb.id)}" title="Reopen this report">Reopen</button>
+                ` : `
+                  <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
+                `}
+              </div>
             </div>
-          </div>
-        </article>
-      `).join('');
+          </article>
+        `;
+      }).join('');
 
       const canLoadMore = items.length < feedbackTotal && feedbackFilterCategory === 'all' && !feedbackSearchQuery;
       const loadMoreHtml = canLoadMore ? `
@@ -239,7 +328,7 @@
       container.querySelectorAll('.feedback-screenshot-thumb').forEach(img => {
         img.addEventListener('click', () => {
           const src = img.getAttribute('src');
-          if (src && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) {
+          if (src) {
             const win = window.open('', '_blank');
             if (win) {
               try { win.opener = null; } catch (_) {}
@@ -247,6 +336,30 @@
               win.document.close();
             }
           }
+        });
+      });
+
+      container.querySelectorAll('[data-fb-set-limit]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const userKey = btn.dataset.fbSetLimit;
+          const current = btn.dataset.currentLimit || '';
+          const input = prompt(`Set custom feedback limit per hour for ${userKey} (number, or empty for role default):`, current);
+          if (input === null) return;
+          const trimmed = input.trim();
+          const limit = trimmed === '' ? null : Number(trimmed);
+          if (limit !== null && (!Number.isSafeInteger(limit) || limit < 0)) {
+            notice('Please enter a valid positive number.', true);
+            return;
+          }
+          accountFetch('/api/feedback/limit', {
+            method: 'POST',
+            body: JSON.stringify({ userId: userKey, limit })
+          }).then(() => {
+            notice(`Feedback limit updated for ${userKey}: ${limit !== null ? limit + '/hr' : 'role default'}`);
+            paintBugs();
+          }).catch(err => {
+            notice(err.message, true);
+          });
         });
       });
 
@@ -299,6 +412,11 @@
           updateFeedbackTabBadge(data.counts?.open);
           feedbackLoadedItems = (data && data.feedback) || [];
           feedbackTotal = Number(data && data.total) || feedbackLoadedItems.length;
+          feedbackUserLimits = (data && data.userLimits) || {};
+          if (typeof data?.breadcrumbsLimit === 'number') {
+            feedbackBreadcrumbsLimit = data.breadcrumbsLimit;
+            window.__breadcrumbsLimit = data.breadcrumbsLimit;
+          }
 
           const bugCount = feedbackLoadedItems.filter(i => i.category === 'bug').length;
           const ideaCount = feedbackLoadedItems.filter(i => i.category === 'idea').length;
@@ -311,9 +429,14 @@
                   <button type="button" class="step ${feedbackStatusTab === 'active' ? 'on' : ''}" data-fb-status="active">Active (${data.counts?.open ?? bugCount})</button>
                   <button type="button" class="step ${feedbackStatusTab === 'resolved' ? 'on' : ''}" data-fb-status="resolved">Resolved archive (${data.counts?.resolved ?? 0})</button>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-sub);">
+                    <label for="feedbackBreadcrumbsLimitInput" title="Maximum recorded User actions history items">User actions:</label>
+                    <input type="number" id="feedbackBreadcrumbsLimitInput" min="0" max="50" style="width:50px;height:28px;padding:0 6px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12px;" value="${feedbackBreadcrumbsLimit}">
+                    <button type="button" class="btn tiny ghost" id="feedbackSaveBreadcrumbsBtn" title="Save global User actions history limit">Save</button>
+                  </div>
                   <button type="button" class="btn tiny ghost" id="feedbackExportCsv" title="Export filtered feedback to CSV">📥 CSV</button>
-                  <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:200px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
+                  <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:180px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
                 </div>
               </div>
               <div class="feedback-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -328,6 +451,25 @@
 
           const listContainer = box.querySelector('#feedbackCardsList');
           renderFeedbackCards(feedbackLoadedItems, listContainer);
+
+          box.querySelector('#feedbackSaveBreadcrumbsBtn')?.addEventListener('click', () => {
+            const input = box.querySelector('#feedbackBreadcrumbsLimitInput');
+            const val = Number(input?.value);
+            if (!Number.isSafeInteger(val) || val < 0 || val > 100) {
+              notice('User actions limit must be between 0 and 100.', true);
+              return;
+            }
+            accountFetch('/api/feedback/settings', {
+              method: 'POST',
+              body: JSON.stringify({ breadcrumbsLimit: val })
+            }).then(res => {
+              feedbackBreadcrumbsLimit = res.breadcrumbsLimit;
+              window.__breadcrumbsLimit = res.breadcrumbsLimit;
+              notice('Saved User actions limit: ' + res.breadcrumbsLimit);
+            }).catch(err => {
+              notice(err.message, true);
+            });
+          });
 
           // Handle Active / Resolved toggle
           box.querySelectorAll('[data-fb-status]').forEach(btn => {

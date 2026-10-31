@@ -9,7 +9,16 @@ import {
   notifyFeedbackTelegram,
   checkFeedbackRateLimit,
   resetFeedbackRateLimitsForTests,
-  resetFeedbackStoreForTests
+  resetFeedbackStoreForTests,
+  defaultFeedbackLimitForRole,
+  getUserFeedbackLimit,
+  setUserFeedbackLimit,
+  listUserFeedbackLimits,
+  getFeedbackBreadcrumbsLimit,
+  setFeedbackBreadcrumbsLimit,
+  sortAttachmentsByType,
+  DEFAULT_ROLE_FEEDBACK_LIMITS,
+  DEFAULT_BREADCRUMBS_LIMIT
 } from '../src/feedback.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 
@@ -17,6 +26,12 @@ const plain = value => value && typeof value === 'object' && 'type' in value ? v
 
 function memoryDb() {
   const sql = new DatabaseSync(':memory:');
+  sql.exec(`CREATE TABLE IF NOT EXISTS catalog_documents (
+    namespace TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value_json TEXT NOT NULL,
+    PRIMARY KEY (namespace, key)
+  )`);
   return {
     sql,
     async read(query, args = []) {
@@ -333,4 +348,233 @@ test('saveFeedback sanitizes malicious URL scheme and malformed screenshot', asy
   const rows = await db.read('SELECT url, screenshot_data FROM user_feedback WHERE id = ?', [entry.id]);
   assert.equal(rows[0].url, '');
   assert.equal(rows[0].screenshot_data, '');
+});
+
+test('role-based default feedback limits and dynamic rate limiter', () => {
+  assert.equal(defaultFeedbackLimitForRole('DEVELOPER'), 20);
+  assert.equal(defaultFeedbackLimitForRole('ADMIN'), 10);
+  assert.equal(defaultFeedbackLimitForRole('USER'), 5);
+  assert.equal(defaultFeedbackLimitForRole(null), 1);
+  assert.equal(defaultFeedbackLimitForRole('ANONYMOUS'), 1);
+
+  resetFeedbackRateLimitsForTests();
+  const devKey = 'dev_user_1';
+  const now = 1700000000000;
+
+  // Developer allowed 20 requests
+  for (let i = 0; i < 20; i++) {
+    const res = checkFeedbackRateLimit(devKey, now + i * 10, 20);
+    assert.equal(res.ok, true, `Request ${i + 1} should succeed for developer`);
+    assert.equal(res.limit, 20);
+  }
+  const devBlocked = checkFeedbackRateLimit(devKey, now + 500, 20);
+  assert.equal(devBlocked.ok, false, '21st request should be blocked for developer');
+
+  // Student allowed 5 requests
+  const studentKey = 'student_user_1';
+  for (let i = 0; i < 5; i++) {
+    const res = checkFeedbackRateLimit(studentKey, now + i * 10, 5);
+    assert.equal(res.ok, true, `Request ${i + 1} should succeed for student`);
+  }
+  const studentBlocked = checkFeedbackRateLimit(studentKey, now + 500, 5);
+  assert.equal(studentBlocked.ok, false, '6th request should be blocked for student');
+});
+
+test('custom user feedback limits and breadcrumbs limit persistence', async () => {
+  const db = memoryDb();
+
+  // Breadcrumbs limit default & set
+  assert.equal(await getFeedbackBreadcrumbsLimit(db), 10);
+  await setFeedbackBreadcrumbsLimit(db, 3);
+  assert.equal(await getFeedbackBreadcrumbsLimit(db), 3);
+
+  // User limits default & set
+  assert.equal(await getUserFeedbackLimit(db, 'user_special'), null);
+  await setUserFeedbackLimit(db, 'user_special', 50);
+  assert.equal(await getUserFeedbackLimit(db, 'user_special'), 50);
+
+  const limits = await listUserFeedbackLimits(db);
+  assert.equal(limits.user_special, 50);
+
+  // Remove limit
+  await setUserFeedbackLimit(db, 'user_special', null);
+  assert.equal(await getUserFeedbackLimit(db, 'user_special'), null);
+
+  // Save feedback respects configured breadcrumbs limit of 3
+  resetFeedbackStoreForTests();
+  const entry = await saveFeedback(db, {
+    category: 'idea',
+    message: 'Test custom breadcrumbs limit',
+    context: {
+      breadcrumbs: [
+        {ago: '50s ago', action: 'click', details: '1'},
+        {ago: '40s ago', action: 'click', details: '2'},
+        {ago: '30s ago', action: 'click', details: '3'},
+        {ago: '20s ago', action: 'click', details: '4'},
+        {ago: '10s ago', action: 'click', details: '5'}
+      ]
+    },
+    breadcrumbsLimit: 3
+  });
+
+  assert.equal(entry.breadcrumbs.length, 3);
+  assert.equal(entry.breadcrumbs[0].details, '3');
+  assert.equal(entry.breadcrumbs[2].details, '5');
+});
+
+test('multi-file attachments, type sorting and 25MB validation', async () => {
+  resetFeedbackStoreForTests();
+  const db = memoryDb();
+
+  const unsorted = [
+    {name: 'archive.zip', mime: 'application/zip', size: 500},
+    {name: 'photo.jpg', mime: 'image/jpeg', size: 1200},
+    {name: 'notes.txt', mime: 'text/plain', size: 300},
+    {name: 'recording.mp3', mime: 'audio/mpeg', size: 4000},
+    {name: 'document.pdf', mime: 'application/pdf', size: 2500}
+  ];
+
+  const sorted = sortAttachmentsByType(unsorted);
+  assert.equal(sorted[0].name, 'photo.jpg');     // image
+  assert.equal(sorted[1].name, 'recording.mp3'); // audio
+  assert.equal(sorted[2].name, 'document.pdf');  // pdf
+  assert.equal(sorted[3].name, 'notes.txt');     // text
+  assert.equal(sorted[4].name, 'archive.zip');   // archive
+
+  const entry = await saveFeedback(db, {
+    category: 'bug',
+    message: 'Report with multiple files',
+    attachments: unsorted
+  });
+
+  assert.equal(entry.attachments.length, 5);
+  assert.equal(entry.attachments[0].name, 'photo.jpg');
+
+  const list = await listFeedback(db, {resolved: 0});
+  assert.equal(list[0].attachments.length, 5);
+  assert.equal(list[0].attachments[0].mime, 'image/jpeg');
+
+  // Exceeding 25 MiB throws 413
+  await assert.rejects(
+    async () => {
+      await saveFeedback(db, {
+        category: 'bug',
+        message: 'Oversized file',
+        attachments: [{name: 'big.iso', mime: 'application/octet-stream', size: 26 * 1024 * 1024}]
+      });
+    },
+    err => err.status === 413
+  );
+});
+
+test('integrated worker feedback settings, custom limit override and multi-file endpoints', async () => {
+  resetFeedbackStoreForTests();
+  const db = memoryDb();
+  let currentUser = {id: 'dev_user', login: 'developer_1', role: 'DEVELOPER'};
+
+  const env = {
+    DB: {prepare: () => ({bind: () => ({all: async () => ({results: []}), first: async () => null})})},
+    STAGE_ENABLED: 'true',
+    STAGE_ALLOWED_HOST: 'test.invalid',
+    ACCOUNT_QUERY_LIMIT_ENABLED: 'false',
+    STUDY_DATABASE: db,
+    MEDIA: {
+      get: async (key) => null,
+      put: async (key, bytes) => ({})
+    }
+  };
+
+  const worker = integratedWorker({
+    authenticate: async () => currentUser,
+    studyDatabase: () => db
+  });
+
+  // 1. GET /api/feedback/settings allowed for DEVELOPER
+  const getSettings = await worker.fetch(new Request('https://test.invalid/api/feedback/settings'), env);
+  assert.equal(getSettings.status, 200);
+  const settingsJson = await getSettings.json();
+  assert.equal(settingsJson.breadcrumbsLimit, 10);
+  assert.equal(settingsJson.defaultLimits.DEVELOPER, 20);
+
+  // 2. POST /api/feedback/settings denied for USER
+  currentUser = {id: 'student_1', login: 'student_user', role: 'USER'};
+  const deniedSettings = await worker.fetch(new Request('https://test.invalid/api/feedback/settings', {
+    method: 'POST',
+    headers: {Origin: 'https://test.invalid', 'Content-Type': 'application/json'},
+    body: JSON.stringify({breadcrumbsLimit: 5})
+  }), env);
+  assert.equal(deniedSettings.status, 403);
+
+  // 3. POST /api/feedback/settings allowed for DEVELOPER
+  currentUser = {id: 'dev_user', login: 'developer_1', role: 'DEVELOPER'};
+  const saveSettings = await worker.fetch(new Request('https://test.invalid/api/feedback/settings', {
+    method: 'POST',
+    headers: {Origin: 'https://test.invalid', 'Content-Type': 'application/json'},
+    body: JSON.stringify({breadcrumbsLimit: 7})
+  }), env);
+  assert.equal(saveSettings.status, 200);
+  const saveJson = await saveSettings.json();
+  assert.equal(saveJson.breadcrumbsLimit, 7);
+
+  // 4. POST /api/feedback/limit sets custom limit for student_1
+  const setLimitRes = await worker.fetch(new Request('https://test.invalid/api/feedback/limit', {
+    method: 'POST',
+    headers: {Origin: 'https://test.invalid', 'Content-Type': 'application/json'},
+    body: JSON.stringify({userId: 'student_1', limit: 2})
+  }), env);
+  assert.equal(setLimitRes.status, 200);
+
+  // 5. student_1 sends feedback: custom limit = 2
+  currentUser = {id: 'student_1', login: 'student_user', role: 'USER'};
+  resetFeedbackRateLimitsForTests();
+
+  const makePost = (msg = 'Test message') => worker.fetch(new Request('https://test.invalid/api/feedback', {
+    method: 'POST',
+    headers: {Origin: 'https://test.invalid', 'Content-Type': 'application/json'},
+    body: JSON.stringify({category: 'bug', message: msg})
+  }), env);
+
+  const post1 = await makePost('First message');
+  assert.equal(post1.status, 200);
+
+  const post2 = await makePost('Second message');
+  assert.equal(post2.status, 200);
+
+  const post3 = await makePost('Third message');
+  assert.equal(post3.status, 429, '3rd request should hit custom limit of 2');
+  const err3 = await post3.json();
+  assert.ok(err3.error.includes('Лимит отправки отзывов исчерпан (2 в час'), 'Error should cite custom limit of 2');
+
+  // 6. Multi-file feedback submission
+  currentUser = {id: 'dev_user', login: 'developer_1', role: 'DEVELOPER'};
+  resetFeedbackRateLimitsForTests();
+
+  const multiFilePost = await worker.fetch(new Request('https://test.invalid/api/feedback', {
+    method: 'POST',
+    headers: {Origin: 'https://test.invalid', 'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      category: 'bug',
+      message: 'Bug with two files',
+      attachments: [
+        {name: 'test.log', mime: 'text/plain', size: 100, dataUrl: 'data:text/plain;base64,dGVzdA=='},
+        {name: 'shot.png', mime: 'image/png', size: 200, dataUrl: 'data:image/png;base64,iVBORw0KGgo='}
+      ]
+    })
+  }), env);
+
+  assert.equal(multiFilePost.status, 200);
+  const multiJson = await multiFilePost.json();
+  assert.ok(multiJson.id);
+
+  // Check GET /api/feedback reflects attachments and userLimits
+  const getFeedback = await worker.fetch(new Request('https://test.invalid/api/feedback'), env);
+  assert.equal(getFeedback.status, 200);
+  const feedJson = await getFeedback.json();
+  assert.equal(feedJson.userLimits.student_1, 2);
+  assert.equal(feedJson.breadcrumbsLimit, 7);
+  const found = feedJson.feedback.find(f => f.id === multiJson.id);
+  assert.ok(found);
+  assert.equal(found.attachments.length, 2);
+  assert.equal(found.attachments[0].name, 'shot.png'); // image sorted first
+  assert.equal(found.attachments[1].name, 'test.log'); // text sorted second
 });

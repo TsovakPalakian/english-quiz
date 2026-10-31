@@ -11,6 +11,7 @@
   });
 
   window.__userBreadcrumbs = window.__userBreadcrumbs || [];
+  window.__breadcrumbsLimit = window.__breadcrumbsLimit || 10;
   function recordBreadcrumb(action, details) {
     try {
       window.__userBreadcrumbs.push({
@@ -18,7 +19,10 @@
         action: String(action || '').slice(0, 40),
         details: String(details || '').slice(0, 100)
       });
-      if (window.__userBreadcrumbs.length > 10) window.__userBreadcrumbs.shift();
+      const limit = Number.isSafeInteger(window.__breadcrumbsLimit) && window.__breadcrumbsLimit >= 0
+        ? window.__breadcrumbsLimit
+        : 10;
+      while (window.__userBreadcrumbs.length > limit) window.__userBreadcrumbs.shift();
     } catch (_) {}
   }
 
@@ -52,9 +56,180 @@
     }
   } catch (_) {}
 
-  let currentScreenshot = '';
+  let currentAttachments = [];
   let currentCategory = 'bug';
   let modalEl = null;
+  const MAX_FEEDBACK_BYTES = 25 * 1024 * 1024; // 25 MiB
+
+  function formatFileSize(bytes) {
+    const num = Number(bytes) || 0;
+    if (num < 1024) return num + ' B';
+    if (num < 1024 * 1024) return (num / 1024).toFixed(1) + ' KB';
+    return (num / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function fileTypeIcon(mime) {
+    const m = String(mime || '').toLowerCase();
+    if (m.startsWith('image/')) return '🖼️';
+    if (m.startsWith('audio/')) return '🎵';
+    if (m.startsWith('video/')) return '🎥';
+    if (m.includes('pdf')) return '📕';
+    if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return '📄';
+    if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return '📦';
+    return '📎';
+  }
+
+  function sortAttachments(list) {
+    if (!Array.isArray(list)) return [];
+    const typePriority = mime => {
+      const m = String(mime || '').toLowerCase();
+      if (m.startsWith('image/')) return 1;
+      if (m.startsWith('video/')) return 2;
+      if (m.startsWith('audio/')) return 3;
+      if (m.includes('pdf')) return 4;
+      if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return 5;
+      if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return 6;
+      return 7;
+    };
+    return list.slice().sort((a, b) => {
+      const pA = typePriority(a.mime || a.type);
+      const pB = typePriority(b.mime || b.type);
+      if (pA !== pB) return pA - pB;
+      const tA = String(a.mime || a.type || '');
+      const tB = String(b.mime || b.type || '');
+      const mimeComp = tA.localeCompare(tB);
+      if (mimeComp !== 0) return mimeComp;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+  }
+
+  function totalAttachmentsSize() {
+    return currentAttachments.reduce((sum, item) => sum + (Number(item.size) || 0), 0);
+  }
+
+  function saveDraft() {
+    try {
+      const textarea = modalEl?.querySelector('#feedbackMessage');
+      const contact = modalEl?.querySelector('#feedbackContact');
+      const draft = {
+        category: currentCategory,
+        message: textarea ? textarea.value : '',
+        contact: contact ? contact.value : '',
+        attachments: currentAttachments.map(a => ({
+          id: a.id,
+          name: a.name,
+          mime: a.mime,
+          size: a.size,
+          dataUrl: a.dataUrl && a.dataUrl.length < 2000000 ? a.dataUrl : ''
+        }))
+      };
+      localStorage.setItem('feedback_draft_v1', JSON.stringify(draft));
+    } catch (_) {}
+  }
+
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem('feedback_draft_v1');
+      if (!raw) return false;
+      const draft = JSON.parse(raw);
+      const textarea = modalEl?.querySelector('#feedbackMessage');
+      const contact = modalEl?.querySelector('#feedbackContact');
+      if (draft.category) {
+        currentCategory = draft.category;
+        modalEl?.querySelectorAll('.feedback-type-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.type === currentCategory);
+        });
+      }
+      if (textarea && typeof draft.message === 'string') {
+        textarea.value = draft.message;
+        adjustFeedbackTextarea(textarea);
+      }
+      if (contact && typeof draft.contact === 'string' && draft.contact) {
+        contact.value = draft.contact;
+      }
+      if (Array.isArray(draft.attachments) && draft.attachments.length) {
+        currentAttachments = sortAttachments(draft.attachments);
+        renderAttachmentsList();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clearDraft() {
+    try {
+      localStorage.removeItem('feedback_draft_v1');
+    } catch (_) {}
+    currentAttachments = [];
+    if (modalEl) {
+      const textarea = modalEl.querySelector('#feedbackMessage');
+      if (textarea) textarea.value = '';
+      renderAttachmentsList();
+    }
+  }
+
+  function renderAttachmentsList() {
+    const listEl = modalEl?.querySelector('#feedbackFilesList');
+    const previewBox = modalEl?.querySelector('#feedbackPreviewBox');
+    const previewImg = modalEl?.querySelector('#feedbackPreviewImg');
+    const firstImage = currentAttachments.find(a => a.mime && a.mime.startsWith('image/'));
+    if (previewBox && previewImg) {
+      if (firstImage && firstImage.dataUrl) {
+        previewImg.src = firstImage.dataUrl;
+        previewBox.hidden = false;
+        previewBox.style.display = 'block';
+      } else {
+        previewImg.src = '';
+        previewBox.hidden = true;
+        previewBox.style.display = 'none';
+      }
+    }
+    if (!listEl) return;
+    if (!currentAttachments.length) {
+      listEl.innerHTML = '';
+      listEl.hidden = true;
+      return;
+    }
+    listEl.hidden = false;
+    const totalBytes = totalAttachmentsSize();
+    const sorted = sortAttachments(currentAttachments);
+    currentAttachments = sorted;
+
+    const itemsHtml = sorted.map(a => `
+      <div class="feedback-file-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-sub,#f1f5f9);border:1px solid var(--line,#cbd5e1);border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">
+        <span>${fileTypeIcon(a.mime)}</span>
+        <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${a.name}">${a.name}</span>
+        <span style="opacity:0.6;font-size:11px;">(${formatFileSize(a.size)})</span>
+        <button type="button" class="feedback-file-remove" data-remove-id="${a.id}" style="border:none;background:transparent;cursor:pointer;color:var(--ink,#334155);font-size:12px;padding:0 2px;" title="Remove this file">✕</button>
+      </div>
+    `).join('');
+
+    listEl.innerHTML = `
+      <div style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-sub,#64748b);">
+        <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
+        <button type="button" id="feedbackClearAllFiles" style="border:none;background:transparent;cursor:pointer;color:var(--accent,#0284c7);font-size:11px;">Clear all</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
+    `;
+
+    listEl.querySelectorAll('[data-remove-id]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = btn.dataset.removeId;
+        currentAttachments = currentAttachments.filter(a => a.id !== id);
+        renderAttachmentsList();
+        saveDraft();
+      });
+    });
+
+    listEl.querySelector('#feedbackClearAllFiles')?.addEventListener('click', e => {
+      e.stopPropagation();
+      currentAttachments = [];
+      renderAttachmentsList();
+      saveDraft();
+    });
+  }
 
   function adjustFeedbackTextarea(el) {
     if (!el) return;
@@ -82,15 +257,17 @@
       </div>
       <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Describe what went wrong or what is missing..." required></textarea>
       
-      <div class="feedback-preview-box" id="feedbackPreviewBox" hidden>
-        <img id="feedbackPreviewImg" src="" alt="Screenshot">
-        <button type="button" class="feedback-preview-remove" id="feedbackRemoveScreenshot" title="Remove screenshot">✕</button>
-      </div>
-
-      <div class="feedback-dropzone" id="feedbackDropzone">
-        <p>📸 Attach screenshot</p>
-        <small>Press <b>Ctrl+V</b> (Cmd+V) to paste, drag & drop a file, or click here</small>
-        <input type="file" id="feedbackFileInput" accept="image/*" style="display:none">
+      <div class="feedback-attachments-box" id="feedbackAttachmentsBox" style="margin:8px 0;">
+        <div class="feedback-preview-box" id="feedbackPreviewBox" hidden style="margin-bottom:8px;position:relative;display:none;">
+          <img id="feedbackPreviewImg" alt="Screenshot preview" style="max-height:160px;border-radius:6px;display:block;">
+          <button type="button" class="feedback-preview-remove" id="feedbackPreviewRemove" title="Remove screenshot" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;">✕</button>
+        </div>
+        <div class="feedback-files-list" id="feedbackFilesList" hidden></div>
+        <div class="feedback-dropzone" id="feedbackDropzone">
+          <p>📎 Attach files</p>
+          <small>Press <b>Ctrl+V</b> (Cmd+V) to paste, drag & drop files, or click here (any file type, up to 25 MB total)</small>
+          <input type="file" id="feedbackFileInput" multiple style="display:none">
+        </div>
       </div>
 
       <input type="text" class="feedback-input" id="feedbackContact" placeholder="Your Email or @telegram for follow-up (optional)">
@@ -110,8 +287,15 @@
     });
 
     const textarea = modalEl.querySelector('#feedbackMessage');
+    const contactInput = modalEl.querySelector('#feedbackContact');
     if (textarea) {
-      textarea.addEventListener('input', () => adjustFeedbackTextarea(textarea));
+      textarea.addEventListener('input', () => {
+        adjustFeedbackTextarea(textarea);
+        saveDraft();
+      });
+    }
+    if (contactInput) {
+      contactInput.addEventListener('input', saveDraft);
     }
 
     modalEl.querySelectorAll('.feedback-type-btn').forEach(btn => {
@@ -119,16 +303,31 @@
         modalEl.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
         currentCategory = this.dataset.type || 'bug';
+        saveDraft();
       });
     });
 
     const dropzone = modalEl.querySelector('#feedbackDropzone');
     const fileInput = modalEl.querySelector('#feedbackFileInput');
-    const removeBtn = modalEl.querySelector('#feedbackRemoveScreenshot');
 
     dropzone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', function() {
-      if (this.files && this.files[0]) processImageFile(this.files[0]);
+      if (this.files && this.files.length) {
+        for (let i = 0; i < this.files.length; i++) {
+          processFile(this.files[i]);
+        }
+      }
+      this.value = '';
+    });
+
+    modalEl.querySelector('#feedbackPreviewRemove')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const firstImageIdx = currentAttachments.findIndex(a => a.mime && a.mime.startsWith('image/'));
+      if (firstImageIdx >= 0) {
+        currentAttachments.splice(firstImageIdx, 1);
+        renderAttachmentsList();
+        saveDraft();
+      }
     });
 
     dropzone.addEventListener('dragover', function(e) {
@@ -141,12 +340,12 @@
     dropzone.addEventListener('drop', function(e) {
       e.preventDefault();
       dropzone.classList.remove('dragover');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-        processImageFile(e.dataTransfer.files[0]);
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          processFile(e.dataTransfer.files[i]);
+        }
       }
     });
-
-    removeBtn.addEventListener('click', clearScreenshot);
 
     const submitBtn = modalEl.querySelector('#feedbackSubmitBtn');
     submitBtn.addEventListener('click', submitFeedback);
@@ -154,16 +353,49 @@
     return modalEl;
   }
 
-  function processImageFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
+  function processFile(file) {
+    if (!file) return;
+    const currentTotal = totalAttachmentsSize();
+    if (currentTotal + file.size > MAX_FEEDBACK_BYTES) {
+      const status = modalEl?.querySelector('#feedbackStatus');
+      if (status) {
+        status.textContent = 'Total attachments exceed 25 MiB limit (' + formatFileSize(currentTotal + file.size) + ').';
+        status.className = 'feedback-status error';
+      }
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = function(e) {
-      compressImage(e.target.result, 1400, 0.82, function(compressedDataUrl) {
-        currentScreenshot = compressedDataUrl;
-        renderScreenshotPreview(compressedDataUrl);
-      });
+      const dataUrl = e.target.result;
+      if (file.type && file.type.startsWith('image/') && file.size > 500000) {
+        compressImage(dataUrl, 1600, 0.85, function(compressedUrl) {
+          addAttachmentRecord({
+            id: 'file_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+            name: file.name || 'image.png',
+            mime: file.type || 'image/png',
+            size: Math.round(compressedUrl.length * 0.75),
+            dataUrl: compressedUrl
+          });
+        });
+      } else {
+        addAttachmentRecord({
+          id: 'file_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+          name: file.name || 'file',
+          mime: file.type || 'application/octet-stream',
+          size: file.size,
+          dataUrl: dataUrl
+        });
+      }
     };
     reader.readAsDataURL(file);
+  }
+
+  function addAttachmentRecord(item) {
+    currentAttachments.push(item);
+    currentAttachments = sortAttachments(currentAttachments);
+    renderAttachmentsList();
+    saveDraft();
   }
 
   function compressImage(src, maxDim, quality, callback) {
@@ -197,39 +429,16 @@
     img.src = src;
   }
 
-  function renderScreenshotPreview(dataUrl) {
-    const previewBox = modalEl.querySelector('#feedbackPreviewBox');
-    const previewImg = modalEl.querySelector('#feedbackPreviewImg');
-    const dropzone = modalEl.querySelector('#feedbackDropzone');
-    if (!previewBox || !previewImg || !dropzone) return;
-
-    previewImg.src = dataUrl;
-    previewBox.hidden = false;
-    dropzone.hidden = true;
-  }
-
-  function clearScreenshot() {
-    currentScreenshot = '';
-    const previewBox = modalEl.querySelector('#feedbackPreviewBox');
-    const previewImg = modalEl.querySelector('#feedbackPreviewImg');
-    const dropzone = modalEl.querySelector('#feedbackDropzone');
-    const fileInput = modalEl.querySelector('#feedbackFileInput');
-    if (previewImg) previewImg.src = '';
-    if (previewBox) previewBox.hidden = true;
-    if (dropzone) dropzone.hidden = false;
-    if (fileInput) fileInput.value = '';
-  }
-
   // Handle global paste
   window.addEventListener('paste', function(e) {
     if (!modalEl || !modalEl.open) return;
     const items = (e.clipboardData || window.clipboardData)?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
+      const file = items[i].getAsFile();
+      if (file) {
         e.preventDefault();
-        const file = items[i].getAsFile();
-        if (file) processImageFile(file);
+        processFile(file);
         break;
       }
     }
@@ -243,21 +452,25 @@
     const submitBtn = modal.querySelector('#feedbackSubmitBtn');
 
     if (status) { status.textContent = ''; status.className = 'feedback-status'; }
-    if (textarea) {
-      textarea.value = '';
-      adjustFeedbackTextarea(textarea);
-    }
-    clearScreenshot();
 
-    // Prefill contact if user is authenticated
-    if (contact) {
-      const user = window.authUser;
-      if (user && user.email) {
-        contact.value = user.email;
-      } else if (user && user.login) {
-        contact.value = '@' + user.login;
-      } else {
-        contact.value = '';
+    // Restore draft if present
+    const hasDraft = restoreDraft();
+    if (!hasDraft) {
+      currentAttachments = [];
+      renderAttachmentsList();
+      if (textarea) {
+        textarea.value = '';
+        adjustFeedbackTextarea(textarea);
+      }
+      if (contact) {
+        const user = window.authUser;
+        if (user && user.email) {
+          contact.value = user.email;
+        } else if (user && user.login) {
+          contact.value = '@' + user.login;
+        } else {
+          contact.value = '';
+        }
       }
     }
 
@@ -268,11 +481,12 @@
     } else {
       modal.setAttribute('open', '');
     }
-    textarea.focus();
+    textarea?.focus();
   }
 
   function closeFeedbackModal() {
     if (!modalEl) return;
+    saveDraft();
     if (typeof modalEl.close === 'function') {
       modalEl.close();
     } else {
@@ -356,10 +570,20 @@
       details: b.details
     }));
 
+    const sorted = sortAttachments(currentAttachments);
+    const firstImage = sorted.find(a => a.mime && a.mime.startsWith('image/'));
+
     const payload = {
       category: currentCategory,
       message: message,
-      screenshot: currentScreenshot || '',
+      screenshot: firstImage?.dataUrl || '',
+      attachments: sorted.map(a => ({
+        id: a.id,
+        name: a.name,
+        mime: a.mime,
+        size: a.size,
+        dataUrl: a.dataUrl || ''
+      })),
       contact: (contact ? contact.value : '').trim(),
       context: {
         url: window.location.href,
@@ -388,6 +612,7 @@
         status.textContent = '✓ Thank you! Your feedback has been sent.';
         status.className = 'feedback-status success';
       }
+      clearDraft();
       playSuccessChime();
       triggerHaptic();
       setTimeout(() => {

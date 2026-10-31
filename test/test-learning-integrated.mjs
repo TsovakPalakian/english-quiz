@@ -304,3 +304,27 @@ test('Approve stays successful when group assignment fails after the account is 
   assert.match(String(body.groupWarning||''),/group/i);
   assert.equal(assigned,true);
 });
+test('publicPaths and lazy assets are served through integrated and stage worker', async () => {
+  const served = [];
+  const worker = integratedWorker({
+    authenticate: async () => null,
+    studyDatabase: () => ({ read: async () => [] })
+  });
+  const env = {
+    DB: fixture().raw,
+    STAGE_ENABLED: 'true',
+    STAGE_ALLOWED_HOST: 'test.invalid',
+    ASSETS: {
+      fetch: async (req) => {
+        const p = new URL(req.url).pathname;
+        served.push(p);
+        return new Response('/* asset */', { status: 200, headers: { 'Content-Type': 'text/javascript' } });
+      }
+    }
+  };
+  for (const path of ['/material-quiz.js', '/color-picker.js', '/messages.js', '/messages.css', '/database-context.js', '/notification-audio/chime.wav']) {
+    const res = await worker.fetch(new Request('https://test.invalid' + path), env);
+    assert.equal(res.status, 200, 'Expected 200 for ' + path);
+  }
+  assert.deepEqual(served, ['/material-quiz.js', '/color-picker.js', '/messages.js', '/messages.css', '/database-context.js', '/notification-audio/chime.wav']);
+});

@@ -2856,7 +2856,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function show(id) {
       if(id==='home'){id=roleHome();if(id==='groups')groupViewLevel='';}
-      if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return;
+      if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return false;
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) {
@@ -16572,7 +16572,51 @@ const STUDIO_CONSTELLATIONS = [{
     let feedbackSearchQuery = "";
     let feedbackLoadedItems = [];
     let feedbackTotal = 0;
+    let feedbackUserLimits = {};
+    let feedbackBreadcrumbsLimit = 10;
     const FEEDBACK_PAGE_LIMIT = 20;
+
+    function formatFileSize(bytes) {
+      const num = Number(bytes) || 0;
+      if (num < 1024) return num + ' B';
+      if (num < 1024 * 1024) return (num / 1024).toFixed(1) + ' KB';
+      return (num / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function fileTypeIcon(mime) {
+      const m = String(mime || '').toLowerCase();
+      if (m.startsWith('image/')) return '🖼️';
+      if (m.startsWith('audio/')) return '🎵';
+      if (m.startsWith('video/')) return '🎥';
+      if (m.includes('pdf')) return '📕';
+      if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return '📄';
+      if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return '📦';
+      return '📎';
+    }
+
+    function sortFeedbackAttachments(list) {
+      if (!Array.isArray(list)) return [];
+      const typePriority = mime => {
+        const m = String(mime || '').toLowerCase();
+        if (m.startsWith('image/')) return 1;
+        if (m.startsWith('video/')) return 2;
+        if (m.startsWith('audio/')) return 3;
+        if (m.includes('pdf')) return 4;
+        if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return 5;
+        if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return 6;
+        return 7;
+      };
+      return list.slice().sort((a, b) => {
+        const pA = typePriority(a.mime || a.type);
+        const pB = typePriority(b.mime || b.type);
+        if (pA !== pB) return pA - pB;
+        const tA = String(a.mime || a.type || '');
+        const tB = String(b.mime || b.type || '');
+        const mimeComp = tA.localeCompare(tB);
+        if (mimeComp !== 0) return mimeComp;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+    }
 
     function updateFeedbackTabBadge(openCount) {
       const tabBtn = document.querySelector('button[data-bug-tab="feedback"]');
@@ -16640,45 +16684,90 @@ const STUDIO_CONSTELLATIONS = [{
         return;
       }
 
-      const cardsHtml = filtered.map(fb => `
-        <article class="bug-item card">
-          <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
-            <div style="flex:1;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-                <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
-                <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
-                <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
-                ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
+      const cardsHtml = filtered.map(fb => {
+        const userKey = fb.userId || fb.userLogin;
+        const customLimit = userKey && feedbackUserLimits && feedbackUserLimits[userKey] != null ? feedbackUserLimits[userKey] : null;
+        const limitTag = userKey ? `
+          <span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px;">
+            <span class="chip" style="font-size:11px;${customLimit != null ? 'background:rgba(234,179,8,0.15);color:#ca8a04;font-weight:600;' : 'opacity:0.7;'}">${customLimit != null ? customLimit + '/hr (custom)' : 'role default'}</span>
+            <button type="button" class="btn tiny ghost" data-fb-set-limit="${esc(userKey)}" data-current-limit="${customLimit ?? ''}" style="padding:1px 5px;font-size:11px;" title="Configure feedback limit for ${esc(userKey)}">⚙ Limit</button>
+          </span>
+        ` : '';
+
+        const attachments = sortFeedbackAttachments(Array.isArray(fb.attachments) && fb.attachments.length
+          ? fb.attachments
+          : (fb.screenshot ? [{ id: 'screenshot', name: 'screenshot.png', mime: 'image/png', dataUrl: fb.screenshot }] : []));
+
+        const attachmentsHtml = (() => {
+          if (!attachments.length) return '';
+          const images = attachments.filter(a => a.mime && a.mime.startsWith('image/'));
+          const others = attachments.filter(a => !a.mime || !a.mime.startsWith('image/'));
+
+          const imgHtml = images.map(img => {
+            const src = img.dataUrl || (img.storageKey ? `/api/feedback/attachment?key=${encodeURIComponent(img.storageKey)}` : '');
+            if (!src) return '';
+            return `<div style="display:inline-block;margin:4px 6px 4px 0;"><img src="${src}" alt="${esc(img.name)}" class="feedback-screenshot-thumb" style="max-width:180px;max-height:140px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;" title="${esc(img.name)} (${formatFileSize(img.size)})"></div>`;
+          }).join('');
+
+          const otherHtml = others.map(f => {
+            const href = f.dataUrl || (f.storageKey ? `/api/feedback/attachment?key=${encodeURIComponent(f.storageKey)}` : '');
+            return `
+              <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-sub,#f1f5f9);border:1px solid var(--line,#cbd5e1);border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">
+                <span>${fileTypeIcon(f.mime)}</span>
+                <span style="font-weight:500;">${esc(f.name)}</span>
+                <small style="opacity:0.7;">(${formatFileSize(f.size)})</small>
+                ${href ? `<a href="${href}" target="_blank" download="${esc(f.name)}" style="color:var(--accent,#0284c7);text-decoration:none;font-weight:600;margin-left:4px;" title="Download file">⬇</a>` : ''}
               </div>
-              <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
-              ${(() => {
-                if (!fb.url) return '';
-                const isSafe = /^https?:\/\//i.test(fb.url);
-                return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
-              })()}
-              ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
-                <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
-                  <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
-                  <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
-                    ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
-                  </ul>
-                </details>
-              ` : ''}
-              ${(() => {
-                if (!fb.screenshot || !/^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(fb.screenshot)) return '';
-                return `<div style="margin-top:8px;"><img src="${fb.screenshot}" alt="Screenshot" class="feedback-screenshot-thumb" style="max-width:100%;max-height:260px;border-radius:6px;border:1px solid var(--line);cursor:zoom-in;"></div>`;
-              })()}
+            `;
+          }).join('');
+
+          return `
+            <div class="feedback-card-attachments" style="margin-top:8px;">
+              <small style="display:block;font-weight:600;color:var(--ink-sub);margin-bottom:4px;">Attachments (${attachments.length}):</small>
+              ${imgHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px;">${imgHtml}</div>` : ''}
+              ${otherHtml ? `<div style="display:flex;flex-wrap:wrap;gap:4px;">${otherHtml}</div>` : ''}
             </div>
-            <div>
-              ${fb.resolved ? `
-                <button class="btn tiny ghost" type="button" data-feedback-unresolve="${esc(fb.id)}" title="Reopen this report">Reopen</button>
-              ` : `
-                <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
-              `}
+          `;
+        })();
+
+        return `
+          <article class="bug-item card">
+            <div class="bug-row" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px 14px;">
+              <div style="flex:1;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                  <span class="chip" style="font-size:12px;font-weight:600;">${fb.category === 'bug' ? '🐞 Bug' : fb.category === 'idea' ? '💡 Idea' : '❓ Question'}</span>
+                  <b style="font-size:13px;">${esc(fb.userLogin ? '@' + fb.userLogin : (fb.userEmail || 'Guest'))}</b>
+                  ${limitTag}
+                  <small style="color:var(--ink-sub);">${esc(bugWhen(fb.createdAt * 1000))}</small>
+                  ${fb.resolved && fb.resolvedAt ? `<span class="chip" style="font-size:11px;color:var(--ok, #10b981);">✓ Resolved ${esc(bugWhen(fb.resolvedAt * 1000))}</span>` : ''}
+                </div>
+                <p style="margin:0 0 8px 0;font-size:14px;white-space:pre-wrap;">${esc(fb.message)}</p>
+                ${(() => {
+                  if (!fb.url) return '';
+                  const isSafe = /^https?:\/\//i.test(fb.url);
+                  return `<small style="display:block;color:var(--ink-sub);margin-bottom:8px;">Page: ${isSafe ? `<a href="${esc(fb.url)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">${esc(fb.url)}</a>` : `<span>${esc(fb.url)}</span>`}</small>`;
+                })()}
+                ${(fb.deviceInfo?.breadcrumbs && fb.deviceInfo.breadcrumbs.length) ? `
+                  <details style="margin-top:8px;font-size:12px;color:var(--ink-sub);">
+                    <summary style="cursor:pointer;user-select:none;font-weight:500;">User actions (${fb.deviceInfo.breadcrumbs.length})</summary>
+                    <ul style="margin:4px 0 0 16px;padding:0;line-height:1.5;">
+                      ${fb.deviceInfo.breadcrumbs.map(c => `<li><span style="opacity:0.7;">${esc(c.ago || '')}</span>: <b>${esc(c.action || '')}</b> ${esc(c.details || '')}</li>`).join('')}
+                    </ul>
+                  </details>
+                ` : ''}
+                ${attachmentsHtml}
+              </div>
+              <div>
+                ${fb.resolved ? `
+                  <button class="btn tiny ghost" type="button" data-feedback-unresolve="${esc(fb.id)}" title="Reopen this report">Reopen</button>
+                ` : `
+                  <button class="btn tiny" type="button" data-feedback-resolve="${esc(fb.id)}">Resolve</button>
+                `}
+              </div>
             </div>
-          </div>
-        </article>
-      `).join('');
+          </article>
+        `;
+      }).join('');
 
       const canLoadMore = items.length < feedbackTotal && feedbackFilterCategory === 'all' && !feedbackSearchQuery;
       const loadMoreHtml = canLoadMore ? `
@@ -16692,7 +16781,7 @@ const STUDIO_CONSTELLATIONS = [{
       container.querySelectorAll('.feedback-screenshot-thumb').forEach(img => {
         img.addEventListener('click', () => {
           const src = img.getAttribute('src');
-          if (src && /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(src)) {
+          if (src) {
             const win = window.open('', '_blank');
             if (win) {
               try { win.opener = null; } catch (_) {}
@@ -16700,6 +16789,30 @@ const STUDIO_CONSTELLATIONS = [{
               win.document.close();
             }
           }
+        });
+      });
+
+      container.querySelectorAll('[data-fb-set-limit]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const userKey = btn.dataset.fbSetLimit;
+          const current = btn.dataset.currentLimit || '';
+          const input = prompt(`Set custom feedback limit per hour for ${userKey} (number, or empty for role default):`, current);
+          if (input === null) return;
+          const trimmed = input.trim();
+          const limit = trimmed === '' ? null : Number(trimmed);
+          if (limit !== null && (!Number.isSafeInteger(limit) || limit < 0)) {
+            notice('Please enter a valid positive number.', true);
+            return;
+          }
+          accountFetch('/api/feedback/limit', {
+            method: 'POST',
+            body: JSON.stringify({ userId: userKey, limit })
+          }).then(() => {
+            notice(`Feedback limit updated for ${userKey}: ${limit !== null ? limit + '/hr' : 'role default'}`);
+            paintBugs();
+          }).catch(err => {
+            notice(err.message, true);
+          });
         });
       });
 
@@ -16752,6 +16865,11 @@ const STUDIO_CONSTELLATIONS = [{
           updateFeedbackTabBadge(data.counts?.open);
           feedbackLoadedItems = (data && data.feedback) || [];
           feedbackTotal = Number(data && data.total) || feedbackLoadedItems.length;
+          feedbackUserLimits = (data && data.userLimits) || {};
+          if (typeof data?.breadcrumbsLimit === 'number') {
+            feedbackBreadcrumbsLimit = data.breadcrumbsLimit;
+            window.__breadcrumbsLimit = data.breadcrumbsLimit;
+          }
 
           const bugCount = feedbackLoadedItems.filter(i => i.category === 'bug').length;
           const ideaCount = feedbackLoadedItems.filter(i => i.category === 'idea').length;
@@ -16764,9 +16882,14 @@ const STUDIO_CONSTELLATIONS = [{
                   <button type="button" class="step ${feedbackStatusTab === 'active' ? 'on' : ''}" data-fb-status="active">Active (${data.counts?.open ?? bugCount})</button>
                   <button type="button" class="step ${feedbackStatusTab === 'resolved' ? 'on' : ''}" data-fb-status="resolved">Resolved archive (${data.counts?.resolved ?? 0})</button>
                 </div>
-                <div style="display:flex;align-items:center;gap:8px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <div style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-sub);">
+                    <label for="feedbackBreadcrumbsLimitInput" title="Maximum recorded User actions history items">User actions:</label>
+                    <input type="number" id="feedbackBreadcrumbsLimitInput" min="0" max="50" style="width:50px;height:28px;padding:0 6px;border-radius:4px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;font-size:12px;" value="${feedbackBreadcrumbsLimit}">
+                    <button type="button" class="btn tiny ghost" id="feedbackSaveBreadcrumbsBtn" title="Save global User actions history limit">Save</button>
+                  </div>
                   <button type="button" class="btn tiny ghost" id="feedbackExportCsv" title="Export filtered feedback to CSV">📥 CSV</button>
-                  <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:200px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
+                  <input type="search" id="feedbackSearchInput" placeholder="Search message, user, url..." value="${esc(feedbackSearchQuery)}" style="width:180px;height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);box-sizing:border-box;font:inherit;font-size:13px;">
                 </div>
               </div>
               <div class="feedback-filter-chips" style="display:flex;gap:6px;flex-wrap:wrap;">
@@ -16781,6 +16904,25 @@ const STUDIO_CONSTELLATIONS = [{
 
           const listContainer = box.querySelector('#feedbackCardsList');
           renderFeedbackCards(feedbackLoadedItems, listContainer);
+
+          box.querySelector('#feedbackSaveBreadcrumbsBtn')?.addEventListener('click', () => {
+            const input = box.querySelector('#feedbackBreadcrumbsLimitInput');
+            const val = Number(input?.value);
+            if (!Number.isSafeInteger(val) || val < 0 || val > 100) {
+              notice('User actions limit must be between 0 and 100.', true);
+              return;
+            }
+            accountFetch('/api/feedback/settings', {
+              method: 'POST',
+              body: JSON.stringify({ breadcrumbsLimit: val })
+            }).then(res => {
+              feedbackBreadcrumbsLimit = res.breadcrumbsLimit;
+              window.__breadcrumbsLimit = res.breadcrumbsLimit;
+              notice('Saved User actions limit: ' + res.breadcrumbsLimit);
+            }).catch(err => {
+              notice(err.message, true);
+            });
+          });
 
           // Handle Active / Resolved toggle
           box.querySelectorAll('[data-fb-status]').forEach(btn => {
@@ -17049,6 +17191,7 @@ const STUDIO_CONSTELLATIONS = [{
   });
 
   window.__userBreadcrumbs = window.__userBreadcrumbs || [];
+  window.__breadcrumbsLimit = window.__breadcrumbsLimit || 10;
   function recordBreadcrumb(action, details) {
     try {
       window.__userBreadcrumbs.push({
@@ -17056,7 +17199,10 @@ const STUDIO_CONSTELLATIONS = [{
         action: String(action || '').slice(0, 40),
         details: String(details || '').slice(0, 100)
       });
-      if (window.__userBreadcrumbs.length > 10) window.__userBreadcrumbs.shift();
+      const limit = Number.isSafeInteger(window.__breadcrumbsLimit) && window.__breadcrumbsLimit >= 0
+        ? window.__breadcrumbsLimit
+        : 10;
+      while (window.__userBreadcrumbs.length > limit) window.__userBreadcrumbs.shift();
     } catch (_) {}
   }
 
@@ -17090,9 +17236,180 @@ const STUDIO_CONSTELLATIONS = [{
     }
   } catch (_) {}
 
-  let currentScreenshot = '';
+  let currentAttachments = [];
   let currentCategory = 'bug';
   let modalEl = null;
+  const MAX_FEEDBACK_BYTES = 25 * 1024 * 1024; // 25 MiB
+
+  function formatFileSize(bytes) {
+    const num = Number(bytes) || 0;
+    if (num < 1024) return num + ' B';
+    if (num < 1024 * 1024) return (num / 1024).toFixed(1) + ' KB';
+    return (num / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function fileTypeIcon(mime) {
+    const m = String(mime || '').toLowerCase();
+    if (m.startsWith('image/')) return '🖼️';
+    if (m.startsWith('audio/')) return '🎵';
+    if (m.startsWith('video/')) return '🎥';
+    if (m.includes('pdf')) return '📕';
+    if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return '📄';
+    if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return '📦';
+    return '📎';
+  }
+
+  function sortAttachments(list) {
+    if (!Array.isArray(list)) return [];
+    const typePriority = mime => {
+      const m = String(mime || '').toLowerCase();
+      if (m.startsWith('image/')) return 1;
+      if (m.startsWith('video/')) return 2;
+      if (m.startsWith('audio/')) return 3;
+      if (m.includes('pdf')) return 4;
+      if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return 5;
+      if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return 6;
+      return 7;
+    };
+    return list.slice().sort((a, b) => {
+      const pA = typePriority(a.mime || a.type);
+      const pB = typePriority(b.mime || b.type);
+      if (pA !== pB) return pA - pB;
+      const tA = String(a.mime || a.type || '');
+      const tB = String(b.mime || b.type || '');
+      const mimeComp = tA.localeCompare(tB);
+      if (mimeComp !== 0) return mimeComp;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+  }
+
+  function totalAttachmentsSize() {
+    return currentAttachments.reduce((sum, item) => sum + (Number(item.size) || 0), 0);
+  }
+
+  function saveDraft() {
+    try {
+      const textarea = modalEl?.querySelector('#feedbackMessage');
+      const contact = modalEl?.querySelector('#feedbackContact');
+      const draft = {
+        category: currentCategory,
+        message: textarea ? textarea.value : '',
+        contact: contact ? contact.value : '',
+        attachments: currentAttachments.map(a => ({
+          id: a.id,
+          name: a.name,
+          mime: a.mime,
+          size: a.size,
+          dataUrl: a.dataUrl && a.dataUrl.length < 2000000 ? a.dataUrl : ''
+        }))
+      };
+      localStorage.setItem('feedback_draft_v1', JSON.stringify(draft));
+    } catch (_) {}
+  }
+
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem('feedback_draft_v1');
+      if (!raw) return false;
+      const draft = JSON.parse(raw);
+      const textarea = modalEl?.querySelector('#feedbackMessage');
+      const contact = modalEl?.querySelector('#feedbackContact');
+      if (draft.category) {
+        currentCategory = draft.category;
+        modalEl?.querySelectorAll('.feedback-type-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.type === currentCategory);
+        });
+      }
+      if (textarea && typeof draft.message === 'string') {
+        textarea.value = draft.message;
+        adjustFeedbackTextarea(textarea);
+      }
+      if (contact && typeof draft.contact === 'string' && draft.contact) {
+        contact.value = draft.contact;
+      }
+      if (Array.isArray(draft.attachments) && draft.attachments.length) {
+        currentAttachments = sortAttachments(draft.attachments);
+        renderAttachmentsList();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clearDraft() {
+    try {
+      localStorage.removeItem('feedback_draft_v1');
+    } catch (_) {}
+    currentAttachments = [];
+    if (modalEl) {
+      const textarea = modalEl.querySelector('#feedbackMessage');
+      if (textarea) textarea.value = '';
+      renderAttachmentsList();
+    }
+  }
+
+  function renderAttachmentsList() {
+    const listEl = modalEl?.querySelector('#feedbackFilesList');
+    const previewBox = modalEl?.querySelector('#feedbackPreviewBox');
+    const previewImg = modalEl?.querySelector('#feedbackPreviewImg');
+    const firstImage = currentAttachments.find(a => a.mime && a.mime.startsWith('image/'));
+    if (previewBox && previewImg) {
+      if (firstImage && firstImage.dataUrl) {
+        previewImg.src = firstImage.dataUrl;
+        previewBox.hidden = false;
+        previewBox.style.display = 'block';
+      } else {
+        previewImg.src = '';
+        previewBox.hidden = true;
+        previewBox.style.display = 'none';
+      }
+    }
+    if (!listEl) return;
+    if (!currentAttachments.length) {
+      listEl.innerHTML = '';
+      listEl.hidden = true;
+      return;
+    }
+    listEl.hidden = false;
+    const totalBytes = totalAttachmentsSize();
+    const sorted = sortAttachments(currentAttachments);
+    currentAttachments = sorted;
+
+    const itemsHtml = sorted.map(a => `
+      <div class="feedback-file-chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-sub,#f1f5f9);border:1px solid var(--line,#cbd5e1);border-radius:6px;font-size:12px;margin:2px 4px 2px 0;">
+        <span>${fileTypeIcon(a.mime)}</span>
+        <span style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${a.name}">${a.name}</span>
+        <span style="opacity:0.6;font-size:11px;">(${formatFileSize(a.size)})</span>
+        <button type="button" class="feedback-file-remove" data-remove-id="${a.id}" style="border:none;background:transparent;cursor:pointer;color:var(--ink,#334155);font-size:12px;padding:0 2px;" title="Remove this file">✕</button>
+      </div>
+    `).join('');
+
+    listEl.innerHTML = `
+      <div style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--ink-sub,#64748b);">
+        <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
+        <button type="button" id="feedbackClearAllFiles" style="border:none;background:transparent;cursor:pointer;color:var(--accent,#0284c7);font-size:11px;">Clear all</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
+    `;
+
+    listEl.querySelectorAll('[data-remove-id]').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = btn.dataset.removeId;
+        currentAttachments = currentAttachments.filter(a => a.id !== id);
+        renderAttachmentsList();
+        saveDraft();
+      });
+    });
+
+    listEl.querySelector('#feedbackClearAllFiles')?.addEventListener('click', e => {
+      e.stopPropagation();
+      currentAttachments = [];
+      renderAttachmentsList();
+      saveDraft();
+    });
+  }
 
   function adjustFeedbackTextarea(el) {
     if (!el) return;
@@ -17120,15 +17437,17 @@ const STUDIO_CONSTELLATIONS = [{
       </div>
       <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Describe what went wrong or what is missing..." required></textarea>
       
-      <div class="feedback-preview-box" id="feedbackPreviewBox" hidden>
-        <img id="feedbackPreviewImg" src="" alt="Screenshot">
-        <button type="button" class="feedback-preview-remove" id="feedbackRemoveScreenshot" title="Remove screenshot">✕</button>
-      </div>
-
-      <div class="feedback-dropzone" id="feedbackDropzone">
-        <p>📸 Attach screenshot</p>
-        <small>Press <b>Ctrl+V</b> (Cmd+V) to paste, drag & drop a file, or click here</small>
-        <input type="file" id="feedbackFileInput" accept="image/*" style="display:none">
+      <div class="feedback-attachments-box" id="feedbackAttachmentsBox" style="margin:8px 0;">
+        <div class="feedback-preview-box" id="feedbackPreviewBox" hidden style="margin-bottom:8px;position:relative;display:none;">
+          <img id="feedbackPreviewImg" alt="Screenshot preview" style="max-height:160px;border-radius:6px;display:block;">
+          <button type="button" class="feedback-preview-remove" id="feedbackPreviewRemove" title="Remove screenshot" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;">✕</button>
+        </div>
+        <div class="feedback-files-list" id="feedbackFilesList" hidden></div>
+        <div class="feedback-dropzone" id="feedbackDropzone">
+          <p>📎 Attach files</p>
+          <small>Press <b>Ctrl+V</b> (Cmd+V) to paste, drag & drop files, or click here (any file type, up to 25 MB total)</small>
+          <input type="file" id="feedbackFileInput" multiple style="display:none">
+        </div>
       </div>
 
       <input type="text" class="feedback-input" id="feedbackContact" placeholder="Your Email or @telegram for follow-up (optional)">
@@ -17148,8 +17467,15 @@ const STUDIO_CONSTELLATIONS = [{
     });
 
     const textarea = modalEl.querySelector('#feedbackMessage');
+    const contactInput = modalEl.querySelector('#feedbackContact');
     if (textarea) {
-      textarea.addEventListener('input', () => adjustFeedbackTextarea(textarea));
+      textarea.addEventListener('input', () => {
+        adjustFeedbackTextarea(textarea);
+        saveDraft();
+      });
+    }
+    if (contactInput) {
+      contactInput.addEventListener('input', saveDraft);
     }
 
     modalEl.querySelectorAll('.feedback-type-btn').forEach(btn => {
@@ -17157,16 +17483,31 @@ const STUDIO_CONSTELLATIONS = [{
         modalEl.querySelectorAll('.feedback-type-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
         currentCategory = this.dataset.type || 'bug';
+        saveDraft();
       });
     });
 
     const dropzone = modalEl.querySelector('#feedbackDropzone');
     const fileInput = modalEl.querySelector('#feedbackFileInput');
-    const removeBtn = modalEl.querySelector('#feedbackRemoveScreenshot');
 
     dropzone.addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', function() {
-      if (this.files && this.files[0]) processImageFile(this.files[0]);
+      if (this.files && this.files.length) {
+        for (let i = 0; i < this.files.length; i++) {
+          processFile(this.files[i]);
+        }
+      }
+      this.value = '';
+    });
+
+    modalEl.querySelector('#feedbackPreviewRemove')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const firstImageIdx = currentAttachments.findIndex(a => a.mime && a.mime.startsWith('image/'));
+      if (firstImageIdx >= 0) {
+        currentAttachments.splice(firstImageIdx, 1);
+        renderAttachmentsList();
+        saveDraft();
+      }
     });
 
     dropzone.addEventListener('dragover', function(e) {
@@ -17179,12 +17520,12 @@ const STUDIO_CONSTELLATIONS = [{
     dropzone.addEventListener('drop', function(e) {
       e.preventDefault();
       dropzone.classList.remove('dragover');
-      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
-        processImageFile(e.dataTransfer.files[0]);
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        for (let i = 0; i < e.dataTransfer.files.length; i++) {
+          processFile(e.dataTransfer.files[i]);
+        }
       }
     });
-
-    removeBtn.addEventListener('click', clearScreenshot);
 
     const submitBtn = modalEl.querySelector('#feedbackSubmitBtn');
     submitBtn.addEventListener('click', submitFeedback);
@@ -17192,16 +17533,49 @@ const STUDIO_CONSTELLATIONS = [{
     return modalEl;
   }
 
-  function processImageFile(file) {
-    if (!file || !file.type.startsWith('image/')) return;
+  function processFile(file) {
+    if (!file) return;
+    const currentTotal = totalAttachmentsSize();
+    if (currentTotal + file.size > MAX_FEEDBACK_BYTES) {
+      const status = modalEl?.querySelector('#feedbackStatus');
+      if (status) {
+        status.textContent = 'Total attachments exceed 25 MiB limit (' + formatFileSize(currentTotal + file.size) + ').';
+        status.className = 'feedback-status error';
+      }
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = function(e) {
-      compressImage(e.target.result, 1400, 0.82, function(compressedDataUrl) {
-        currentScreenshot = compressedDataUrl;
-        renderScreenshotPreview(compressedDataUrl);
-      });
+      const dataUrl = e.target.result;
+      if (file.type && file.type.startsWith('image/') && file.size > 500000) {
+        compressImage(dataUrl, 1600, 0.85, function(compressedUrl) {
+          addAttachmentRecord({
+            id: 'file_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+            name: file.name || 'image.png',
+            mime: file.type || 'image/png',
+            size: Math.round(compressedUrl.length * 0.75),
+            dataUrl: compressedUrl
+          });
+        });
+      } else {
+        addAttachmentRecord({
+          id: 'file_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+          name: file.name || 'file',
+          mime: file.type || 'application/octet-stream',
+          size: file.size,
+          dataUrl: dataUrl
+        });
+      }
     };
     reader.readAsDataURL(file);
+  }
+
+  function addAttachmentRecord(item) {
+    currentAttachments.push(item);
+    currentAttachments = sortAttachments(currentAttachments);
+    renderAttachmentsList();
+    saveDraft();
   }
 
   function compressImage(src, maxDim, quality, callback) {
@@ -17235,39 +17609,16 @@ const STUDIO_CONSTELLATIONS = [{
     img.src = src;
   }
 
-  function renderScreenshotPreview(dataUrl) {
-    const previewBox = modalEl.querySelector('#feedbackPreviewBox');
-    const previewImg = modalEl.querySelector('#feedbackPreviewImg');
-    const dropzone = modalEl.querySelector('#feedbackDropzone');
-    if (!previewBox || !previewImg || !dropzone) return;
-
-    previewImg.src = dataUrl;
-    previewBox.hidden = false;
-    dropzone.hidden = true;
-  }
-
-  function clearScreenshot() {
-    currentScreenshot = '';
-    const previewBox = modalEl.querySelector('#feedbackPreviewBox');
-    const previewImg = modalEl.querySelector('#feedbackPreviewImg');
-    const dropzone = modalEl.querySelector('#feedbackDropzone');
-    const fileInput = modalEl.querySelector('#feedbackFileInput');
-    if (previewImg) previewImg.src = '';
-    if (previewBox) previewBox.hidden = true;
-    if (dropzone) dropzone.hidden = false;
-    if (fileInput) fileInput.value = '';
-  }
-
   // Handle global paste
   window.addEventListener('paste', function(e) {
     if (!modalEl || !modalEl.open) return;
     const items = (e.clipboardData || window.clipboardData)?.items;
     if (!items) return;
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
+      const file = items[i].getAsFile();
+      if (file) {
         e.preventDefault();
-        const file = items[i].getAsFile();
-        if (file) processImageFile(file);
+        processFile(file);
         break;
       }
     }
@@ -17281,21 +17632,25 @@ const STUDIO_CONSTELLATIONS = [{
     const submitBtn = modal.querySelector('#feedbackSubmitBtn');
 
     if (status) { status.textContent = ''; status.className = 'feedback-status'; }
-    if (textarea) {
-      textarea.value = '';
-      adjustFeedbackTextarea(textarea);
-    }
-    clearScreenshot();
 
-    // Prefill contact if user is authenticated
-    if (contact) {
-      const user = window.authUser;
-      if (user && user.email) {
-        contact.value = user.email;
-      } else if (user && user.login) {
-        contact.value = '@' + user.login;
-      } else {
-        contact.value = '';
+    // Restore draft if present
+    const hasDraft = restoreDraft();
+    if (!hasDraft) {
+      currentAttachments = [];
+      renderAttachmentsList();
+      if (textarea) {
+        textarea.value = '';
+        adjustFeedbackTextarea(textarea);
+      }
+      if (contact) {
+        const user = window.authUser;
+        if (user && user.email) {
+          contact.value = user.email;
+        } else if (user && user.login) {
+          contact.value = '@' + user.login;
+        } else {
+          contact.value = '';
+        }
       }
     }
 
@@ -17306,11 +17661,12 @@ const STUDIO_CONSTELLATIONS = [{
     } else {
       modal.setAttribute('open', '');
     }
-    textarea.focus();
+    textarea?.focus();
   }
 
   function closeFeedbackModal() {
     if (!modalEl) return;
+    saveDraft();
     if (typeof modalEl.close === 'function') {
       modalEl.close();
     } else {
@@ -17394,10 +17750,20 @@ const STUDIO_CONSTELLATIONS = [{
       details: b.details
     }));
 
+    const sorted = sortAttachments(currentAttachments);
+    const firstImage = sorted.find(a => a.mime && a.mime.startsWith('image/'));
+
     const payload = {
       category: currentCategory,
       message: message,
-      screenshot: currentScreenshot || '',
+      screenshot: firstImage?.dataUrl || '',
+      attachments: sorted.map(a => ({
+        id: a.id,
+        name: a.name,
+        mime: a.mime,
+        size: a.size,
+        dataUrl: a.dataUrl || ''
+      })),
       contact: (contact ? contact.value : '').trim(),
       context: {
         url: window.location.href,
@@ -17426,6 +17792,7 @@ const STUDIO_CONSTELLATIONS = [{
         status.textContent = '✓ Thank you! Your feedback has been sent.';
         status.className = 'feedback-status success';
       }
+      clearDraft();
       playSuccessChime();
       triggerHaptic();
       setTimeout(() => {
@@ -25445,6 +25812,7 @@ if(typeof window!=='undefined'){
       lmState.blockId = block.id;
       if(typeof materialReviewStudent!=='undefined'&&materialReviewStudent&&!viewAccount)lmState.reviewStudentId=materialReviewStudent.id;
       if (!canEditLessons()) lmState.mode = "preview";
+      try { sessionStorage.setItem("enquiz-place", JSON.stringify({ id: "material", examId: exam.id, examBlockId: block.id, materialTab: lmState.tab || "" })); } catch (e) {}
       visit("material");
     }
     function examBoot() {
@@ -25453,6 +25821,7 @@ if(typeof window!=='undefined'){
         if ((examHold || (lmState && lmState.examOwned)) && !(id === "material" && lmState && lmState.examOwned)) examLeave();
         if(materialReviewStudent&&!['material','examblocks'].includes(id)){materialReviewStudent=null;examResetWork();}
         const result = openScreen(id);
+        if (result === false) return false;
         if (id === "exams") examPaintList();
         if (id === "examblocks") examPaintBlocks();
         return result;
@@ -25705,7 +26074,7 @@ if(typeof window!=='undefined'){
     let screenAssetGeneration = 0;
     function deferScreenAssets(id) {
       const generation = ++screenAssetGeneration;
-      if (!['material', 'days', 'exam', 'exams', 'examblocks', 'setup', 'speak', 'speaklesson', 'lyricadd', 'textedit'].includes(id)) return false;
+      if (!['material', 'days', 'exam', 'examblocks', 'setup', 'speak', 'speaklesson', 'lyricadd', 'textedit'].includes(id)) return false;
       const jobs = [];
       if (!window.MaterialQuiz && window.ensureMaterialQuiz) jobs.push(window.ensureMaterialQuiz());
       if (!window.ColorPicker && window.ensureColorPicker) jobs.push(window.ensureColorPicker());

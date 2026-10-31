@@ -1248,6 +1248,7 @@
       lmState.blockId = block.id;
       if(typeof materialReviewStudent!=='undefined'&&materialReviewStudent&&!viewAccount)lmState.reviewStudentId=materialReviewStudent.id;
       if (!canEditLessons()) lmState.mode = "preview";
+      try { sessionStorage.setItem("enquiz-place", JSON.stringify({ id: "material", examId: exam.id, examBlockId: block.id, materialTab: lmState.tab || "" })); } catch (e) {}
       visit("material");
     }
     function examBoot() {
@@ -1256,6 +1257,7 @@
         if ((examHold || (lmState && lmState.examOwned)) && !(id === "material" && lmState && lmState.examOwned)) examLeave();
         if(materialReviewStudent&&!['material','examblocks'].includes(id)){materialReviewStudent=null;examResetWork();}
         const result = openScreen(id);
+        if (result === false) return false;
         if (id === "exams") examPaintList();
         if (id === "examblocks") examPaintBlocks();
         return result;

@@ -129,7 +129,7 @@
     }
     function show(id) {
       if(id==='home'){id=roleHome();if(id==='groups')groupViewLevel='';}
-      if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return;
+      if (typeof deferScreenAssets === 'function' && deferScreenAssets(id)) return false;
       if(!authUser&&guestRestrictedPage(id))id='account';
       const previous = document.querySelector('section.on');
       if (previous && previous.id !== id) {

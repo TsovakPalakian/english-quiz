@@ -50,7 +50,7 @@ writeFileSync(resolve(target,'preview.js'),presentation(mainPreview(readFileSync
   .replaceAll('fetch("tense-bank.json")','window.LearningLoadCatalog("TENSE_BANK").then(data=>({ok:true,json:async()=>data}))'));
 let preview=readFileSync(resolve(target,'preview.js'),'utf8');
 assert.equal(preview.split('    function show(id) {').length,2);
-preview=preview.replace('    function show(id) {',"    function show(id) {\n      if(id==='messages' && (viewAccount || accountChecked && !authUser))id='account';\n      if(id==='messages' && !window.MessagesReady){window.ensureMessages?.().then(()=>show('messages')).catch(error=>window.LearningMain?.notice?.(error.message,true));return;}\n      if(['material','days','exam','exams','setup'].includes(id)){window.ensureMaterialQuiz?.();window.ensureColorPicker?.();}");
+preview=preview.replace('    function show(id) {',"    function show(id) {\n      if(id==='messages' && (viewAccount || accountChecked && !authUser))id='account';\n      if(id==='messages' && !window.MessagesReady){window.ensureMessages?.().then(()=>show('messages')).catch(error=>window.LearningMain?.notice?.(error.message,true));return;}");
 writeFileSync(resolve(target,'preview.js'),preview);
 writeFileSync(resolve(target,'exam-workflow.js'),readFileSync(resolve(root,'client/main/exam-workflow.js'),'utf8'));
 writeFileSync(resolve(target,'preview.js'),preview+'\n'+readFileSync(resolve(root,'client/main/exam-workflow.js'),'utf8'));
@@ -60,9 +60,9 @@ const grammar='(()=>{'+readFileSync(resolve(root,'src/grammar-content.mjs'),'utf
 const loader=(scoring+'\n'+readFileSync(resolve(root,'production/grammar-categories.js'),'utf8')+'\n'+grammar+'\n'+readFileSync(resolve(root,'production/speakout-cache.js'),'utf8')+'\n'+readFileSync(resolve(root,'production/catalog-loader.js'),'utf8'))
   .replace(/script\.src='\/preview\.js(?:\?[^']*)?'/,"script.src='/preview.js?v="+version('preview.js')+"'")
   .replace("window.ensureChatIcons=()=>window.loadSiteScript('/chat-icons.js');","window.ensureChatIcons=()=>window.loadSiteScript('/chat-icons.js?v="+version('chat-icons.js')+"');")
-  .replace("return window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js')).then(()=>{window.MessagesReady=true;});","return window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js?v="+version('messages.js')+"')).then(()=>{window.MessagesReady=true;});")
-  .replace("window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js');","window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js?v="+version('material-quiz.js')+"');")
-  .replace("window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js');","window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js?v="+version('color-picker.js')+"');");
+  .replace("window.loadSiteScript('/messages.js')","window.loadSiteScript('/messages.js?v="+version('messages.js')+"')")
+  .replace("window.loadSiteScript('/material-quiz.js')","window.loadSiteScript('/material-quiz.js?v="+version('material-quiz.js')+"')")
+  .replace("window.loadSiteScript('/color-picker.js')","window.loadSiteScript('/color-picker.js?v="+version('color-picker.js')+"')");
 writeFileSync(resolve(target,'catalog-loader.js'),loader);
 let html=readFileSync(resolve(accepted,'preview.html'),'utf8');
 const navigation=html.match(/<nav aria-label="Primary">([\s\S]*?)<\/nav>/)?.[1];

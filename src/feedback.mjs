@@ -1,4 +1,4 @@
-import {statement} from './learning-study.mjs';
+import {statement, StudyError} from './learning-study.mjs';
 
 const CREATE_FEEDBACK_TABLE = `CREATE TABLE IF NOT EXISTS user_feedback (
   id TEXT PRIMARY KEY,
@@ -12,7 +12,8 @@ const CREATE_FEEDBACK_TABLE = `CREATE TABLE IF NOT EXISTS user_feedback (
   device_info TEXT NOT NULL DEFAULT '{}',
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   resolved INTEGER NOT NULL DEFAULT 0,
-  resolved_at INTEGER DEFAULT 0
+  resolved_at INTEGER DEFAULT 0,
+  attachments_json TEXT DEFAULT '[]'
 )`;
 
 let ready = false;
@@ -22,20 +23,42 @@ export async function ensureFeedbackStore(db) {
     statement(CREATE_FEEDBACK_TABLE),
     statement('CREATE INDEX IF NOT EXISTS idx_user_feedback_status ON user_feedback(resolved, created_at DESC)')
   ]);
+  try {
+    const info = await db.read('PRAGMA table_info(user_feedback)');
+    const cols = new Set(info.map(c => c.name));
+    if (!cols.has('attachments_json')) {
+      await db.atomic([statement("ALTER TABLE user_feedback ADD COLUMN attachments_json TEXT DEFAULT '[]'")]);
+    }
+  } catch {}
   ready = true;
 }
 
 const feedbackRateLimits = new Map();
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_MAX_REQUESTS = 1; // 1 request per hour
+export const DEFAULT_ROLE_FEEDBACK_LIMITS = {
+  DEVELOPER: 20,
+  ADMIN: 10,
+  USER: 5,
+  guest: 1
+};
+export const DEFAULT_BREADCRUMBS_LIMIT = 10;
+export const MAX_ATTACHMENTS_TOTAL_BYTES = 25 * 1024 * 1024; // 25 MiB
 
-export function checkFeedbackRateLimit(clientKey, nowMs = Date.now()) {
+export function defaultFeedbackLimitForRole(role) {
+  if (role === 'DEVELOPER') return 20;
+  if (role === 'ADMIN') return 10;
+  if (role === 'USER') return 5;
+  return 1;
+}
+
+export function checkFeedbackRateLimit(clientKey, nowMs = Date.now(), maxRequests = 1) {
   const key = String(clientKey || 'unknown').trim();
+  const limit = Math.max(1, Number(maxRequests) || 1);
   const times = (feedbackRateLimits.get(key) || []).filter(t => nowMs - t < RATE_LIMIT_WINDOW_MS);
-  if (times.length >= RATE_LIMIT_MAX_REQUESTS) {
+  if (times.length >= limit) {
     const oldest = times[0];
     const retryAfterSec = Math.max(1, Math.ceil((oldest + RATE_LIMIT_WINDOW_MS - nowMs) / 1000));
-    return { ok: false, retryAfterSec };
+    return { ok: false, retryAfterSec, limit };
   }
   times.push(nowMs);
   feedbackRateLimits.set(key, times);
@@ -47,7 +70,99 @@ export function checkFeedbackRateLimit(clientKey, nowMs = Date.now()) {
       else feedbackRateLimits.set(k, active);
     }
   }
-  return { ok: true, remaining: RATE_LIMIT_MAX_REQUESTS - times.length };
+  return { ok: true, remaining: limit - times.length, limit };
+}
+
+export async function getUserFeedbackLimit(db, userId) {
+  if (!db || !userId) return null;
+  try {
+    const rows = await db.read("SELECT value_json FROM catalog_documents WHERE namespace='feedback-user-limits' AND key=?", [String(userId)]);
+    if (!rows.length) return null;
+    const parsed = JSON.parse(rows[0].value_json);
+    const limit = Number(parsed?.limit);
+    return Number.isSafeInteger(limit) && limit >= 0 ? limit : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setUserFeedbackLimit(db, userId, limit) {
+  if (!db || !userId) return false;
+  const id = String(userId).trim();
+  if (limit === null || limit === undefined || limit === '') {
+    await db.atomic([
+      statement("DELETE FROM catalog_documents WHERE namespace='feedback-user-limits' AND key=?", [id])
+    ]);
+    return true;
+  }
+  const num = Math.max(0, Math.min(1000, Number(limit) || 0));
+  await db.atomic([
+    statement("INSERT INTO catalog_documents(namespace, key, value_json) VALUES('feedback-user-limits', ?, ?) ON CONFLICT(namespace, key) DO UPDATE SET value_json=excluded.value_json", [id, JSON.stringify({ limit: num, updatedAt: Date.now() })])
+  ]);
+  return true;
+}
+
+export async function listUserFeedbackLimits(db) {
+  if (!db) return {};
+  try {
+    const rows = await db.read("SELECT key, value_json FROM catalog_documents WHERE namespace='feedback-user-limits'");
+    const result = {};
+    for (const r of rows) {
+      try {
+        const parsed = JSON.parse(r.value_json);
+        if (typeof parsed?.limit === 'number') result[r.key] = parsed.limit;
+      } catch {}
+    }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+export async function getFeedbackBreadcrumbsLimit(db) {
+  if (!db) return DEFAULT_BREADCRUMBS_LIMIT;
+  try {
+    const rows = await db.read("SELECT value_json FROM catalog_documents WHERE namespace='feedback-settings' AND key='breadcrumbs_limit'");
+    if (!rows.length) return DEFAULT_BREADCRUMBS_LIMIT;
+    const parsed = JSON.parse(rows[0].value_json);
+    const val = Number(parsed?.limit);
+    return Number.isSafeInteger(val) && val >= 0 && val <= 100 ? val : DEFAULT_BREADCRUMBS_LIMIT;
+  } catch {
+    return DEFAULT_BREADCRUMBS_LIMIT;
+  }
+}
+
+export async function setFeedbackBreadcrumbsLimit(db, limit) {
+  if (!db) return false;
+  const val = Math.max(0, Math.min(100, Math.round(Number(limit) ?? DEFAULT_BREADCRUMBS_LIMIT)));
+  await db.atomic([
+    statement("INSERT INTO catalog_documents(namespace, key, value_json) VALUES('feedback-settings', 'breadcrumbs_limit', ?) ON CONFLICT(namespace, key) DO UPDATE SET value_json=excluded.value_json", [JSON.stringify({ limit: val, updatedAt: Date.now() })])
+  ]);
+  return val;
+}
+
+export function sortAttachmentsByType(attachments) {
+  if (!Array.isArray(attachments)) return [];
+  const typePriority = mime => {
+    const m = String(mime || '').toLowerCase();
+    if (m.startsWith('image/')) return 1;
+    if (m.startsWith('video/')) return 2;
+    if (m.startsWith('audio/')) return 3;
+    if (m.includes('pdf')) return 4;
+    if (m.includes('text') || m.includes('json') || m.includes('log') || m.includes('csv')) return 5;
+    if (m.includes('zip') || m.includes('tar') || m.includes('gzip') || m.includes('compressed')) return 6;
+    return 7;
+  };
+  return attachments.slice().sort((a, b) => {
+    const pA = typePriority(a.mime || a.type);
+    const pB = typePriority(b.mime || b.type);
+    if (pA !== pB) return pA - pB;
+    const tA = String(a.mime || a.type || '');
+    const tB = String(b.mime || b.type || '');
+    const mimeComp = tA.localeCompare(tB);
+    if (mimeComp !== 0) return mimeComp;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
 }
 
 export function resetFeedbackRateLimitsForTests() {
@@ -63,9 +178,11 @@ export async function saveFeedback(db, {
   category = 'bug',
   message = '',
   screenshot = '',
+  attachments = [],
   user = null,
   contact = '',
-  context = {}
+  context = {},
+  breadcrumbsLimit = null
 }) {
   await ensureFeedbackStore(db);
   const id = 'fb_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
@@ -93,12 +210,50 @@ export async function saveFeedback(db, {
     } catch {}
   }
   const url = cleanUrl;
-  const rawBreadcrumbs = Array.isArray(context?.breadcrumbs) ? context.breadcrumbs.slice(-10) : [];
+
+  const targetBreadcrumbsLimit = Number.isSafeInteger(breadcrumbsLimit) && breadcrumbsLimit >= 0
+    ? breadcrumbsLimit
+    : await getFeedbackBreadcrumbsLimit(db);
+
+  const rawBreadcrumbs = Array.isArray(context?.breadcrumbs)
+    ? (targetBreadcrumbsLimit === 0 ? [] : context.breadcrumbs.slice(-targetBreadcrumbsLimit))
+    : [];
   const cleanBreadcrumbs = rawBreadcrumbs.map(b => ({
     ago: String(b?.ago || '').slice(0, 30),
     action: String(b?.action || '').slice(0, 50),
     details: String(b?.details || '').slice(0, 120)
   }));
+
+  const rawAttachments = Array.isArray(attachments) ? attachments : [];
+  let totalAttachmentBytes = 0;
+  const validatedAttachments = [];
+  for (const item of rawAttachments) {
+    if (!item || typeof item !== 'object') continue;
+    const name = String(item.name || 'attachment').slice(0, 150);
+    const mime = String(item.mime || item.type || 'application/octet-stream').slice(0, 100);
+    const size = Math.max(0, Number(item.size || item.bytes) || 0);
+    totalAttachmentBytes += size;
+    const fileId = String(item.id || item.key || crypto.randomUUID());
+    const storageKey = String(item.storageKey || item.key || '');
+    const dataUrl = typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:') && item.dataUrl.length < 2_000_000
+      ? item.dataUrl
+      : '';
+    validatedAttachments.push({
+      id: fileId,
+      name,
+      mime,
+      size,
+      storageKey,
+      ...(dataUrl ? { dataUrl } : {})
+    });
+  }
+
+  if (totalAttachmentBytes > MAX_ATTACHMENTS_TOTAL_BYTES) {
+    throw new StudyError(413, 'Total attachments size exceeds 25 MiB.');
+  }
+
+  const sortedAttachments = sortAttachmentsByType(validatedAttachments);
+
   const deviceInfo = JSON.stringify({
     viewport: context?.viewport || null,
     userAgent: String(context?.userAgent || '').slice(0, 300),
@@ -108,9 +263,21 @@ export async function saveFeedback(db, {
 
   await db.atomic([
     statement(
-      `INSERT INTO user_feedback(id, category, message, screenshot_data, user_id, user_login, user_email, url, device_info, created_at, resolved, resolved_at)
-       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)`,
-      [id, cleanCategory, cleanMessage, cleanScreenshot, userId, userLogin, userEmail, url, deviceInfo, now]
+      `INSERT INTO user_feedback(id, category, message, screenshot_data, user_id, user_login, user_email, url, device_info, created_at, resolved, resolved_at, attachments_json)
+       VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)`,
+      [
+        id,
+        cleanCategory,
+        cleanMessage,
+        cleanScreenshot,
+        userId,
+        userLogin,
+        userEmail,
+        url,
+        deviceInfo,
+        now,
+        JSON.stringify(sortedAttachments)
+      ]
     )
   ]);
 
@@ -119,6 +286,7 @@ export async function saveFeedback(db, {
     category: cleanCategory,
     message: cleanMessage,
     hasScreenshot: Boolean(cleanScreenshot),
+    attachments: sortedAttachments,
     userLogin,
     userEmail,
     url,
@@ -130,7 +298,7 @@ export async function saveFeedback(db, {
 export async function listFeedback(db, {resolved = 0, limit = 50, offset = 0} = {}) {
   await ensureFeedbackStore(db);
   const rows = await db.read(
-    `SELECT id, category, message, screenshot_data, user_id, user_login, user_email, url, device_info, created_at, resolved, resolved_at
+    `SELECT id, category, message, screenshot_data, user_id, user_login, user_email, url, device_info, created_at, resolved, resolved_at, COALESCE(attachments_json, '[]') AS attachments_json
      FROM user_feedback
      WHERE resolved = ?
      ORDER BY created_at DESC
@@ -138,21 +306,36 @@ export async function listFeedback(db, {resolved = 0, limit = 50, offset = 0} = 
     [Number(resolved) ? 1 : 0, Math.min(100, Math.max(1, Number(limit) || 50)), Math.max(0, Number(offset) || 0)]
   );
 
-  return rows.map(r => ({
-    id: r.id,
-    category: r.category,
-    message: r.message,
-    hasScreenshot: Boolean(r.screenshot_data),
-    screenshot: r.screenshot_data || '',
-    userId: r.user_id,
-    userLogin: r.user_login,
-    userEmail: r.user_email,
-    url: r.url,
-    deviceInfo: safeJsonParse(r.device_info, {}),
-    createdAt: r.created_at,
-    resolved: Boolean(r.resolved),
-    resolvedAt: r.resolved_at || null
-  }));
+  return rows.map(r => {
+    let parsedAttachments = [];
+    try { parsedAttachments = JSON.parse(r.attachments_json || '[]'); } catch { parsedAttachments = []; }
+    if (!parsedAttachments.length && r.screenshot_data) {
+      parsedAttachments = [{
+        id: 'screenshot',
+        name: 'screenshot.png',
+        mime: 'image/png',
+        size: Math.round(r.screenshot_data.length * 0.75),
+        dataUrl: r.screenshot_data,
+        isScreenshot: true
+      }];
+    }
+    return {
+      id: r.id,
+      category: r.category,
+      message: r.message,
+      hasScreenshot: Boolean(r.screenshot_data),
+      screenshot: r.screenshot_data || '',
+      attachments: sortAttachmentsByType(parsedAttachments),
+      userId: r.user_id,
+      userLogin: r.user_login,
+      userEmail: r.user_email,
+      url: r.url,
+      deviceInfo: safeJsonParse(r.device_info, {}),
+      createdAt: r.created_at,
+      resolved: Boolean(r.resolved),
+      resolvedAt: r.resolved_at || null
+    };
+  });
 }
 
 export async function countFeedback(db) {

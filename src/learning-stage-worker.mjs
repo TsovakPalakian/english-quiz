@@ -157,15 +157,16 @@ export default {async fetch(request,env){
       ||method==='HEAD'&&path==='/api/speakout/media'
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
-    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.svg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js'];
-    const publicAsset=publicPaths.includes(path)||['/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css'].includes(path)||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
+    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.svg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js','/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css'];
+    const publicAsset=publicPaths.includes(path)||path.startsWith('/notification-audio/')||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
     if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
-    const db=studyClient(env);
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
     if(method==='GET'&&publicAsset){
-      const viewer=(catalogPage||catalogCard||catalogCards||banks[path])&&(request.headers.has('cookie')||request.headers.has('authorization'))?await auth.current(request):null;
+      const dbNeeded=!!(catalogPage||catalogCard||catalogCards||banks[path]);
+      const db=dbNeeded?studyClient(env):null;
+      const viewer=dbNeeded&&(request.headers.has('cookie')||request.headers.has('authorization'))?await auth.current(request):null;
       const catalogJson=async value=>{const projected=await projectStudentCatalog(db,viewer,value);if(projected===null)throw new StudyError(404,'Card not found.');return json(projected);};
       if(catalogPage){
         const params=url.searchParams;
@@ -200,6 +201,7 @@ export default {async fetch(request,env){
       headers.set('Content-Security-Policy',stageContentPolicy);
       return new Response(response.body,{status:response.status,headers});
     }
+    const db=studyClient(env);
     // All non-public content requires a live, owner-bound test session.
     const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
     if((write||speakoutWrite)&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');

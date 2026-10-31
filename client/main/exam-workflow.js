@@ -31,7 +31,7 @@ lmPreviewBlock=function(part){
   if(part.type==='rule'&&part.ruleSnapshot)return lmClean(part.ruleSnapshot);
   if(part.type==='task'&&!part.contentGroup&&materialModel().examChildren(lmState.blocks,part).length)return '<p>'+esc(part.text||'')+'</p>';
   if(part.type==='text'&&part.answerEnabled&&canEditLessons())return '<div class="exam-model-answer"><strong>Answer:</strong><div>'+lmClean(part.teacherAnswer||part.html||'')+'</div></div>';
-  if(part.type==='quiz')return window.MaterialQuiz.render(part,{exam:true,locked:canEditLessons()||canTuneStudentLessons()||lmState.studentSaved||!lmState.assessmentReady});
+  if(part.type==='quiz')return window.MaterialQuiz?.render ? window.MaterialQuiz.render(part,{exam:true,locked:canEditLessons()||canTuneStudentLessons()||lmState.studentSaved||!lmState.assessmentReady}) : '<div class="material-quiz-loading">Loading quiz…</div>';
   return examPreviewBlockOriginal(part);
 };
 lmPreviewParts=function(parts){

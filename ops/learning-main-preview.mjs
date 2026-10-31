@@ -111,7 +111,7 @@ export function mainPreview(source,hooks){
   insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.LearningMain.unsupported("Добавление личных карточек");');
   insert('    async function saveWord(place, input, status, button, openCard) {','      if(place==="classify")return stageAddLibraryPhrase(input,status,button);return stageSaveWord(place,input,status,button,openCard);');
   insert('    function resumePlace() {','      try{stageRestoreSession();}catch(e){}');
-  let upgrades=readFileSync(new URL('../staging/material-upgrades.js',import.meta.url),'utf8');
+  let upgrades=readFileSync(new URL('../client/main/material-upgrades.js',import.meta.url),'utf8');
   if(/\b(?:let|const|var)\s+materialReviewStudent\b/.test(source)){
     upgrades=upgrades.replace(/^var materialReviewStudent=null;\r?\n/m,'');
   }

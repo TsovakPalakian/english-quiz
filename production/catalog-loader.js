@@ -154,12 +154,34 @@
   };
   // Replaced by production builder with versioned URLs.
   window.ensureChatIcons=()=>window.loadSiteScript('/chat-icons.js');
+  let messagesJob=null;
   window.ensureMessages=()=>{
     if(window.MessagesReady)return Promise.resolve();
-    return window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js')).then(()=>{window.MessagesReady=true;});
+    if(messagesJob)return messagesJob;
+    messagesJob=window.ensureChatIcons().then(()=>window.loadSiteScript('/messages.js')).then(()=>{
+      window.MessagesReady=true;
+      try{window.dispatchEvent(new CustomEvent('messagesready'));}catch{}
+    }).finally(()=>{if(!window.MessagesReady)messagesJob=null;});
+    return messagesJob;
   };
-  window.ensureMaterialQuiz=()=>window.loadSiteScript('/material-quiz.js');
-  window.ensureColorPicker=()=>window.loadSiteScript('/color-picker.js');
+  let materialQuizJob=null;
+  window.ensureMaterialQuiz=()=>{
+    if(window.MaterialQuiz)return Promise.resolve();
+    if(materialQuizJob)return materialQuizJob;
+    materialQuizJob=window.loadSiteScript('/material-quiz.js').then(()=>{
+      try{window.dispatchEvent(new CustomEvent('materialquizready'));}catch{}
+    }).finally(()=>{if(!window.MaterialQuiz)materialQuizJob=null;});
+    return materialQuizJob;
+  };
+  let colorPickerJob=null;
+  window.ensureColorPicker=()=>{
+    if(window.ColorPicker)return Promise.resolve();
+    if(colorPickerJob)return colorPickerJob;
+    colorPickerJob=window.loadSiteScript('/color-picker.js').then(()=>{
+      try{window.dispatchEvent(new CustomEvent('colorpickerready'));}catch{}
+    }).finally(()=>{if(!window.ColorPicker)colorPickerJob=null;});
+    return colorPickerJob;
+  };
   document.addEventListener('click',(event)=>{
     const open=event.target.closest?.('[data-jump="messages"],[data-msg-open],[data-user-settings]');
     if(!open||window.MessagesReady)return;

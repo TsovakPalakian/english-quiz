@@ -109,7 +109,7 @@
   function preview(block){
     const source=media(block);
     if(block.contentGroup)return '';
-    if(block.type==='quiz')return window.MaterialQuiz.render(block,{values:answers[block.id]||{},exam:false});
+    if(block.type==='quiz')return window.MaterialQuiz?.render ? window.MaterialQuiz.render(block,{values:answers[block.id]||{},exam:false}) : '<div class="material-quiz-loading">Loading quiz…</div>';
     if(block.type==='text')return '<div style="'+escape(textStyle(block))+'">'+clean(block.html)+'</div>'+(block.answerEnabled?'<label>Answer<textarea data-se-answer aria-label="Your answer">'+escape(answers[block.id]||'')+'</textarea></label>':'');
     if(block.type==='image')return source?'<img src="'+escape(source)+'" alt="'+escape(block.caption||'')+'" loading="lazy">':'';
     if(['audio','pronunciation'].includes(block.type))return '<p>'+escape(block.word||block.title||'')+' '+escape(block.ipa||'')+'</p>'+(source?'<audio controls src="'+escape(source)+'"></audio>':'');
@@ -217,7 +217,7 @@
     if(button.id==='seAdd'){$('sePicker').hidden=!$('sePicker').hidden;return;}
     if(button.hasAttribute('data-se-quiz-menu')){const list=$('sePicker').querySelector('[data-se-quiz-types]');list.hidden=!list.hidden;return;}
     if(button.hasAttribute('data-se-content-group'))doc.blocks.push({id:crypto.randomUUID(),assignmentId:'a-'+crypto.randomUUID(),type:'task',contentGroup:true,tab,title:'Content group'});
-    else if(button.dataset.seAdd){const type=button.dataset.seAdd==='answer'?'text':button.dataset.seAdd,kind=button.dataset.seQuiz||'Choice';doc.blocks.push({id:crypto.randomUUID(),type,tab,title:type==='cards'?'Vocabulary':type==='quiz'?kind:'',html:'',text:'',items:type==='quiz'?[window.MaterialQuiz.blank(kind)]:type==='cards'?[{front:'',back:'',example:''}]:[],lines:[],columns:['Column 1','Column 2'],rows:[],quizType:kind});}
+    else if(button.dataset.seAdd){const type=button.dataset.seAdd==='answer'?'text':button.dataset.seAdd,kind=button.dataset.seQuiz||'Choice';doc.blocks.push({id:crypto.randomUUID(),type,tab,title:type==='cards'?'Vocabulary':type==='quiz'?kind:'',html:'',text:'',items:type==='quiz'?(window.MaterialQuiz?.blank ? [window.MaterialQuiz.blank(kind)] : [{options:[]}]):type==='cards'?[{front:'',back:'',example:''}]:[],lines:[],columns:['Column 1','Column 2'],rows:[],quizType:kind});}
     if(button.hasAttribute('data-se-answer-block')){const block=doc.blocks.at(-1);block.answerEnabled=true;block.title='Answer';}
     else if(block){
       if(button.hasAttribute('data-se-menu')){const pop=button.closest('[data-se-block]').querySelector('[data-se-pop]');pop.hidden=!pop.hidden;return;}
@@ -226,7 +226,7 @@
       if(button.hasAttribute('data-se-detach')){if(!confirm('Remove this attachment from Speakout?'))return;for(const key of ['localMediaKey','name','fileType','hasFile','fileId','size'])delete block[key];}
       if(button.hasAttribute('data-se-delete')){if(!confirm('Remove this Speakout block?'))return;doc.blocks=doc.blocks.filter(item=>item!==block);for(const item of doc.blocks)if(item.assignmentKey===(block.assignmentId||block.id))item.assignmentKey='';}
       if(button.dataset.seMove){const index=doc.blocks.indexOf(block),next=index+Number(button.dataset.seMove);if(next>=0&&next<doc.blocks.length)[doc.blocks[index],doc.blocks[next]]=[doc.blocks[next],doc.blocks[index]];}
-      if(button.hasAttribute('data-se-add-item'))block[block.type==='dialogue'?'lines':'items'].push(block.type==='quiz'?window.MaterialQuiz.blank(block.quizType):{options:[]});
+      if(button.hasAttribute('data-se-add-item'))block[block.type==='dialogue'?'lines':'items'].push(block.type==='quiz'?(window.MaterialQuiz?.blank ? window.MaterialQuiz.blank(block.quizType) : {options:[]}):{options:[]});
       if(button.hasAttribute('data-se-option-add')){block.items[Number(button.closest('[data-se-item]').dataset.seItem)].options.push('');}
       if(button.hasAttribute('data-se-option-remove')){const item=block.items[Number(button.closest('[data-se-item]').dataset.seItem)],oi=Number(button.dataset.seOptionRemove);if(item.options.length>2){item.options.splice(oi,1);if(item.answers)item.answers=item.answers.filter(i=>i!==oi).map(i=>i>oi?i-1:i);if(item.answer!=null)item.answer=Number(item.answer)===oi?0:Number(item.answer)>oi?Number(item.answer)-1:item.answer;}}
       if(button.dataset.seRemoveItem!==undefined)block[block.type==='dialogue'?'lines':'items'].splice(Number(button.dataset.seRemoveItem),1);

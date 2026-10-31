@@ -1,7 +1,7 @@
     let screenAssetGeneration = 0;
     function deferScreenAssets(id) {
       const generation = ++screenAssetGeneration;
-      if (!['material', 'days', 'exam', 'exams', 'examblocks', 'setup', 'speak', 'speaklesson', 'lyricadd', 'textedit'].includes(id)) return false;
+      if (!['material', 'days', 'exam', 'examblocks', 'setup', 'speak', 'speaklesson', 'lyricadd', 'textedit'].includes(id)) return false;
       const jobs = [];
       if (!window.MaterialQuiz && window.ensureMaterialQuiz) jobs.push(window.ensureMaterialQuiz());
       if (!window.ColorPicker && window.ensureColorPicker) jobs.push(window.ensureColorPicker());
