@@ -447,15 +447,19 @@
         html += '<label class="admin-form-field saas-form-group is-full"><span class="field-label saas-label">Email Address</span><input data-profile-email class="saas-input" type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
 
         // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
-        html += '<div class="admin-form-field saas-form-group account-group-row">';
+        html += '<div class="admin-form-field saas-form-group account-group-row is-full">';
+        html += '<div class="account-group-controls">';
         html += '<label><span class="field-label saas-label">Assigned Group</span>';
-        html += '<select class="saas-select" data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '">' + adminGroupOptions(assignedGroupId) + '</select>';
+        html += '<select class="saas-select" data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '"' + (!adminGroups.length ? ' disabled' : '') + '>' + adminGroupOptions(assignedGroupId) + '</select>';
         html += '</label>';
         html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
+        html += '<p class="hint account-group-hint">' + (adminGroups.length ? 'Choose a group, then click Reassign.' : 'No groups available to assign.') + '</p>';
+        html += '</div>';
 
         // Role field
-        html += '<div class="admin-form-field saas-form-group">';
+        html += '<div class="admin-form-field saas-form-group account-role-row is-full">';
+        html += '<div class="account-role-controls">';
         html += '<label><span class="field-label saas-label">System Role</span>';
         html += '<select class="saas-select" data-role-pick' + (!isDeveloper() ? ' disabled' : '') + '>';
         html += '<option value="USER"' + (user.role === 'USER' ? ' selected' : '') + '>Student</option>';
@@ -465,7 +469,7 @@
         if (isDeveloper()) {
           html += '<div class="account-role-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="set-role" data-id="' + esc(user.id) + '">Save role</button></div>';
         }
-        html += '</div>';
+        html += '</div></div>';
 
         html += '</div>'; // end admin-form-grid saas-form-grid
 
