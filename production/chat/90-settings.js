@@ -725,7 +725,7 @@
       pane.querySelector('[data-settings-password]')?.addEventListener('click', () => {
         const slot = pane.querySelector('[data-settings-password-slot]');
         slot.innerHTML =
-          '<form id="ownPasswordForm"><label>Current password<input name="current" type="password" autocomplete="current-password" required></label><label>New password<input name="password" type="password" minlength="8" maxlength="32" autocomplete="new-password" required></label><label>Repeat password<input name="repeat" type="password" minlength="8" maxlength="32" autocomplete="new-password" required></label><p data-form-status role="status"></p><button class="btn primary" type="submit">Save password</button></form>';
+          '<form id="ownPasswordForm"><label>Current password<input name="current" type="password" autocomplete="current-password" required></label><label>New password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><label>Repeat password<input name="repeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p data-form-status role="status"></p><button class="btn primary" type="submit">Save password</button></form>';
       });
       pane.querySelectorAll('[data-pref]').forEach(
         (input) =>

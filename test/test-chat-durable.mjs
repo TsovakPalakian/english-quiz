@@ -302,7 +302,7 @@ for(const encrypted of [false,true])test('Academic bridge imports once, retains 
   const f=fixture(journal);try{
     if(encrypted){f.env.CHAT_ENCRYPTION_KEY=btoa('k'.repeat(32));bindChatEncryption(journal,f.env);}
     const {env,alice,bob,teacher}=f,legacy=new MessageService(journal,async()=>[alice,bob,teacher]);await legacy.ensure();
-    sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('alice',1,'teacher'),('bob',1,'teacher');INSERT INTO exams(id,title,published) VALUES(1,'Bridge exam',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(1,1,0,'Block',1)");
+    sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('alice',1,'teacher'),('bob',1,'teacher');INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','1','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');INSERT INTO exams(id,title,published) VALUES(1,'Bridge exam',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(1,1,0,'Block',1)");
     sqlite.prepare("INSERT INTO exam_materials(id,exam_id,block_id,position,type,content_json) VALUES(1,1,1,0,'task',?)").run(JSON.stringify({type:'task',title:'Answer',text:'Explain',maxPoints:2,scoringVersion:2}));
     const {roomId}=await legacy.open(alice,{kind:'direct',accountId:'bob'}),sent=await legacy.send(alice,{roomId,category:'personal',text:'Colored legacy',format:{runs:[{text:'Colored legacy',marks:{color:'#ff0000'}}]},clientKey:'legacy-color'});
     await legacy.send(bob,{roomId,category:'personal',text:'Reply',replyTo:sent.id,clientKey:'legacy-reply'});await legacy.read(bob,{roomId,category:'personal',through:sent.id});
@@ -406,7 +406,7 @@ test('Link previews reject unsafe targets, use cached URL cards and never fetch 
   const result=await chatLinkPreview('https://example.com/path','https://fixture.example',()=>{calls++;},cache);assert.equal(result.title,'example.com');assert.equal(result.description,'/path');assert.equal(calls,0);assert.deepEqual(await chatLinkPreview(result.url,'https://fixture.example',()=>{throw new Error('Unexpected network request.');},cache),result);
 });
 test('Discovery excludes outside-group users and is rate limited; legacy outside-group rooms require consent',async()=>{
-  const journal={readMany:async()=>[[{id:1,title:'A1'},{id:2,title:'B1'}],[{account_id:'alice',group_id:1},{account_id:'bob',group_id:2}]]},f=fixture(journal);
+  const journal={readMany:async()=>[[{id:1,title:'A1'},{id:2,title:'B1'}],[{account_id:'alice',group_id:1},{account_id:'bob',group_id:2}],[{key:'1',value_json:JSON.stringify({revision:1,teacherIds:['teacher']})}]]},f=fixture(journal);
   try{
     const {env,alice,bob,teacher}=f;env.DB={prepare:()=>({all:async()=>({results:[{...alice,login:'alice',email:'alice@example.com',active:1},{...bob,login:'bob',email:'bob@example.com',active:1},{...teacher,active:1}]})})};
     const bridge=env.CHAT_BRIDGE.get('global');bridge.set('journalVersion',1);await bridge.policy();await f.drain();

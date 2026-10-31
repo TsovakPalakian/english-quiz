@@ -425,7 +425,7 @@
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       const tabs='<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
-      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="32" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–32 characters</p>':'');
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="128" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–128 characters</p>':'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
       const authDivider='<div class="auth-divider"><span>OR CONTINUE WITH</span></div>';
       const microsoft='<button class="btn auth-google saas-btn" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
@@ -548,8 +548,8 @@
       slot.hidden = false;
       slot.innerHTML = '<form id="ownPasswordForm"><p class="hint">The new password is saved immediately.</p>' +
         '<p class="label">Current password</p><input name="current" type="password" autocomplete="current-password" required />' +
-        '<p class="label">New password</p><input name="password" type="password" minlength="8" maxlength="32" autocomplete="new-password" placeholder="8 to 32 characters" required />' +
-        '<p class="label">Repeat new password</p><input name="repeat" type="password" minlength="8" maxlength="32" autocomplete="new-password" required />' +
+        '<p class="label">New password</p><input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="8 to 128 characters" required />' +
+        '<p class="label">Repeat new password</p><input name="repeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />' +
         '<p class="hint" data-form-status></p><button class="btn primary" type="submit">Save password</button></form>';
     }
     const guestLogo = document.querySelector('.guest-brand');

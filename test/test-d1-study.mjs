@@ -191,7 +191,7 @@ test('exam save, generated IDs, archive schema and group seeding work unchanged 
   const exam=await exams.save(teacher,{exam:{title:'D1 exam',blocks:[{title:'Part one',published:false,materials:[{type:'text',text:'Instructions',tab:'overview'}]}]}});
   assert.ok(exam.id>0);
   assert.equal((await curriculum.read('SELECT count(*) AS n FROM exam_materials WHERE exam_id=?',[exam.id]))[0].n,1);
-  const groups=await new GroupService(curriculum).list(teacher);assert.ok(groups.length>=9);
+  const groups=await new GroupService(curriculum).list({id:'dev',role:'DEVELOPER'});assert.ok(groups.length>=9);
   assert.deepEqual(await curriculum.read("SELECT name FROM sqlite_master WHERE name LIKE '_study_batch_%'"),[]);
 });
 test('existing learning-message outbox trigger and runtime schema upgrades work on D1',async()=>{

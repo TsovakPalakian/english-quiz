@@ -299,7 +299,10 @@ test('Approve stays successful when group assignment fails after the account is 
         if(String(sql).includes('pendingRegistrationId'))return [];
         if(String(sql).includes('PRAGMA'))return [{name:'id'},{name:'title'},{name:'lesson_date'},{name:'hidden_from_students'}];
         if(String(sql).includes('class_group_setup')&&String(sql).includes('COUNT'))return [{setup:2,has_groups:1,blank_dates:0,loose_lessons:0}];
+        if(String(sql).includes('accounts-group-teachers'))return [{key:'7',value_json:JSON.stringify({revision:1,teacherIds:[id]})}];
+        if(String(sql).includes('class_group_students')&&String(sql).includes('account_id'))return [];
         if(String(sql).includes('FROM class_groups'))return [{id:7,title:'A1',deleted_at:null,revision:1}];
+        if(String(sql).includes('sqlite_master')&&String(sql).includes('exam_instances'))return [];
         return [{role:'USER'}];
       },
     }),

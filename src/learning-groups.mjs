@@ -3,6 +3,7 @@ import {materialVisibility} from './learning-visibility.mjs';
 import {ArchiveService} from './learning-archive.mjs';
 import {ensureAccountArchive} from './account-archive.mjs';
 import {normalizedGroupTitle,prefixedExamTitle,groupLevel} from './group-levels.mjs';
+import {teacherGroupIds,teacherMayTeachGroup} from './teacher-group-access.mjs';
 
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 function optionalId(value){if(value==null||value==='')return null;return recordId(value);}
@@ -118,14 +119,22 @@ export class GroupService{
         catch { return [Number(row.key), []]; }
       }));
     }
-    return groups.filter(group=>teacher||!hidden.has('group:'+group.id)).map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,studentCount:Number(studentCounts.find(row=>row.group_id===group.id)?.total||0),
+    let visible=groups.filter(group=>teacher||!hidden.has('group:'+group.id));
+    if(actor.role==='ADMIN'&&!actor.managedStudent){
+      const allowed=new Set(await teacherGroupIds(this.db,actor));
+      visible=visible.filter(group=>allowed.has(Number(group.id)));
+    }
+    return visible.map(group=>({id:group.id,title:group.title,date:group.lesson_date||'',hidden:!!group.hidden_from_students,personalHidden:hidden.has('group:'+group.id),revision:group.revision,studentCount:Number(studentCounts.find(row=>row.group_id===group.id)?.total||0),
       lessonIds:links.filter(link=>link.group_id===group.id).map(link=>link.lesson_id),examIds:exams.filter(link=>link.group_id===group.id).map(link=>link.exam_id),
       teacherIds:assignmentMap.get(group.id)||[]}));
   }
   async members(actor){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
     await ensureAccountArchive(this.db);
-    return this.db.read('SELECT account_id AS accountId,group_id AS groupId FROM class_group_students WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id=class_group_students.account_id)');
+    const rows=await this.db.read('SELECT account_id AS accountId,group_id AS groupId FROM class_group_students WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id=class_group_students.account_id)');
+    if(actor.role==='DEVELOPER')return rows;
+    const allowed=new Set(await teacherGroupIds(this.db,actor));
+    return rows.filter(row=>allowed.has(Number(row.groupId)));
   }
   async activeGroup(id){
     recordId(id);await this.seed();const [group]=await this.db.read('SELECT * FROM class_groups WHERE id=? AND deleted_at IS NULL',[id]);
@@ -135,6 +144,12 @@ export class GroupService{
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');
     if(typeof accountId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(accountId))fail(400,'Invalid student.');
     if(groupId!=null)await this.activeGroup(groupId);else await this.ensure();
+    if(actor.role==='ADMIN'){
+      const [current]=await this.db.read('SELECT group_id FROM class_group_students WHERE account_id=?',[accountId]);
+      if(current?.group_id!=null&&!(await teacherMayTeachGroup(this.db,actor,current.group_id)))fail(403,'You cannot move a student from another teacher\'s group.');
+      if(groupId!=null&&!(await teacherMayTeachGroup(this.db,actor,groupId)))fail(403,'You cannot assign a student to this group.');
+      if(groupId==null&&current?.group_id==null)fail(403,'Student is not in one of your groups.');
+    }
     const transfer=await this.studentExamTransferCommands(accountId,groupId);
     await this.groupTransaction((groupId==null?[stmt('DELETE FROM class_group_students WHERE account_id=?',[accountId])]:[
       stmt("INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND deleted_at IS NULL)",[groupId]),
@@ -174,6 +189,7 @@ export class GroupService{
       }
     }else{
       const group=await this.activeGroup(body.id);
+      if(actor.role==='ADMIN'&&!(await teacherMayTeachGroup(this.db,actor,body.id)))fail(403,'You cannot change another teacher\'s group.');
       if(body.expectedRevision!==group.revision)fail(409,'The group changed. Reload Accounts.');
       if(body.action==='rename'){
         if(typeof body.title!=='string'||!body.title.trim()||body.title.length>120)fail(400,'Enter a group name.');
@@ -219,6 +235,15 @@ export class GroupService{
     }
     const enrolled=await this.db.read('SELECT DISTINCT group_id FROM class_group_students UNION SELECT DISTINCT group_id FROM class_group_exams');
     if(enrolled.some(row=>!groupIds.has(row.group_id)))fail(409,'Reassign students and exams before removing their group.');
+    if(actor.role==='ADMIN'){
+      const owned=new Set(await teacherGroupIds(this.db,actor));
+      const live=await this.db.read('SELECT id FROM class_groups WHERE deleted_at IS NULL');
+      for(const group of groups){
+        const groupId=optionalId(group.id);
+        if(groupId!=null&&!owned.has(groupId))fail(403,'You cannot change another teacher\'s group.');
+      }
+      for(const row of live)if(!groupIds.has(row.id)&&!owned.has(Number(row.id)))fail(403,'You cannot change another teacher\'s group.');
+    }
     const commands=[stmt('DROP TABLE IF EXISTS temp.saved_ids'),stmt('CREATE TEMP TABLE saved_ids(seq INTEGER PRIMARY KEY, id INTEGER NOT NULL)')];
     groups.forEach((group,position)=>{
       const groupId=optionalId(group.id);
@@ -239,6 +264,17 @@ export class GroupService{
     commands.push(stmt('SELECT id FROM saved_ids ORDER BY seq'));
     const results=await this.db.atomic(commands);
     const ids=(results.at(-1)?.rows||[]).map(row=>Number(row[0]?.value));
+    if(actor.id&&(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='catalog_documents'")).length){
+      const assign=[];
+      for(let index=0;index<groups.length;index++){
+        if(optionalId(groups[index].id)!=null)continue;
+        const newId=ids[index];
+        if(!newId)continue;
+        const val=JSON.stringify({revision:1,teacherIds:[actor.id],updatedBy:actor.id,updatedAt:Date.now()});
+        assign.push(stmt("INSERT OR REPLACE INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers',?,?)",[String(newId),val]));
+      }
+      if(assign.length)await this.db.atomic(assign);
+    }
     return {saved:true,ids};
   }
 }

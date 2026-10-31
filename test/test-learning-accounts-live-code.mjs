@@ -451,7 +451,7 @@ test('Accounts uses live account rows rather than stale R2 without N+1 queries o
     assert.ok(!result.value.users.some(row=>row.login==='DeletedDirectly'));
     assert.ok(result.value.users.some(row=>row.login==='Inactive'));
     assert.ok(result.value.users.some(row=>row.login==='Hidden'));
-    assert.equal(f.queries-before,2,'Authentication plus one bounded account list SELECT');
+    assert.equal(f.queries-before,3,'Authentication, account list, and reviewer identity for directory scoping');
     assert.equal((await(await f.env.MEDIA.get('directory/accounts.json')).json()).users.length,directory.users.length);
   }finally{f.close();}
 });
@@ -530,9 +530,9 @@ test('link-preview enforces domain allowlist and rejects SSRF and DNS rebinding 
     assert.equal(meta.status, 400);
 
     // 3. Unlisted external domain does not issue outbound fetch and returns safe placeholder
-    const unlisted = await dev.call('/api/link-preview?url=' + encodeURIComponent('https://untrusted-rebinding.attacker.invalid/foo'));
+    const unlisted = await dev.call('/api/link-preview?url=' + encodeURIComponent('https://untrusted-rebinding.example.com/foo'));
     assert.equal(unlisted.status, 200);
-    assert.equal(unlisted.value.title, 'untrusted-rebinding.attacker.invalid');
+    assert.equal(unlisted.value.title, 'untrusted-rebinding.example.com');
     assert.equal(unlisted.value.description, '');
     assert.equal(unlisted.value.image, '');
   } finally { f.close(); }

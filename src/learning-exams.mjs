@@ -9,6 +9,7 @@ import {assignedExamIds,assignedExamSql} from './learning-exam-access.mjs';
 import {prefixedExamTitle} from './group-levels.mjs';
 import {prepareExamContent} from './exam-content.mjs';
 import {requireExamStarted} from './exam-workflow.mjs';
+import {teacherMayManageStudent} from './teacher-group-access.mjs';
 
 const reviewer = actor => ['ADMIN', 'DEVELOPER'].includes(actor?.role);
 const accountOk = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value);
@@ -302,7 +303,7 @@ export class ExamService {
   async listWork(actor, studentId) {
     signedIn(actor);
     await this.ensure();
-    const account = this.workAccount(actor, studentId);
+    const account = await this.workAccount(actor, studentId);
     const assigned=await assignedExamIds(this.db,account);
     const rows = await this.db.read(`SELECT w.exam_id,w.block_id,w.saved,w.answers_json,w.corrections_json,w.points_json,(SELECT status FROM exam_instances i WHERE i.exam_id=w.exam_id AND i.active=1) instance_status FROM exam_work w
       JOIN exams e ON e.id=w.exam_id JOIN exam_blocks b ON b.id=w.block_id AND b.exam_id=e.id
@@ -323,11 +324,12 @@ export class ExamService {
       state:row.saved?'submitted':'draft',revision:0
     });}));
   }
-  workAccount(actor, studentId) {
+  async workAccount(actor, studentId) {
     const account = studentId && studentId !== actor.id ? studentId : actor.id;
     if (account === actor.id) return account;
     if (!reviewer(actor)) fail(403, 'Only a teacher can open another student.');
     if (!accountOk(account)) fail(400, 'Invalid student.');
+    if (actor.role === 'ADMIN' && !await teacherMayManageStudent(this.db, actor, account)) fail(403, 'You cannot open this student.');
     return account;
   }
   async saveWork(actor, body) {
@@ -340,7 +342,7 @@ export class ExamService {
     const examId = body && body.examId;
     const blockId = body && body.blockId;
     recordId(examId);recordId(blockId);
-    const account = this.workAccount(actor, body.studentId);
+    const account = await this.workAccount(actor, body.studentId);
     const own = account === actor.id;
     const assigned=await assignedExamIds(this.db,account);
     const [block]=await this.db.read(`SELECT b.id FROM exam_blocks b JOIN exams e ON e.id=b.exam_id

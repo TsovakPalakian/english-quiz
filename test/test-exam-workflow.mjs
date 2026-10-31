@@ -13,6 +13,7 @@ import {examRecommendation} from '../src/exam-recommendations.mjs';
 const teacher={id:'teacher',login:'TsovakTeacher',name:'Teacher',role:'ADMIN'},student={id:'student',login:'Somestudent',name:'Student',role:'USER'};
 function fixture(){
   const sqlite=new DatabaseSync(':memory:');applyLearningSchema(sqlite);
+  sqlite.exec("INSERT INTO class_groups(id,title) VALUES(9001,'Default A1'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',9001,'teacher'); INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','9001','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');");
   const args=command=>command.args.map(a=>a.type==='null'?null:['integer','float'].includes(a.type)?Number(a.value):a.value);
   const db={async read(sql,args=[]){return sqlite.prepare(sql).all(...args);},async readMany(commands){return commands.map(command=>sqlite.prepare(command.sql).all(...args(command)));},async atomic(commands){sqlite.exec('BEGIN IMMEDIATE');try{const result=commands.map(command=>{const query=sqlite.prepare(command.sql),rows=query.all(...args(command));return {cols:query.columns().map(c=>({name:c.name})),rows:rows.map(row=>Object.values(row).map(value=>({type:value==null?'null':typeof value==='number'?'integer':'text',value:String(value)})))};});sqlite.exec('COMMIT');return result;}catch(error){sqlite.exec('ROLLBACK');throw error;}}};
   return {sqlite,db};
@@ -52,9 +53,9 @@ test('fresh per-request assessment clients keep submit, review and publish below
     const counts={};let revision=draft.revision;
     for(const action of ['submit','review','publish']){
       let calls=0;const client={};
-      for(const method of ['read','readMany','atomic'])client[method]=(...args)=>{assert.ok(++calls<=40,'Assessment exceeded its 40-subrequest SQL budget');return f.db[method](...args);};
+      for(const method of ['read','readMany','atomic'])client[method]=(...args)=>{assert.ok(++calls<=50,'Assessment exceeded its 50-subrequest SQL budget');return f.db[method](...args);};
       const row=await new AssessmentService(client).write(action==='submit'?student:teacher,{kind:'exam-block',id:block.id,action,expectedRevision:revision,answers,points,...(action==='submit'?{}:{studentId:student.id})});
-      revision=row.revision;counts[action]=calls;assert.ok(calls<=40);
+      revision=row.revision;counts[action]=calls;assert.ok(calls<=50);
     }
     assert.equal(f.sqlite.prepare('SELECT state FROM assessment_work WHERE material_id=?').get(block.id).state,'published');
     console.log('Fresh-request SQL round trips:',JSON.stringify(counts));
@@ -64,7 +65,7 @@ test('Subgroup assignment rejects outsiders, is replay-safe and exposes active w
   const {db,sqlite}=fixture();try{
     const exams=new ExamService(db),messages=new MessageService(db,async()=>[teacher,student,{id:'outside',role:'USER'}]);
     await exams.ensure();await messages.ensure();
-    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Assignment','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher')");
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Assignment','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT OR REPLACE INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher'); INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','99','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');");
     const source=await exams.save(teacher,{exam:{title:'A1 Assignment',groupId:99,published:true,blocks:[{title:'Quiz',published:true,materials:[{type:'quiz',quizType:'Choice',scoringVersion:3,items:[{prompt:'Choose',options:['Yes','No'],answer:0,maxPoints:1}]}]}]}});
     const body={examId:source.id,groupId:99,studentId:student.id,clientKey:'subgroup-assignment'};
     await assert.rejects(messages.assignInSubgroup(student,body),error=>error.status===403);
@@ -79,7 +80,7 @@ test('Whole-subgroup assignment creates copies only for its active students and 
   const {db,sqlite}=fixture();try{
     const exams=new ExamService(db),messages=new MessageService(db,async()=>[teacher,student,{id:'inactive',role:'USER',active:false},{id:'outside',role:'USER'}]);
     await exams.ensure();await messages.ensure();
-    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Assignment','2026-10-15'),(98,'B1 Other','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher'),('inactive',99,'teacher'),('outside',98,'teacher')");
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Assignment','2026-10-15'),(98,'B1 Other','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT OR REPLACE INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher'),('inactive',99,'teacher'),('outside',98,'teacher'); INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','99','{\"revision\":1,\"teacherIds\":[\"teacher\"]}'),('accounts-group-teachers','98','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');");
     const source=await exams.save(teacher,{exam:{title:'A1 Group test',groupId:99,published:true,blocks:[{title:'Task',published:true,materials:[{type:'task',title:'Write',text:'Hello',maxPoints:1}]}]}});
     const body={examId:source.id,groupId:99,targetKind:'group',clientKey:'whole-subgroup'};
     await assert.rejects(messages.assignInSubgroup(teacher,{...body,groupId:98}),error=>error.status===403);
@@ -94,7 +95,7 @@ test('complete demo supports all 16 quiz types, frozen copies, private reference
     const {db,sqlite}=f,exams=new ExamService(db),assessment=new AssessmentService(db),workflow=new ExamWorkflowService(db);
     const directory=async()=>[teacher,student];const messages=new MessageService(db,directory);
     await exams.ensure();await messages.ensure();
-    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Exam Demo','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher')");
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Exam Demo','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT OR REPLACE INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher'); INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','99','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');");
     const before=sqlite.prepare('SELECT * FROM lesson_blocks').all();
     const saved=await exams.save(teacher,{exam:examWorkflowDemo(99)});assert.equal(saved.blocks.length,6);
     const quizzes=saved.blocks.flatMap(block=>block.materials).filter(part=>part.type==='quiz');assert.equal(new Set(quizzes.map(part=>part.quizType)).size,16);
@@ -153,7 +154,7 @@ test('instant auto-publish automatically grades, publishes and completes 100% ob
     const {db,sqlite}=f,exams=new ExamService(db),assessment=new AssessmentService(db),workflow=new ExamWorkflowService(db);
     const messages=new MessageService(db,async()=>[teacher,student]);
     await exams.ensure();await messages.ensure();
-    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Auto Group','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher')");
+    sqlite.exec("INSERT INTO class_groups(id,title,lesson_date) VALUES(99,'A1 Auto Group','2026-10-15'); INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT OR REPLACE INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',99,'teacher'); INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','99','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');");
     const source=await exams.save(teacher,{exam:{title:'A1 Auto-Publish Quiz',groupId:99,published:true,blocks:[{title:'Objective Block',published:true,materials:[{type:'quiz',quizType:'Choice',scoringVersion:3,autoPublish:true,items:[{prompt:'Pick A',options:['A','B'],answer:0,maxPoints:2}]},{type:'text',answerEnabled:true,scoringVersion:3,autoPublish:true,maxPoints:3,html:'correct',checkMode:'exact',allowedAnswers:'correct'}]}]}});
     await messages.assign(teacher,{action:'assign',targetKind:'student',targetId:student.id,examId:source.id,clientKey:'auto-publish-assignment'});
     const [instance]=await db.read('SELECT exam_id FROM exam_instances WHERE source_exam_id=?',[source.id]);

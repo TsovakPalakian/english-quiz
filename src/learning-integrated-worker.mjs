@@ -10,6 +10,7 @@ import {ensurePairedThemes} from './learning-paired-themes.mjs';
 import {VisibilityService} from './learning-visibility.mjs';
 import {GroupService} from './learning-groups.mjs';
 import {AccountGroupTeachers} from './account-group-teachers.mjs';
+import {teacherMayManageStudent,teachersVisibleTo} from './teacher-group-access.mjs';
 import {AccountInvites} from './account-invites.mjs';
 import {GuideVisits} from './guide-visits.mjs';
 import {EmailOtp} from './email-otp.mjs';
@@ -50,7 +51,7 @@ const decoder=new TextDecoder();
 const encoder=new TextEncoder();
 const hex=bytes=>[...new Uint8Array(bytes)].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 async function verifyAccountPassword(db,actor,password){
-  if(typeof password!=='string'||!password||password.length>32)throw new StudyError(401,'Wrong password.');
+  if(typeof password!=='string'||!password||password.length>128)throw new StudyError(401,'Wrong password.');
   const row=await db.prepare('SELECT password_salt,password_hash,password_iterations FROM users WHERE id=?').bind(actor.id).first();
   if(!row||row.password_iterations!==100000||! /^[a-f0-9]{32}$/.test(row.password_salt)||! /^[a-f0-9]{64}$/.test(row.password_hash))throw new StudyError(401,'Wrong password.');
   const salt=Uint8Array.from(row.password_salt.match(/../g),value=>parseInt(value,16));
@@ -449,7 +450,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       if(path==='/api/auth/password/reset'&&method==='POST'){
         if(env.STAGE_WRITES!=='true'||env.ACCOUNT_MUTATIONS_ENABLED!=='true')throw new StudyError(503,'Password recovery is unavailable.');
         let value;try{value=JSON.parse(await boundedText(request,2048,'Recovery request too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid recovery request.');}
-        if(typeof value?.password!=='string'||value.password.length<8||value.password.length>32)throw new StudyError(400,'Password needs 8 to 32 characters.');
+        if(typeof value?.password!=='string'||value.password.length<8||value.password.length>128)throw new StudyError(400,'Password needs 8 to 128 characters.');
         const proof=await new EmailOtp(studyDatabase(env)).consume(value?.email,value?.code);
         if(proof.purpose!=='password-reset')throw new StudyError(403,'Request a password reset code.');
         return resetPasswordForEmail(accountEnv,proof.email,value.password);
@@ -1170,30 +1171,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           const archived=new Set((await db.read('SELECT account_id FROM account_archives')).map(row=>row.account_id));
           const data=await response.json();
           let users=(data.users||[]).filter(row=>!archived.has(row.id));
-          let reviewerPayload=null;
-          try{
-            const match=(request.headers.get('Cookie')||'').match(/(?:^|;\s*)session=([^;]+)/);
-            if(match){
-              const dot=match[1].indexOf('.');
-              if(dot>0){
-                const raw=match[1].slice(0,dot).replace(/-/g,'+').replace(/_/g,'/');
-                reviewerPayload=JSON.parse(atob(raw.padEnd(raw.length+(4-raw.length%4)%4,'=')));
-              }
+          const reviewer=await identify(accountEnv,request);
+          if(reviewer?.role==='ADMIN'){
+            const coTeachers=await teachersVisibleTo(db,reviewer);
+            const scoped=[];
+            for(const user of users){
+              if(user.role==='ADMIN'){if(coTeachers.has(String(user.id)))scoped.push(user);continue;}
+              if(user.role==='USER'){if(await teacherMayManageStudent(db,reviewer,user.id))scoped.push(user);continue;}
             }
-          }catch{}
-          if(reviewerPayload&&reviewerPayload.role==='ADMIN'){
-            const teacherDocs=await db.read("SELECT key,value_json FROM catalog_documents WHERE namespace='accounts-group-teachers'");
-            const coTeacherIds=new Set([reviewerPayload.id]);
-            for(const doc of teacherDocs){
-              try{
-                const val=JSON.parse(doc.value_json);
-                const ids=val.teacherIds||[];
-                if(ids.includes(reviewerPayload.id)){
-                  for(const id of ids)coTeacherIds.add(id);
-                }
-              }catch{}
-            }
-            users=users.filter(user=>user.role!=='ADMIN'||coTeacherIds.has(user.id));
+            users=scoped;
           }
           response=json({...data,users});
         }

@@ -34,6 +34,11 @@ async function assignLegacyExam(f,id,account='student'){
   await new MessageService(f.db,async()=>[]).ensure();
   f.sqlite.prepare('INSERT INTO chat_assignments(id,exam_id,target_kind,target_id) VALUES(?,?,?,?)').run('fixture-assignment-'+id+'-'+account,id,'student',account);
 }
+function seedTeacherStudent(f,teacherId='teacher',studentId='student',groupId=9001){
+  f.sqlite.exec(`INSERT OR IGNORE INTO class_groups(id,title) VALUES(${groupId},'Fixture A1');
+    INSERT OR REPLACE INTO class_group_students(account_id,group_id,assigned_by) VALUES('${studentId}',${groupId},'${teacherId}');
+    INSERT OR REPLACE INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','${groupId}','{"revision":1,"teacherIds":["${teacherId}"]}');`);
+}
 function runInNewContext(code,scope){
   scope.window??={};
   if(scope.document){scope.document.addEventListener??=()=>{};scope.document.scripts??=[];}
@@ -154,6 +159,7 @@ test('Practice exams publish seven visible blocks with forty questions in a supp
 });
 test('Student exam reads omit solution keys and submitted work cannot be changed',async()=>{
   const f=fixture();try{
+    seedTeacherStudent(f);
     const service=new ExamService(f.db);await service.ensure();
     f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Exam',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(20,10,0,'Block',1);");
     const items=[{id:30,type:'quiz',quizType:'Choice',items:[{prompt:'Choose',options:['a','b'],answer:1,hint:'secret',given:'old'}]},
@@ -182,6 +188,7 @@ test('Student exam reads omit solution keys and submitted work cannot be changed
 });
 test('Assessment drafts, locking, rubric bounds, publication, revision conflicts and reopening preserve history',async()=>{
   const f=fixture();try{
+    seedTeacherStudent(f);
     const service=new AssessmentService(f.db),student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'};
     const task={assessed:true,text:'Write a short answer',maxPoints:5,criteria:'Content | 3\nGrammar | 2'};
     f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(10,1,1,'task',?)").run(JSON.stringify(task));
@@ -227,6 +234,7 @@ test('Group rename moves its existing students, lessons and exams without exposi
     const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},other={id:'student2',role:'USER'};
     await service.ensure();await new ExamService(f.db).ensure();
     f.sqlite.exec("INSERT INTO class_group_setup(key) VALUES('levels-v1'),('level-names-v2'); INSERT INTO class_groups(id,title) VALUES(101,'A1 Practice'),(102,'B1 Other'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',101,'teacher'),('student2',102,'teacher'); INSERT INTO class_group_lessons(group_id,lesson_id) VALUES(101,1); INSERT INTO exams(id,title,published) VALUES(111,'A1 Final test',1); INSERT INTO class_group_exams(group_id,exam_id) VALUES(101,111);");
+    f.sqlite.exec("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','101','{\"revision\":1,\"teacherIds\":[\"teacher\"]}'),('accounts-group-teachers','102','{\"revision\":1,\"teacherIds\":[\"other-teacher\"]}');");
     await assignLegacyExam(f,111);
     const revision=(await service.activeGroup(101)).revision;
     await service.manage(teacher,{action:'rename',id:101,expectedRevision:revision,title:'B1 Practice'});
@@ -245,24 +253,26 @@ test('Group rename moves its existing students, lessons and exams without exposi
 });
 test('Group level migration renames in place without changing memberships or lesson/exam links',async()=>{
   const f=fixture();try{
-    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'};
+    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},developer={id:'dev',role:'DEVELOPER'};
     await service.ensure();
     f.sqlite.exec("INSERT INTO class_group_setup(key) VALUES('levels-v1'); INSERT INTO class_groups(id,title) VALUES(101,'Open A1'),(102,'Group B1+'),(103,'Workshop'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',101,'teacher');");
-    const first=await service.list(teacher);
+    f.sqlite.exec("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','101','{\"revision\":1,\"teacherIds\":[\"teacher\"]}'),('accounts-group-teachers','102','{\"revision\":1,\"teacherIds\":[\"teacher\"]}'),('accounts-group-teachers','103','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');");
+    const first=await service.list(developer);
     assert.equal(first.find(g=>g.id===101).title,'A1 Open');
     assert.equal(first.find(g=>g.id===102).title,'B1+ Group');
     assert.equal(first.find(g=>g.id===103).title,'Workshop');
     assert.equal((await service.members(teacher))[0].groupId,101);
-    assert.deepEqual(await service.list(teacher),first,'Migration is idempotent');
+    assert.deepEqual(await service.list(developer),first,'Migration is idempotent');
     const created=await service.manage(teacher,{action:'create',title:'Open A2+'});
     assert.ok(created.groups.some(g=>g.title==='A2+ Open'));
   }finally{f.sqlite.close();}
 });
 test('Accounts groups seed levels once, assign students and exams, reject stale edits and archive only empty groups',async()=>{
   const f=fixture();try{
-    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'};
-    const first=await service.list(teacher);assert.deepEqual(first.map(g=>g.title),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'].map(level=>level+' Group'));
-    assert.equal((await service.list(teacher)).length,9);
+    const service=new GroupService(f.db),teacher={id:'teacher',role:'ADMIN'},student={id:'student',role:'USER'},developer={id:'dev',role:'DEVELOPER'};
+    const first=await service.list(developer);assert.deepEqual(first.map(g=>g.title),['A1','A2','A2+','B1','B1+','B2','B2+','C1','C2'].map(level=>level+' Group'));
+    assert.equal((await service.list(developer)).length,9);
+    assert.equal((await service.list(teacher)).length,0);
     await assert.rejects(service.manage(student,{action:'create',title:'Denied'}),e=>e.status===403);
     const created=await service.manage(teacher,{action:'create',title:'Practice group',date:'2026-10-15'}),group=created.groups.find(g=>g.title==='Practice group');
     assert.equal(group.date,'2026-10-15');assert.equal(group.studentCount,0);
@@ -276,7 +286,9 @@ test('Accounts groups seed levels once, assign students and exams, reject stale 
     current=await service.activeGroup(group.id);await service.manage(teacher,{action:'archive',id:group.id,expectedRevision:current.revision});
     assert.equal((await service.list(teacher)).some(g=>g.id===group.id),false);
     const examService=new ExamService(f.db);await examService.ensure();f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Grouped exam',1)");
-    const level=await service.activeGroup(first[0].id);await service.manage({...teacher,role:'DEVELOPER'},{action:'exam',id:level.id,expectedRevision:level.revision,examId:10});
+    const level=await service.activeGroup(first[0].id);
+    f.sqlite.prepare("INSERT OR REPLACE INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers',?,?)").run(String(level.id),JSON.stringify({revision:1,teacherIds:[teacher.id]}));
+    await service.manage(teacher,{action:'exam',id:level.id,expectedRevision:level.revision,examId:10});
     assert.equal((await examService.list(teacher))[0].groupId,level.id);
     assert.deepEqual((await service.list(teacher)).find(g=>g.id===level.id).examIds,[10]);
     const assigned=await service.activeGroup(level.id);
@@ -285,7 +297,7 @@ test('Accounts groups seed levels once, assign students and exams, reject stale 
     assert.equal((await examService.list(teacher))[0].groupId,null);
     await assert.rejects(service.manage(teacher,{action:'unassign-exam',id:level.id,expectedRevision:assigned.revision,examId:10}),error=>error.status===409);
     const cleared=await service.activeGroup(level.id);await service.manage(teacher,{action:'exam',id:level.id,expectedRevision:cleared.revision,examId:10});
-    const archive=new ArchiveService(f.db),developer={...teacher,role:'DEVELOPER'};
+    const archive=new ArchiveService(f.db);
     await archive.archive(developer,{type:'exam',id:10});await archive.remove(developer,{type:'exam',id:10});
     assert.equal(f.sqlite.prepare('SELECT COUNT(*) n FROM class_group_exams WHERE exam_id=10').get().n,0);
   }finally{f.sqlite.close();}
@@ -341,6 +353,7 @@ test('Formatted practice answers round-trip independently and Content groups rej
 });
 test('V3 Answer and Memory are graded privately, recordings belong to the student, and submitted work is locked',async()=>{
   const f=fixture();try{
+    seedTeacherStudent(f);
     const exams=new ExamService(f.db);await exams.ensure();
     f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(10,'Independent answers',1);INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(20,10,0,'Block',1)");
     await assignLegacyExam(f,10);
@@ -370,6 +383,7 @@ test('V3 Answer and Memory are graded privately, recordings belong to the studen
 });
 test('Rich text review preserves original answers, hides drafts and validates formatting',async()=>{
   const f=fixture();try{
+    seedTeacherStudent(f);
     const service=new AssessmentService(f.db),student={id:'student',role:'USER'},teacher={id:'teacher',role:'ADMIN'},base={kind:'lesson',id:1},target={...base,studentId:'student'};
     f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(10,1,1,'task',?)").run(JSON.stringify({assessed:true,gradeMode:'assignment',text:'Describe Alice',maxPoints:'10,1'}));
     await service.write(student,{...base,action:'submit',answers:{10:{0:'Original student answer'}}});
@@ -414,12 +428,12 @@ test('Archive preview and attachments respect archive visibility without restori
 });
 test('Personal group/exam visibility is scoped, persistent, reversible and protected by CAS',async()=>{
   const f=fixture();try{
-    const teacher={id:'teacher',role:'ADMIN'},student={id:'b'.repeat(32),role:'USER'};
+    const teacher={id:'teacher',role:'ADMIN'},developer={id:'dev',role:'DEVELOPER'},student={id:'b'.repeat(32),role:'USER'};
     f.sqlite.prepare('INSERT INTO account_refs(id) VALUES(?)').run(student.id);
-    const groups=await new GroupService(f.db).list(teacher),group=groups[0];
+    const groups=await new GroupService(f.db).list(developer),group=groups[0];
     await new ExamService(f.db).ensure();
     f.sqlite.exec("INSERT INTO exams(id,title,published) VALUES(1,'Visibility',1); INSERT INTO exam_blocks(id,exam_id,position,title,published) VALUES(1,1,0,'Block',1)");
-    const exam=(await new ExamService(f.db).list(teacher))[0];
+    const exam=(await new ExamService(f.db).list(developer))[0];
     const visibility=new VisibilityService(f.db);
     for(const [type,id] of [['group',group.id],['exam',exam.id],['exam-block',exam.blocks[0].id]]){
       const body={mutationId:'visibility-hide-'+type,type,id,expected:false,hidden:true};

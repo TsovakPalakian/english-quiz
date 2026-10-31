@@ -10,6 +10,7 @@ import {chatFileMetadata} from './chat-attachments.mjs';
 import {examSuggestion} from './exam-checking.mjs';
 import {examWorkflowCommands,requireExamStarted} from './exam-workflow.mjs';
 import {ErrorBankService} from './learning-error-bank.mjs';
+import {teacherMayManageStudent} from './teacher-group-access.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const reviewer=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const ready=new WeakMap();
@@ -61,7 +62,7 @@ export class AssessmentService{
       if(!found||!reviewer(actor)&&!assigned.has(found.exam_id)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
       if(!reviewer(actor)&&found.instance_status==='ready')fail(403,'This exam is being reviewed. Wait for your teacher to publish the review.');
       await instanceAccess(this.db,found.exam_id,account);
-      if(actor.role==='ADMIN'&&actor.id!==account){const [instance]=await this.db.read('SELECT reviewer_id,group_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance?.reviewer_id&&!await mayReviewInstance(this.db,instance,actor))fail(403,'Only the assigned teacher can review this exam.');}
+      if(actor.role==='ADMIN'&&actor.id!==account){const [instance]=await this.db.read('SELECT reviewer_id,group_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance&&!await mayReviewInstance(this.db,instance,actor))fail(403,'Only the assigned teacher can review this exam.');}
       rows=await this.db.read('SELECT id,type,content_json FROM exam_materials WHERE block_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
       return {examId:found.exam_id,parts:rows.map(row=>({...JSON.parse(row.content_json),id:row.id,type:row.type}))};
     }
@@ -73,7 +74,16 @@ export class AssessmentService{
     if(!parts.some(part=>part.assessed))fail(400,'Assessment is not enabled for this lesson.');
     return {examId:0,parts:parts.filter(part=>part.assessed)};
   }
-  account(actor,studentId){if(!actor?.id)fail(401,'Sign in first.');const account=studentId||actor.id;if(account!==actor.id&&!reviewer(actor))fail(403,'You cannot review another account.');if(!/^[A-Za-z0-9_-]{1,100}$/.test(account))fail(400,'Invalid student.');return account;}
+  async account(actor,studentId){
+    if(!actor?.id)fail(401,'Sign in first.');
+    const account=studentId||actor.id;
+    if(account!==actor.id){
+      if(!reviewer(actor))fail(403,'You cannot review another account.');
+      if(actor.role==='ADMIN'&&!await teacherMayManageStudent(this.db,actor,account))fail(403,'You cannot review this student.');
+    }
+    if(!/^[A-Za-z0-9_-]{1,100}$/.test(account))fail(400,'Invalid student.');
+    return account;
+  }
   async row(account,kind,id){await this.ensure();return (await this.db.read('SELECT * FROM assessment_work WHERE account_id=? AND kind=? AND material_id=?',[account,kind,id]))[0];}
   async legacy(account,id){return (await this.db.read('SELECT * FROM exam_work WHERE account_id=? AND block_id=?',[account,id]))[0];}
   project(row,actor){
@@ -83,7 +93,7 @@ export class AssessmentService{
     return {...notes,kind:row.kind,examId:row.exam_id,blockId:row.material_id,revision:row.revision,state:row.state,saved:row.state!=='draft',answers:answerData,answerText,commentFormatting:show?grading.commentFormatting||{}:{},corrections:show?grading.comments||{}:{},points:show?grading.points||{}:{},suggestedPoints:reviewer(actor)?grading.suggestedPoints||{}:{},errors:show?grading.errors||{}:{},criteriaPoints:show?grading.criteriaPoints||{}:{},reviewText:show?grading.reviewText||{}:{},materials:JSON.parse(row.snapshot_json||'[]').map(part=>reviewer(actor)?part:studentExamContent(part,part.type,{protectAnswer:row.kind==='exam-block',revealAnswer:row.kind==='exam-block'&&row.state!=='draft'}))};
   }
   async get(actor,{kind,id,studentId}){
-    const account=this.account(actor,studentId),document=await this.document(actor,kind,id,account),row=await this.row(account,kind,id);
+    const account=await this.account(actor,studentId),document=await this.document(actor,kind,id,account),row=await this.row(account,kind,id);
     if(kind==='exam-block'&&!reviewer(actor)&&row&&['submitted','reviewing'].includes(row.state))fail(403,'This exam is being reviewed. Wait for your teacher to publish the review.');
     return this.workView(actor,{kind,id,account},document,row);
   }
@@ -94,7 +104,7 @@ export class AssessmentService{
     return {...this.project({account_id:account,kind,material_id:id,exam_id:document.examId,revision:0,state:legacy?.saved?'submitted':'draft',answers_json:legacy?.answers_json||'{}',grading_json:JSON.stringify({points:JSON.parse(legacy?.points_json||'{}'),comments:JSON.parse(legacy?.corrections_json||'{}')}),snapshot_json:JSON.stringify(document.parts)},actor),recordings};
   }
   async recording(actor,query,request,store){
-    const {kind,id,studentId,part,index,expectedRevision}=query,account=this.account(actor,studentId);
+    const {kind,id,studentId,part,index,expectedRevision}=query,account=await this.account(actor,studentId);
     const document=await this.document(actor,kind,id,account);await this.ensure();
     if(kind!=='exam-block'||!Number.isSafeInteger(part)||!Number.isInteger(index)||index<0)fail(400,'Invalid pronunciation recording.');
     const item=document.parts.find(p=>p.id===part);
@@ -116,7 +126,7 @@ export class AssessmentService{
   }
   async write(actor,body){
     if(!body||typeof body!=='object'||Array.isArray(body))fail(400,'Invalid assessment.');
-    const {kind,id,studentId,action='draft'}=body,account=this.account(actor,studentId),document=await this.document(actor,kind,id,account);
+    const {kind,id,studentId,action='draft'}=body,account=await this.account(actor,studentId),document=await this.document(actor,kind,id,account);
     if(kind==='exam-block'&&action==='reopen')fail(409,'Submitted exams cannot be reopened. Assign a new exam instead.');
     if(kind==='exam-block'&&body.examId!=null&&body.examId!==document.examId)fail(404,'Exam not found.');
     let previous,row;
@@ -248,5 +258,5 @@ export class AssessmentService{
     if(kind==='exam-block'&&!reviewer(actor)&&state==='submitted')return {kind,examId:document.examId,blockId:id,revision:revision+1,state,saved:true,answers,materials:[]};
     return this.get(actor,{kind,id,studentId});
   }
-  async history(actor,body){const account=this.account(actor,body.studentId);if(!reviewer(actor)||account===actor.id)fail(403,'Review history is available to the teacher.');await this.document(actor,body.kind,body.id,account);await this.ensure();return this.db.read('SELECT action,reason,actor_id actorId,created_at createdAt,snapshot_json snapshot FROM assessment_history WHERE account_id=? AND kind=? AND material_id=? ORDER BY id DESC LIMIT 30',[account,body.kind,body.id]);}
+  async history(actor,body){const account=await this.account(actor,body.studentId);if(!reviewer(actor)||account===actor.id)fail(403,'Review history is available to the teacher.');await this.document(actor,body.kind,body.id,account);await this.ensure();return this.db.read('SELECT action,reason,actor_id actorId,created_at createdAt,snapshot_json snapshot FROM assessment_history WHERE account_id=? AND kind=? AND material_id=? ORDER BY id DESC LIMIT 30',[account,body.kind,body.id]);}
 }

@@ -121,7 +121,7 @@ UI test `test/test-teacher-group-isolation-ui.mjs` filters client-side only; API
 4. `manage(actor, …)` mutations on a group id: `ADMIN` must be assigned to that group (create may still auto-assign creator — already at lines 171–173).
 5. Tests: mirror UI isolation scenarios at API level (new `test/test-teacher-group-isolation-api.mjs` or extend existing learning-groups tests).
 
-**Checklist:** ⬜ ISO-02
+**Checklist:** 🟩 ISO-02
 
 ---
 
@@ -144,7 +144,7 @@ UI test `test/test-teacher-group-isolation-ui.mjs` filters client-side only; API
 2. `list`: for `ADMIN`, return only assignments for groups they belong to (optional hardening).
 3. Tests for forbidden cross-group teacher rewrite.
 
-**Checklist:** ⬜ ISO-03
+**Checklist:** 🟩 ISO-03
 
 ---
 
@@ -172,7 +172,7 @@ Upstream `forReviewer` (`src/worker.js` ~3384+) only strips DEVELOPER/hidden/rev
 4. Do not trust client-supplied role claims.
 5. Test: two teachers, shared group vs disjoint groups; assert response user ids.
 
-**Checklist:** ⬜ ISO-04
+**Checklist:** 🟩 ISO-04
 
 ---
 
@@ -196,7 +196,7 @@ Group rooms already respect `teacherIds` (lines 89–96). Direct-message contact
 3. After policy change, force policy refresh / inbox reconfigure so cached Durable Object policy cannot serve old contact sets longer than necessary (existing `policyDirtyAt` / TTL ~60s — document or shorten for authz changes if safe).
 4. Tests covering chat contact lists for two teachers.
 
-**Checklist:** ⬜ ISO-05
+**Checklist:** 🟩 ISO-05
 
 ---
 
@@ -219,7 +219,7 @@ Integrated routes already call `authorizeManaged` before assessment (~605–644 
 2. Ensure line 64 does not skip checks when `reviewer_id` is empty — fall back to group teacherIds via `instanceReviewerIds`.
 3. Tests for cross-teacher assessment GET/POST denied.
 
-**Checklist:** ⬜ ISO-06
+**Checklist:** 🟩 ISO-06
 
 ---
 
@@ -230,7 +230,7 @@ Integrated routes already call `authorizeManaged` before assessment (~605–644 
 
 **Fix requirements:** Gate with `teacherMayManageStudent`. Tests.
 
-**Checklist:** ⬜ ISO-07
+**Checklist:** 🟩 ISO-07
 
 ---
 
@@ -246,7 +246,7 @@ Integrated routes already call `authorizeManaged` before assessment (~605–644 
 2. Document that Cloudflare Worker egress to RFC1918 is blocked by platform; keep allowlist + https-only + redirect re-validation (already present).
 3. Cap response size (already 250000 chars) — keep.
 
-**Checklist:** ⬜ ISO-08
+**Checklist:** 🟩 ISO-08
 
 ---
 
@@ -256,7 +256,7 @@ Integrated routes already call `authorizeManaged` before assessment (~605–644 
 
 **Fix requirements:** Raise max to 128 (or 72 if any bcrypt path exists — this codebase uses PBKDF2). Update client validation copy. Tests.
 
-**Checklist:** ⬜ ISO-09
+**Checklist:** 🟩 ISO-09
 
 ---
 
@@ -266,7 +266,7 @@ Integrated routes already call `authorizeManaged` before assessment (~605–644 
 
 **Fix requirements:** No security fix required for outsiders; track as product debt. Do not expand special cases.
 
-**Checklist:** ⬜ ISO-10 (document-only)
+**Checklist:** 🟩 ISO-10 (document-only; no code change)
 
 ---
 
@@ -275,14 +275,14 @@ Integrated routes already call `authorizeManaged` before assessment (~605–644 
 | Step | ID | Square |
 | :---: | :--- | :---: |
 | 1 | ISO-01 shared helper + `managedAccount` | 🟩 |
-| 2 | ISO-06 service-layer gates (uses helper) | ⬜ |
-| 3 | ISO-07 stats gate | ⬜ |
-| 4 | ISO-02 groups list/members/assign/manage | ⬜ |
-| 5 | ISO-03 teacher assignment save | ⬜ |
-| 6 | ISO-04 admin users filter | ⬜ |
-| 7 | ISO-05 chat contacts | ⬜ |
-| 8 | ISO-08 / ISO-09 optional hardening | ⬜ |
-| 9 | ISO-10 note only | ⬜ |
+| 2 | ISO-06 service-layer gates (uses helper) | 🟩 |
+| 3 | ISO-07 stats gate | 🟩 |
+| 4 | ISO-02 groups list/members/assign/manage | 🟩 |
+| 5 | ISO-03 teacher assignment save | 🟩 |
+| 6 | ISO-04 admin users filter | 🟩 |
+| 7 | ISO-05 chat contacts | 🟩 |
+| 8 | ISO-08 / ISO-09 optional hardening | 🟩 |
+| 9 | ISO-10 note only | 🟩 |
 
 After step 1 lands, re-run targeted isolation tests before opening step 4–7 (they depend on the same helper).
 

@@ -31,17 +31,18 @@ function fixture() {
 const id=()=>crypto.randomUUID();
 const rejects=(promise,status)=>assert.rejects(promise,error=>error.status===status);
 test('Groups seed existing lessons, persist membership and keep student visibility',async()=>{
-  const {db,personas,sqlite}=fixture(),[teacher,,student]=personas;
+  const {db,personas,sqlite}=fixture(),[teacher,developer,student]=personas;
   const groups=new GroupService(db);
-  const seeded=await groups.list(teacher);
+  const seeded=await groups.list(developer);
   assert.equal(seeded.length,9);
   assert.equal(seeded[0].title,'A1 Group');
   assert.deepEqual(new Set(seeded[0].lessonIds),new Set([1,2,3]));
-  await groups.save(teacher,{groups:[
+  assert.equal((await groups.list(teacher)).length,0);
+  await groups.save(developer,{groups:[
     {id:seeded[0].id,title:'First group',date:'2026-10-08',hidden:true,lessonIds:[2,3]},
     {title:'Second group',date:'2026-10-09',hidden:false,lessonIds:[1]}
   ]});
-  const saved=await groups.list(teacher);
+  const saved=await groups.list(developer);
   assert.equal(saved[0].title,'Second group');
   assert.deepEqual(saved[0].lessonIds,[1]);
   assert.equal(typeof saved[0].id,'number');

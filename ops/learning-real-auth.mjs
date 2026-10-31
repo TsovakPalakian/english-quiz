@@ -74,7 +74,7 @@ export class RealStageAuth {
   constructor(source,{clock=Date.now}={}){this.source=source;this.clock=clock;this.sessions=new Map();this.failures=[];}
   async login(body){
     const login=String(body?.login||'').trim(),password=body?.password;
-    if(Object.keys(body||{}).some(k=>!['login','password'].includes(k)) || !login || login.length>120 || typeof password!=='string' || !password || password.length>32)throw new StudyError(400,'Enter your existing login and password.');
+    if(Object.keys(body||{}).some(k=>!['login','password'].includes(k)) || !login || login.length>120 || typeof password!=='string' || !password || password.length>128)throw new StudyError(400,'Enter your existing login and password.');
     this.failures=this.failures.filter(time=>this.clock()-time<900_000);
     if(this.failures.length>=8)throw new StudyError(429,'Too many local login attempts. Wait 15 minutes.');
     // Count before awaiting; concurrent guesses cannot bypass the bound.

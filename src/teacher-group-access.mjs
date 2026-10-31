@@ -54,6 +54,15 @@ export async function teacherGroupIds(db,actor){
   }
 }
 
+export async function teacherMayTeachGroup(db,actor,groupId){
+  if(!actor?.id||groupId==null||groupId==='')return false;
+  if(actor.role==='DEVELOPER')return true;
+  if(actor.role!=='ADMIN')return false;
+  const id=Number(groupId);
+  if(!Number.isSafeInteger(id))return false;
+  return (await teacherGroupIds(db,actor)).includes(id);
+}
+
 export async function teachersVisibleTo(db,actor){
   const visible=new Set();
   if(!actor?.id)return visible;

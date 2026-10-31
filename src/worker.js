@@ -4,6 +4,8 @@ import {observeSession,finishSessionRecord} from './security-sessions.mjs';
 import {studyClient} from './study-database.mjs';
 import {teacherMayManageStudent} from './teacher-group-access.mjs';
 import {stageContentPolicy} from './learning-embed.mjs';
+import {chatPreviewUrl,publicFetch,parseChatPreviewHTML,isChatPreviewHost,CHAT_PREVIEW_PROVIDERS,CHAT_PREVIEW_IMAGES} from './chat-previews.mjs';
+const PASSWORD_MAX=128;
 
 const ITERATIONS = 100000;
 const SESSION_SECONDS = 3 * 3600;
@@ -480,7 +482,7 @@ function validateSignup(body) {
   const name = typeof body.name==='string'?body.name.trim().slice(0,80):'';
   if (!SIGNUP_LOGIN_RE.test(login)) return { error: "Login needs 3 to 32 Latin letters, digits or underscores, with no spaces." };
   if (!EMAIL_RE.test(email) || email.length > 120) return { error: "Enter a valid email." };
-  if (password.length < 8 || password.length > 32) return { error: "Password needs 8 to 32 characters." };
+  if (password.length < 8 || password.length > PASSWORD_MAX) return { error: "Password needs 8 to 128 characters." };
   if (!name) return { error: "Enter your name." };
   return { login, email, password, name };
 }
@@ -908,7 +910,7 @@ function d1RowLive(row) {
   return true;
 }
 
-async function resolveStatTarget(env, actor, forId) {
+export async function resolveStatTarget(env, actor, forId) {
   if (!forId || forId === actor.id) return { uid: actor.id, role: actor.role || "USER" };
   const row = await d1UserById(env, forId);
   if (!d1RowLive(row)) return { uid: actor.id, role: actor.role || "USER" };
@@ -917,6 +919,9 @@ async function resolveStatTarget(env, actor, forId) {
     return { uid: row.id, role: row.role };
   }
   if (actor.role === "ADMIN" && row.role === "USER") {
+    if (!await teacherMayManageStudent(studyClient(env), actor, row.id)) {
+      return { uid: actor.id, role: actor.role || "USER" };
+    }
     return { uid: row.id, role: row.role };
   }
   return { uid: actor.id, role: actor.role || "USER" };
@@ -1127,6 +1132,9 @@ async function statReport(env, request) {
   if (audience.needsStudent) {
     const student = await d1UserById(env, audience.userId);
     if (!d1RowLive(student) || student.role !== "USER" || (student.hidden && user.role !== "DEVELOPER")) {
+      return json({ error: "You can only open your own statistics." }, 403, { "Cache-Control": "no-store, private" });
+    }
+    if (user.role === "ADMIN" && !await teacherMayManageStudent(studyClient(env), user, audience.userId)) {
       return json({ error: "You can only open your own statistics." }, 403, { "Cache-Control": "no-store, private" });
     }
   }
@@ -1426,178 +1434,35 @@ async function saveLessons(env, request, body) {
   return json({ error: "The change could not be saved. Try again." }, 409);
 }
 
-function pickMeta(html, names) {
-  const source = String(html || "");
-  for (let i = 0; i < names.length; i++) {
-    const name = names[i];
-    const re1 = new RegExp("<meta[^>]+(?:property|name)=[\"']" + name + "[\"'][^>]+content=[\"']([^\"']+)[\"']", "i");
-    const re2 = new RegExp("<meta[^>]+content=[\"']([^\"']+)[\"'][^>]+(?:property|name)=[\"']" + name + "[\"']", "i");
-    const match = source.match(re1) || source.match(re2);
-    if (match && match[1]) return decodeHtmlEntities(match[1].trim());
-  }
-  return "";
-}
-
-function decodeHtmlEntities(text) {
-  return String(text || "")
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
-      try { return String.fromCodePoint(parseInt(hex, 16)); } catch (e) { return ""; }
-    })
-    .replace(/&#(\d+);/g, (_, num) => {
-      try { return String.fromCodePoint(Number(num)); } catch (e) { return ""; }
-    })
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&amp;/g, "&")
-    .replace(/&nbsp;/g, " ");
-}
-
-function absolutizeUrl(base, value) {
-  try {
-    return new URL(value, base).toString();
-  } catch (e) {
-    return "";
-  }
-}
-
-const ALLOWED_PREVIEW_PROVIDERS = [
-  "youtube.com",
-  "youtu.be",
-  "wikipedia.org",
-  "wikimedia.org",
-  "wordwall.net",
-  "youglish.com",
-  "playphrase.me",
-  "britishcouncil.org",
-  "cambridgeenglish.org",
-  "cambridge.org",
-  "bbc.com",
-  "bbc.co.uk",
-  "github.com",
-  "developer.mozilla.org",
-  "developers.cloudflare.com",
-  "openai.com",
-  "google.com"
-];
-
-const ALLOWED_PREVIEW_IMAGES = [
-  ...ALLOWED_PREVIEW_PROVIDERS,
-  "ytimg.com",
-  "googleusercontent.com",
-  "gstatic.com",
-  "githubusercontent.com"
-];
-
-function isAllowedPreviewHost(host, list = ALLOWED_PREVIEW_PROVIDERS) {
-  const h = String(host || "").toLowerCase().replace(/\.+$/, "");
-  return list.some((domain) => h === domain || h.endsWith("." + domain));
-}
-
-function isPublicHttpUrl(target) {
-  if (!target || (target.protocol !== "http:" && target.protocol !== "https:")) return false;
-  const host = String(target.hostname || "").toLowerCase().replace(/\.+$/, "");
-  if (!host || host === "localhost" || host.endsWith(".localhost") || host === "0.0.0.0") return false;
-  // Block DNS-rebinding helpers and numeric/hex IP encodings.
-  if (host === "localtest.me" || host.endsWith(".localtest.me") || host.endsWith(".nip.io") || host.endsWith(".sslip.io")) return false;
-  if (/^0x[0-9a-f]+$/i.test(host) || /^\d+$/.test(host)) return false;
-  // Reject all IPv6 literals (including ::ffff:127.0.0.1 mapped forms).
-  if (host.indexOf(":") >= 0) return false;
-  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
-    const p = host.split(".").map(Number);
-    if (p.some((n) => n > 255)) return false;
-    if (p[0] === 0 || p[0] === 10 || p[0] === 127) return false;
-    if (p[0] === 169 && p[1] === 254) return false;
-    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return false;
-    if (p[0] === 192 && p[1] === 168) return false;
-    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return false;
-  }
-  return true;
-}
-
-async function fetchPublicPage(url, signal, hops) {
-  if ((hops || 0) > 3) throw new Error("Too many redirects");
-  const target = new URL(url);
-  if (!isPublicHttpUrl(target) || !isAllowedPreviewHost(target.hostname)) throw new Error("Private host");
-  const res = await fetch(target.toString(), {
-    method: "GET",
-    redirect: "manual",
-    signal: signal,
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; LearnEnglishBot/1.0)",
-      "Accept": "text/html,application/xhtml+xml"
-    }
-  });
-  if (res.status >= 300 && res.status < 400) {
-    const loc = res.headers.get("Location");
-    if (!loc) throw new Error("Bad redirect");
-    const nextTarget = new URL(loc, target);
-    if (!isPublicHttpUrl(nextTarget) || !isAllowedPreviewHost(nextTarget.hostname)) throw new Error("Private host redirect");
-    return fetchPublicPage(nextTarget.toString(), signal, (hops || 0) + 1);
-  }
-  return res;
-}
-
 async function linkPreview(env, request) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
   const raw = String(new URL(request.url).searchParams.get("url") || "").trim();
-  let target;
-  try { target = new URL(raw); } catch (e) { return json({ error: "Enter a valid link." }, 400); }
-  if (!isPublicHttpUrl(target)) return json({ error: "Enter a valid link." }, 400);
-  if (!isAllowedPreviewHost(target.hostname)) {
-    return json({
-      url: target.toString(),
-      host: target.hostname.replace(/^www\./, ""),
-      title: target.hostname.replace(/^www\./, ""),
-      description: "",
-      image: ""
-    });
-  }
+  const target = chatPreviewUrl(raw);
+  if (!target) return json({ error: "Enter a valid link." }, 400);
+  const host = target.hostname.replace(/^www\./, "");
+  const card = (extra = {}) => json({ url: target.href, host, title: host, description: "", image: "", ...extra });
+  if (!isChatPreviewHost(target.hostname, CHAT_PREVIEW_PROVIDERS)) return card();
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetchPublicPage(target.toString(), controller.signal, 0);
-    clearTimeout(timer);
-    const type = String(res.headers.get("content-type") || "").toLowerCase();
-    if (!res.ok || type.indexOf("text/html") < 0) {
-      return json({
-        url: target.toString(),
-        host: target.hostname.replace(/^www\./, ""),
-        title: target.hostname.replace(/^www\./, ""),
-        description: "",
-        image: ""
-      });
-    }
+    const res = await publicFetch(target, CHAT_PREVIEW_PROVIDERS);
+    const type = String(res?.headers.get("content-type") || "").toLowerCase();
+    if (!res || type.indexOf("text/html") < 0) return card();
     const html = (await res.text()).slice(0, 250000);
-    const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    const title = pickMeta(html, ["og:title", "twitter:title"]) || (titleMatch && titleMatch[1] ? titleMatch[1].trim() : "") || target.hostname;
-    const description = pickMeta(html, ["og:description", "twitter:description", "description"]);
-    const imageRaw = pickMeta(html, ["og:image", "twitter:image", "twitter:image:src"]);
-    let image = imageRaw ? absolutizeUrl(res.url || target.toString(), imageRaw) : "";
-    try {
-      const img = new URL(image);
-      if (img.protocol !== "http:" && img.protocol !== "https:") image = "";
-      else if (!isPublicHttpUrl(img) || !isAllowedPreviewHost(img.hostname, ALLOWED_PREVIEW_IMAGES)) image = "";
-    } catch (e) {
-      image = "";
+    const parsed = await parseChatPreviewHTML(html, target);
+    let image = "";
+    if (parsed.image) {
+      const img = chatPreviewUrl(parsed.image);
+      if (img && isChatPreviewHost(img.hostname, CHAT_PREVIEW_IMAGES)) image = img.href.slice(0, 500);
     }
     return json({
-      url: target.toString(),
-      host: target.hostname.replace(/^www\./, ""),
-      title: String(title || "").replace(/\s+/g, " ").trim().slice(0, 160),
-      description: String(description || "").replace(/\s+/g, " ").trim().slice(0, 240),
-      image: image.slice(0, 500)
+      url: target.href,
+      host,
+      title: String(parsed.title || host).replace(/\s+/g, " ").trim().slice(0, 160),
+      description: String(parsed.description || "").replace(/\s+/g, " ").trim().slice(0, 240),
+      image
     });
   } catch (e) {
-    return json({
-      url: target.toString(),
-      host: target.hostname.replace(/^www\./, ""),
-      title: target.hostname.replace(/^www\./, ""),
-      description: "",
-      image: ""
-    });
+    return card();
   }
 }
 
@@ -3248,7 +3113,7 @@ async function accountClash(env, userId, login, email, changeId) {
 }
 
 export async function resetPasswordForEmail(env, email, password) {
-  if (typeof password !== 'string' || password.length < 8 || password.length > 32) return json({error:'Password needs 8 to 32 characters.'},400);
+  if (typeof password !== 'string' || password.length < 8 || password.length > PASSWORD_MAX) return json({error:'Password needs 8 to 128 characters.'},400);
   const hashed = await hashPassword(password);
   // A verified mailbox may reset only an existing, active account. Password-bound sessions expire automatically.
   await env.DB.prepare('UPDATE users SET password_salt = ?, password_hash = ?, password_iterations = ? WHERE email = ? AND active = 1 AND is_personal_data_revoked = 0')
@@ -3261,7 +3126,7 @@ async function changePassword(env, request, body) {
   if (!user) return json({ error: "Sign in first." }, 401);
   const current = String(body && body.current || "");
   const next = String(body && body.password || "");
-  if (next.length < 8 || next.length > 32) return json({ error: "Password needs 8 to 32 characters." }, 400);
+  if (next.length < 8 || next.length > PASSWORD_MAX) return json({ error: "Password needs 8 to 128 characters." }, 400);
   const row = await env.DB.prepare(
     "SELECT id, password_salt, password_hash, is_personal_data_revoked FROM users WHERE id = ?"
   ).bind(user.id).first();

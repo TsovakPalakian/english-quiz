@@ -83,7 +83,7 @@ export class StageAuth {
   async row(sql,args){if(![loginSql,currentSql].includes(sql))throw new StudyError(500,'Only authentication SELECTs.');return this.env.DB.prepare(sql).bind(...args).first();}
   async gone(id){if(!/^[a-f0-9]{16,64}$/.test(id))throw new StudyError(503,'Invalid account identity.');if(!this.env.MEDIA)throw new StudyError(503,'Revocation provider missing.');return !!(await this.env.MEDIA.head('gone/'+id));}
   async login(value){
-    if(!value||Object.keys(value).some(k=>!['login','password'].includes(k))||typeof value.login!=='string'||!value.login.trim()||value.login.length>120||typeof value.password!=='string'||!value.password||value.password.length>32)throw new StudyError(400,'Invalid login.');
+    if(!value||Object.keys(value).some(k=>!['login','password'].includes(k))||typeof value.login!=='string'||!value.login.trim()||value.login.length>120||typeof value.password!=='string'||!value.password||value.password.length>128)throw new StudyError(400,'Invalid login.');
     await this.budget('login');const row=await this.row(loginSql,[value.login.trim(),value.login.trim().toLowerCase()]);
     if(!valid(row)||row.password_iterations!==100000||! /^[a-f0-9]{32}$/.test(row.password_salt)||! /^[a-f0-9]{64}$/.test(row.password_hash))throw new StudyError(401,'Wrong login or password.');
     const salt=Uint8Array.from(row.password_salt.match(/../g),v=>parseInt(v,16));
@@ -104,7 +104,7 @@ export class StageAuth {
   }
   async current(request){const p=await this.payload(request);if(!p)return null;await this.budget('read',{nonce:p.nonce});const row=await this.row(currentSql,[p.id]);return valid(row)&&await digest(row.password_hash)===p.proof&&!await this.gone(row.id)?publicUser(row):null;}
   async verify(actor,password){
-    if(!actor?.id||typeof password!=='string'||!password||password.length>32)throw new StudyError(401,'Wrong password.');
+    if(!actor?.id||typeof password!=='string'||!password||password.length>128)throw new StudyError(401,'Wrong password.');
     const row=await this.row(currentSql,[actor.id]);
     if(!valid(row)||row.password_iterations!==100000)throw new StudyError(401,'Wrong password.');
     const salt=Uint8Array.from(row.password_salt.match(/../g),v=>parseInt(v,16));

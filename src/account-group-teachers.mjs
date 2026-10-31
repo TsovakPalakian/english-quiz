@@ -16,8 +16,14 @@ export class AccountGroupTeachers{
     if(!Array.isArray(body.teacherIds)||body.teacherIds.length>100||new Set(body.teacherIds).size!==body.teacherIds.length||body.teacherIds.some(id=>!ids.has(id))||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)fail(400,'Choose active teachers and the current revision.');
     const [group]=await this.db.read('SELECT id FROM class_groups WHERE id=? AND deleted_at IS NULL',[body.groupId]);if(!group)fail(404,'Group not found.');
     const key=String(body.groupId),[old]=await this.db.read('SELECT value_json FROM catalog_documents WHERE namespace=? AND key=?',[namespace,key]);
-    if((old?JSON.parse(old.value_json).revision:0)!==body.expectedRevision)fail(409,'Teacher assignments changed. Reopen the group.');
-    const retained=old?JSON.parse(old.value_json).teacherIds.filter(id=>!ids.has(id)):[];
+    const previous=old?JSON.parse(old.value_json):null;
+    if((previous?.revision||0)!==body.expectedRevision)fail(409,'Teacher assignments changed. Reopen the group.');
+    if(actor.role==='ADMIN'){
+      const current=Array.isArray(previous?.teacherIds)?previous.teacherIds.map(String):[];
+      if(previous&&!current.includes(String(actor.id)))fail(403,'Only an assigned teacher or a developer can change this group.');
+      if(!body.teacherIds.map(String).includes(String(actor.id)))fail(403,'Keep yourself assigned to this group, or ask a developer.');
+    }
+    const retained=previous?previous.teacherIds.filter(id=>!ids.has(id)):[];
     const value={revision:body.expectedRevision+1,teacherIds:[...body.teacherIds,...retained],updatedBy:actor.id,updatedAt:Date.now()};
     const write=old?s('UPDATE catalog_documents SET value_json=? WHERE namespace=? AND key=? AND value_json=?',[JSON.stringify(value),namespace,key,old.value_json]):s('INSERT OR IGNORE INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[namespace,key,JSON.stringify(value)]);
     try{await this.db.atomic([s('DROP TABLE IF EXISTS temp.group_guard'),s('CREATE TEMP TABLE group_guard(ok INTEGER NOT NULL CHECK(ok=1))'),s('INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND deleted_at IS NULL)',[body.groupId]),write,s('INSERT INTO group_guard SELECT changes()=1'),s('DROP TABLE group_guard')]);}catch(error){if(/CHECK constraint|check constraint|group_guard/i.test(error.message))fail(409,'Teacher assignments changed. Reopen the group.');throw error;}

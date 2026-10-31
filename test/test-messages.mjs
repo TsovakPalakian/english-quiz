@@ -23,7 +23,7 @@ function fixture() {
   const users=[{id:'teacher',name:'Teacher',role:'ADMIN'},{id:'developer',name:'Private role',role:'DEVELOPER'},{id:'student',name:'Alice',email:'alice@example.invalid',role:'USER'},{id:'mate',name:'Bob',role:'USER'},{id:'other',name:'Other group',role:'USER'}];
   const service=new MessageService(db,async()=>users);
   const by=id=>users.find(user=>user.id===id);
-  const boot=async()=>{await service.ensure();sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1'),(2,'B1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',1,'teacher'),('mate',1,'teacher'),('other',2,'teacher');INSERT INTO exams(id,title,published) VALUES(1,'Published exam',1),(2,'Draft exam',0);");};
+  const boot=async()=>{await service.ensure();sqlite.exec("INSERT INTO class_groups(id,title) VALUES(1,'A1'),(2,'B1');INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('student',1,'teacher'),('mate',1,'teacher'),('other',2,'teacher');INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers','1','{\"revision\":1,\"teacherIds\":[\"teacher\"]}'),('accounts-group-teachers','2','{\"revision\":1,\"teacherIds\":[\"teacher\"]}');INSERT INTO exams(id,title,published) VALUES(1,'Published exam',1),(2,'Draft exam',0);");};
   return {sqlite,db,users,service,by,boot,close:()=>sqlite.close()};
 }
 test('PDF missing Grammar alerts use saved rules, notify developers only and deduplicate retries',async()=>{
@@ -134,7 +134,7 @@ test('Assignments reveal hidden exams and published subblocks only to their reci
     await new ExamWorkflowService(db).write(by('student'),{examId:copy.id,action:'started'});
     await assessment.write(by('student'),{kind:'exam-block',id:block.id,action:'submit',answers:{[block.materials[0].id]:{0:'Answer'}}});
     assert.equal((await exams.listWork(by('student'))).length,1);
-    assert.equal((await service.history(by('developer'),'direct:developer:student',{category:'learning'})).messages.some(m=>m.text.startsWith('Ready for review')),true);
+    assert.equal((await service.history(by('teacher'),'direct:student:teacher',{category:'learning'})).messages.some(m=>m.text.startsWith('Ready for review')),true);
     // Older assignments without copies also override hiding, without revealing the template publicly.
     sqlite.exec("INSERT INTO chat_assignments(id,exam_id,target_kind,target_id) VALUES('legacy-hidden',1,'student','other')");
     assert.equal((await exams.list(by('other'))).find(e=>e.id===1).blocks.length,1);

@@ -60,8 +60,28 @@ export class ChatBridge{
       const studentMaySeeStaff=(studentGroupId,staffUser)=>{
         if(staffUser.role==='DEVELOPER')return true;
         const assigned=groupTeachers(studentGroupId);
-        if(!assigned)return staffUser.role==='ADMIN';
+        if(!assigned)return false;
         return assigned.has(staffUser.id);
+      };
+      const taughtGroupIds=staffUser=>{
+        const ids=new Set();
+        for(const [groupId,teachers] of teachersByGroup)if(teachers.has(String(staffUser.id)))ids.add(Number(groupId));
+        return ids;
+      };
+      const coTeacherIds=staffUser=>{
+        const ids=new Set([String(staffUser.id)]);
+        for(const teachers of teachersByGroup.values())if(teachers.has(String(staffUser.id)))for(const id of teachers)ids.add(String(id));
+        return ids;
+      };
+      const staffMaySeeContact=(viewer,target)=>{
+        if(viewer.role==='DEVELOPER')return true;
+        if(viewer.role!=='ADMIN')return false;
+        if(target.role==='ADMIN')return coTeacherIds(viewer).has(String(target.id));
+        if(target.role==='USER'){
+          const groupId=members.find(m=>m.account_id===target.id)?.group_id;
+          return groupId!=null&&taughtGroupIds(viewer).has(Number(groupId));
+        }
+        return false;
       };
       for(const user of users)user.groupId=members.find(m=>m.account_id===user.id)?.group_id??null;
       const active=users.filter(u=>u.active!==0&&!u.is_personal_data_revoked),allRooms=new Map(),configs=new Map();
@@ -79,12 +99,13 @@ export class ChatBridge{
         const own=members.find(m=>m.account_id===user.id)?.group_id;
         const contacts=active.filter(u=>{
           if(u.id===user.id||(u.hidden&&user.role!=='DEVELOPER'))return false;
-          if(staff(user))return true;
+          if(staff(user))return staffMaySeeContact(user,u);
           if(u.role==='USER')return !!(own&&members.some(m=>m.account_id===u.id&&m.group_id===own));
           if(staff(u))return !!(own&&studentMaySeeStaff(own,u));
           return false;
         });
-        configs.set(user.id,{profile:{id:user.id,name:user.name,login:user.login,email:user.email,groupId:user.groupId,role:user.role,active:user.active!==0&&!user.is_personal_data_revoked},contacts,groups:groups.filter(g=>staff(user)||g.id===own)});
+        const visibleGroups=user.role==='DEVELOPER'?groups:user.role==='ADMIN'?groups.filter(g=>taughtGroupIds(user).has(Number(g.id))):groups.filter(g=>g.id===own);
+        configs.set(user.id,{profile:{id:user.id,name:user.name,login:user.login,email:user.email,groupId:user.groupId,role:user.role,active:user.active!==0&&!user.is_personal_data_revoked},contacts,groups:visibleGroups});
       });
       await mapPool(groups,8,async group=>{
         const assigned=groupTeachers(group.id);
@@ -92,7 +113,7 @@ export class ChatBridge{
           if(members.some(m=>m.group_id===group.id&&m.account_id===u.id))return true;
           if(!staff(u))return false;
           if(u.role==='DEVELOPER')return true;
-          if(!assigned)return true;
+          if(!assigned)return false;
           return assigned.has(u.id);
         })});
       });
@@ -150,7 +171,8 @@ export class ChatBridge{
     const db=this.database(this.env),[source]=await db.read('SELECT * FROM chat_rooms WHERE id=?',[roomId]);
     if(source){
       const members=await db.read('SELECT * FROM chat_members WHERE room_id=?',[roomId]);
-      await chatCall(this.env,'CHAT_ROOM',roomId,'/configure',{room:{id:roomId,kind:source.kind,groupId:source.group_id,title:policy.groups.find(g=>g.id===source.group_id)?.title||'Private conversation'},members:source.kind==='group'?policy.users.filter(u=>u.active!==0&&!u.is_personal_data_revoked&&(staff(u)||policy.members.some(m=>m.account_id===u.id&&m.group_id===source.group_id))):members.map(m=>{const user=policy.users.find(u=>u.id===m.account_id);return user?{...user,active:user.active!==0&&!user.is_personal_data_revoked}:{id:m.account_id,name:'Unavailable account',role:'USER',active:false};})});
+      const assignedTeachers=new Set(((policy.teachersByGroup||[]).find(row=>Number(row.groupId)===Number(source.group_id))?.teacherIds||[]).map(String));
+      await chatCall(this.env,'CHAT_ROOM',roomId,'/configure',{room:{id:roomId,kind:source.kind,groupId:source.group_id,title:policy.groups.find(g=>g.id===source.group_id)?.title||'Private conversation'},members:source.kind==='group'?policy.users.filter(u=>u.active!==0&&!u.is_personal_data_revoked&&(u.role==='DEVELOPER'||(u.role==='ADMIN'&&assignedTeachers.has(String(u.id)))||policy.members.some(m=>m.account_id===u.id&&m.group_id===source.group_id))):members.map(m=>{const user=policy.users.find(u=>u.id===m.account_id);return user?{...user,active:user.active!==0&&!user.is_personal_data_revoked}:{id:m.account_id,name:'Unavailable account',role:'USER',active:false};})});
       let after=0;
       while(true){
         const rows=await db.read('SELECT m.*,a.exam_id,a.active assignment_active FROM chat_messages m LEFT JOIN chat_assignments a ON a.id=m.assignment_id WHERE m.room_id=? AND m.id>? ORDER BY m.id LIMIT 200',[roomId,after]);
@@ -165,7 +187,8 @@ export class ChatBridge{
     const policy=await this.policy(),known=policy.users.find(u=>u.id===actor.id);
     if(!known||known.role!==actor.role||known.active===0||known.is_personal_data_revoked)await this.policy(true);
     const activePolicy=this.get('policy'),db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=?',[actor.id]);
-    const groups=activePolicy.groups.filter(g=>staff(actor)||activePolicy.members.some(m=>m.account_id===actor.id&&m.group_id===g.id));
+    const taught=new Set((activePolicy.teachersByGroup||[]).filter(row=>(row.teacherIds||[]).includes(actor.id)).map(row=>Number(row.groupId)));
+    const groups=activePolicy.groups.filter(g=>actor.role==='DEVELOPER'||(actor.role==='ADMIN'?taught.has(Number(g.id)):activePolicy.members.some(m=>m.account_id===actor.id&&m.group_id===g.id)));
     const roomIds=[...new Set([...legacy.map(r=>r.id),...groups.map(g=>'group:'+g.id)])].filter(id=>!(id.startsWith('group:')&&!groups.some(g=>'group:'+g.id===id)));
     await mapPool(roomIds,8,async id=>{
       await this.migrate(id,activePolicy);
@@ -203,12 +226,23 @@ export class ChatBridge{
     const usernameOwner=q.startsWith('@')?this.get('username-owner:'+q):null;
     const own=policy.members.find(m=>m.account_id===self.id)?.group_id;
     const assigned=own==null?null:new Set((policy.teachersByGroup||[]).find(row=>Number(row.groupId)===Number(own))?.teacherIds||[]);
+    const taught=new Set((policy.teachersByGroup||[]).filter(row=>(row.teacherIds||[]).map(String).includes(String(self.id))).map(row=>Number(row.groupId)));
+    const coTeachers=new Set([String(self.id)]);
+    for(const row of policy.teachersByGroup||[])if((row.teacherIds||[]).map(String).includes(String(self.id)))for(const id of row.teacherIds||[])coTeachers.add(String(id));
     const visible=u=>{
-      if(staff(self))return true;
+      if(self.role==='DEVELOPER')return true;
+      if(self.role==='ADMIN'){
+        if(u.role==='ADMIN')return coTeachers.has(String(u.id));
+        if(u.role==='USER'){
+          const groupId=policy.members.find(m=>m.account_id===u.id)?.group_id;
+          return groupId!=null&&taught.has(Number(groupId));
+        }
+        return false;
+      }
       if(u.role==='USER')return !!(own&&policy.members.some(m=>m.account_id===u.id&&m.group_id===own));
       if(!staff(u)||!own)return false;
       if(u.role==='DEVELOPER')return true;
-      if(!assigned?.size)return u.role==='ADMIN';
+      if(!assigned?.size)return false;
       return assigned.has(u.id);
     };
     const matches=policy.users.filter(u=>u.id!==self.id&&u.active!==0&&!u.is_personal_data_revoked&&(!u.hidden||self.role==='DEVELOPER')&&visible(u)&&(q.startsWith('@')?u.id===usernameOwner:[u.login,u.email].some(v=>v&&v.toLocaleLowerCase()===q)));
