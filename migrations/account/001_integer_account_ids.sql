@@ -3,7 +3,6 @@
 -- Mapping table legacy_account_ids records old string identifier to new database assigned integer.
 
 PRAGMA foreign_keys = OFF;
-BEGIN IMMEDIATE;
 
 CREATE TABLE IF NOT EXISTS legacy_account_ids (
   old_id TEXT PRIMARY KEY,
@@ -193,5 +192,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS account_changes_email_pending ON account_chang
 CREATE INDEX IF NOT EXISTS user_state_updated_at ON user_state(updated_at);
 CREATE INDEX IF NOT EXISTS user_added_card ON user_added(card);
 
-COMMIT;
 PRAGMA foreign_keys = ON;

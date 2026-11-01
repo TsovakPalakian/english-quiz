@@ -2,7 +2,6 @@
 -- Requires table legacy_account_ids (old_id TEXT PRIMARY KEY, new_id INTEGER UNIQUE) populated from account database migration.
 
 PRAGMA foreign_keys = OFF;
-BEGIN IMMEDIATE;
 
 -- 1. account_refs
 CREATE TABLE IF NOT EXISTS account_refs_v9 (
@@ -231,25 +230,24 @@ CREATE TABLE IF NOT EXISTS account_error_items_v9 (
   last_reviewed_at INTEGER NOT NULL DEFAULT 0,
   reps INTEGER NOT NULL DEFAULT 0,
   lapses INTEGER NOT NULL DEFAULT 0,
-  elapsed_days REAL NOT NULL DEFAULT 0.0,
-  scheduled_days INTEGER NOT NULL DEFAULT 0,
-  historical_reviews_json TEXT NOT NULL DEFAULT '[]',
+  latency_ms INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-  updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  UNIQUE(account_id, kind, material_id, part_id, question_index)
 );
 INSERT OR IGNORE INTO account_error_items_v9(
   id, account_id, material_id, kind, part_id, question_index, prompt,
   expected_answer, given_answer, error_tag, error_category, diagnostic_note,
   stage, interval_days, next_review_at, error_count, success_streak,
   status, stability, difficulty, retrievability, last_reviewed_at, reps,
-  lapses, elapsed_days, scheduled_days, historical_reviews_json, created_at, updated_at
+  lapses, latency_ms, created_at, updated_at
 )
 SELECT
   e.id, m.new_id, e.material_id, e.kind, e.part_id, e.question_index, e.prompt,
   e.expected_answer, e.given_answer, e.error_tag, e.error_category, e.diagnostic_note,
   e.stage, e.interval_days, e.next_review_at, e.error_count, e.success_streak,
   e.status, e.stability, e.difficulty, e.retrievability, e.last_reviewed_at, e.reps,
-  e.lapses, e.elapsed_days, e.scheduled_days, e.historical_reviews_json, e.created_at, e.updated_at
+  e.lapses, e.latency_ms, e.created_at, e.updated_at
 FROM account_error_items e
 JOIN legacy_account_ids m ON m.old_id = e.account_id;
 
@@ -406,13 +404,16 @@ CREATE TABLE IF NOT EXISTS qr_feedback_v9 (
   category TEXT NOT NULL,
   description TEXT NOT NULL,
   attachments_json TEXT NOT NULL CHECK(json_valid(attachments_json)),
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  deleted_at INTEGER,
+  expires_at INTEGER,
+  privacy_consent_at INTEGER
 );
 INSERT OR IGNORE INTO qr_feedback_v9(
-  id, owner_id, card_id, sense_id, version_id, category, description, attachments_json, created_at
+  id, owner_id, card_id, sense_id, version_id, category, description, attachments_json, created_at, deleted_at, expires_at, privacy_consent_at
 )
 SELECT
-  f.id, m.new_id, f.card_id, f.sense_id, f.version_id, f.category, f.description, f.attachments_json, f.created_at
+  f.id, m.new_id, f.card_id, f.sense_id, f.version_id, f.category, f.description, f.attachments_json, f.created_at, f.deleted_at, f.expires_at, f.privacy_consent_at
 FROM qr_feedback f
 JOIN legacy_account_ids m ON m.old_id = f.owner_id;
 
@@ -521,5 +522,4 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 );
 INSERT OR REPLACE INTO schema_migrations(version) VALUES (9);
 
-COMMIT;
 PRAGMA foreign_keys = ON;
