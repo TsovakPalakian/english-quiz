@@ -64,9 +64,9 @@ test('concurrent requests cannot consume the same code twice',async()=>{
 
 test('password recovery requires a dedicated code, validates input and changes only an active account',async()=>{
   const f=fixture();try{
-    f.sql.exec('CREATE TABLE users(id TEXT,email TEXT,active INTEGER,is_personal_data_revoked INTEGER,password_salt TEXT,password_hash TEXT,password_iterations INTEGER)');
-    f.sql.prepare('INSERT INTO users VALUES(?,?,?,?,?,?,?)').run('u1','user@example.com',1,0,'old-salt','old-hash',1);
-    f.sql.prepare('INSERT INTO users VALUES(?,?,?,?,?,?,?)').run('u2','inactive@example.com',0,0,'old-salt','old-hash',1);
+    f.sql.exec('CREATE TABLE users(id INTEGER PRIMARY KEY AUTOINCREMENT,email TEXT,active INTEGER,is_personal_data_revoked INTEGER,password_salt TEXT,password_hash TEXT,password_iterations INTEGER)');
+    f.sql.prepare('INSERT INTO users(id,email,active,is_personal_data_revoked,password_salt,password_hash,password_iterations) VALUES(?,?,?,?,?,?,?)').run(1,'user@example.com',1,0,'old-salt','old-hash',1);
+    f.sql.prepare('INSERT INTO users(id,email,active,is_personal_data_revoked,password_salt,password_hash,password_iterations) VALUES(?,?,?,?,?,?,?)').run(2,'inactive@example.com',0,0,'old-salt','old-hash',1);
     const mail=[],env={
       STAGE_ENABLED:'true',STAGE_ALLOWED_HOST:'accounts.example',STAGE_WRITES:'true',ACCOUNT_MUTATIONS_ENABLED:'true',ACCOUNT_QUERY_LIMIT_ENABLED:'false',
       EMAIL:{async send(message){mail.push(message);}},
@@ -80,7 +80,7 @@ test('password recovery requires a dedicated code, validates input and changes o
     assert.equal((await call('reset',{email:'user@example.com',code,password:'short'})).status,400);
     assert.equal((await call('reset',{email:'user@example.com',code:'000000',password:'new-password'})).status,401);
     assert.equal((await call('reset',{email:'user@example.com',code,password:'new-password'})).status,200);
-    const user=f.sql.prepare('SELECT * FROM users WHERE id=?').get('u1');
+    const user=f.sql.prepare('SELECT * FROM users WHERE id=?').get(1);
     assert.notEqual(user.password_hash,'old-hash');assert.equal(user.password_iterations,100000);
     const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('new-password'),'PBKDF2',false,['deriveBits']);
     const actual=Buffer.from(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:Buffer.from(user.password_salt,'hex'),iterations:100000},key,256)).toString('hex');
@@ -90,7 +90,7 @@ test('password recovery requires a dedicated code, validates input and changes o
     assert.equal((await call('reset',{email:login.email,code:login.code,password:'new-password'})).status,403);
     const inactive=await f.service.issue('inactive@example.com',{purpose:'password-reset'});
     assert.equal((await call('reset',{email:inactive.email,code:inactive.code,password:'new-password'})).status,200);
-    assert.equal(f.sql.prepare('SELECT password_hash FROM users WHERE id=?').get('u2').password_hash,'old-hash');
+    assert.equal(f.sql.prepare('SELECT password_hash FROM users WHERE id=?').get(2).password_hash,'old-hash');
     const unknown=await f.service.issue('unknown@example.com',{purpose:'password-reset'});
     assert.equal((await call('reset',{email:unknown.email,code:unknown.code,password:'new-password'})).status,200);
   }finally{f.close();}

@@ -8,7 +8,7 @@ export async function materialVisibility(db,accountId){
 export class VisibilityService extends StudyService{
   async set(actor,accountId,body){
     if(!['ADMIN','DEVELOPER'].includes(actor?.role))throw new StudyError(403,'You cannot do that.');
-    if(!/^[a-f0-9]{16,64}$/.test(accountId)||!body||Object.keys(body).some(key=>!['mutationId','type','id','expected','hidden'].includes(key))||!tables[body.type]||typeof body.expected!=='boolean'||typeof body.hidden!=='boolean')throw new StudyError(400,'Invalid visibility change.');
+    if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!body||Object.keys(body).some(key=>!['mutationId','type','id','expected','hidden'].includes(key))||!tables[body.type]||typeof body.expected!=='boolean'||typeof body.hidden!=='boolean')throw new StudyError(400,'Invalid visibility change.');
     recordId(body.id);
     const key='visibility:'+body.type+':'+body.id;
     return this.mutate(actor,body,['material-visibility',accountId,body.type,body.id],async()=>{

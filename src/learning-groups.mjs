@@ -142,7 +142,7 @@ export class GroupService{
   }
   async assignStudent(actor,accountId,groupId){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');
-    if(typeof accountId!=='string'||!/^[A-Za-z0-9_-]{1,100}$/.test(accountId))fail(400,'Invalid student.');
+    if((typeof accountId!=='string'&&!Number.isSafeInteger(accountId))||!/^[A-Za-z0-9_-]{1,100}$/.test(String(accountId)))fail(400,'Invalid student.');
     if(groupId!=null)await this.activeGroup(groupId);else await this.ensure();
     if(actor.role==='ADMIN'){
       const [current]=await this.db.read('SELECT group_id FROM class_group_students WHERE account_id=?',[accountId]);

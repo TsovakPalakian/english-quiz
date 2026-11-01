@@ -9,7 +9,7 @@ export function publicQuizAuthor({name,group,date,kind},visibility){
 }
 export class QuizAuthorVisibility{
   constructor(review){this.review=review;this.db=review.db;}
-  async owned(actor,id){kitSigned(actor);const q=await this.review.version(id);if(q.author_id!==actor.id||q.author_kind==='automatic')fail(403,'Only the human author can change public attribution.');return q;}
+  async owned(actor,id){kitSigned(actor);const q=await this.review.version(id);if(String(q.author_id)!==String(actor.id)||q.author_kind==='automatic')fail(403,'Only the human author can change public attribution.');return q;}
   async get(actor,id){await this.owned(actor,id);const [row]=await this.db.read('SELECT revision,public_name,public_group FROM qr_author_visibility WHERE version_id=?',[id]);return {revision:row?.revision||0,publicName:!!row?.public_name,publicGroup:!!row?.public_group};}
   async set(actor,id,body){
     exactFields(body,['mutationId','expectedRevision','publicName','publicGroup']);await this.owned(actor,id);

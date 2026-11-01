@@ -541,7 +541,7 @@
           method: "POST",
           body: JSON.stringify({ login: login.value.trim(), email: email.value.trim(), name: name.value.trim() })
         }).then((data) => {
-          if (viewAccount && viewAccount.id === button.dataset.id && data.user) {
+          if (viewAccount && String(viewAccount.id) === String(button.dataset.id) && data.user) {
             viewAccount.login = data.user.login;
             localStorage.setItem("enquiz-view-login", data.user.login);
             paintViewBar();
@@ -644,19 +644,19 @@
       if (action === "archive-user") {
         if (!isTeacher() || viewAccount || button.disabled) return;
         const executeArchive = () => {
-          const id = button.dataset.id, user = adminAccounts.find(row => row.id === id);
+          const id = button.dataset.id, user = adminAccounts.find(row => String(row.id) === String(id));
           const name = user?.name || user?.login || id;
           button.disabled = true;
           accountFetch('/api/archive', { method: 'POST', body: JSON.stringify({ action: 'archive', type: 'account', id }) })
             .then(() => {
               ++adminPaintToken; ++adminUserPaintToken;
               adminAccountId = null; adminSelectedUser = null;
-              adminAccounts = adminAccounts.filter(row => row.id !== id);
-              adminMembers = adminMembers.filter(row => row.accountId !== id);
+              adminAccounts = adminAccounts.filter(row => String(row.id) !== String(id));
+              adminMembers = adminMembers.filter(row => String(row.accountId) !== String(id));
               groupDirectory = null; classGroupsReady = false; examReady = false; examResetWork();
               window.ContentCache?.invalidate?.('archive:');
               viewCache.delete('admin'); viewCache.delete('adminuser:' + id);
-              for (let i = navStack.length - 1; i >= 0; i--) if (navStack[i].adminAccountId === id) {
+              for (let i = navStack.length - 1; i >= 0; i--) if (String(navStack[i].adminAccountId) === String(id)) {
                 if (navStack[i].id === 'adminuser') navStack.splice(i, 1); else navStack[i].adminAccountId = null;
               }
               try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }

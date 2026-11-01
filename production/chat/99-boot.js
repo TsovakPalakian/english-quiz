@@ -44,7 +44,7 @@
       if (user) {
         const gen = generation;
         void readChatCache().then((cached) => {
-          if (gen !== generation || account !== user.id) return;
+          if (gen !== generation || String(account) !== String(user.id)) return;
           if (applyChatCache(cached)) {
             paintRooms();
             badge();
@@ -54,9 +54,9 @@
         connect();
       }
     }
-    if (profileViews._account !== account) {
+    if (String(profileViews._account || '') !== String(account || '')) {
       profileViews = Object.create(null);
-      profileViews._account = account;
+      profileViews._account = String(account);
       profileRequested.clear();
     }
     const face = el('msgProfile');

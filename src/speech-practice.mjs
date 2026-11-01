@@ -84,7 +84,7 @@ export class SpeechPractice{
   async attempt(actor,id,{owner=false,audio=false}={}){
     this.gate(actor);const [row]=await this.db.read('SELECT * FROM qr_speech_attempts WHERE id=? AND deleted_at IS NULL',[id]);if(!row)fail(404,'Speech attempt not found.');
     const task=await this.task(actor,row.task_id);
-    if(row.owner_id!==actor.id){
+    if(String(row.owner_id)!==String(actor.id)){
       if(owner||!['ADMIN','DEVELOPER'].includes(actor.role))fail(404,'Speech attempt not found.');
       const [share]=await this.db.read('SELECT include_audio FROM qr_speech_shares WHERE attempt_id=? AND teacher_id=?',[id,actor.id]);
       if(!share||audio&&!share.include_audio||!await this.assigned(actor,task))fail(404,'Speech attempt not found.');
@@ -94,20 +94,20 @@ export class SpeechPractice{
   async assigned(actor,task){
     if(task.value?.quizSessionId)return false;
     if(actor.role==='DEVELOPER')return true;
-    const [row]=await this.db.read("SELECT 1 FROM catalog_documents d,json_each(d.value_json,'$.teacherIds') t WHERE d.namespace='accounts-group-teachers' AND d.key=? AND t.value=?",[String(task.group_id),actor.id]);return !!row;
+    const [row]=await this.db.read("SELECT 1 FROM catalog_documents d,json_each(d.value_json,'$.teacherIds') t WHERE d.namespace='accounts-group-teachers' AND d.key=? AND CAST(t.value AS TEXT)=CAST(? AS TEXT)",[String(task.group_id),String(actor.id)]);return !!row;
   }
   async get(actor,id,{recover=true}={}){
     this.gate(actor);if(recover)await this.recover();const row=await this.attempt(actor,id),[correction]=await this.db.read('SELECT text,created_at,revision FROM qr_speech_corrections WHERE attempt_id=? ORDER BY revision DESC LIMIT 1',[id]);
-    const shares=row.owner_id===actor.id?await this.db.read('SELECT teacher_id AS teacherId,include_audio AS includeAudio FROM qr_speech_shares WHERE attempt_id=?',[id]):[];
-    const [audioShare]=row.owner_id===actor.id?[]:await this.db.read('SELECT include_audio FROM qr_speech_shares WHERE attempt_id=? AND teacher_id=?',[id,actor.id]);
-    return {id,taskId:row.task_id,state:row.state,createdAt:row.created_at,error:row.error_code,result:row.result_json?JSON.parse(row.result_json):null,correction:correction||null,shares,canManage:row.owner_id===actor.id,canHear:row.owner_id===actor.id||!!audioShare?.include_audio};
+    const shares=String(row.owner_id)===String(actor.id)?await this.db.read('SELECT teacher_id AS teacherId,include_audio AS includeAudio FROM qr_speech_shares WHERE attempt_id=?',[id]):[];
+    const [audioShare]=String(row.owner_id)===String(actor.id)?[]:await this.db.read('SELECT include_audio FROM qr_speech_shares WHERE attempt_id=? AND teacher_id=?',[id,actor.id]);
+    return {id,taskId:row.task_id,state:row.state,createdAt:row.created_at,error:row.error_code,result:row.result_json?JSON.parse(row.result_json):null,correction:correction||null,shares,canManage:String(row.owner_id)===String(actor.id),canHear:String(row.owner_id)===String(actor.id)||!!audioShare?.include_audio};
   }
   async analyze(actor,id,body,{background=false}={}){
     const task=await this.task(actor,id);exactFields(body,['mutationId','mediaId','consent']);if(body.consent!==true)fail(400,'Explicit consent is required before analysis.');
     await this.recover();
     const operation=await this.review.mutation(actor,body,['speech-analysis',id],async()=>{
       const asset=await this.media.row(body.mediaId),descriptor=JSON.parse(asset.descriptor_json),source=JSON.parse(asset.source_json);
-      if(asset.owner_id!==actor.id||asset.purpose!=='speech'||source.taskId!==id||descriptor.kind!=='audio')fail(403,'Choose your own recording for this task.');
+      if(String(asset.owner_id)!==String(actor.id)||asset.purpose!=='speech'||source.taskId!==id||descriptor.kind!=='audio')fail(403,'Choose your own recording for this task.');
       if(descriptor.duration>task.value.maxSeconds)fail(400,'The recording is too long for this task.');
       if(descriptor.duration<task.value.rubric.minimumSeconds)fail(400,'Record a longer sample before sending for analysis.');
       const settings=await this.providers.inspect(this.worker),tasks=[task.value.evaluation],plan=[];

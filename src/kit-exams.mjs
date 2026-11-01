@@ -11,8 +11,8 @@ export class KitExams{
       JOIN exams e ON e.id=i.exam_id AND e.deleted_at IS NULL JOIN exam_blocks b ON b.exam_id=e.id AND b.id=? AND b.deleted_at IS NULL
       WHERE i.exam_id=? AND i.active=1`,[blockId,examId]);
     if(!row)fail(404,'Assigned exam block unavailable.');
-    if(staff){kitTeacher(actor);if(actor.id===row.account_id||actor.role!=='DEVELOPER'&&row.reviewer_id!==actor.id)fail(403,'Only the assigned reviewer can manage these exam quizzes.');}
-    else if(row.account_id!==actor.id||row.exam_published!==1||row.block_published!==1)fail(404,'Assigned exam block unavailable.');
+    if(staff){kitTeacher(actor);if(String(actor.id)===String(row.account_id)||actor.role!=='DEVELOPER'&&String(row.reviewer_id)!==String(actor.id))fail(403,'Only the assigned reviewer can manage these exam quizzes.');}
+    else if(String(row.account_id)!==String(actor.id)||row.exam_published!==1||row.block_published!==1)fail(404,'Assigned exam block unavailable.');
     return row;
   }
   guard(actor,link,{submit=false,staff=false,published=false}={}){

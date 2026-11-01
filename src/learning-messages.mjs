@@ -191,7 +191,7 @@ export class MessageService {
   }
   async assignStudent(actor,accountId,groupId) {
     signed(actor); if (!staff(actor)) fail(403,'Only a teacher can assign students.'); await this.ensure();
-    if (!(await this.directory()).some(user => user.id===accountId && user.role==='USER')) fail(404,'Student not found.');
+    if (!(await this.directory()).some(user => String(user.id)===String(accountId) && user.role==='USER')) fail(404,'Student not found.');
     const service = new GroupService(this.db);
     if (groupId!=null) await service.activeGroup(groupId);
     const [old] = await this.db.read('SELECT group_id FROM class_group_students WHERE account_id=?',[accountId]);

@@ -153,7 +153,7 @@ export class ArchiveService{
     const {item,key}=entity(value?.type,value?.id);await this.ensure();
     const found=await this.db.read(`SELECT entity_id FROM content_archive WHERE entity_type=? AND entity_id=?
       AND (?=1 OR (teacher_hidden_at IS NULL AND archived_by=?))`,
-      [value.type,key,actor.role==='DEVELOPER'?1:0,actor.id]);
+      [value.type,key,actor.role==='DEVELOPER'?1:0,String(actor.id)]);
     if(found.length!==1)fail(404,'Archived material not found.');
     if(value.type==='exam-block'){
       const parent=await this.db.read('SELECT e.deleted_at FROM exams e JOIN exam_blocks b ON b.exam_id=e.id WHERE CAST(b.id AS TEXT)=?',[key]);
@@ -172,17 +172,17 @@ export class ArchiveService{
       WHERE entity_type=? AND entity_id=?`,[value.type,key]);
     if(found.length!==1)fail(404,'Archived material not found.');
     if(actor.role==='USER'){
-      if(found[0].archived_by!==actor.id||found[0].archived_by_role!=='USER'||found[0].teacher_hidden_at)fail(404,'Archived material not found.');
+      if(String(found[0].archived_by)!==String(actor.id)||found[0].archived_by_role!=='USER'||found[0].teacher_hidden_at)fail(404,'Archived material not found.');
       await this.db.atomic([stmt(`UPDATE content_archive SET teacher_hidden_at=unixepoch(),teacher_hidden_by=?
-        WHERE entity_type=? AND entity_id=? AND teacher_hidden_at IS NULL`,[actor.id,value.type,key]),this.bump()]);
+        WHERE entity_type=? AND entity_id=? AND teacher_hidden_at IS NULL`,[String(actor.id),value.type,key]),this.bump()]);
       return {hidden:true,type:value.type,id:key,revision:await this.revision()};
     }
     if(!reviewer(actor))fail(403,'You cannot remove this archived material.');
     if(actor.role!=='DEVELOPER'){
-      if(found[0].archived_by!==actor.id||found[0].teacher_hidden_at)fail(404,'Archived material not found.');
+      if(String(found[0].archived_by)!==String(actor.id)||found[0].teacher_hidden_at)fail(404,'Archived material not found.');
       if(!passwordVerified)fail(401,'Wrong password.');
       await this.db.atomic([stmt(`UPDATE content_archive SET teacher_hidden_at=unixepoch(),teacher_hidden_by=?
-        WHERE entity_type=? AND entity_id=? AND teacher_hidden_at IS NULL`,[actor.id,value.type,key]),this.bump()]);
+        WHERE entity_type=? AND entity_id=? AND teacher_hidden_at IS NULL`,[String(actor.id),value.type,key]),this.bump()]);
       return {hidden:true,type:value.type,id:key,revision:await this.revision()};
     }
     const commands=[];

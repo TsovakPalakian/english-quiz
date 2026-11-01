@@ -102,7 +102,7 @@
       if (contactGroupView) {
         const members = (contactGroupView.members || []).filter(
           (m) =>
-            m.id !== account &&
+            String(m.id) !== String(account) &&
             (!query ||
               (m.name + ' ' + (m.role || '') + ' ' + (profileViews[m.id]?.username || ''))
                 .toLocaleLowerCase()
@@ -150,7 +150,7 @@
           .filter(
             (p) =>
               !blocked.has(p.id) &&
-              !data.rooms.some((r) => r.peerId === p.id && r.archived) &&
+              !data.rooms.some((r) => String(r.peerId) === String(p.id) && r.archived) &&
               (!query ||
                 (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
@@ -452,7 +452,7 @@
     if (
       !isNew ||
       mutedChat(event.room) ||
-      event.message.senderId === account ||
+      String(event.message.senderId) === String(account) ||
       !current() ||
       Date.now() - lastAlert < 400
     )

@@ -110,7 +110,7 @@
           '</button>'
         : '') +
       extra;
-    if (isGroupChat(selected) && (reviewer() || selected.ownerId === account))
+    if (isGroupChat(selected) && (reviewer() || String(selected.ownerId) === String(account)))
       el('msgInfoContent')
         .querySelector('.chat-info-profile')
         .insertAdjacentHTML(
@@ -429,7 +429,7 @@
           node.querySelector('[role=status]').textContent = 'No account found.';
           return;
         }
-        let index = rows.findIndex((r) => r.kind === 'direct' && r.id === result.person.id);
+        let index = rows.findIndex((r) => r.kind === 'direct' && String(r.id) === String(result.person.id));
         if (index < 0) {
           rows.push({ ...result.person, kind: 'direct' });
           index = rows.length - 1;
@@ -500,7 +500,7 @@
           ...data.contacts,
         ].map((p) => [p.id, p]),
       ).values(),
-    ].filter((p) => p.id !== account);
+    ].filter((p) => String(p.id) !== String(account));
     if (!people.length) {
       status('Add contacts before creating a group.');
       return;
@@ -884,7 +884,7 @@
       let row = data.rooms.find(
         (r) =>
           r.id === target.dataset.msgRoom ||
-          (target.dataset.contactId && r.peerId === target.dataset.contactId) ||
+          (target.dataset.contactId && String(r.peerId) === String(target.dataset.contactId)) ||
           (target.dataset.chatGroup && r.id === 'group:' + target.dataset.chatGroup),
       );
       if (!row) {
@@ -1025,7 +1025,7 @@
     );
   }
   function studyReference(message, quote = null) {
-    if (!message || message.deleted || message.senderId === account || message.canStudyReply === false) return;
+    if (!message || message.deleted || String(message.senderId) === String(account) || message.canStudyReply === false) return;
     const sourceRoomId = room,
       clientKey = crypto.randomUUID(),
       draft = 'english-chat-alert-reply:' + account + ':' + sourceRoomId + ':' + message.id;
@@ -1076,7 +1076,7 @@
   }
   async function replyMessage(message) {
     if (!message || message.deleted) return;
-    if (message.category === 'learning' && message.senderId !== account && message.canStudyReply !== false) {
+    if (message.category === 'learning' && String(message.senderId) !== String(account) && message.canStudyReply !== false) {
       studyReference(message);
       return;
     }

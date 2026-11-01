@@ -11,7 +11,7 @@ const fail=(status,message)=>{throw Object.assign(new Error(message),{status});}
 const staff=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const publicName=actor=>actor.role==='DEVELOPER'?'Support':actor.name||actor.login||'Student';
 const publicRole=actor=>actor.role==='USER'?'Student':actor.role==='DEVELOPER'?'Support':'Teacher';
-const ref=value=>{if(typeof value!=='string'||! /^[A-Za-z0-9:_-]{1,180}$/.test(value))fail(400,'Invalid reference.');return value;};
+const ref=value=>{const str=String(value??'');if(!/^[A-Za-z0-9:_-]{1,180}$/.test(str))fail(400,'Invalid reference.');return str;};
 const integer=value=>{if(!Number.isSafeInteger(value)||value<0)fail(400,'Invalid cursor.');return value;};
 const category=value=>{if(!['personal','learning'].includes(value))fail(400,'Invalid category.');return value;};
 export const directRoomId=(a,b)=>'direct:'+ [ref(a),ref(b)].sort().join(':');

@@ -101,7 +101,7 @@
     }
     function applyAccountThemes(pack) {
       if (!pack || viewAccount) return;
-      if (pack.accountId && pack.accountId !== authUser?.id) return;
+      if (pack.accountId && String(pack.accountId) !== String(authUser?.id)) return;
       pack = Object.assign({}, pack, window.LearningMain?.themePreferences?.() || {});
       if (Array.isArray(pack.themes)) installCustomThemes(pack.themes.map((row) => Object.assign({}, row, { owner: authUser?.login || row.owner || "" })));
       if (typeof paintThemeSegs === "function") paintThemeSegs();
@@ -130,8 +130,8 @@
       const key = "enquiz-last-activity:" + authUser.id;
       const time = Date.now();
       let last = Number(localStorage.getItem(key)) || time;
-      if (idleActor !== authUser.id) {
-        idleActor = authUser.id;
+      if (String(idleActor) !== String(authUser.id)) {
+        idleActor = String(authUser.id);
         if (!localStorage.getItem(key)) localStorage.setItem(key, String(time));
       }
       if (time - last >= idleLimit) {

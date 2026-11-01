@@ -7,7 +7,7 @@ function scope(value){
   return {provider:'d1',revision:value.revision,scope:'site'};
 }
 export function chatDatabaseScope(env){return scope(env.DATABASE_SELECTION||ACTIVE_DATABASE);}
-export function chatStorageName(env,id){return id;}
+export function chatStorageName(env,id){return String(id);}
 export function chatDatabaseHeaders(env){const selected=chatDatabaseScope(env);return {'X-Chat-Database':selected.provider,'X-Chat-Database-Revision':String(selected.revision),'X-Chat-Writes':env.CONTENT_WRITES==='false'?'0':'1'};}
 export async function assertChatRunning(store){assertAccountTransferRunning(store.baseEnv||store.env);}
 

@@ -295,20 +295,20 @@ function problemStatus(error, problem) {
 async function ensureSchema(db) {
   if (schemaReady || schemaPaused) return;
   const statements = [
-    "CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', password_salt TEXT NOT NULL, password_hash TEXT NOT NULL, password_iterations INTEGER NOT NULL, role TEXT NOT NULL DEFAULT 'USER', is_personal_data_revoked INTEGER NOT NULL DEFAULT 0, revoked_at INTEGER, hidden INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', password_salt TEXT NOT NULL, password_hash TEXT NOT NULL, password_iterations INTEGER NOT NULL, role TEXT NOT NULL DEFAULT 'USER', is_personal_data_revoked INTEGER NOT NULL DEFAULT 0, revoked_at INTEGER, hidden INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL)",
     "CREATE UNIQUE INDEX IF NOT EXISTS users_login_active ON users(login) WHERE is_personal_data_revoked = 0",
     "CREATE UNIQUE INDEX IF NOT EXISTS users_email_active ON users(email) WHERE is_personal_data_revoked = 0",
-    "CREATE TABLE IF NOT EXISTS registrations (id TEXT PRIMARY KEY, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', password_salt TEXT NOT NULL, password_hash TEXT NOT NULL, password_iterations INTEGER NOT NULL, status TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'USER', user_id TEXT, created_at INTEGER NOT NULL, decided_at INTEGER)",
+    "CREATE TABLE IF NOT EXISTS registrations (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', password_salt TEXT NOT NULL, password_hash TEXT NOT NULL, password_iterations INTEGER NOT NULL, status TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'USER', user_id INTEGER, created_at INTEGER NOT NULL, decided_at INTEGER)",
     "CREATE UNIQUE INDEX IF NOT EXISTS registrations_login_pending ON registrations(login) WHERE status = 'pending'",
     "CREATE UNIQUE INDEX IF NOT EXISTS registrations_email_pending ON registrations(email) WHERE status = 'pending'",
-    "CREATE TABLE IF NOT EXISTS account_changes (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', from_login TEXT NOT NULL, from_email TEXT NOT NULL, from_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'USER', status TEXT NOT NULL, created_at INTEGER NOT NULL, decided_at INTEGER)",
+    "CREATE TABLE IF NOT EXISTS account_changes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', from_login TEXT NOT NULL, from_email TEXT NOT NULL, from_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'USER', status TEXT NOT NULL, created_at INTEGER NOT NULL, decided_at INTEGER)",
     "CREATE UNIQUE INDEX IF NOT EXISTS account_changes_user_pending ON account_changes(user_id) WHERE status = 'pending'",
     "CREATE UNIQUE INDEX IF NOT EXISTS account_changes_login_pending ON account_changes(login) WHERE status = 'pending'",
     "CREATE UNIQUE INDEX IF NOT EXISTS account_changes_email_pending ON account_changes(email) WHERE status = 'pending'",
-    "CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS user_state (user_id TEXT PRIMARY KEY, added TEXT NOT NULL DEFAULT '[]', songs TEXT NOT NULL DEFAULT '[]', learned TEXT NOT NULL DEFAULT '[]', variants TEXT NOT NULL DEFAULT '{}', stats TEXT NOT NULL DEFAULT '{}', updated_at INTEGER NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS user_added (user_id TEXT NOT NULL, idx INTEGER NOT NULL, card TEXT NOT NULL, PRIMARY KEY (user_id, idx))",
-    "CREATE TABLE IF NOT EXISTS user_card_gone (user_id TEXT NOT NULL, card_key TEXT NOT NULL, PRIMARY KEY (user_id, card_key))",
+    "CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires_at INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS user_state (user_id INTEGER PRIMARY KEY, added TEXT NOT NULL DEFAULT '[]', songs TEXT NOT NULL DEFAULT '[]', learned TEXT NOT NULL DEFAULT '[]', variants TEXT NOT NULL DEFAULT '{}', stats TEXT NOT NULL DEFAULT '{}', updated_at INTEGER NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS user_added (user_id INTEGER NOT NULL, idx INTEGER NOT NULL, card TEXT NOT NULL, PRIMARY KEY (user_id, idx))",
+    "CREATE TABLE IF NOT EXISTS user_card_gone (user_id INTEGER NOT NULL, card_key TEXT NOT NULL, PRIMARY KEY (user_id, card_key))",
   ];
   try {
     for (let i = 0; i < statements.length; i++) await db.prepare(statements[i]).run();
@@ -327,9 +327,15 @@ async function seedAdmin(db, env) {
   const existing = await db.prepare("SELECT id FROM users WHERE role = 'ADMIN' AND is_personal_data_revoked = 0").first();
   if (existing) return;
   const hashed = await hashPassword(password);
-  await db.prepare(
-    "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?)"
-  ).bind(randomId(), login, email, "Teacher", hashed.salt, hashed.hash, ITERATIONS, now()).run();
+  try {
+    await db.prepare(
+      "INSERT INTO users (login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, 'Teacher', ?, ?, ?, 'ADMIN', 0, ?)"
+    ).bind(login, email, hashed.salt, hashed.hash, ITERATIONS, now()).run();
+  } catch (e) {
+    await db.prepare(
+      "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, 'Teacher', ?, ?, ?, 'ADMIN', 0, ?)"
+    ).bind(randomId(), login, email, hashed.salt, hashed.hash, ITERATIONS, now()).run();
+  }
 }
 
 function bytesToB64url(bytes) {
@@ -664,8 +670,8 @@ async function pairedSongKey(env, ownerLogin, ownerId, songId) {
   if (!studyTwinLogin(ownerLogin)) return "";
   const pair = await studyPair(env, ownerLogin);
   if (!pair) return "";
-  const twinId = pair.self.id === ownerId ? pair.twin.id : pair.twin.id === ownerId ? pair.self.id : "";
-  if (!twinId || twinId === ownerId) return "";
+  const twinId = String(pair.self.id) === String(ownerId) ? pair.twin.id : String(pair.twin.id) === String(ownerId) ? pair.self.id : "";
+  if (!twinId || String(twinId) === String(ownerId)) return "";
   return twinId + "/" + songId;
 }
 
@@ -679,7 +685,7 @@ async function songFile(request, env) {
   let ownerId = user.id;
   let ownerLogin = user.login || "";
   const forId = (url.searchParams.get("for") || "").trim();
-  if (forId && forId !== user.id) {
+  if (forId && String(forId) !== String(user.id)) {
     let row = null;
     try {
       row = await env.DB.prepare(
@@ -911,7 +917,7 @@ function d1RowLive(row) {
 }
 
 export async function resolveStatTarget(env, actor, forId) {
-  if (!forId || forId === actor.id) return { uid: actor.id, role: actor.role || "USER" };
+  if (!forId || String(forId) === String(actor.id)) return { uid: actor.id, role: actor.role || "USER" };
   const row = await d1UserById(env, forId);
   if (!d1RowLive(row)) return { uid: actor.id, role: actor.role || "USER" };
   if (row.hidden && actor.role !== "DEVELOPER") return { uid: actor.id, role: actor.role || "USER" };
@@ -958,10 +964,10 @@ async function saveStatEvent(env, request, body) {
   let role = user.role || "USER";
   if (user.role === "DEVELOPER" || user.role === "ADMIN") {
     const forId = String(body && body.for || "");
-    if (forId && /^[a-f0-9]{32}$/.test(forId)) {
+    if (forId && /^(?:[a-f0-9]{32}|[1-9]\d{0,15})$/.test(forId)) {
       const owner = await resolveStatTarget(env, user, forId);
       // ADMIN cannot attribute "song" events to students (directory path had the same rule).
-      if (user.role === "ADMIN" && kind === "song" && owner.uid !== user.id) {
+      if (user.role === "ADMIN" && kind === "song" && String(owner.uid) !== String(user.id)) {
         uid = user.id;
         role = user.role;
       } else {
@@ -1051,7 +1057,7 @@ function statAudience(user, searchParams) {
   const requested = String(searchParams.get("user") || "");
   const role = String(searchParams.get("role") || "");
   const roleFilter = role === "USER" || role === "ADMIN" || role === "DEVELOPER" ? role : "";
-  const userId = /^[a-f0-9]{32}$/.test(requested) ? requested : "";
+  const userId = /^(?:[a-f0-9]{32}|[1-9]\d{0,15})$/.test(requested) ? requested : "";
   if (requested && !userId) return { error: "The request was not valid.", status: 400 };
   if (!user || (user.role !== "DEVELOPER" && user.role !== "ADMIN" && user.role !== "USER")) {
     return { error: "You cannot open statistics.", status: 403 };
@@ -1060,10 +1066,10 @@ function statAudience(user, searchParams) {
     if (searchParams.get("as") === "user" && userId) return { scope: "self", userId: userId, roleFilter: "" };
     return { scope: "all", userId: userId, roleFilter: roleFilter };
   }
-  if (user.role === "ADMIN" && searchParams.get("as") === "user" && userId && userId !== user.id) {
+  if (user.role === "ADMIN" && searchParams.get("as") === "user" && userId && String(userId) !== String(user.id)) {
     return { scope: "self", userId: userId, roleFilter: "", hideSongs: true, needsStudent: true };
   }
-  if ((userId && userId !== user.id) || (roleFilter && roleFilter !== user.role)) {
+  if ((userId && String(userId) !== String(user.id)) || (roleFilter && roleFilter !== user.role)) {
     return { error: "You can only open your own statistics.", status: 403 };
   }
   return { scope: "self", userId: user.id, roleFilter: "" };
@@ -1072,7 +1078,7 @@ function statAudience(user, searchParams) {
 function eventVisible(event, audience) {
   if (!event || !event.t || !event.uid) return false;
   if (audience.hideSongs && (event.kind === "song" || event.area === "lyrics")) return false;
-  if (audience.userId && event.uid !== audience.userId) return false;
+  if (audience.userId && String(event.uid) !== String(audience.userId)) return false;
   if (audience.roleFilter && event.role !== audience.roleFilter) return false;
   return true;
 }
@@ -1101,7 +1107,7 @@ function buildByUser(events, users) {
   });
   return Object.keys(buckets).map((id) => {
     const row = buckets[id];
-    const person = (users || []).find((item) => item && item.id === id);
+    const person = (users || []).find((item) => item && String(item.id) === String(id));
     if (person) {
       row.login = person.login || "";
       if (person.role) row.role = person.role;
@@ -1157,9 +1163,9 @@ async function statReport(env, request) {
     directoryHead = await env.MEDIA.head("directory/accounts.json");
     directory = directoryHead ? await readDirectory(env) : directory;
     if (directoryHead) {
-      const listed = (directory.users || []).filter((item) => item && (!audience.userId || item.id === audience.userId) && (!audience.roleFilter || item.role === audience.roleFilter));
+      const listed = (directory.users || []).filter((item) => item && (!audience.userId || String(item.id) === String(audience.userId)) && (!audience.roleFilter || item.role === audience.roleFilter));
       const users = listed.filter((item) => item.createdAt);
-      const listedRegs = (directory.registrations || []).filter((item) => item && (!audience.userId || item.user_id === audience.userId) && (!audience.roleFilter || (item.role || "USER") === audience.roleFilter));
+      const listedRegs = (directory.registrations || []).filter((item) => item && (!audience.userId || String(item.user_id) === String(audience.userId)) && (!audience.roleFilter || (item.role || "USER") === audience.roleFilter));
       const regs = listedRegs.filter((item) => item.created_at || item.decided_at);
       const series = [];
       for (let day = from; day <= to; day += 86400) {
@@ -1702,31 +1708,65 @@ async function register(env, request, body, secure) {
     if (!env.MEDIA) return json({ error: "Files are not connected yet." }, 503);
     const claimed = !!(await putMediaJson(env, "bootstrap/admin.lock", { login: fields.login, at: created }, ""));
     if (claimed) {
-      const userId = randomId();
-      const user = {
-        id: userId,
-        login: fields.login,
-        email: fields.email,
-        name: fields.name,
-        role: "ADMIN",
-        password_hash: hashed.hash,
-        is_personal_data_revoked: 0,
-        created_at: created
-      };
+      let userId = null;
+      let registrationId = null;
       try {
-        await provisionSignupUsername(env,'reserve',fields.login,regId);
-        await provisionSignupUsername(env,'activate',fields.login,regId,userId);
-        await db.batch([db.prepare(
-          "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?)"
-        ).bind(userId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created),db.prepare(
-          "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'ADMIN', ?, ?, ?)"
-        ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created)]);
+        let userRow = null;
+        try {
+          userRow = await db.prepare(
+            "INSERT INTO users (login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?) RETURNING id"
+          ).bind(fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created).first();
+        } catch (e) {}
+        if (!userRow || userRow.id == null) {
+          if (userRow) await db.prepare("DELETE FROM users WHERE id IS NULL AND email = ?").bind(fields.email).run().catch(() => {});
+          const fallbackId = randomId();
+          userRow = await db.prepare(
+            "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'ADMIN', 0, ?) RETURNING id"
+          ).bind(fallbackId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, created).first();
+          if (!userRow) userRow = { id: fallbackId };
+        }
+        userId = userRow.id;
+        let regRow = null;
+        try {
+          regRow = await db.prepare(
+            "INSERT INTO registrations (login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, 'approved', 'ADMIN', ?, ?, ?) RETURNING id"
+          ).bind(fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).first();
+        } catch (e) {}
+        if (!regRow || regRow.id == null) {
+          if (regRow) await db.prepare("DELETE FROM registrations WHERE id IS NULL AND email = ?").bind(fields.email).run().catch(() => {});
+          regRow = await db.prepare(
+            "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'ADMIN', ?, ?, ?) RETURNING id"
+          ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).first();
+          if (!regRow) regRow = { id: regId };
+        }
+        registrationId = regRow.id;
+        await provisionSignupUsername(env,'reserve',fields.login,registrationId);
+        await provisionSignupUsername(env,'activate',fields.login,registrationId,userId);
+        const user = {
+          id: userId,
+          login: fields.login,
+          email: fields.email,
+          name: fields.name,
+          role: "ADMIN",
+          password_hash: hashed.hash,
+          is_personal_data_revoked: 0,
+          created_at: created
+        };
         await rememberUser(env, user);
-        await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "approved", role: "ADMIN", user_id: userId, created_at: created, decided_at: created });
+        await rememberRegistration(env, { id: registrationId, login: fields.login, email: fields.email, name: fields.name, status: "approved", role: "ADMIN", user_id: userId, created_at: created, decided_at: created });
         return startSession(env, user, { status: "active", user: publicUser(user) }, secure, request);
       } catch (error) {
-        await provisionSignupUsername(env,'rollback',fields.login,regId,userId).catch(()=>{});
-        await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
+        if (userId) {
+          await db.prepare("DELETE FROM users WHERE id = ?").bind(userId).run().catch(() => {});
+        }
+        if (registrationId != null) {
+          await db.prepare("DELETE FROM registrations WHERE id = ?").bind(registrationId).run().catch(() => {});
+          await provisionSignupUsername(env,'rollback',fields.login,registrationId,userId).catch(()=>{});
+          await provisionSignupUsername(env,'release',fields.login,registrationId).catch(()=>{});
+        } else {
+          await provisionSignupUsername(env,'rollback',fields.login,regId,userId).catch(()=>{});
+          await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
+        }
         // Release the create-only lock so a failed D1 insert cannot brick first-admin signup forever.
         try { await env.MEDIA.delete("bootstrap/admin.lock"); } catch (e) {}
         return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
@@ -1734,17 +1774,34 @@ async function register(env, request, body, secure) {
     }
     return json({ error: "Registration is busy. Try again." }, 409);
   }
+  let pendingRegId = null;
   try {
-    await provisionSignupUsername(env,'reserve',fields.login,regId);
-    await db.prepare(
-      "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
-    ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, signupRole(env), created).run();
+    let regRow = null;
+    try {
+      regRow = await db.prepare(
+        "INSERT INTO registrations (login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id"
+      ).bind(fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, signupRole(env), created).first();
+    } catch (e) {}
+    if (!regRow || regRow.id == null) {
+      if (regRow) await db.prepare("DELETE FROM registrations WHERE id IS NULL AND email = ?").bind(fields.email).run().catch(() => {});
+      regRow = await db.prepare(
+        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id"
+      ).bind(regId, fields.login, fields.email, fields.name, hashed.salt, hashed.hash, ITERATIONS, signupRole(env), created).first();
+      if (!regRow) regRow = { id: regId };
+    }
+    pendingRegId = regRow.id;
+    await provisionSignupUsername(env,'reserve',fields.login,pendingRegId);
   } catch (error) {
-    await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
+    if (pendingRegId != null) {
+      await db.prepare("DELETE FROM registrations WHERE id = ?").bind(pendingRegId).run().catch(() => {});
+      await provisionSignupUsername(env,'release',fields.login,pendingRegId).catch(()=>{});
+    } else {
+      await provisionSignupUsername(env,'release',fields.login,regId).catch(()=>{});
+    }
     if(error.status)return json({error:error.message},error.status);
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
-  await rememberRegistration(env, { id: regId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(env), user_id: "", created_at: created, decided_at: 0 });
+  await rememberRegistration(env, { id: pendingRegId, login: fields.login, email: fields.email, name: fields.name, status: "pending", role: signupRole(env), user_id: "", created_at: created, decided_at: 0 });
   // Count successful pending inserts toward the IP lockout to limit registration floods.
   if (env.MEDIA) await noteLoginFailure(env, ip, "register");
   return json({ status: "pending" });
@@ -1856,7 +1913,7 @@ async function scrubStatUid(env, userId) {
       const meta = await readStatMonthMeta(env, month);
       let changed = false;
       const events = (meta.page.events || []).map((ev) => {
-        if (!ev || ev.uid !== userId) return ev;
+        if (!ev || String(ev.uid) !== String(userId)) return ev;
         changed = true;
         return Object.assign({}, ev, { uid: "revoked" });
       });
@@ -1887,10 +1944,10 @@ async function revoke(env, request, secure) {
   await ignoreMissingTable(db.prepare("DELETE FROM user_card_gone WHERE user_id = ?").bind(user.id));
   const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
-      if (item && item.id === user.id) item.revoked = true;
+      if (item && String(item.id) === String(user.id)) item.revoked = true;
     });
     directory.changes.forEach((item) => {
-      if (item && item.user_id === user.id && item.status === "pending") {
+      if (item && String(item.user_id) === String(user.id) && item.status === "pending") {
         item.status = "rejected";
         item.decided_at = revokedAt;
       }
@@ -1901,7 +1958,7 @@ async function revoke(env, request, secure) {
     try {
       await patchDirectory(env, (directory) => {
         directory.users.forEach((item) => {
-          if (item && item.id === user.id) item.revoked = true;
+          if (item && String(item.id) === String(user.id)) item.revoked = true;
         });
       });
     } catch (e) {}
@@ -3027,7 +3084,7 @@ async function refreshDirectory(env) {
 async function directoryUser(env, userId) {
   const directory = await readDirectory(env);
   for (let i = 0; i < directory.users.length; i++) {
-    if (directory.users[i] && directory.users[i].id === userId) return directory.users[i];
+    if (directory.users[i] && String(directory.users[i].id) === String(userId)) return directory.users[i];
   }
   return null;
 }
@@ -3035,7 +3092,7 @@ async function directoryUser(env, userId) {
 async function rememberUser(env, row) {
   const next = publicUser(row);
   await patchDirectory(env, (directory) => {
-    const index = directory.users.findIndex((item) => item && item.id === next.id);
+    const index = directory.users.findIndex((item) => item && String(item.id) === String(next.id));
     if (index >= 0) directory.users[index] = next;
     else directory.users.unshift(next);
   });
@@ -3044,7 +3101,7 @@ async function rememberUser(env, row) {
 async function rememberRegistration(env, row) {
   const next = registrationPublic(row);
   await patchDirectory(env, (directory) => {
-    const index = directory.registrations.findIndex((item) => item && item.id === next.id);
+    const index = directory.registrations.findIndex((item) => item && String(item.id) === String(next.id));
     if (index >= 0) directory.registrations[index] = next;
     else directory.registrations.unshift(next);
   });
@@ -3053,7 +3110,7 @@ async function rememberRegistration(env, row) {
 async function rememberChange(env, row) {
   const next = changePublic(row);
   await patchDirectory(env, (directory) => {
-    const index = directory.changes.findIndex((item) => item && item.id === next.id);
+    const index = directory.changes.findIndex((item) => item && String(item.id) === String(next.id));
     if (index >= 0) directory.changes[index] = next;
     else directory.changes.unshift(next);
   });
@@ -3061,7 +3118,7 @@ async function rememberChange(env, row) {
 
 async function ensureChangeTable(env) {
   await env.DB.prepare(
-    "CREATE TABLE IF NOT EXISTS account_changes (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', from_login TEXT NOT NULL, from_email TEXT NOT NULL, from_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'USER', status TEXT NOT NULL, created_at INTEGER NOT NULL, decided_at INTEGER)"
+    "CREATE TABLE IF NOT EXISTS account_changes (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, login TEXT NOT NULL, email TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', from_login TEXT NOT NULL, from_email TEXT NOT NULL, from_name TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'USER', status TEXT NOT NULL, created_at INTEGER NOT NULL, decided_at INTEGER)"
   ).run();
   await env.DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS account_changes_user_pending ON account_changes(user_id) WHERE status = 'pending'").run();
   await env.DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS account_changes_login_pending ON account_changes(login) WHERE status = 'pending'").run();
@@ -3080,7 +3137,7 @@ function soleFirstTeacher(users, userId) {
   const active = (users || []).filter((item) => item && item.role === "ADMIN" && !item.revoked && !item.hidden && userIsActive(item));
   if (active.length !== 1) return false;
   const first = active.slice().sort((a, b) => userCreated(a) - userCreated(b) || String(a.id).localeCompare(String(b.id)))[0];
-  return !!(first && first.id === userId);
+  return !!(first && String(first.id) === String(userId));
 }
 
 function accountDetails(body) {
@@ -3153,9 +3210,9 @@ async function myAccount(env, request) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
   const directory = await readDirectory(env);
-  const saved = directory.users.find((item) => item && item.id === user.id);
+  const saved = directory.users.find((item) => item && String(item.id) === String(user.id));
   const person = saved || { id: user.id, login: user.login, email: user.email, name: user.name || "" };
-  const change = directory.changes.find((item) => item && item.user_id === user.id && item.status === "pending") || null;
+  const change = directory.changes.find((item) => item && String(item.user_id) === String(user.id) && item.status === "pending") || null;
   return json({
     user: { id: person.id, login: person.login, email: person.email, name: person.name || "" },
     change: change,
@@ -3172,7 +3229,7 @@ async function requestAccountChange(env, request, body) {
   if (soleFirstTeacher(directory.users, user.id)) {
     return json({ error: "You can change these details after a second active teacher joins." }, 403);
   }
-  const saved = directory.users.find((item) => item && item.id === user.id);
+  const saved = directory.users.find((item) => item && String(item.id) === String(user.id));
   const current = {
     login: saved && saved.login || user.login,
     email: saved && saved.email || user.email,
@@ -3210,9 +3267,20 @@ async function requestAccountChange(env, request, body) {
       "UPDATE account_changes SET login = ?, email = ?, name = ?, from_login = ?, from_email = ?, from_name = ?, role = ? WHERE id = ? AND status = 'pending'"
     ).bind(fields.login, fields.email, fields.name, current.login, current.email, current.name, user.role, id).run();
   } else {
-    await env.DB.prepare(
-      "INSERT INTO account_changes (id, user_id, login, email, name, from_login, from_email, from_name, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)"
-    ).bind(id, user.id, fields.login, fields.email, fields.name, current.login, current.email, current.name, user.role, created).run();
+    let changeRow = null;
+    try {
+      changeRow = await env.DB.prepare(
+        "INSERT INTO account_changes (user_id, login, email, name, from_login, from_email, from_name, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?) RETURNING id"
+      ).bind(user.id, fields.login, fields.email, fields.name, current.login, current.email, current.name, user.role, created).first();
+    } catch (e) {}
+    if (!changeRow || changeRow.id == null) {
+      if (changeRow) await env.DB.prepare("DELETE FROM account_changes WHERE id IS NULL AND user_id = ?").bind(user.id).run().catch(() => {});
+      changeRow = await env.DB.prepare(
+        "INSERT INTO account_changes (id, user_id, login, email, name, from_login, from_email, from_name, role, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?) RETURNING id"
+      ).bind(id, user.id, fields.login, fields.email, fields.name, current.login, current.email, current.name, user.role, created).first();
+      if (!changeRow) changeRow = { id };
+    }
+    row.id = changeRow.id;
   }
   await rememberChange(env, row);
   return json({ change: changePublic(row) });
@@ -3222,7 +3290,7 @@ async function cancelAccountChange(env, request) {
   const user = await currentUser(env, request);
   if (!user) return json({ error: "Sign in first." }, 401);
   const directory = await readDirectory(env);
-  const pending = directory.changes.find((item) => item && item.user_id === user.id && item.status === "pending");
+  const pending = directory.changes.find((item) => item && String(item.user_id) === String(user.id) && item.status === "pending");
   if (!pending) return json({ error: "This request is no longer waiting." }, 409);
   await ensureChangeTable(env);
   const decided = now();
@@ -3248,10 +3316,10 @@ async function decideChange(env, actor, changeId, action) {
   if (action === "approve" && soleFirstTeacher(directory.users, person.id)) {
     return json({ error: "This teacher can change account details after a second active teacher joins." }, 403);
   }
-  if (action === "approve" && actor.role !== "DEVELOPER" && actor.id === person.id) {
+  if (action === "approve" && actor.role !== "DEVELOPER" && String(actor.id) === String(person.id)) {
     return json({ error: "Someone else has to approve this change." }, 403);
   }
-  if (actor.role === "ADMIN" && actor.id !== person.id && person.role !== "USER" && person.role !== "ADMIN") {
+  if (actor.role === "ADMIN" && String(actor.id) !== String(person.id) && person.role !== "USER" && person.role !== "ADMIN") {
     return json({ error: "You cannot do that." }, 403);
   }
   const decided = now();
@@ -3272,7 +3340,7 @@ async function decideChange(env, actor, changeId, action) {
   ).bind(decided, change.id).run();
   const dirOk = await patchDirectory(env, (next) => {
     next.users.forEach((item) => {
-      if (!item || item.id !== change.user_id) return;
+      if (!item || String(item.id) !== String(change.user_id)) return;
       item.login = change.login;
       item.email = change.email;
       item.name = change.name;
@@ -3285,9 +3353,9 @@ async function decideChange(env, actor, changeId, action) {
 
 async function forgetUser(env, userId, email) {
   const saved=await patchDirectory(env, (directory) => {
-    directory.users = directory.users.filter((item) => item && item.id !== userId);
-    directory.registrations = directory.registrations.filter((item) => item && item.user_id !== userId && item.email !== email);
-    directory.changes = directory.changes.filter((item) => item && item.user_id !== userId);
+    directory.users = directory.users.filter((item) => item && String(item.id) !== String(userId));
+    directory.registrations = directory.registrations.filter((item) => item && String(item.user_id) !== String(userId) && item.email !== email);
+    directory.changes = directory.changes.filter((item) => item && String(item.user_id) !== String(userId));
   });
   if(!saved)throw new Error('Account directory cleanup failed. Retry deletion.');
 }
@@ -3349,7 +3417,7 @@ async function admin(env, request, method, path, body, ctx) {
     const directory = await readDirectory(env);
     const history = forReviewer(
       user,
-      directory.registrations.filter((item) => item && (item.user_id === found.row.id || item.email === found.row.email)),
+      directory.registrations.filter((item) => item && (String(item.user_id) === String(found.row.id) || item.email === found.row.email)),
       directory.users
     );
     return json({ user: publicUser(found.row), registrations: history });
@@ -3526,7 +3594,7 @@ async function updateProfile(env, actor, userId, body) {
   await env.DB.prepare("UPDATE users SET login = ?, email = ?, name = ? WHERE id = ?").bind(login, email, name, userId).run();
   const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
-      if (!item || item.id !== userId) return;
+      if (!item || String(item.id) !== String(userId)) return;
       item.login = login;
       item.email = email;
       item.name = name;
@@ -3559,8 +3627,8 @@ async function deleteAccountFiles(env, userId) {
 
 async function deleteAccount(env, actor, userId) {
   if (!actor || actor.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
-  if(env.ACCOUNT_ARCHIVE_DELETE_ID!==userId)return json({error:'Archive the account before permanent deletion.'},409);
-  if (actor.id === userId) return json({ error: "You can't delete your own account." }, 400);
+  if(String(env.ACCOUNT_ARCHIVE_DELETE_ID)!==String(userId))return json({error:'Archive the account before permanent deletion.'},409);
+  if (String(actor.id) === String(userId)) return json({ error: "You can't delete your own account." }, 400);
   const row = await env.DB.prepare("SELECT id, role, email FROM users WHERE id = ?").bind(userId).first();
   if (!row) return json({ error: "No such account." }, 404);
   if (row.role !== "USER" && row.role !== "ADMIN") return json({ error: "Only student and teacher accounts can be deleted." }, 403);
@@ -3595,7 +3663,7 @@ async function setHidden(env, actor, userId, body) {
   if (!result.meta || !result.meta.changes) return json({ error: "No such account." }, 404);
   const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
-      if (item && item.id === userId) item.hidden = hidden;
+      if (item && String(item.id) === String(userId)) item.hidden = hidden;
     });
   });
   if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
@@ -3605,7 +3673,7 @@ async function setHidden(env, actor, userId, body) {
 async function setActive(env, actor, userId, body) {
   if (!actor || actor.role !== "DEVELOPER") return json({ error: "You cannot do that." }, 403);
   const active = !!(body && body.active);
-  if (actor.id === userId && !active) {
+  if (String(actor.id) === String(userId) && !active) {
     return json({ error: "You cannot deactivate your own account." }, 400);
   }
   const sql = "UPDATE users SET active = ? WHERE id = ?";
@@ -3620,7 +3688,7 @@ async function setActive(env, actor, userId, body) {
   if (!result.meta || !result.meta.changes) return json({ error: "No such account." }, 404);
   const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
-      if (item && item.id === userId) item.active = active;
+      if (item && String(item.id) === String(userId)) item.active = active;
     });
   });
   if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
@@ -3632,14 +3700,14 @@ async function setUserRole(env, actor, userId, body) {
   const role = String(body && body.role || "");
   if (role !== "USER" && role !== "ADMIN" && role !== "DEVELOPER") return json({ error: "The request was not valid." }, 400);
   // Do not let a developer demote their own live session away from DEVELOPER.
-  if (actor.id === userId && role !== "DEVELOPER") {
+  if (String(actor.id) === String(userId) && role !== "DEVELOPER") {
     return json({ error: "You cannot change your own developer role." }, 400);
   }
   const result = await env.DB.prepare("UPDATE users SET role = ? WHERE id = ?").bind(role, userId).run();
   if (!result.meta || !result.meta.changes) return json({ error: "No such account." }, 404);
   const dirOk = await patchDirectory(env, (directory) => {
     directory.users.forEach((item) => {
-      if (item && item.id === userId) item.role = role;
+      if (item && String(item.id) === String(userId)) item.role = role;
     });
   });
   if (!dirOk) return json({ error: "Saved, but the teacher list could not update. Try again." }, 503);
@@ -3728,38 +3796,86 @@ export async function completeFederatedSignIn(env, request, profile, { create = 
   const created = now();
   const regId = randomId();
   if (!create) {
+    let pendingRegId = null;
     try {
-      await provisionSignupUsername(env, "reserve", login, regId);
-      await env.DB.prepare(
-        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)"
-      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, role==='ADMIN'?'ADMIN':'USER', created).run();
+      let regRow = null;
+      try {
+        regRow = await env.DB.prepare(
+          "INSERT INTO registrations (login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id"
+        ).bind(login, email, name, hashed.salt, hashed.hash, ITERATIONS, role==='ADMIN'?'ADMIN':'USER', created).first();
+      } catch (e) {}
+      if (!regRow || regRow.id == null) {
+        if (regRow) await env.DB.prepare("DELETE FROM registrations WHERE id IS NULL AND email = ?").bind(email).run().catch(() => {});
+        regRow = await env.DB.prepare(
+          "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id"
+        ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, role==='ADMIN'?'ADMIN':'USER', created).first();
+        if (!regRow) regRow = { id: regId };
+      }
+      pendingRegId = regRow.id;
+      await provisionSignupUsername(env, "reserve", login, pendingRegId);
     } catch (error) {
-      await provisionSignupUsername(env, "release", login, regId).catch(() => {});
+      if (pendingRegId != null) {
+        await env.DB.prepare("DELETE FROM registrations WHERE id = ?").bind(pendingRegId).run().catch(() => {});
+        await provisionSignupUsername(env, "release", login, pendingRegId).catch(() => {});
+      } else {
+        await provisionSignupUsername(env, "release", login, regId).catch(() => {});
+      }
       return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
     }
-    await rememberRegistration(env, { id: regId, login, email, name, status: "pending", role: role==='ADMIN'?'ADMIN':'USER', user_id: "", created_at: created, decided_at: 0 });
+    await rememberRegistration(env, { id: pendingRegId, login, email, name, status: "pending", role: role==='ADMIN'?'ADMIN':'USER', user_id: "", created_at: created, decided_at: 0 });
     return json({ status: "pending" });
   }
-  const userId = randomId();
+  let userId = null;
+  let approvedRegId = null;
   try {
-    await provisionSignupUsername(env, "reserve", login, regId);
-    await provisionSignupUsername(env, "activate", login, regId, userId);
-    await env.DB.batch([
-      env.DB.prepare(
-        "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'USER', 0, ?)"
-      ).bind(userId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, created),
-      env.DB.prepare(
-        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'USER', ?, ?, ?)"
-      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created),
-    ]);
+    let userRow = null;
+    try {
+      userRow = await env.DB.prepare(
+        "INSERT INTO users (login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, 'USER', 0, ?) RETURNING id"
+      ).bind(login, email, name, hashed.salt, hashed.hash, ITERATIONS, created).first();
+    } catch (e) {}
+    if (!userRow || userRow.id == null) {
+      if (userRow) await env.DB.prepare("DELETE FROM users WHERE id IS NULL AND email = ?").bind(email).run().catch(() => {});
+      const fallbackId = randomId();
+      userRow = await env.DB.prepare(
+        "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'USER', 0, ?) RETURNING id"
+      ).bind(fallbackId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, created).first();
+      if (!userRow) userRow = { id: fallbackId };
+    }
+    userId = userRow.id;
+    let regRow = null;
+    try {
+      regRow = await env.DB.prepare(
+        "INSERT INTO registrations (login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, 'approved', 'USER', ?, ?, ?) RETURNING id"
+      ).bind(login, email, name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).first();
+    } catch (e) {}
+    if (!regRow || regRow.id == null) {
+      if (regRow) await env.DB.prepare("DELETE FROM registrations WHERE id IS NULL AND email = ?").bind(email).run().catch(() => {});
+      regRow = await env.DB.prepare(
+        "INSERT INTO registrations (id, login, email, name, password_salt, password_hash, password_iterations, status, role, user_id, created_at, decided_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', 'USER', ?, ?, ?) RETURNING id"
+      ).bind(regId, login, email, name, hashed.salt, hashed.hash, ITERATIONS, userId, created, created).first();
+      if (!regRow) regRow = { id: regId };
+    }
+    approvedRegId = regRow.id;
+    await provisionSignupUsername(env, "reserve", login, approvedRegId);
+    await provisionSignupUsername(env, "activate", login, approvedRegId, userId);
   } catch (error) {
-    await provisionSignupUsername(env, "rollback", login, regId, userId).catch(() => {});
-    await provisionSignupUsername(env, "release", login, regId).catch(() => {});
+    if (userId) {
+      await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(userId).run().catch(() => {});
+    }
+    if (approvedRegId != null) {
+      await env.DB.prepare("DELETE FROM registrations WHERE id = ?").bind(approvedRegId).run().catch(() => {});
+      await provisionSignupUsername(env, "rollback", login, approvedRegId, userId).catch(() => {});
+      await provisionSignupUsername(env, "release", login, approvedRegId).catch(() => {});
+    } else {
+      await provisionSignupUsername(env, "rollback", login, regId, userId).catch(() => {});
+      await provisionSignupUsername(env, "release", login, regId).catch(() => {});
+    }
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
   const user = { id: userId, login, email, name, role: "USER", password_hash: hashed.hash, is_personal_data_revoked: 0, created_at: created };
   await rememberUser(env, user);
-  await rememberRegistration(env, { id: regId, login, email, name, status: "approved", role: "USER", user_id: userId, created_at: created, decided_at: created });
+  await rememberRegistration(env, { id: approvedRegId, login, email, name, status: "approved", role: "USER", user_id: userId, created_at: created, decided_at: created });
   try { await copyStateOnce(env, userId); } catch (e) {}
   return startSession(env, user, { user: publicUser(user), authMethod, created: true }, secure, request);
 }
@@ -3776,7 +3892,7 @@ async function decide(env, actor, regId, action, invitation = null, assignedRole
   // Same visibility as GET /api/admin/registrations — no approve-by-id for hidden-linked rows.
   const visible = forReviewer(actor, [registrationPublic(reg)], directory.users);
   if (!visible.length) return json({ error: "No such account." }, 404);
-  const invitedTeacher=invitation?.kind==='teacher'&&!invitation.revoked&&invitation.createdBy===actor.id&&invitation.pendingRegistrationId===regId&&invitation.registrationEmail===String(reg.email).toLowerCase()&&invitation.uses===1&&!!invitation.acceptedAt;
+  const invitedTeacher=invitation?.kind==='teacher'&&!invitation.revoked&&String(invitation.createdBy)===String(actor.id)&&String(invitation.pendingRegistrationId)===String(regId)&&invitation.registrationEmail===String(reg.email).toLowerCase()&&invitation.uses===1&&!!invitation.acceptedAt;
   if(action==='approve'&&reg.role==='ADMIN'&&actor.role!=='DEVELOPER'&&!invitedTeacher)return json({error:'Only the inviting teacher or a developer can approve this teacher account.'},403);
   const decided = now();
   if (action === "reject") {
@@ -3791,29 +3907,42 @@ async function decide(env, actor, regId, action, invitation = null, assignedRole
   ]);
   if (reserved) return json({ error: "That login is already in use." }, 409);
   if (taken) return json({ error: "That email is already in use." }, 409);
-  const userId = randomId();
+  let userId = null;
   const role = (assignedRole??reg.role) === 'ADMIN' ? 'ADMIN' : 'USER';
   try {
+    let userRow = null;
+    try {
+      userRow = await db.prepare(
+        "INSERT INTO users (login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?) RETURNING id"
+      ).bind(reg.login, reg.email, reg.name, reg.password_salt, reg.password_hash, reg.password_iterations, role, decided).first();
+    } catch (e) {}
+    if (!userRow || userRow.id == null) {
+      if (userRow) await db.prepare("DELETE FROM users WHERE id IS NULL AND email = ?").bind(reg.email).run().catch(() => {});
+      const fallbackId = randomId();
+      userRow = await db.prepare(
+        "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?) RETURNING id"
+      ).bind(fallbackId, reg.login, reg.email, reg.name, reg.password_salt, reg.password_hash, reg.password_iterations, role, decided).first();
+      if (!userRow) userRow = { id: fallbackId };
+    }
+    userId = userRow.id;
     await provisionSignupUsername(env,'activate',reg.login,regId,userId);
-    await db.batch([
-      db.prepare(
-        "INSERT INTO users (id, login, email, name, password_salt, password_hash, password_iterations, role, is_personal_data_revoked, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)"
-      ).bind(userId, reg.login, reg.email, reg.name, reg.password_salt, reg.password_hash, reg.password_iterations, role, decided),
-      db.prepare(
-        "UPDATE registrations SET status = 'approved', user_id = ?, decided_at = ?, role = ? WHERE id = ? AND status = 'pending'"
-      ).bind(userId, decided, role, regId),
-    ]);
+    await db.prepare(
+      "UPDATE registrations SET status = 'approved', user_id = ?, decided_at = ?, role = ? WHERE id = ? AND status = 'pending'"
+    ).bind(userId, decided, role, regId).run();
   } catch (error) {
-    await provisionSignupUsername(env,'rollback',reg.login,regId,userId).catch(()=>{});
+    if (userId) {
+      await db.prepare("DELETE FROM users WHERE id = ?").bind(userId).run().catch(() => {});
+      await provisionSignupUsername(env,'rollback',reg.login,regId,userId).catch(()=>{});
+    }
     if(error.status)return json({error:error.message},error.status);
     return json({ error: statedProblem(error) }, problemStatus(error, statedProblem(error)));
   }
   const user = publicUser({ id: userId, login: reg.login, email: reg.email, name: reg.name, role: role, is_personal_data_revoked: 0, created_at: decided });
   const registration = registrationPublic({ id: reg.id, login: reg.login, email: reg.email, name: reg.name, status: "approved", role: role, user_id: userId, created_at: reg.created_at, decided_at: decided });
   await patchDirectory(env, (next) => {
-    const userIndex = next.users.findIndex((item) => item && item.id === user.id);
+    const userIndex = next.users.findIndex((item) => item && String(item.id) === String(user.id));
     if (userIndex >= 0) next.users[userIndex] = user; else next.users.unshift(user);
-    const regIndex = next.registrations.findIndex((item) => item && item.id === registration.id);
+    const regIndex = next.registrations.findIndex((item) => item && String(item.id) === String(registration.id));
     if (regIndex >= 0) next.registrations[regIndex] = registration; else next.registrations.unshift(registration);
   });
   return json({ ok: true, userId, role });

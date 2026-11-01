@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   login TEXT NOT NULL,
   email TEXT NOT NULL,
   name TEXT NOT NULL DEFAULT '',
@@ -18,7 +18,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_login_active ON users(login) WHERE is_pe
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_active ON users(email) WHERE is_personal_data_revoked = 0;
 
 CREATE TABLE IF NOT EXISTS registrations (
-  id TEXT PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   login TEXT NOT NULL,
   email TEXT NOT NULL,
   name TEXT NOT NULL DEFAULT '',
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS registrations (
   password_iterations INTEGER NOT NULL,
   status TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'USER',
-  user_id TEXT,
+  user_id INTEGER,
   created_at INTEGER NOT NULL,
   decided_at INTEGER
 );
@@ -36,8 +36,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS registrations_login_pending ON registrations(l
 CREATE UNIQUE INDEX IF NOT EXISTS registrations_email_pending ON registrations(email) WHERE status = 'pending';
 
 CREATE TABLE IF NOT EXISTS account_changes (
-  id TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
   login TEXT NOT NULL,
   email TEXT NOT NULL,
   name TEXT NOT NULL DEFAULT '',
@@ -56,12 +56,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS account_changes_email_pending ON account_chang
 
 CREATE TABLE IF NOT EXISTS sessions (
   token_hash TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
   expires_at INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS user_state (
-  user_id TEXT PRIMARY KEY,
+  user_id INTEGER PRIMARY KEY,
   added TEXT NOT NULL DEFAULT '[]',
   songs TEXT NOT NULL DEFAULT '[]',
   learned TEXT NOT NULL DEFAULT '[]',
@@ -73,10 +73,16 @@ CREATE TABLE IF NOT EXISTS user_state (
 CREATE INDEX IF NOT EXISTS user_state_updated_at ON user_state(updated_at);
 
 CREATE TABLE IF NOT EXISTS user_added (
-  user_id TEXT NOT NULL,
+  user_id INTEGER NOT NULL,
   idx INTEGER NOT NULL,
   card TEXT NOT NULL,
   PRIMARY KEY (user_id, idx)
 );
 
 CREATE INDEX IF NOT EXISTS user_added_card ON user_added(card);
+
+CREATE TABLE IF NOT EXISTS user_card_gone (
+  user_id INTEGER NOT NULL,
+  card_key TEXT NOT NULL,
+  PRIMARY KEY (user_id, card_key)
+);

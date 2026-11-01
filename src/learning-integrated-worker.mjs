@@ -73,7 +73,7 @@ async function boundedText(request,limit,message){
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
   return decoder.decode(bytes);
 }
-const identity='[a-f0-9]{16,64}';
+const identity='(?:[a-f0-9]{16,64}|[1-9]\\d{0,15})';
 const cardKey=value=>{const id=Number(value);if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(id))throw new StudyError(400,'Invalid card ID.');return id;};
 // The source handler uses HTTP-quoted ETags for CAS. R2Conditional needs raw
 // ETags; preserve its CAS and restrict this adapter to the account directory.
@@ -266,7 +266,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           const response=json({options:issued.options});response.headers.set('Set-Cookie',passkeyCookieHeader(issued.token));return response;
         }
         const session=await sessionIdentity(accountEnv,request);
-        if(!session||session.id!==actor.id)throw new StudyError(401,'Sign in first.');
+        if(!session||String(session.id)!==String(actor.id))throw new StudyError(401,'Sign in first.');
         if(path==='/api/me/passkeys/options'||path==='/api/me/passkeys/delete'){
           const proof=await new EmailOtp(studyDatabase(env)).consume(actor.email,body.emailCode);
           if(proof.purpose!=='passkey')throw new StudyError(403,'Request a passkey confirmation code.');
@@ -279,7 +279,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       }
       if(path==='/api/me/sessions'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
-        const session=await sessionIdentity(accountEnv,request);if(!session||session.id!==actor.id)throw new StudyError(401,'Sign in first.');
+        const session=await sessionIdentity(accountEnv,request);if(!session||String(session.id)!==String(actor.id))throw new StudyError(401,'Sign in first.');
         if(method==='GET'){
           await observeSession(studyDatabase(env),request,session);
           return json(await listSessions(studyDatabase(env),session,{view:url.searchParams.get('view')||'active',cursor:url.searchParams.get('cursor')}));
@@ -604,7 +604,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           try{value=JSON.parse(await boundedText(request,100000,'Exam work too large.'));}catch{throw new StudyError(400,'Invalid exam work.');}
         }
         if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid exam work.');
-        if(value.studentId&&value.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
+        if(value.studentId&&String(value.studentId)!==String(actor.id)){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
         const service=new ExamService(studyDatabase(env));
         return json(method==='GET'?{work:await service.listWork(actor,value.studentId)}:await service.saveWork(actor,value));
       }
@@ -612,7 +612,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(method==='POST'&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         const query={kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id')),part:Number(url.searchParams.get('part')),index:Number(url.searchParams.get('index')),studentId:url.searchParams.get('student')||'',expectedRevision:Number(url.searchParams.get('expectedRevision'))};
-        if(query.studentId&&query.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,query.studentId);if(found.error)return found.error;}
+        if(query.studentId&&String(query.studentId)!==String(actor.id)){const found=await authorizeManaged(accountEnv,actor,query.studentId);if(found.error)return found.error;}
         const value=await new AssessmentService(studyDatabase(env)).recording(actor,query,request,stageR2Media(env));
         return value instanceof Response?value:json(value);
       }
@@ -621,7 +621,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let value;if(method==='GET')value={kind:url.searchParams.get('kind'),id:Number(url.searchParams.get('id')),studentId:url.searchParams.get('student')||'',history:url.searchParams.get('history')==='1'};
         else{if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');try{value=JSON.parse(await boundedText(request,100000,'Assessment too large.'));}catch{throw new StudyError(400,'Invalid assessment.');}}
         if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid assessment.');
-        if(value.studentId&&value.studentId!==actor.id){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
+        if(value.studentId&&String(value.studentId)!==String(actor.id)){const found=await authorizeManaged(accountEnv,actor,value.studentId);if(found.error)return found.error;}
         const service=new AssessmentService(studyDatabase(env));
         return json(method==='POST'?await service.write(actor,value):value.history?{history:await service.history(actor,value)}:await service.get(actor,value));
       }
@@ -659,6 +659,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let body;try{body=JSON.parse(await boundedText(request,10000,'Request too large.'));}catch{throw new StudyError(400,'Invalid request.');}
         return json(await service.submitReview(actor,body));
       }
+      // Lesson speech scenarios service endpoint: scenario list, audio retrieval, and speech task initiation.
       if(path==='/api/speech-scenarios'&&['GET','POST'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         const service=new LearningSpeechScenariosService(studyDatabase(env));
@@ -1117,7 +1118,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           if(actor?.role!=='DEVELOPER')throw new StudyError(403,'Developer only.');
           if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
           const id=path.split('/')[4],db=studyDatabase(env);
-          if(id===actor.id)throw new StudyError(400,'You cannot delete your own account.');
+          if(String(id)===String(actor.id))throw new StudyError(400,'You cannot delete your own account.');
           await new AccountArchive(db,accountEnv.DB).beginPurge(actor,id);
           if(env.CHAT_BRIDGE)await chatCall(env,'CHAT_BRIDGE','global','/purge-account',{accountId:id});
           await purgeStudyAccount(db,id,env.STAGE_MEDIA);

@@ -251,7 +251,7 @@ test('Every account query/batch is budgeted; read-only mode and educational SQL/
   await writable.batch([writable.prepare('INSERT INTO users(id) VALUES(?)').bind(id),writable.prepare('UPDATE registrations SET status=? WHERE id=?').bind('approved',id)]);
   assert.equal(f.queries,3);assert.equal(f.calls.length,3);
   assert.throws(()=>writable.prepare('CREATE TABLE learning_states(id TEXT)'));
-  assert.doesNotThrow(()=>writable.prepare('CREATE TABLE IF NOT EXISTS account_changes(id TEXT)'));
+  assert.doesNotThrow(()=>writable.prepare('CREATE TABLE IF NOT EXISTS account_changes(id INTEGER PRIMARY KEY AUTOINCREMENT)'));
   assert.doesNotThrow(()=>writable.prepare('DELETE FROM user_state WHERE user_id = ?'));
   assert.throws(()=>writable.prepare('DELETE FROM user_state'));
   assert.throws(()=>writable.prepare('SELECT * FROM user_state WHERE user_id = ?'));

@@ -51,7 +51,7 @@ export class QuizFeedbackDelivery{
     const [previous]=await this.db.read('SELECT state FROM qr_feedback_delivery WHERE feedback_id=?',[id]);if(previous)return this.status(actor,id);
     const attachments=[];let total=0;
     for(const mediaId of JSON.parse(report.attachments_json)){
-      const row=await this.media.row(mediaId);if(row.owner_id!==actor.id||row.purpose!=='feedback')fail(403,'Report attachment unavailable.');
+      const row=await this.media.row(mediaId);if(String(row.owner_id)!==String(actor.id)||row.purpose!=='feedback')fail(403,'Report attachment unavailable.');
       rejectReportSecrets(row.name);
       total+=row.bytes;if(total>MAX_ATTACHMENTS_BYTES)fail(413,'Report attachments exceed the email limit. No files were omitted.');
       const response=await this.media.response(actor,mediaId,new Request('https://local.invalid/media/'+mediaId));

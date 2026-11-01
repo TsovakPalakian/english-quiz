@@ -2,8 +2,8 @@ import {StudyError,statement as s} from './learning-study.mjs';
 const RETENTION=90*86400000;
 const fail=(status,message)=>{throw new StudyError(status,message);};
 const clean=(value,max=160)=>typeof value==='string'?value.slice(0,max):'';
-const validId=value=>typeof value==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(value);
-const prefix=account=>{if(!validId(account))fail(400,'Invalid account.');return account;};
+const validId=value=>(typeof value==='string'||Number.isSafeInteger(value))&&/^[a-zA-Z0-9_-]{1,100}$/.test(String(value));
+const prefix=account=>{if(!validId(account))fail(400,'Invalid account.');return String(account);};
 export async function ensureSecuritySessions(db){
   await db.atomic([s('CREATE TABLE IF NOT EXISTS security_sessions(account_id TEXT NOT NULL,id TEXT NOT NULL,value_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,expires_at INTEGER NOT NULL,PRIMARY KEY(account_id,id))'),s('CREATE INDEX IF NOT EXISTS security_sessions_expiry ON security_sessions(expires_at)')]);
 }
@@ -61,7 +61,7 @@ export async function listSessions(db,session,{view='active',cursor}={}){
 }
 export async function endSession(db,bucket,session,id,reason='terminated'){
   const key=recordKey(session.id,id),stored=await storedRecord(db,session.id,key);if(!stored)fail(404,'Session not found.');
-  const row=stored.row;if(row.account!==session.id)fail(404,'Session not found.');
+  const row=stored.row;if(String(row.account)!==String(session.id))fail(404,'Session not found.');
   await bucket.put('revoked-sid/'+row.sid,JSON.stringify({exp:Math.ceil(row.expiresAt/1000)}),{httpMetadata:{contentType:'application/json'}});
   for(let attempt=0;attempt<3;attempt++){
     const current=attempt?await storedRecord(db,session.id,key):stored;if(!current)fail(404,'Session not found.');const latest=current.row;

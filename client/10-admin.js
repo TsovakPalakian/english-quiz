@@ -33,7 +33,7 @@
     let adminInviteGroupId=null,adminInviteScope='';
     const accountCount=(label,count)=>label+(count?' · '+count:'');
     const canInspectAccount=user=>!!user&&user.active!==false&&user.active!==0&&(sessionIsDeveloper()?['USER','ADMIN'].includes(user.role):user.role==='USER');
-    const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.includes(user.id)));
+    const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.map(String).includes(String(user.id))));
     document.addEventListener('click',event=>{if(event.target.closest('[data-jump="admin"],[data-page-path="admin"]')&&isTeacher()&&!viewAccount){adminBucket='';adminTab='accounts';adminSearch='';}},true);
     let adminSearch = '', adminSelectedUser = null;
     let adminAccountId = null;
@@ -43,8 +43,8 @@
       return adminLevels.find(level => group.title === level || group.title.startsWith(level + ' ') || group.title.endsWith(' ' + level)) || 'unassigned';
     }
     function accountGroupMetrics(groups,extra={}) {
-      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>user.id));
-      return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>user.id)),...(extra.teachers||[]).map(user=>user.id)]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(member.accountId)).map(member=>member.accountId),...(extra.students||[]).map(user=>user.id)]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
+      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>String(user.id)));
+      return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>String(user.id))),...(extra.teachers||[]).map(user=>String(user.id))]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(String(member.accountId))).map(member=>String(member.accountId)),...(extra.students||[]).map(user=>String(user.id))]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
     }
     function accountMetricsHTML(groups,extra={}) {
       return '<span class="accounts-metrics">'+Object.entries(accountGroupMetrics(groups,extra)).map(([label,count])=>'<span>'+esc(accountCount(label,count))+'</span>').join('')+'</span>';
@@ -63,10 +63,10 @@
       const query = adminSearch.trim().toLocaleLowerCase();
       const accounts = adminAccounts.filter(user => [user.name,user.login,user.email].some(value => String(value || '').toLocaleLowerCase().includes(query)));
       if(adminBucket==='staff')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role!=='USER'))||'<p class="hint">No staff accounts.</p>';
-      else if(adminBucket==='unassigned')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id)))+adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'&&(!query||group.title.toLocaleLowerCase().includes(query))).map(group=>'<button class="path" type="button" data-admin-group="'+group.id+'"><span><b>'+esc(group.title)+'</b>'+accountMetricsHTML([group])+'</span></button>').join('');
+      else if(adminBucket==='unassigned')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>String(m.accountId)===String(user.id))))+adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'&&(!query||group.title.toLocaleLowerCase().includes(query))).map(group=>'<button class="path" type="button" data-admin-group="'+group.id+'"><span><b>'+esc(group.title)+'</b>'+accountMetricsHTML([group])+'</span></button>').join('');
       else if(query)list.innerHTML=adminAccountRows(accounts)||'<p class="hint">No matching accounts.</p>';
       else{
-        const staff=adminAccounts.filter(user=>user.role!=='USER'),unassigned=adminAccounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id));
+        const staff=adminAccounts.filter(user=>user.role!=='USER'),unassigned=adminAccounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>String(m.accountId)===String(user.id)));
         list.innerHTML='<div class="accounts-special"><button class="file-card" type="button" data-admin-bucket="staff"><b>Teachers & Staff</b>'+accountMetricsHTML(adminGroups.filter(group=>adminTeachers(group.id).length),{teachers:staff})+'</button><button class="file-card" type="button" data-admin-bucket="unassigned"><b>Unassigned</b>'+accountMetricsHTML(adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'),{students:unassigned})+'</button></div><div class="decks">'+adminLevels.map(level=>'<button class="file-card" type="button" data-admin-level="'+level+'"><b>'+esc(level)+'</b>'+accountMetricsHTML(adminGroups.filter(group=>accountGroupLevel(group)===level))+'</button>').join('')+'</div>';
       }
       paintPagePath('admin');
@@ -120,19 +120,19 @@
       if(refreshTeachers){
         const preferred=select.value||authUser?.id;
         select.innerHTML=candidates.map(user=>'<option value="'+esc(user.id)+'">'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('');
-        if(candidates.some(user=>user.id===preferred))select.value=preferred;
-        else if(candidates.some(user=>user.id===authUser?.id))select.value=authUser.id;
+        if(candidates.some(user=>String(user.id)===String(preferred)))select.value=String(preferred);
+        else if(candidates.some(user=>String(user.id)===String(authUser?.id)))select.value=String(authUser.id);
       }
       const teacher=box.querySelector('[data-invite-kind]').value==='teacher';
       box.querySelectorAll('[data-invite-staff]').forEach(node=>node.hidden=!teacher);
       box.querySelector('[data-invite-student]').hidden=teacher;
       select.disabled=!candidates.length;
-      const permitted=sessionIsDeveloper()||candidates.some(user=>user.id===authUser?.id);
+      const permitted=sessionIsDeveloper()||candidates.some(user=>String(user.id)===String(authUser?.id));
       const note=box.querySelector('[data-invite-unassigned]');
       note.hidden=!!group&&(teacher||candidates.length>0&&permitted);
       note.textContent=!group?'Choose a group first.':!candidates.length?'Assign an active teacher to this group first.':'You must be assigned to this group to invite a student.';
       box.querySelector('[data-invite-email]').required=false;
-      box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>user.id===select.value));
+      box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>String(user.id)===String(select.value)));
     }
     function filterInviteGroups(picker){
       const query=picker.querySelector('[data-invite-group-search]').value.trim().toLocaleLowerCase();
@@ -197,7 +197,7 @@
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
       const folds=Object.fromEntries(['students','lessons','exams','teachers','teachers-list'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
-      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
+      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const examRows = exams.map(exam => {
         const assigned = (selected.examIds || []).includes(exam.id), owner = adminGroups.find(group => (group.examIds || []).includes(exam.id));
@@ -207,7 +207,7 @@
       }).join('');
       detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
+      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds?.map(String).includes(String(user.id)),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
@@ -215,8 +215,8 @@
     }
     document.addEventListener('click',async event=>{
       const button=event.target.closest('#adminGroupDetail [data-account-teacher-toggle]');if(!button||button.disabled||!isTeacher()||viewAccount)return;
-      const form=button.closest('[data-group-teachers]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen,groupId=Number(form.dataset.groupId),teacherId=button.dataset.accountTeacherToggle;
-      const current=adminTeacherAssignments.find(row=>row.groupId===groupId),ids=new Set(current?.teacherIds||[]);if(ids.has(teacherId))ids.delete(teacherId);else ids.add(teacherId);
+      const form=button.closest('[data-group-teachers]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen,groupId=Number(form.dataset.groupId),teacherId=String(button.dataset.accountTeacherToggle);
+      const current=adminTeacherAssignments.find(row=>row.groupId===groupId),ids=new Set((current?.teacherIds||[]).map(String));if(ids.has(teacherId))ids.delete(teacherId);else ids.add(teacherId);
       form.querySelectorAll('button').forEach(node=>node.disabled=true);status.textContent='Saving…';
       try{const result=await accountFetch('/api/accounts/group-teachers',{method:'POST',body:JSON.stringify({groupId,expectedRevision:Number(form.dataset.revision),teacherIds:[...ids]})});
         if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;adminTeacherAssignments=adminTeacherAssignments.filter(row=>row.groupId!==result.groupId);adminTeacherAssignments.push(result);
@@ -323,9 +323,9 @@
         adminTeacherAssignments=teachers.assignments||[];
         if (!classGroupsDirty) { classGroups = adminGroups; classGroupsReady = true; }
         if (adminTab === 'groups') { paintAdminGroups(); if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup(); else if (detailPage === 'admingrouplevel') paintAdminGroupLevel(); return; }
-        const accountIds = new Set(accounts.map((row) => row.id));
-        const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(row.user_id)));
-        const changeRows = (changes.changes || []).filter((row) => row.status === 'pending' && accountVisible(row) && accountIds.has(row.user_id));
+        const accountIds = new Set(accounts.map((row) => String(row.id)));
+        const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(String(row.user_id))));
+        const changeRows = (changes.changes || []).filter((row) => row.status === 'pending' && accountVisible(row) && accountIds.has(String(row.user_id)));
         paintAccountsCount(waiting.length+changeRows.length);
         const changesHtml = '<div class="card"><p class="label">Account change requests</p>' +
           (changeRows.length ? recentRows(changeRows, (row, n) => {
@@ -334,7 +334,7 @@
                 changeHtml(row) +
                 '<p class="hint">' + esc(when(row.decided_at || row.created_at)) + '</p></div>';
             }
-            const own = authUser && row.user_id === authUser.id;
+            const own = authUser && String(row.user_id) === String(authUser.id);
             const blocked = row.locked || (own && !sessionIsDeveloper());
             const note = row.locked
               ? '<p class="hint">This teacher can change account details after a second active teacher joins.</p>'
@@ -377,7 +377,7 @@
     function paintAdminUser(id) {
       const slot = document.getElementById("adminUser");
       if (!slot) return;
-      if(!canInspectAccount(adminAccounts.find(user=>user.id===id))){slot.innerHTML='<p class="hint">Account details are not available for this role.</p>';return;}
+      if(!canInspectAccount(adminAccounts.find(user=>String(user.id)===String(id)))){slot.innerHTML='<p class="hint">Account details are not available for this role.</p>';return;}
       const token = ++adminUserPaintToken, actor = authUser?.id, generation = viewGen;
       if (adminSelectedUser === id) { adminSelectedUser = null; slot.innerHTML = ''; return; }
       adminSelectedUser = id;
@@ -385,7 +385,7 @@
       viewFresh('adminuser:' + id, () => accountFetch("/api/admin/users/" + encodeURIComponent(id)), (data, refresh) => {
         if (!still() || refresh && editingIn(slot)) return;
         const user = data.user;
-        const groupMembership = adminMembers.find(member => member.accountId === user.id);
+        const groupMembership = adminMembers.find(member => String(member.accountId) === String(user.id));
         const assignedGroupId = groupMembership?.groupId;
         const assignedGroup = adminGroups.find(group => group.id === assignedGroupId);
         const groupTitle = assignedGroup?.title || 'Unassigned';

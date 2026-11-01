@@ -3,7 +3,7 @@ import {StudyError,statement as s} from './learning-study.mjs';
 import {saveBug} from './bug-log.mjs';
 const digest=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value))))].map(n=>n.toString(16).padStart(2,'0')).join('');
 export async function examRecommendation(db,env,actor,{id,studentId,partId,index=0,expectedRevision}){
-  if(!['ADMIN','DEVELOPER'].includes(actor?.role)||actor.id===studentId)throw new StudyError(403,'Teacher review only.');
+  if(!['ADMIN','DEVELOPER'].includes(actor?.role)||String(actor.id)===String(studentId))throw new StudyError(403,'Teacher review only.');
   const assessment=new AssessmentService(db),work=await assessment.get(actor,{kind:'exam-block',id,studentId});
   if(!work.saved||work.state==='published'||work.revision!==expectedRevision)throw new StudyError(409,'Open the current submitted work before requesting a recommendation.');
   const question=gradingQuestions(work.materials).find(q=>q.part.id===partId&&q.index===index);

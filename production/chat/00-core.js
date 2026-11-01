@@ -96,7 +96,7 @@
       .reduce((sum, row) => sum + (row.unread?.personal || 0) + (row.unread?.learning || 0), 0);
   const isGroupChat = (row) => row?.kind === 'group' || row?.kind === 'circle';
   const roomTitle = (row) => {
-    const role = row.kind === 'direct' ? row.peerRole || data.contacts.find((p) => p.id === row.peerId)?.role : '';
+    const role = row.kind === 'direct' ? row.peerRole || data.contacts.find((p) => String(p.id) === String(row.peerId))?.role : '';
     return row.title + (['Student', 'Teacher', 'Support'].includes(role) ? ' · ' + role : '');
   };
   const emojiSegmenter =

@@ -20,25 +20,25 @@ export class AccountArchive {
   staff(actor){if(!actor?.id||!['ADMIN','DEVELOPER'].includes(actor.role))denied(403,'Teachers only.');}
   async entry(actor,id){
     this.staff(actor);await ensureAccountArchive(this.db);
-    const [row]=await this.db.read('SELECT * FROM account_archives WHERE account_id=?',[id]);
-    if(!row||actor.role!=='DEVELOPER'&&(row.archived_by!==actor.id||row.hidden_at))denied(404,'Archived account not found.');
+    const [row]=await this.db.read('SELECT * FROM account_archives WHERE account_id=?',[String(id)]);
+    if(!row||actor.role!=='DEVELOPER'&&(String(row.archived_by)!==String(actor.id)||row.hidden_at))denied(404,'Archived account not found.');
     return row;
   }
   async list(actor){
     if(!['ADMIN','DEVELOPER'].includes(actor?.role))return [];
     await ensureAccountArchive(this.db);
-    return (await this.db.read('SELECT * FROM account_archives WHERE ?=1 OR (archived_by=? AND hidden_at IS NULL) ORDER BY archived_at DESC',[+(actor.role==='DEVELOPER'),actor.id])).map(row=>({
+    return (await this.db.read('SELECT * FROM account_archives WHERE ?=1 OR (archived_by=? AND hidden_at IS NULL) ORDER BY archived_at DESC',[+(actor.role==='DEVELOPER'),String(actor.id)])).map(row=>({
       type:'account',id:row.account_id,title:row.title,login:row.login,email:row.email,
       archivedBy:row.archived_by,archivedByName:row.archived_by_name,archivedAt:row.archived_at,teacherHiddenAt:row.hidden_at,purging:!!row.purge_started_at
     }));
   }
   async archive(actor,id){
-    this.staff(actor);if(id===actor.id)denied(400,'You cannot archive your own account.');
+    this.staff(actor);if(String(id)===String(actor.id))denied(400,'You cannot archive your own account.');
     const user=await this.accounts.prepare('SELECT id,role,name,login,email,active,hidden FROM users WHERE id=? AND is_personal_data_revoked=0').bind(id).first();
     if(!user||!['USER','ADMIN'].includes(user.role)||actor.role==='ADMIN'&&user.role!=='USER')denied(404,'Account unavailable.');
     await ensureAccountArchive(this.db);
     await this.db.atomic([s('INSERT OR IGNORE INTO account_archives(account_id,archived_by,archived_by_name,title,login,email,original_active,original_hidden) VALUES(?,?,?,?,?,?,?,?)',[
-      id,actor.id,actor.name||actor.login||actor.id,user.name||user.login,user.login,user.email,user.active??1,user.hidden??0
+      String(id),String(actor.id),actor.name||actor.login||String(actor.id),user.name||user.login,user.login,user.email,user.active??1,user.hidden??0
     ]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
     // Retain the archive record if the second database is unavailable: retry is safe.
     await this.accounts.prepare('UPDATE users SET active=0,hidden=1 WHERE id=?').bind(id).run();
@@ -48,20 +48,20 @@ export class AccountArchive {
     const row=await this.entry(actor,id);
     if(row.purge_started_at)denied(409,'Permanent deletion has started. Retry deletion instead of restoring partial data.');
     await this.accounts.prepare('UPDATE users SET active=?,hidden=? WHERE id=?').bind(row.original_active,row.original_hidden,id).run();
-    await this.db.atomic([s('DELETE FROM account_archives WHERE account_id=?',[id]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
+    await this.db.atomic([s('DELETE FROM account_archives WHERE account_id=?',[String(id)]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
     return {restored:true,type:'account',id};
   }
   async hide(actor,id){
     await this.entry(actor,id);
     if(actor.role==='DEVELOPER')denied(400,'Use permanent deletion for this account.');
     await this.accounts.prepare('UPDATE users SET active=0,hidden=1 WHERE id=?').bind(id).run();
-    await this.db.atomic([s('UPDATE account_archives SET hidden_at=unixepoch() WHERE account_id=?',[id]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
+    await this.db.atomic([s('UPDATE account_archives SET hidden_at=unixepoch() WHERE account_id=?',[String(id)]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
     return {hidden:true,type:'account',id};
   }
   async beginPurge(actor,id){
     if(actor?.role!=='DEVELOPER')denied(403,'Developer only.');
     await this.entry(actor,id);
-    await this.db.atomic([s('UPDATE account_archives SET purge_started_at=COALESCE(purge_started_at,unixepoch()),hidden_at=COALESCE(hidden_at,unixepoch()) WHERE account_id=?',[id]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
+    await this.db.atomic([s('UPDATE account_archives SET purge_started_at=COALESCE(purge_started_at,unixepoch()),hidden_at=COALESCE(hidden_at,unixepoch()) WHERE account_id=?',[String(id)]),s('UPDATE content_archive_state SET revision=revision+1 WHERE id=1')]);
     await this.accounts.prepare('UPDATE users SET active=0,hidden=1 WHERE id=?').bind(id).run();
   }
   async preview(actor,id){

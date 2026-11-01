@@ -49,7 +49,7 @@
         status('No account found.');
         return;
       }
-      if (!data.contacts.some((p) => p.id === result.person.id)) data.contacts.push(result.person);
+      if (!data.contacts.some((p) => String(p.id) === String(result.person.id))) data.contacts.push(result.person);
       el('msgRoomSearch').value = result.person.name;
       paintRooms();
       status('');
@@ -1043,7 +1043,7 @@
         const result = await domain('/exam?id=' + target.dataset.msgExam);
         if (result.studentId) {
           await openStudentPages({ id: result.studentId, role: 'USER' });
-          if (viewAccount?.id !== result.studentId) throw new Error('Exit the current student pages first.');
+          if (String(viewAccount?.id) !== String(result.studentId)) throw new Error('Exit the current student pages first.');
         }
         await examPull(true);
         examCurrentId = result.examId;

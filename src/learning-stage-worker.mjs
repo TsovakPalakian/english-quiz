@@ -81,7 +81,7 @@ export class StageAuth {
   async key(){if(!/^[a-f0-9]{64,128}$/.test(this.env.STAGE_SESSION_SECRET||''))throw new StudyError(503,'Test session secret missing.');return crypto.subtle.importKey('raw',encoder.encode(this.env.STAGE_SESSION_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
   async budget(kind,extra={}){const stub=this.env.AUTH_BUDGET?.get(this.env.AUTH_BUDGET.idFromName('global-auth-limit'));if(!stub)throw new StudyError(503,'Persistent test auth limiter missing.');const response=await stub.fetch('https://budget.internal/',{method:'POST',body:JSON.stringify({kind,...extra})});if(!response.ok)throw new StudyError(response.status,'Test authentication limit or revocation.');}
   async row(sql,args){if(![loginSql,currentSql].includes(sql))throw new StudyError(500,'Only authentication SELECTs.');return this.env.DB.prepare(sql).bind(...args).first();}
-  async gone(id){if(!/^[a-f0-9]{16,64}$/.test(id))throw new StudyError(503,'Invalid account identity.');if(!this.env.MEDIA)throw new StudyError(503,'Revocation provider missing.');return !!(await this.env.MEDIA.head('gone/'+id));}
+  async gone(id){if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(id)))throw new StudyError(503,'Invalid account identity.');if(!this.env.MEDIA)throw new StudyError(503,'Revocation provider missing.');return !!(await this.env.MEDIA.head('gone/'+id));}
   async login(value){
     if(!value||Object.keys(value).some(k=>!['login','password'].includes(k))||typeof value.login!=='string'||!value.login.trim()||value.login.length>120||typeof value.password!=='string'||!value.password||value.password.length>128)throw new StudyError(400,'Invalid login.');
     await this.budget('login');const row=await this.row(loginSql,[value.login.trim(),value.login.trim().toLowerCase()]);
@@ -99,7 +99,7 @@ export class StageAuth {
     const token=request.headers.get('cookie')?.match(/(?:^|;\s*)learning_stage=([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)(?:;|$)/);if(!token)return null;
     if(token[0].length>1000)return null;try{
       if(!await crypto.subtle.verify('HMAC',await this.key(),unbase64(token[2]),encoder.encode(token[1])))return null;
-      const p=JSON.parse(decoder.decode(unbase64(token[1])));return Number.isSafeInteger(p.expires)&&p.expires>Date.now()&&p.expires<=Date.now()+3600000&&/^[a-f0-9-]{36}$/.test(p.nonce)&&typeof p.id==='string'&&/^[a-f0-9]{64}$/.test(p.proof)?p:null;
+      const p=JSON.parse(decoder.decode(unbase64(token[1])));return Number.isSafeInteger(p.expires)&&p.expires>Date.now()&&p.expires<=Date.now()+3600000&&/^[a-f0-9-]{36}$/.test(p.nonce)&&(typeof p.id==='string'||Number.isSafeInteger(p.id))&&/^[a-f0-9]{64}$/.test(p.proof)?p:null;
     }catch{return null;}
   }
   async current(request){const p=await this.payload(request);if(!p)return null;await this.budget('read',{nonce:p.nonce});const row=await this.row(currentSql,[p.id]);return valid(row)&&await digest(row.password_hash)===p.proof&&!await this.gone(row.id)?publicUser(row):null;}

@@ -26,7 +26,7 @@ export class Passkeys{
     await this.atomic(previous?[this.guard(rates,hash,previous.raw),s('UPDATE catalog_documents SET value_json=? WHERE namespace=? AND key=?',[next,rates,hash])]:[s('INSERT INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[rates,hash,next])]);
   }
   async list(account){
-    const rows=await this.db.read("SELECT value_json FROM catalog_documents WHERE namespace=? AND json_extract(value_json,'$.account')=?",[credentials,account]);
+    const rows=await this.db.read("SELECT value_json FROM catalog_documents WHERE namespace=? AND CAST(json_extract(value_json,'$.account') AS TEXT)=CAST(? AS TEXT)",[credentials,account]);
     return rows.map(row=>JSON.parse(row.value_json)).filter(row=>row.rpID===this.rpID);
   }
   async issue(kind,{actor,session,rateKey}={}){
@@ -36,18 +36,18 @@ export class Passkeys{
     if(kind==='register'){
       if(!actor?.id||!session?.sid)fail(401,'Sign in first.');
       const existing=await this.list(actor.id);if(existing.length>=10)fail(400,'Remove a passkey before adding another one.');
-      options=await generateRegistrationOptions({rpName:'Lumiscia',rpID:this.rpID,userName:actor.login,userDisplayName:actor.name||actor.login,userID:encoder.encode(await digest(actor.id)),attestationType:'none',supportedAlgorithmIDs:algorithms,
+      options=await generateRegistrationOptions({rpName:'Lumiscia',rpID:this.rpID,userName:actor.login,userDisplayName:actor.name||actor.login,userID:encoder.encode(await digest(String(actor.id))),attestationType:'none',supportedAlgorithmIDs:algorithms,
         excludeCredentials:existing.map(row=>({id:row.id,transports:row.transports})),authenticatorSelection:{residentKey:'required',userVerification:'required'}});
     }else options=await generateAuthenticationOptions({rpID:this.rpID,userVerification:'required'});
     const token=id();
-    await this.db.atomic([s('INSERT INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[challenges,token,JSON.stringify({kind,challenge:options.challenge,origin:this.origin,account:actor?.id||'',sid:session?.sid||'',expiresAt:Date.now()+TTL})])]);
+    await this.db.atomic([s('INSERT INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[challenges,token,JSON.stringify({kind,challenge:options.challenge,origin:this.origin,account:actor?.id!=null?String(actor.id):'',sid:session?.sid||'',expiresAt:Date.now()+TTL})])]);
     return {token,options};
   }
   async challenge(token,kind,actor,session){
     if(!valid(token))fail(400,'Start a new passkey request.');
     const row=await this.row(challenges,token),value=row?.value;
     if(!value||value.kind!==kind||value.expiresAt<=Date.now()||value.origin!==this.origin)fail(400,'Passkey request expired. Start again.');
-    if(kind==='register'&&(value.account!==actor?.id||value.sid!==session?.sid))fail(403,'Sign in again before adding a passkey.');
+    if(kind==='register'&&(String(value.account)!==String(actor?.id)||value.sid!==session?.sid))fail(403,'Sign in again before adding a passkey.');
     return row;
   }
   consume(token,row){return [this.guard(challenges,token,row.raw),s('DELETE FROM catalog_documents WHERE namespace=? AND key=?',[challenges,token])];}
@@ -58,7 +58,7 @@ export class Passkeys{
     catch{fail(400,'Passkey could not be verified. Try again.');}
     if(!result.verified||!result.registrationInfo)fail(400,'Passkey could not be verified.');
     const {credential}=result.registrationInfo;
-    const value={id:credential.id,account:actor.id,handle:encode(encoder.encode(await digest(actor.id))),rpID:this.rpID,publicKey:encode(credential.publicKey),counter:credential.counter,transports:credential.transports||[],label:String(label||'Passkey').trim().slice(0,80)||'Passkey',createdAt:Date.now(),lastUsedAt:null};
+    const value={id:credential.id,account:String(actor.id),handle:encode(encoder.encode(await digest(String(actor.id)))),rpID:this.rpID,publicKey:encode(credential.publicKey),counter:credential.counter,transports:credential.transports||[],label:String(label||'Passkey').trim().slice(0,80)||'Passkey',createdAt:Date.now(),lastUsedAt:null};
     await this.atomic([...this.consume(token,challenge),s('INSERT INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[credentials,await digest(value.id),JSON.stringify(value)])]);
     return {ok:true};
   }
@@ -79,10 +79,10 @@ export class Passkeys{
   async remove(account,credentialId){
     if(!valid(credentialId))fail(400,'Invalid passkey.');
     const key=await digest(credentialId),row=await this.row(credentials,key);
-    if(!row||row.value.account!==account||row.value.rpID!==this.rpID)fail(404,'Passkey not found.');
+    if(!row||String(row.value.account)!==String(account)||row.value.rpID!==this.rpID)fail(404,'Passkey not found.');
     await this.atomic([this.guard(credentials,key,row.raw),s('DELETE FROM catalog_documents WHERE namespace=? AND key=?',[credentials,key])]);return {ok:true};
   }
   async removeAccount(account){
-    await this.db.atomic([s("DELETE FROM catalog_documents WHERE namespace IN (?,?) AND json_extract(value_json,'$.account')=?",[credentials,challenges,account])]);
+    await this.db.atomic([s("DELETE FROM catalog_documents WHERE namespace IN (?,?) AND CAST(json_extract(value_json,'$.account') AS TEXT)=CAST(? AS TEXT)",[credentials,challenges,account])]);
   }
 }

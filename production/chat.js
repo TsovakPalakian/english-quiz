@@ -96,7 +96,7 @@
       .reduce((sum, row) => sum + (row.unread?.personal || 0) + (row.unread?.learning || 0), 0);
   const isGroupChat = (row) => row?.kind === 'group' || row?.kind === 'circle';
   const roomTitle = (row) => {
-    const role = row.kind === 'direct' ? row.peerRole || data.contacts.find((p) => p.id === row.peerId)?.role : '';
+    const role = row.kind === 'direct' ? row.peerRole || data.contacts.find((p) => String(p.id) === String(row.peerId))?.role : '';
     return row.title + (['Student', 'Teacher', 'Support'].includes(role) ? ' · ' + role : '');
   };
   const emojiSegmenter =
@@ -324,7 +324,7 @@
             '<span data-presence-subject="' +
             escape(person.id) +
             '"></span>' +
-            (person.id === signedIn()?.id
+            (String(person.id) === String(signedIn()?.id)
               ? '<button type="button" class="btn" data-avatar-upload="' + escape(person.id) + '">Upload photo</button>'
               : '');
           entry.before(row);
@@ -1009,7 +1009,7 @@
       if (contactGroupView) {
         const members = (contactGroupView.members || []).filter(
           (m) =>
-            m.id !== account &&
+            String(m.id) !== String(account) &&
             (!query ||
               (m.name + ' ' + (m.role || '') + ' ' + (profileViews[m.id]?.username || ''))
                 .toLocaleLowerCase()
@@ -1057,7 +1057,7 @@
           .filter(
             (p) =>
               !blocked.has(p.id) &&
-              !data.rooms.some((r) => r.peerId === p.id && r.archived) &&
+              !data.rooms.some((r) => String(r.peerId) === String(p.id) && r.archived) &&
               (!query ||
                 (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
@@ -1359,7 +1359,7 @@
     if (
       !isNew ||
       mutedChat(event.room) ||
-      event.message.senderId === account ||
+      String(event.message.senderId) === String(account) ||
       !current() ||
       Date.now() - lastAlert < 400
     )
@@ -1431,7 +1431,7 @@
         const wasBottom = bottom();
         if (cache?.loaded) mergeNode(event.message);
         else history().catch((error) => status(error.message));
-        if (wasBottom || event.message.senderId === account) timeline.scrollTop = timeline.scrollHeight;
+        if (wasBottom || String(event.message.senderId) === String(account)) timeline.scrollTop = timeline.scrollHeight;
         else el('msgLatest').hidden = false;
         scheduleRead();
       }
@@ -1447,7 +1447,7 @@
       if (
         event.type === 'message' &&
         prefs.notifications !== false &&
-        event.message.senderId !== account &&
+        String(event.message.senderId) !== String(account) &&
         !mutedChat(event.room) &&
         document.visibilityState === 'hidden' &&
         window.Notification?.permission === 'granted'
@@ -1456,13 +1456,13 @@
     }
     if (event.receipt && event.room) {
       const c = event.receipt.category,
-        peers = event.receipt.readers.filter((r) => r.id !== account),
+        peers = event.receipt.readers.filter((r) => String(r.id) !== String(account)),
         read = peers.length ? Math.min(...peers.map((r) => r.read)) : 0,
         delivered = peers.length ? Math.min(...peers.map((r) => r.delivered)) : 0;
       const cache = historyCache.get(event.room.id + ':' + c);
       if (cache)
         for (const message of cache.rows)
-          if (message.senderId === account) {
+          if (String(message.senderId) === String(account)) {
             message.read = read >= message.id;
             message.delivered = delivered >= message.id;
             if (active() && room === event.room.id && kind === c) mergeNode(message);
@@ -1638,7 +1638,7 @@
     }
   }
   function messageHTML(m) {
-    const own = m.senderId === account,
+    const own = String(m.senderId) === String(account),
       date = new Date(m.createdMs || m.created * 1000),
       receipt = m.pending ? 'Sending' : m.failed ? 'Retry' : m.read ? 'Read' : m.delivered ? 'Delivered' : 'Sent';
     return (
@@ -2136,7 +2136,7 @@
     }
     node.className =
       'msg-message' +
-      (m.senderId === account ? ' is-own' : '') +
+      (String(m.senderId) === String(account) ? ' is-own' : '') +
       (m.category === 'learning' ? ' is-learning' : '') +
       (m.deleted ? ' is-deleted' : '') +
       (selection.has(m.id) ? ' is-selected' : '');
@@ -3866,7 +3866,7 @@
           '</button>'
         : '') +
       extra;
-    if (isGroupChat(selected) && (reviewer() || selected.ownerId === account))
+    if (isGroupChat(selected) && (reviewer() || String(selected.ownerId) === String(account)))
       el('msgInfoContent')
         .querySelector('.chat-info-profile')
         .insertAdjacentHTML(
@@ -4185,7 +4185,7 @@
           node.querySelector('[role=status]').textContent = 'No account found.';
           return;
         }
-        let index = rows.findIndex((r) => r.kind === 'direct' && r.id === result.person.id);
+        let index = rows.findIndex((r) => r.kind === 'direct' && String(r.id) === String(result.person.id));
         if (index < 0) {
           rows.push({ ...result.person, kind: 'direct' });
           index = rows.length - 1;
@@ -4256,7 +4256,7 @@
           ...data.contacts,
         ].map((p) => [p.id, p]),
       ).values(),
-    ].filter((p) => p.id !== account);
+    ].filter((p) => String(p.id) !== String(account));
     if (!people.length) {
       status('Add contacts before creating a group.');
       return;
@@ -4640,7 +4640,7 @@
       let row = data.rooms.find(
         (r) =>
           r.id === target.dataset.msgRoom ||
-          (target.dataset.contactId && r.peerId === target.dataset.contactId) ||
+          (target.dataset.contactId && String(r.peerId) === String(target.dataset.contactId)) ||
           (target.dataset.chatGroup && r.id === 'group:' + target.dataset.chatGroup),
       );
       if (!row) {
@@ -4781,7 +4781,7 @@
     );
   }
   function studyReference(message, quote = null) {
-    if (!message || message.deleted || message.senderId === account || message.canStudyReply === false) return;
+    if (!message || message.deleted || String(message.senderId) === String(account) || message.canStudyReply === false) return;
     const sourceRoomId = room,
       clientKey = crypto.randomUUID(),
       draft = 'english-chat-alert-reply:' + account + ':' + sourceRoomId + ':' + message.id;
@@ -4832,7 +4832,7 @@
   }
   async function replyMessage(message) {
     if (!message || message.deleted) return;
-    if (message.category === 'learning' && message.senderId !== account && message.canStudyReply !== false) {
+    if (message.category === 'learning' && String(message.senderId) !== String(account) && message.canStudyReply !== false) {
       studyReference(message);
       return;
     }
@@ -4900,7 +4900,7 @@
     status('Photo copied.');
   }
   function canEdit(message) {
-    return message.canEdit ?? (message.senderId === account && !message.examId);
+    return message.canEdit ?? (String(message.senderId) === String(account) && !message.examId);
   }
   function messageMenu(message, x, y, fileId = '') {
     const selected = getSelection(),
@@ -4921,7 +4921,7 @@
     contextRoom = room;
     const node = el('msgContext'),
       study = message.category === 'learning',
-      canReply = !study || (message.senderId !== account && message.canStudyReply !== false),
+      canReply = !study || (String(message.senderId) !== String(account) && message.canStudyReply !== false),
       items = [];
     if (canReply) items.push(['reply', 'reply', 'Reply']);
     node.dataset.quote = quote;
@@ -4942,7 +4942,7 @@
         ? 'Unpin'
         : 'Pin',
     ]);
-    if ((!study || canReply) && message.forwardTo !== account) items.push(['forward', 'forward', 'Forward']);
+    if ((!study || canReply) && String(message.forwardTo) !== String(account)) items.push(['forward', 'forward', 'Forward']);
     items.push(['select', 'circle-check', 'Select']);
     if (canEdit(message)) items.push(['delete', 'trash-2', 'Delete']);
     node.dataset.fileId = fileId;
@@ -5529,7 +5529,7 @@
         status('No account found.');
         return;
       }
-      if (!data.contacts.some((p) => p.id === result.person.id)) data.contacts.push(result.person);
+      if (!data.contacts.some((p) => String(p.id) === String(result.person.id))) data.contacts.push(result.person);
       el('msgRoomSearch').value = result.person.name;
       paintRooms();
       status('');
@@ -6523,7 +6523,7 @@
         const result = await domain('/exam?id=' + target.dataset.msgExam);
         if (result.studentId) {
           await openStudentPages({ id: result.studentId, role: 'USER' });
-          if (viewAccount?.id !== result.studentId) throw new Error('Exit the current student pages first.');
+          if (String(viewAccount?.id) !== String(result.studentId)) throw new Error('Exit the current student pages first.');
         }
         await examPull(true);
         examCurrentId = result.examId;
@@ -6646,7 +6646,7 @@
       if (user) {
         const gen = generation;
         void readChatCache().then((cached) => {
-          if (gen !== generation || account !== user.id) return;
+          if (gen !== generation || String(account) !== String(user.id)) return;
           if (applyChatCache(cached)) {
             paintRooms();
             badge();
@@ -6656,9 +6656,9 @@
         connect();
       }
     }
-    if (profileViews._account !== account) {
+    if (String(profileViews._account || '') !== String(account || '')) {
       profileViews = Object.create(null);
-      profileViews._account = account;
+      profileViews._account = String(account);
       profileRequested.clear();
     }
     const face = el('msgProfile');

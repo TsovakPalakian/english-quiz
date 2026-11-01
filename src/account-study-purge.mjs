@@ -3,7 +3,7 @@ import {statement as s,StudyError} from './learning-study.mjs';
 // A developer-only caller has already archived and disabled the account.
 // Expand actual foreign keys, rather than keeping an incomplete list of tables.
 export async function purgeStudyAccount(db,account,media){
-  if(!/^[a-f0-9]{16,64}$/.test(account))throw new StudyError(400,'Invalid account.');
+  if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(account)))throw new StudyError(400,'Invalid account.');
   const names=(await db.read("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).map(row=>row.name).filter(name=>/^[a-z][a-z_0-9]*$/.test(name)&&name!=='account_archives');
   const tables=new Map();
   for(const name of names){

@@ -4,7 +4,7 @@ const fail=(status,message)=>{throw Object.assign(new Error(message),{status});}
 export function profileAllowed(inbox,id){
   const actor=inbox.get('profile');if(!actor||actor.active===false)return false;
   if(id.startsWith('group:'))return inbox.get('groups',[]).some(g=>'group:'+g.id===id);
-  if(id===actor.id||staff(actor))return true;
+  if(String(id)===String(actor.id)||staff(actor))return true;
   const rooms=inbox.rows('SELECT data FROM rooms').map(row=>JSON.parse(row.data)).filter(room=>room.peerId===id&&room.active!==false);
   if(rooms.some(room=>room.access?.blocked))return false;
   return inbox.get('contacts',[]).some(u=>u.id===id)||rooms.length>0||inbox.get('discovered:'+id)?.expires>Date.now();
@@ -41,7 +41,7 @@ export async function setUsername(store,body){
   const username=String(body.username??'').trim().toLowerCase();
   if(username&&!/^@[a-z0-9_]{3,32}$/.test(username))fail(400,'Username must start with @ and contain 3 to 32 Latin letters, numbers or underscores.');
   const id=body.actor.id,previous=store.get('username:'+id)||'',owner=username?store.get('username-owner:'+username):null;
-  if(owner&&owner!==id)fail(409,'That username is already in use.');
+  if(owner&&String(owner)!==String(id))fail(409,'That username is already in use.');
   if(body.expectedUsername!==undefined&&body.expectedUsername!==previous)fail(409,'Your username changed in another window. Reopen Profile.');
   if(previous===username)return {profile:record(store,id)};
   store.ctx.storage.transactionSync(()=>{if(previous)store.set('username-owner:'+previous,null);if(username)store.set('username-owner:'+username,id);store.set('username:'+id,username);});
@@ -58,13 +58,13 @@ export function signupUsername(store,body){
       if(owner&&owner!==reservation)fail(409,'That username is already in use.');
       store.set('username-owner:'+username,reservation);
     }else if(body.action==='activate'){
-      if(owner&&owner!==reservation&&owner!==body.userId)fail(409,'That username is already in use.');
+      if(owner&&owner!==reservation&&String(owner)!==String(body.userId))fail(409,'That username is already in use.');
       const previous=store.get('username:'+body.userId);
       if(previous&&previous!==username)fail(409,'This account already has a username.');
       store.set('username-owner:'+username,body.userId);store.set('username:'+body.userId,username);
     }else if(body.action==='release'){
       if(owner===reservation)store.set('username-owner:'+username,null);
-    }else if(owner===body.userId){
+    }else if(String(owner)===String(body.userId)){
       store.set('username-owner:'+username,reservation);store.set('username:'+body.userId,null);
     }
   });

@@ -43,12 +43,12 @@ export class FederatedOAuthState{
   async identity(subject){return (await this.row(this.identities,subject))?.value||null;}
   async link(subject,target){
     const previous=await this.identity(subject);
-    if(previous){if(previous.accountId!==target.accountId||previous.registrationId!==target.registrationId)fail(409,'This '+this.label+' account is already connected.');return;}
+    if(previous){if(String(previous.accountId||'')!==String(target.accountId||'')||String(previous.registrationId||'')!==String(target.registrationId||''))fail(409,'This '+this.label+' account is already connected.');return;}
     await this.save(this.identities,subject,{...target,createdAt:Date.now()});
   }
   async approved(registrationId,accountId){
-    const rows=await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace=? AND json_extract(value_json,'$.registrationId')=?",[this.identities,registrationId]);
+    const rows=await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace=? AND CAST(json_extract(value_json,'$.registrationId') AS TEXT)=CAST(? AS TEXT)",[this.identities,registrationId]);
     for(const row of rows)await this.save(this.identities,row.key,{...JSON.parse(row.value_json),accountId},{raw:row.value_json});
   }
-  async removeAccount(accountId){await this.db.atomic([s("DELETE FROM catalog_documents WHERE namespace=? AND json_extract(value_json,'$.accountId')=?",[this.identities,accountId])]);}
+  async removeAccount(accountId){await this.db.atomic([s("DELETE FROM catalog_documents WHERE namespace=? AND CAST(json_extract(value_json,'$.accountId') AS TEXT)=CAST(? AS TEXT)",[this.identities,accountId])]);}
 }

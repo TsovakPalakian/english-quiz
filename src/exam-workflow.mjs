@@ -16,9 +16,9 @@ export async function examWorkflowCommands(db,instance,actor,event){
     SELECT ?,'exam-workflow',?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM assessment_history WHERE kind='exam-workflow' AND material_id=? AND action=?)`,[instance.account_id,instance.exam_id,actor.id,event,key,JSON.stringify({event,examId:instance.exam_id,at:new Date().toISOString()}),instance.exam_id,event])];
   if(['started','review_started','completed'].includes(event)){
     const recipients=event==='review_started'?[instance.account_id]:await instanceReviewerIds(db,instance);
-    for(const recipient of new Set(recipients))if(recipient&&recipient!==actor.id){
+    for(const recipient of new Set(recipients))if(recipient&&String(recipient)!==String(actor.id)){
       const messages=new MessageService(db,async()=>[]);await messages.ensure();
-      const room='direct:'+ [actor.id,recipient].sort().join(':');
+      const room='direct:'+ [String(actor.id),String(recipient)].sort().join(':');
       commands.push(...messages.directCommands(actor,recipient),s(`INSERT OR IGNORE INTO chat_messages(room_id,sender_id,sender_name,category,body,assignment_id,client_key,created_ms,exam_instance_id) VALUES(?,?,?,'learning',?,?,?,?,?)`,[room,actor.id,actor.name||actor.login||'Teacher',messages.sealText(room,events[event]+': '+instance.title),instance.assignment_id,key+(recipients.length>1?':'+recipient:''),Date.now(),instance.exam_id]));
     }
   }
@@ -32,7 +32,7 @@ export class ExamWorkflowService{
     const [instance]=await this.db.read('SELECT i.*,e.title FROM exam_instances i JOIN exams e ON e.id=i.exam_id WHERE i.exam_id=? AND i.active=1 AND e.deleted_at IS NULL',[id]);
     await ensureAccountArchive(this.db);
     const archived=instance&&(await this.db.read('SELECT account_id FROM account_archives WHERE account_id=?',[instance.account_id])).length;
-    if(!instance||archived&&actor.role!=='DEVELOPER'||!(actor.id===instance.account_id||await mayReviewInstance(this.db,instance,actor)))throw new StudyError(404,'Assigned exam not found.');
+    if(!instance||archived&&actor.role!=='DEVELOPER'||!(String(actor.id)===String(instance.account_id)||await mayReviewInstance(this.db,instance,actor)))throw new StudyError(404,'Assigned exam not found.');
     return instance;
   }
   async status(actor,{examId}){
@@ -48,8 +48,8 @@ export class ExamWorkflowService{
     if(!['viewed','started','review_started','results_viewed','completed'].includes(action))throw new StudyError(400,'Invalid exam workflow action.');
     const instance=await this.instance(actor,examId);
     if(action==='review_started'){
-      if(!['ADMIN','DEVELOPER'].includes(actor.role)||actor.id===instance.account_id)throw new StudyError(403,'Only the assigned teacher can start review.');
-    }else if(actor.id!==instance.account_id)throw new StudyError(403,'Only the assigned student can perform this action.');
+      if(!['ADMIN','DEVELOPER'].includes(actor.role)||String(actor.id)===String(instance.account_id))throw new StudyError(403,'Only the assigned teacher can start review.');
+    }else if(String(actor.id)!==String(instance.account_id))throw new StudyError(403,'Only the assigned student can perform this action.');
     const current=await this.status(actor,{examId});
     if(['results_viewed','completed'].includes(action)&&!['results_published','completed'].includes(current.state))throw new StudyError(409,'Wait for published results.');
     if(action==='review_started'&&!['submitted','under_review'].includes(current.state))throw new StudyError(409,'Wait for all exam blocks to be submitted.');

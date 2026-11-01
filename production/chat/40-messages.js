@@ -48,7 +48,7 @@
         const wasBottom = bottom();
         if (cache?.loaded) mergeNode(event.message);
         else history().catch((error) => status(error.message));
-        if (wasBottom || event.message.senderId === account) timeline.scrollTop = timeline.scrollHeight;
+        if (wasBottom || String(event.message.senderId) === String(account)) timeline.scrollTop = timeline.scrollHeight;
         else el('msgLatest').hidden = false;
         scheduleRead();
       }
@@ -64,7 +64,7 @@
       if (
         event.type === 'message' &&
         prefs.notifications !== false &&
-        event.message.senderId !== account &&
+        String(event.message.senderId) !== String(account) &&
         !mutedChat(event.room) &&
         document.visibilityState === 'hidden' &&
         window.Notification?.permission === 'granted'
@@ -73,13 +73,13 @@
     }
     if (event.receipt && event.room) {
       const c = event.receipt.category,
-        peers = event.receipt.readers.filter((r) => r.id !== account),
+        peers = event.receipt.readers.filter((r) => String(r.id) !== String(account)),
         read = peers.length ? Math.min(...peers.map((r) => r.read)) : 0,
         delivered = peers.length ? Math.min(...peers.map((r) => r.delivered)) : 0;
       const cache = historyCache.get(event.room.id + ':' + c);
       if (cache)
         for (const message of cache.rows)
-          if (message.senderId === account) {
+          if (String(message.senderId) === String(account)) {
             message.read = read >= message.id;
             message.delivered = delivered >= message.id;
             if (active() && room === event.room.id && kind === c) mergeNode(message);
@@ -255,7 +255,7 @@
     }
   }
   function messageHTML(m) {
-    const own = m.senderId === account,
+    const own = String(m.senderId) === String(account),
       date = new Date(m.createdMs || m.created * 1000),
       receipt = m.pending ? 'Sending' : m.failed ? 'Retry' : m.read ? 'Read' : m.delivered ? 'Delivered' : 'Sent';
     return (
@@ -753,7 +753,7 @@
     }
     node.className =
       'msg-message' +
-      (m.senderId === account ? ' is-own' : '') +
+      (String(m.senderId) === String(account) ? ' is-own' : '') +
       (m.category === 'learning' ? ' is-learning' : '') +
       (m.deleted ? ' is-deleted' : '') +
       (selection.has(m.id) ? ' is-selected' : '');

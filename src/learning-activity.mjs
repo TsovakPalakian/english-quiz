@@ -29,7 +29,7 @@ export class ActivityService extends StudyService {
       }))],result:{day,recorded:body.events.length,increments}}));
   }
   async stats(actor,{from,to,user='',role=''}={}){
-    if(!actor?.id)fail(401,'Sign in first.');if(user&&user!==actor.id||role)fail(403,'Only own study statistics are migrated.');
+    if(!actor?.id)fail(401,'Sign in first.');if(user&&String(user)!==String(actor.id)||role)fail(403,'Only own study statistics are migrated.');
     const today=new Date().toISOString().slice(0,10);to ||= today;
     if(!/^\d{4}-\d{2}-\d{2}$/.test(to)||!Number.isFinite(Date.parse(to)))fail(400,'Invalid dates.');
     from ||= new Date(Date.parse(to)-29*86400000).toISOString().slice(0,10);

@@ -26,8 +26,8 @@ export function migrationFreeze(legacy){return {async fetch(request,env,ctx){
   const url=new URL(request.url),method=request.method;
   const path=url.pathname.replace(/\/+$/,'')||'/';
   const account=(method==='POST'&&['/api/register','/api/login','/api/logout','/api/me/account','/api/me/account/cancel','/api/me/password','/api/me/revoke'].includes(path))
-    ||method==='POST'&&/^\/api\/admin\/(users\/[a-f0-9]{16,64}\/(profile|hidden|active|role)|(registrations|changes)\/[a-f0-9]{16,64}\/(approve|reject))$/.test(path)
-    ||method==='DELETE'&&/^\/api\/admin\/users\/[a-f0-9]{16,64}$/.test(path);
+    ||method==='POST'&&/^\/api\/admin\/(users\/(?:[a-f0-9]{16,64}|[1-9]\d{0,15})\/(profile|hidden|active|role)|(registrations|changes)\/(?:[a-f0-9]{16,64}|[1-9]\d{0,15})\/(approve|reject))$/.test(path)
+    ||method==='DELETE'&&/^\/api\/admin\/users\/(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(path);
   if(!['GET','HEAD','OPTIONS'].includes(method)&&!account)return paused();
   // Account operations keep their original handler/storage/permissions. Login
   // alone uses the content fence to prevent copyStateOnce background migration.

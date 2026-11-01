@@ -15,7 +15,7 @@ import {generateKeyPair,exportJWK,SignJWT,createLocalJWKSet} from 'jose';
 import {AccountInvites} from '../src/account-invites.mjs';
 import {EmailOtp} from '../src/email-otp.mjs';
 import {stageContentPolicy} from '../src/learning-embed.mjs';
-const devId='a'.repeat(32),password='FixturePassword1';
+const devId=1,password='FixturePassword1';
 test('Verified email teacher invitation creates a pending ADMIN registration, not a session or automatic approval',async()=>{
   const f=fixture();try{
     f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';f.env.STAGE_WRITES='true';
@@ -49,9 +49,9 @@ test('Account directory CAS uses raw ETag without removing the precondition or t
 });
 function fixture(options={}){
   const sqlite=new DatabaseSync(':memory:');
-  sqlite.exec(`CREATE TABLE users(id TEXT PRIMARY KEY,login TEXT UNIQUE,email TEXT UNIQUE,name TEXT DEFAULT '',password_salt TEXT,password_hash TEXT,password_iterations INTEGER,role TEXT DEFAULT 'USER',is_personal_data_revoked INTEGER DEFAULT 0,revoked_at INTEGER,hidden INTEGER DEFAULT 0,active INTEGER DEFAULT 1,created_at INTEGER);
-    CREATE TABLE registrations(id TEXT PRIMARY KEY,login TEXT,email TEXT,name TEXT,password_salt TEXT,password_hash TEXT,password_iterations INTEGER,status TEXT,role TEXT DEFAULT 'USER',user_id TEXT,created_at INTEGER,decided_at INTEGER);
-    CREATE TABLE account_changes(id TEXT PRIMARY KEY,user_id TEXT,login TEXT,email TEXT,name TEXT DEFAULT '',from_login TEXT,from_email TEXT,from_name TEXT,role TEXT DEFAULT 'USER',status TEXT,created_at INTEGER,decided_at INTEGER);
+  sqlite.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY AUTOINCREMENT,login TEXT UNIQUE,email TEXT UNIQUE,name TEXT DEFAULT '',password_salt TEXT,password_hash TEXT,password_iterations INTEGER,role TEXT DEFAULT 'USER',is_personal_data_revoked INTEGER DEFAULT 0,revoked_at INTEGER,hidden INTEGER DEFAULT 0,active INTEGER DEFAULT 1,created_at INTEGER);
+    CREATE TABLE registrations(id INTEGER PRIMARY KEY AUTOINCREMENT,login TEXT,email TEXT,name TEXT,password_salt TEXT,password_hash TEXT,password_iterations INTEGER,status TEXT,role TEXT DEFAULT 'USER',user_id INTEGER,created_at INTEGER,decided_at INTEGER);
+    CREATE TABLE account_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,login TEXT,email TEXT,name TEXT DEFAULT '',from_login TEXT,from_email TEXT,from_name TEXT,role TEXT DEFAULT 'USER',status TEXT,created_at INTEGER,decided_at INTEGER);
     CREATE TABLE catalog_documents(namespace TEXT,key TEXT,value_json TEXT,PRIMARY KEY(namespace,key));`);
   const salt='1'.repeat(32),hash=pbkdf2Sync(password,Buffer.from(salt,'hex'),100000,32,'sha256').toString('hex');
   sqlite.prepare("INSERT INTO users(id,login,email,name,password_salt,password_hash,password_iterations,role,created_at) VALUES(?,'FixtureDev','dev@example.invalid','Fixture',?,?,100000,'DEVELOPER',0)").run(devId,salt,hash);
@@ -305,7 +305,7 @@ test('Registration requires a nonblank name on the real server',async()=>{
 test('only the verified-invite sender or a developer can approve an invited teacher',async()=>{
   const f=fixture();try{
     f.env.ACCOUNT_QUERY_LIMIT_ENABLED='false';
-    const inviterId='b'.repeat(32),otherId='c'.repeat(32);
+    const inviterId=2,otherId=3;
     for(const [id,login,email] of [[inviterId,'Inviter','inviter@example.invalid'],[otherId,'OtherTeacher','other@example.invalid']]){
       f.sqlite.prepare("INSERT INTO users(id,login,email,name,password_salt,password_hash,password_iterations,role,created_at) SELECT ?,?,?,?,password_salt,password_hash,password_iterations,'ADMIN',0 FROM users WHERE id=?").run(id,login,email,login,devId);
     }
@@ -439,12 +439,13 @@ test('Accounts uses live account rows rather than stale R2 without N+1 queries o
   const f=fixture();try{
     const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
     const directory=await(await f.env.MEDIA.get('directory/accounts.json')).json();
-    directory.users.push({id:'b'.repeat(32),login:'Deleted',role:'USER',revoked:true},
-      {id:'c'.repeat(32),login:'Inactive',role:'USER',active:false},
-      {id:'d'.repeat(32),login:'Hidden',role:'USER',hidden:true},
-      {id:'e'.repeat(32),login:'DeletedDirectly',role:'USER'});
-    f.sqlite.prepare("INSERT INTO users(id,login,role,active,hidden) VALUES(?,'Inactive','USER',0,0)").run('c'.repeat(32));
-    f.sqlite.prepare("INSERT INTO users(id,login,role,active,hidden) VALUES(?,'Hidden','USER',1,1)").run('d'.repeat(32));
+    const deletedId=2,inactiveId=3,hiddenId=4,directlyDeletedId=5;
+    directory.users.push({id:deletedId,login:'Deleted',role:'USER',revoked:true},
+      {id:inactiveId,login:'Inactive',role:'USER',active:false},
+      {id:hiddenId,login:'Hidden',role:'USER',hidden:true},
+      {id:directlyDeletedId,login:'DeletedDirectly',role:'USER'});
+    f.sqlite.prepare("INSERT INTO users(id,login,role,active,hidden) VALUES(?,'Inactive','USER',0,0)").run(inactiveId);
+    f.sqlite.prepare("INSERT INTO users(id,login,role,active,hidden) VALUES(?,'Hidden','USER',1,1)").run(hiddenId);
     await f.env.MEDIA.put('directory/accounts.json',JSON.stringify(directory));
     const before=f.queries,result=await dev.call('/api/admin/users');assert.equal(result.status,200);
     assert.ok(!result.value.users.some(row=>row.revoked));
@@ -459,20 +460,20 @@ test('Account changes excludes deleted and orphaned owners against live D1 witho
   const f=fixture();try{
     const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
     const directory=await(await f.env.MEDIA.get('directory/accounts.json')).json();
-    const deletedId='b'.repeat(32),inactiveId='c'.repeat(32);
+    const deletedId=2,inactiveId=3;
     directory.users.push({id:deletedId,role:'USER'},{id:inactiveId,role:'USER',active:false});
     f.sqlite.prepare("INSERT INTO users(id,login,role,active) VALUES(?,'Inactive','USER',0)").run(inactiveId);
     directory.changes=[
-      {id:'existing',user_id:devId,status:'approved'},
-      {id:'inactive',user_id:inactiveId,status:'pending'},
-      {id:'deleted',user_id:deletedId,status:'pending'},
-      {id:'orphan',user_id:'e'.repeat(32),status:'approved'},
-      {id:'unlinked',status:'pending'}
+      {id:101,user_id:devId,status:'approved'},
+      {id:102,user_id:inactiveId,status:'pending'},
+      {id:103,user_id:deletedId,status:'pending'},
+      {id:104,user_id:5,status:'approved'},
+      {id:105,status:'pending'}
     ];
     await f.env.MEDIA.put('directory/accounts.json',JSON.stringify(directory));
     const before=f.queries,result=await dev.call('/api/admin/changes');
     assert.equal(result.status,200);
-    assert.deepEqual(result.value.changes.map(row=>row.id),['existing','inactive']);
+    assert.deepEqual(result.value.changes.map(row=>row.id),[101,102]);
     assert.equal(f.queries-before,2,'Authentication plus one bounded account list SELECT');
     assert.deepEqual((await(await f.env.MEDIA.get('directory/accounts.json')).json()).changes,directory.changes);
   }finally{f.close();}
@@ -480,14 +481,15 @@ test('Account changes excludes deleted and orphaned owners against live D1 witho
 test('Registration history hides missing or revoked owners but retains pending new applicants',async()=>{
   const f=fixture();try{
     const dev=f.client();await dev.call('/api/login','POST',{login:'FixtureDev',password});
-    f.sqlite.prepare("INSERT INTO users(id,login,role,is_personal_data_revoked) VALUES(?,'Revoked','USER',1)").run('b'.repeat(32));
+    const revokedId=2;
+    f.sqlite.prepare("INSERT INTO users(id,login,role,is_personal_data_revoked) VALUES(?,'Revoked','USER',1)").run(revokedId);
     const insert=f.sqlite.prepare('INSERT INTO registrations(id,login,status,user_id,created_at) VALUES(?,?,?,?,?)');
-    insert.run('live','Existing','approved',devId,4);
-    insert.run('deleted','Deleted','approved','c'.repeat(32),3);
-    insert.run('revoked','Revoked','approved','b'.repeat(32),2);
-    insert.run('pending','NewApplicant','pending',null,1);
+    insert.run(10,'Existing','approved',devId,4);
+    insert.run(11,'Deleted','approved',3,3);
+    insert.run(12,'Revoked','approved',revokedId,2);
+    insert.run(13,'NewApplicant','pending',null,1);
     const before=f.queries,result=await dev.call('/api/admin/registrations');
-    assert.equal(result.status,200);assert.deepEqual(result.value.registrations.map(row=>row.id),['live','pending']);
+    assert.equal(result.status,200);assert.deepEqual(result.value.registrations.map(row=>row.id),[10,13]);
     assert.equal(f.queries-before,2,'Existing auth and registration queries only');
     assert.equal(f.sqlite.prepare('SELECT count(*) n FROM registrations').get().n,4,'History not physically deleted');
   }finally{f.close();}

@@ -82,12 +82,12 @@ export class QuizMedia{
   async response(actor,id,request,{session=null,itemIndex=null}={}){
     kitSigned(actor);const row=await this.row(id);
     if(session){
-      if(session.owner_id!==actor.id)fail(404,'Media unavailable.');
+      if(String(session.owner_id)!==String(actor.id))fail(404,'Media unavailable.');
       if(session.card_id==null){
         if(!validId(session.speechTaskId))fail(404,'Media unavailable.');const [task]=await this.db.read('SELECT group_id,lesson_id FROM qr_speech_tasks WHERE id=? AND card_id IS NULL AND sense_id IS NULL',[session.speechTaskId]);if(!task)fail(404,'Media unavailable.');await checkSpeechContext(this.review,actor,{groupId:task.group_id,lessonId:task.lesson_id,cardId:null,senseId:null});
       }else await this.kits.card(actor,session.card_id);
       if(JSON.parse(session.content_json).items[itemIndex]?.mediaId!==id)fail(404,'Media unavailable.');
-    }else if(row.owner_id!==actor.id){
+    }else if(String(row.owner_id)!==String(actor.id)){
       if(!['ADMIN','DEVELOPER'].includes(actor.role)||row.purpose!=='quiz')fail(404,'Media unavailable.');
       const versions=await this.db.read("SELECT q.id FROM qr_versions q,json_each(q.content_json,'$.items') i WHERE json_extract(i.value,'$.mediaId')=? LIMIT 1",[id]);
       if(!versions.length)fail(404,'Media unavailable.');await this.review.access(actor,await this.review.version(versions[0].id));

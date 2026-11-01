@@ -10,7 +10,7 @@ function parseTeacherIds(valueJson){
 }
 
 export async function teacherMayManageStudent(db,actor,studentId){
-  if(!actor?.id||typeof studentId!=='string'||!studentId)return false;
+  if(!actor?.id||(typeof studentId!=='string'&&!Number.isSafeInteger(studentId))||!studentId)return false;
   if(actor.role==='DEVELOPER')return true;
   if(actor.role!=='ADMIN'||!db?.read)return false;
   try{

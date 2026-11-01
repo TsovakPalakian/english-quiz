@@ -281,7 +281,7 @@
         if(id==='admingrouplevel'||id==='admingroup')path.push({id:'admingrouplevel',label:adminGroupLevel==='unassigned'?'Unassigned':adminGroupLevel});
         else if(adminBucket)path.push({id:'admin',label:adminBucket==='staff'?'Teachers & Staff':'Unassigned',adminBucket});
         if(id==='admingroup'&&selected)path.push({id,label:selected.title});
-        if(id==='adminuser')path.push({id,label:adminAccounts.find(row=>row.id===adminAccountId)?.login||'Account'});
+        if(id==='adminuser')path.push({id,label:adminAccounts.find(row=>String(row.id)===String(adminAccountId))?.login||'Account'});
         return path;
       }
       if (id === "material" && lmState) {

@@ -8,7 +8,7 @@ export async function instanceCommands(db,source,assignment,recipients,storage,m
   const commands=[];
   for(const account of recipients){
     const [group]=await db.read('SELECT g.id,g.title FROM class_group_students c JOIN class_groups g ON g.id=c.group_id WHERE c.account_id=?',[account]);
-    const student=metadata.students?.find(u=>u.id===account);
+    const student=metadata.students?.find(u=>String(u.id)===String(account));
     const copy=id();commands.push(s('INSERT INTO exams(id,title,lesson_date,published,hidden_from_students) VALUES(?,?,?,?,0)',[copy,source.title,source.lesson_date,source.published]),s('INSERT INTO exam_instances(exam_id,source_exam_id,account_id,assignment_id,group_id,group_title,reviewer_id,reviewer_name,student_name,student_email,assigned_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',[copy,source.id,account,assignment,group?.id||null,group?.title||'',metadata.reviewer?.id||'',metadata.reviewer?.name||'Teacher',student?.name||account,student?.email||'',Date.now()]));
     const materialIds=new Map(parts.map(part=>[part.id,id()]));
     const mediaNamespace='copy-'+crypto.randomUUID();
@@ -40,7 +40,7 @@ export async function instanceAccess(db,examId,account){
   await ensureAccountArchive(db);
   if((await db.read('SELECT i.exam_id FROM exam_instances i JOIN account_archives a ON a.account_id=i.account_id WHERE i.exam_id=?',[examId])).length)throw new StudyError(404,'Exam not found.');
   const [row]=await db.read('SELECT account_id,active FROM exam_instances WHERE exam_id=?',[examId]);
-  if(row&&(row.account_id!==account||!row.active))throw new StudyError(404,'Exam not found.');
+  if(row&&(String(row.account_id)!==String(account)||!row.active))throw new StudyError(404,'Exam not found.');
 }
 export async function instanceReviewerIds(db,instance){
   if(instance?.group_id!=null){
@@ -50,5 +50,5 @@ export async function instanceReviewerIds(db,instance){
   return instance?.reviewer_id?[instance.reviewer_id]:[];
 }
 export async function mayReviewInstance(db,instance,actor){
-  return actor?.role==='DEVELOPER'||actor?.role==='ADMIN'&&(await instanceReviewerIds(db,instance)).includes(actor.id);
+  return actor?.role==='DEVELOPER'||actor?.role==='ADMIN'&&(await instanceReviewerIds(db,instance)).map(String).includes(String(actor.id));
 }

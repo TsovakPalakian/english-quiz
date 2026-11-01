@@ -288,8 +288,8 @@
         }
       }
       if(bare==='/api/me/progress'){for(const row of value.stageCardProgress||[])cardProgress.set(row.id,row.revision);for(const row of value.stageQuizProgress||[])quizProgress.set(row.id+'|'+row.type,row.revision);}
-      const managedState=path.match(/^\/api\/admin\/users\/([a-f0-9]{16,64})\/state$/);
-      if(managedState)managedLinkRevisions.set(managedState[1],value.stageAddedRevision||0);
+      const managedState=path.match(/^\/api\/admin\/users\/([a-f0-9]{16,64}|[1-9]\d{0,15})\/state$/);
+      if(managedState)managedLinkRevisions.set(String(managedState[1]),value.stageAddedRevision||0);
       if(/^\/api\/(?:lessons|admin\/users\/[^/]+\/lessons)(?:\?|$)/.test(path)){
         for(const lesson of value.materials||[])if(!lesson.stageLessonDeferred)lesson.stageLessonBaseline=lessonSnapshot(lesson);
         register(value.materials||[]);
@@ -573,7 +573,7 @@
     flushPersonal:()=>drainPersonal(true),
     cardForProgress:id=>cards.get(id),
     async dictionary(item,accountId=''){
-      if(!validCardId(item.stageId)||accountId&&!/^[a-f0-9]{16,64}$/.test(accountId))throw new Error('Missing dictionary identity.');
+      if(!validCardId(item.stageId)||accountId&&!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId)))throw new Error('Missing dictionary identity.');
       const path=accountId?'/api/admin/users/'+accountId+'/cards/':'/api/cards/';
       return api(path+encodeURIComponent(item.stageId)+'/dictionary');
     },
@@ -650,7 +650,7 @@
       return result;
     },
     async editManagedCard(accountId,card,ru){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!card.stageId||card.stageScope!=='profile')throw new Error('Редактируется только личная карточка ученика.');
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!card.stageId||card.stageScope!=='profile')throw new Error('Редактируется только личная карточка ученика.');
       return write('/api/admin/users/'+accountId+'/cards/'+encodeURIComponent(card.stageId),'PATCH',{expectedRevision:card.stageRevision,changes:{ru}});
     },
     async editCard(card,ru){
@@ -670,20 +670,20 @@
     lookupLessonCard:(word,context)=>write('/api/cards/lookup','POST',{word,...(context?{context}:{})}),
     pdfGrammarAlerts:(lessonId,source)=>api('/api/messages/pdf-grammar',{method:'POST',body:JSON.stringify({lessonId,source})}),
     async newManagedCard(accountId,en,ru,place){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите профиль ученика.');
-      const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{expectedRevision:managedLinkRevisions.get(accountId),card:{en,ru,...(place?{place}:{})}});
-      managedLinkRevisions.set(accountId,result.revision);return result;
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!managedLinkRevisions.has(String(accountId)))throw new Error('Сначала загрузите профиль ученика.');
+      const result=await write('/api/admin/users/'+accountId+'/cards/new','POST',{expectedRevision:managedLinkRevisions.get(String(accountId)),card:{en,ru,...(place?{place}:{})}});
+      managedLinkRevisions.set(String(accountId),result.revision);return result;
     },
     async unlinkManagedCard(accountId,card){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!card.stageId||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите профиль ученика.');
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!card.stageId||!managedLinkRevisions.has(String(accountId)))throw new Error('Сначала загрузите профиль ученика.');
       const result=await write('/api/admin/users/'+accountId+'/cards/'+encodeURIComponent(card.stageId),'DELETE',{
-        place:card.place||'mine',expectedRevision:card.stageLinksRevision??managedLinkRevisions.get(accountId)});
-      managedLinkRevisions.set(accountId,result.revision);return result;
+        place:card.place||'mine',expectedRevision:card.stageLinksRevision??managedLinkRevisions.get(String(accountId))});
+      managedLinkRevisions.set(String(accountId),result.revision);return result;
     },
     async linkManagedCard(accountId,card,place){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!managedLinkRevisions.has(accountId))throw new Error('Сначала загрузите серверный профиль ученика.');
-      const result=await write('/api/admin/users/'+accountId+'/cards','POST',{cardId:card.id,place,expectedRevision:managedLinkRevisions.get(accountId),expectedCardRevision:card.revision});
-      managedLinkRevisions.set(accountId,result.revision);return result;
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!managedLinkRevisions.has(String(accountId)))throw new Error('Сначала загрузите серверный профиль ученика.');
+      const result=await write('/api/admin/users/'+accountId+'/cards','POST',{cardId:card.id,place,expectedRevision:managedLinkRevisions.get(String(accountId)),expectedCardRevision:card.revision});
+      managedLinkRevisions.set(String(accountId),result.revision);return result;
     },
     async linkCard(card,place){
       const result=await write('/api/me/cards','POST',{cardId:card.id,place,expectedRevision:addedRevision,expectedCardRevision:card.revision});
@@ -697,7 +697,7 @@
       return window.LearningMain.saveManagedLibrary(accountId,item,'text',changes);
     },
     async saveManagedLibrary(accountId,item,kind,changes){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||item.stageId&&item.stageScope!=='profile')throw new Error('Общие материалы нельзя менять в личном профиле.');
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!['text','song'].includes(kind)||item.stageId&&item.stageScope!=='profile')throw new Error('Общие материалы нельзя менять в личном профиле.');
       const path='/api/admin/users/'+accountId+'/'+(kind==='text'?'texts':'songs');
       if(!item.stageId)return write(path,'POST',{changes});
       const changed=Object.fromEntries(Object.entries(changes).filter(([key,value])=>item[key]!==value));
@@ -708,7 +708,7 @@
       return window.LearningMain.deleteManagedLibrary(accountId,item,'text');
     },
     async deleteManagedLibrary(accountId,item,kind){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!['text','song'].includes(kind)||!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!['text','song'].includes(kind)||!item.stageId||item.stageScope!=='profile')throw new Error('Удаляется только личный материал.');
       return write('/api/archive','POST',{action:'archive',type:kind,id:item.stageId});
     },
     async saveLibrary(item,kind,changes){
@@ -736,7 +736,7 @@
     },
     setManagedVisibility:(accountId,type,id,expected,hidden)=>write('/api/admin/users/'+encodeURIComponent(accountId)+'/visibility','PATCH',{type,id,expected,hidden}),
     async setManagedLessonAccess(accountId,lessonId,expected,changes){
-      if(!/^[a-f0-9]{16,64}$/.test(accountId)||!Number.isSafeInteger(lessonId)||lessonId<1)throw new Error('Нет серверного ID аккаунта или урока.');
+      if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!Number.isSafeInteger(lessonId)||lessonId<1)throw new Error('Нет серверного ID аккаунта или урока.');
       return write('/api/admin/users/'+accountId+'/lessons/'+lessonId+'/access','PATCH',{expected,changes});
     },
     async uploadLessonFile(material,block,file){

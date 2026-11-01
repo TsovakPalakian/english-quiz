@@ -199,7 +199,7 @@ export function mapAnalysisToRubric(analysis,criteriaString,maxPoints=100){
 }
 
 export async function essayCopilot(db,env,actor,{id,studentId,partId,index=0,expectedRevision,targetMinWords=150}){
-  if(!['ADMIN','DEVELOPER'].includes(actor?.role)||actor.id===studentId){
+  if(!['ADMIN','DEVELOPER'].includes(actor?.role)||String(actor.id)===String(studentId)){
     throw new StudyError(403,'Teacher review only.');
   }
 

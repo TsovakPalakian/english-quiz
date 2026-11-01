@@ -1,13 +1,13 @@
 // The actor comes ONLY from successful live authentication, never request JSON.
 // Account/password/role stay in D1. This provisions empty educational state only.
 import {StudyError,statement as s} from './learning-study.mjs';
-const accountId=value=>typeof value==='string'&&/^[a-f0-9]{16,64}$/.test(value);
+const accountId=value=>(typeof value==='string'||Number.isSafeInteger(value))&&/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(value));
 export async function ensureStudyProfile(db,actor,pairAccountId=''){
   if(!actor||!accountId(actor.id)||actor.revoked||!['USER','ADMIN','DEVELOPER'].includes(actor.role))
     throw new StudyError(401,'Live authenticated account required.');
   const existing=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[actor.id]);
   if(existing.length===1){
-    if(accountId(pairAccountId)&&pairAccountId!==actor.id){
+    if(accountId(pairAccountId)&&String(pairAccountId)!==String(actor.id)){
       const twin=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[pairAccountId]);
       if(twin.length>1)throw new StudyError(409,'Ambiguous profile membership.');
       if(!twin.length)await db.atomic([
@@ -20,7 +20,7 @@ export async function ensureStudyProfile(db,actor,pairAccountId=''){
     return existing[0].profile_id;
   }
   if(existing.length)throw new StudyError(409,'Ambiguous profile membership.');
-  if(accountId(pairAccountId)&&pairAccountId!==actor.id){
+  if(accountId(pairAccountId)&&String(pairAccountId)!==String(actor.id)){
     const twin=await db.read('SELECT profile_id FROM profile_members WHERE account_id=?',[pairAccountId]);
     if(twin.length>1)throw new StudyError(409,'Ambiguous profile membership.');
     if(twin.length===1){

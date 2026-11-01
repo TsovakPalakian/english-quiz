@@ -126,14 +126,14 @@
     function teacherOwnsGroup(group) {
       if (viewAccount || sessionIsDeveloper()) return true;
       if (!authUser || authUser.role !== 'ADMIN') return true;
-      if (Array.isArray(group?.teacherIds)) return group.teacherIds.includes(authUser.id);
+      if (Array.isArray(group?.teacherIds)) return group.teacherIds.map(String).includes(String(authUser.id));
       if (typeof groupDirectoryReady === 'function' && groupDirectoryReady() && groupDirectory?.assignments) {
         const assignment = groupDirectory.assignments.find(row => String(row.groupId) === String(group.id));
-        if (assignment) return assignment.teacherIds?.includes(authUser.id);
+        if (assignment) return assignment.teacherIds?.map(String).includes(String(authUser.id));
       }
       if (typeof adminTeacherAssignments !== 'undefined' && adminTeacherAssignments?.length) {
         const assignment = adminTeacherAssignments.find(row => String(row.groupId) === String(group.id));
-        if (assignment) return assignment.teacherIds?.includes(authUser.id);
+        if (assignment) return assignment.teacherIds?.map(String).includes(String(authUser.id));
       }
       return false;
     }

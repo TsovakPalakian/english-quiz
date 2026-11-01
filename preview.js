@@ -3008,7 +3008,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if(id==='admingrouplevel'||id==='admingroup')path.push({id:'admingrouplevel',label:adminGroupLevel==='unassigned'?'Unassigned':adminGroupLevel});
         else if(adminBucket)path.push({id:'admin',label:adminBucket==='staff'?'Teachers & Staff':'Unassigned',adminBucket});
         if(id==='admingroup'&&selected)path.push({id,label:selected.title});
-        if(id==='adminuser')path.push({id,label:adminAccounts.find(row=>row.id===adminAccountId)?.login||'Account'});
+        if(id==='adminuser')path.push({id,label:adminAccounts.find(row=>String(row.id)===String(adminAccountId))?.login||'Account'});
         return path;
       }
       if (id === "material" && lmState) {
@@ -15758,7 +15758,7 @@ const STUDIO_CONSTELLATIONS = [{
     let adminInviteGroupId=null,adminInviteScope='';
     const accountCount=(label,count)=>label+(count?' · '+count:'');
     const canInspectAccount=user=>!!user&&user.active!==false&&user.active!==0&&(sessionIsDeveloper()?['USER','ADMIN'].includes(user.role):user.role==='USER');
-    const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.includes(user.id)));
+    const adminTeachers=groupId=>adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&adminTeacherAssignments.some(row=>row.groupId===groupId&&row.teacherIds.map(String).includes(String(user.id))));
     document.addEventListener('click',event=>{if(event.target.closest('[data-jump="admin"],[data-page-path="admin"]')&&isTeacher()&&!viewAccount){adminBucket='';adminTab='accounts';adminSearch='';}},true);
     let adminSearch = '', adminSelectedUser = null;
     let adminAccountId = null;
@@ -15768,8 +15768,8 @@ const STUDIO_CONSTELLATIONS = [{
       return adminLevels.find(level => group.title === level || group.title.startsWith(level + ' ') || group.title.endsWith(' ' + level)) || 'unassigned';
     }
     function accountGroupMetrics(groups,extra={}) {
-      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>user.id));
-      return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>user.id)),...(extra.teachers||[]).map(user=>user.id)]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(member.accountId)).map(member=>member.accountId),...(extra.students||[]).map(user=>user.id)]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
+      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>String(user.id)));
+      return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>String(user.id))),...(extra.teachers||[]).map(user=>String(user.id))]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(String(member.accountId))).map(member=>String(member.accountId)),...(extra.students||[]).map(user=>String(user.id))]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
     }
     function accountMetricsHTML(groups,extra={}) {
       return '<span class="accounts-metrics">'+Object.entries(accountGroupMetrics(groups,extra)).map(([label,count])=>'<span>'+esc(accountCount(label,count))+'</span>').join('')+'</span>';
@@ -15788,10 +15788,10 @@ const STUDIO_CONSTELLATIONS = [{
       const query = adminSearch.trim().toLocaleLowerCase();
       const accounts = adminAccounts.filter(user => [user.name,user.login,user.email].some(value => String(value || '').toLocaleLowerCase().includes(query)));
       if(adminBucket==='staff')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role!=='USER'))||'<p class="hint">No staff accounts.</p>';
-      else if(adminBucket==='unassigned')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id)))+adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'&&(!query||group.title.toLocaleLowerCase().includes(query))).map(group=>'<button class="path" type="button" data-admin-group="'+group.id+'"><span><b>'+esc(group.title)+'</b>'+accountMetricsHTML([group])+'</span></button>').join('');
+      else if(adminBucket==='unassigned')list.innerHTML=adminAccountRows(accounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>String(m.accountId)===String(user.id))))+adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'&&(!query||group.title.toLocaleLowerCase().includes(query))).map(group=>'<button class="path" type="button" data-admin-group="'+group.id+'"><span><b>'+esc(group.title)+'</b>'+accountMetricsHTML([group])+'</span></button>').join('');
       else if(query)list.innerHTML=adminAccountRows(accounts)||'<p class="hint">No matching accounts.</p>';
       else{
-        const staff=adminAccounts.filter(user=>user.role!=='USER'),unassigned=adminAccounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>m.accountId===user.id));
+        const staff=adminAccounts.filter(user=>user.role!=='USER'),unassigned=adminAccounts.filter(user=>user.role==='USER'&&!adminMembers.some(m=>String(m.accountId)===String(user.id)));
         list.innerHTML='<div class="accounts-special"><button class="file-card" type="button" data-admin-bucket="staff"><b>Teachers & Staff</b>'+accountMetricsHTML(adminGroups.filter(group=>adminTeachers(group.id).length),{teachers:staff})+'</button><button class="file-card" type="button" data-admin-bucket="unassigned"><b>Unassigned</b>'+accountMetricsHTML(adminGroups.filter(group=>accountGroupLevel(group)==='unassigned'),{students:unassigned})+'</button></div><div class="decks">'+adminLevels.map(level=>'<button class="file-card" type="button" data-admin-level="'+level+'"><b>'+esc(level)+'</b>'+accountMetricsHTML(adminGroups.filter(group=>accountGroupLevel(group)===level))+'</button>').join('')+'</div>';
       }
       paintPagePath('admin');
@@ -15845,19 +15845,19 @@ const STUDIO_CONSTELLATIONS = [{
       if(refreshTeachers){
         const preferred=select.value||authUser?.id;
         select.innerHTML=candidates.map(user=>'<option value="'+esc(user.id)+'">'+esc((user.name||user.login)+' · '+roleLabel(user.role))+'</option>').join('');
-        if(candidates.some(user=>user.id===preferred))select.value=preferred;
-        else if(candidates.some(user=>user.id===authUser?.id))select.value=authUser.id;
+        if(candidates.some(user=>String(user.id)===String(preferred)))select.value=String(preferred);
+        else if(candidates.some(user=>String(user.id)===String(authUser?.id)))select.value=String(authUser.id);
       }
       const teacher=box.querySelector('[data-invite-kind]').value==='teacher';
       box.querySelectorAll('[data-invite-staff]').forEach(node=>node.hidden=!teacher);
       box.querySelector('[data-invite-student]').hidden=teacher;
       select.disabled=!candidates.length;
-      const permitted=sessionIsDeveloper()||candidates.some(user=>user.id===authUser?.id);
+      const permitted=sessionIsDeveloper()||candidates.some(user=>String(user.id)===String(authUser?.id));
       const note=box.querySelector('[data-invite-unassigned]');
       note.hidden=!!group&&(teacher||candidates.length>0&&permitted);
       note.textContent=!group?'Choose a group first.':!candidates.length?'Assign an active teacher to this group first.':'You must be assigned to this group to invite a student.';
       box.querySelector('[data-invite-email]').required=false;
-      box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>user.id===select.value));
+      box.querySelector('[data-invite-create]').disabled=box.getAttribute('aria-busy')==='true'||!group||!teacher&&(!candidates.length||!permitted||!candidates.some(user=>String(user.id)===String(select.value)));
     }
     function filterInviteGroups(picker){
       const query=picker.querySelector('[data-invite-group-search]').value.trim().toLocaleLowerCase();
@@ -15922,7 +15922,7 @@ const STUDIO_CONSTELLATIONS = [{
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
       const folds=Object.fromEntries(['students','lessons','exams','teachers','teachers-list'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
-      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => m.accountId === user.id && m.groupId === selected.id));
+      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const examRows = exams.map(exam => {
         const assigned = (selected.examIds || []).includes(exam.id), owner = adminGroups.find(group => (group.examIds || []).includes(exam.id));
@@ -15932,7 +15932,7 @@ const STUDIO_CONSTELLATIONS = [{
       }).join('');
       detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
-      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds.includes(user.id),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
+      detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds?.map(String).includes(String(user.id)),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
@@ -15940,8 +15940,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     document.addEventListener('click',async event=>{
       const button=event.target.closest('#adminGroupDetail [data-account-teacher-toggle]');if(!button||button.disabled||!isTeacher()||viewAccount)return;
-      const form=button.closest('[data-group-teachers]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen,groupId=Number(form.dataset.groupId),teacherId=button.dataset.accountTeacherToggle;
-      const current=adminTeacherAssignments.find(row=>row.groupId===groupId),ids=new Set(current?.teacherIds||[]);if(ids.has(teacherId))ids.delete(teacherId);else ids.add(teacherId);
+      const form=button.closest('[data-group-teachers]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen,groupId=Number(form.dataset.groupId),teacherId=String(button.dataset.accountTeacherToggle);
+      const current=adminTeacherAssignments.find(row=>row.groupId===groupId),ids=new Set((current?.teacherIds||[]).map(String));if(ids.has(teacherId))ids.delete(teacherId);else ids.add(teacherId);
       form.querySelectorAll('button').forEach(node=>node.disabled=true);status.textContent='Saving…';
       try{const result=await accountFetch('/api/accounts/group-teachers',{method:'POST',body:JSON.stringify({groupId,expectedRevision:Number(form.dataset.revision),teacherIds:[...ids]})});
         if(actor!==authUser?.id||generation!==viewGen||viewAccount)return;adminTeacherAssignments=adminTeacherAssignments.filter(row=>row.groupId!==result.groupId);adminTeacherAssignments.push(result);
@@ -16048,9 +16048,9 @@ const STUDIO_CONSTELLATIONS = [{
         adminTeacherAssignments=teachers.assignments||[];
         if (!classGroupsDirty) { classGroups = adminGroups; classGroupsReady = true; }
         if (adminTab === 'groups') { paintAdminGroups(); if (detailPage === 'adminuser') paintAdminUser(adminAccountId); else if (detailPage === 'admingroup') paintAdminGroup(); else if (detailPage === 'admingrouplevel') paintAdminGroupLevel(); return; }
-        const accountIds = new Set(accounts.map((row) => row.id));
-        const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(row.user_id)));
-        const changeRows = (changes.changes || []).filter((row) => row.status === 'pending' && accountVisible(row) && accountIds.has(row.user_id));
+        const accountIds = new Set(accounts.map((row) => String(row.id)));
+        const history = (regs.registrations || []).filter((row) => accountVisible(row) && (!row.user_id || accountIds.has(String(row.user_id))));
+        const changeRows = (changes.changes || []).filter((row) => row.status === 'pending' && accountVisible(row) && accountIds.has(String(row.user_id)));
         paintAccountsCount(waiting.length+changeRows.length);
         const changesHtml = '<div class="card"><p class="label">Account change requests</p>' +
           (changeRows.length ? recentRows(changeRows, (row, n) => {
@@ -16059,7 +16059,7 @@ const STUDIO_CONSTELLATIONS = [{
                 changeHtml(row) +
                 '<p class="hint">' + esc(when(row.decided_at || row.created_at)) + '</p></div>';
             }
-            const own = authUser && row.user_id === authUser.id;
+            const own = authUser && String(row.user_id) === String(authUser.id);
             const blocked = row.locked || (own && !sessionIsDeveloper());
             const note = row.locked
               ? '<p class="hint">This teacher can change account details after a second active teacher joins.</p>'
@@ -16102,7 +16102,7 @@ const STUDIO_CONSTELLATIONS = [{
     function paintAdminUser(id) {
       const slot = document.getElementById("adminUser");
       if (!slot) return;
-      if(!canInspectAccount(adminAccounts.find(user=>user.id===id))){slot.innerHTML='<p class="hint">Account details are not available for this role.</p>';return;}
+      if(!canInspectAccount(adminAccounts.find(user=>String(user.id)===String(id)))){slot.innerHTML='<p class="hint">Account details are not available for this role.</p>';return;}
       const token = ++adminUserPaintToken, actor = authUser?.id, generation = viewGen;
       if (adminSelectedUser === id) { adminSelectedUser = null; slot.innerHTML = ''; return; }
       adminSelectedUser = id;
@@ -16110,7 +16110,7 @@ const STUDIO_CONSTELLATIONS = [{
       viewFresh('adminuser:' + id, () => accountFetch("/api/admin/users/" + encodeURIComponent(id)), (data, refresh) => {
         if (!still() || refresh && editingIn(slot)) return;
         const user = data.user;
-        const groupMembership = adminMembers.find(member => member.accountId === user.id);
+        const groupMembership = adminMembers.find(member => String(member.accountId) === String(user.id));
         const assignedGroupId = groupMembership?.groupId;
         const assignedGroup = adminGroups.find(group => group.id === assignedGroupId);
         const groupTitle = assignedGroup?.title || 'Unassigned';
@@ -19060,7 +19060,7 @@ const STUDIO_CONSTELLATIONS = [{
           method: "POST",
           body: JSON.stringify({ login: login.value.trim(), email: email.value.trim(), name: name.value.trim() })
         }).then((data) => {
-          if (viewAccount && viewAccount.id === button.dataset.id && data.user) {
+          if (viewAccount && String(viewAccount.id) === String(button.dataset.id) && data.user) {
             viewAccount.login = data.user.login;
             localStorage.setItem("enquiz-view-login", data.user.login);
             paintViewBar();
@@ -19163,19 +19163,19 @@ const STUDIO_CONSTELLATIONS = [{
       if (action === "archive-user") {
         if (!isTeacher() || viewAccount || button.disabled) return;
         const executeArchive = () => {
-          const id = button.dataset.id, user = adminAccounts.find(row => row.id === id);
+          const id = button.dataset.id, user = adminAccounts.find(row => String(row.id) === String(id));
           const name = user?.name || user?.login || id;
           button.disabled = true;
           accountFetch('/api/archive', { method: 'POST', body: JSON.stringify({ action: 'archive', type: 'account', id }) })
             .then(() => {
               ++adminPaintToken; ++adminUserPaintToken;
               adminAccountId = null; adminSelectedUser = null;
-              adminAccounts = adminAccounts.filter(row => row.id !== id);
-              adminMembers = adminMembers.filter(row => row.accountId !== id);
+              adminAccounts = adminAccounts.filter(row => String(row.id) !== String(id));
+              adminMembers = adminMembers.filter(row => String(row.accountId) !== String(id));
               groupDirectory = null; classGroupsReady = false; examReady = false; examResetWork();
               window.ContentCache?.invalidate?.('archive:');
               viewCache.delete('admin'); viewCache.delete('adminuser:' + id);
-              for (let i = navStack.length - 1; i >= 0; i--) if (navStack[i].adminAccountId === id) {
+              for (let i = navStack.length - 1; i >= 0; i--) if (String(navStack[i].adminAccountId) === String(id)) {
                 if (navStack[i].id === 'adminuser') navStack.splice(i, 1); else navStack[i].adminAccountId = null;
               }
               try { sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'admin', adminTab: 'accounts' })); } catch { }
@@ -19505,7 +19505,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function applyAccountThemes(pack) {
       if (!pack || viewAccount) return;
-      if (pack.accountId && pack.accountId !== authUser?.id) return;
+      if (pack.accountId && String(pack.accountId) !== String(authUser?.id)) return;
       pack = Object.assign({}, pack, window.LearningMain?.themePreferences?.() || {});
       if (Array.isArray(pack.themes)) installCustomThemes(pack.themes.map((row) => Object.assign({}, row, { owner: authUser?.login || row.owner || "" })));
       if (typeof paintThemeSegs === "function") paintThemeSegs();
@@ -19534,8 +19534,8 @@ const STUDIO_CONSTELLATIONS = [{
       const key = "enquiz-last-activity:" + authUser.id;
       const time = Date.now();
       let last = Number(localStorage.getItem(key)) || time;
-      if (idleActor !== authUser.id) {
-        idleActor = authUser.id;
+      if (String(idleActor) !== String(authUser.id)) {
+        idleActor = String(authUser.id);
         if (!localStorage.getItem(key)) localStorage.setItem(key, String(time));
       }
       if (time - last >= idleLimit) {
@@ -20586,14 +20586,14 @@ const STUDIO_CONSTELLATIONS = [{
     function teacherOwnsGroup(group) {
       if (viewAccount || sessionIsDeveloper()) return true;
       if (!authUser || authUser.role !== 'ADMIN') return true;
-      if (Array.isArray(group?.teacherIds)) return group.teacherIds.includes(authUser.id);
+      if (Array.isArray(group?.teacherIds)) return group.teacherIds.map(String).includes(String(authUser.id));
       if (typeof groupDirectoryReady === 'function' && groupDirectoryReady() && groupDirectory?.assignments) {
         const assignment = groupDirectory.assignments.find(row => String(row.groupId) === String(group.id));
-        if (assignment) return assignment.teacherIds?.includes(authUser.id);
+        if (assignment) return assignment.teacherIds?.map(String).includes(String(authUser.id));
       }
       if (typeof adminTeacherAssignments !== 'undefined' && adminTeacherAssignments?.length) {
         const assignment = adminTeacherAssignments.find(row => String(row.groupId) === String(group.id));
-        if (assignment) return assignment.teacherIds?.includes(authUser.id);
+        if (assignment) return assignment.teacherIds?.map(String).includes(String(authUser.id));
       }
       return false;
     }
@@ -22926,7 +22926,7 @@ const STUDIO_CONSTELLATIONS = [{
     entry.rows=more?[...entry.rows,...data.quizzes]:data.quizzes;entry.nextOffset=data.nextOffset;paintQueue(entry);
   }
   function editor(entry){
-    const q=entry.edit,locked=q&&(!['draft','returned'].includes(q.state)||q.author.id!==authUser.id);
+    const q=entry.edit,locked=q&&(!['draft','returned'].includes(q.state)||String(q.author.id)!==String(authUser.id));
     if(locked||!entry.writable)return;
     const draft=entry.draft;
     const media=['Listen','Video choice','Pronunciation'].includes(draft.type)?'<fieldset><legend>Media</legend><label>Item<select data-workbench-media-index>'+draft.items.map((_,index)=>'<option value="'+index+'">Item '+(index+1)+'</option>').join('')+'</select></label><label>File<input type="file" data-workbench-media accept="'+(draft.type==='Video choice'?'video/mp4':'audio/wav,audio/mpeg')+'"></label><label>Source and usage permission<textarea data-workbench-media-source maxlength="500"></textarea></label><button class="btn saas-btn" type="button" data-workbench-upload>Upload media</button></fieldset>':'';
@@ -22938,7 +22938,7 @@ const STUDIO_CONSTELLATIONS = [{
   }
   async function editProposal(entry,id){
     const {quiz}=await request('/proposals/'+id);if(!current(entry))return;
-    if(quiz.author.id!==authUser.id||!['draft','returned'].includes(quiz.state)||!entry.writable)throw Error('Only your own draft or returned quiz can be edited.');
+    if(String(quiz.author.id)!==String(authUser.id)||!['draft','returned'].includes(quiz.state)||!entry.writable)throw Error('Only your own draft or returned quiz can be edited.');
     entry.edit=quiz;entry.editorBack=entry.view;entry.view='editor';entry.dirty=false;entry.drafts={};entry.contextLabel=[quiz.origin?.groupName,quiz.origin?.lessonName,quiz.origin?.word].filter(Boolean).join(' · ');
     entry.draft={type:quiz.type,items:structuredClone(quiz.content.items),explanation:quiz.content.explanation};editor(entry);
   }
@@ -22997,12 +22997,12 @@ const STUDIO_CONSTELLATIONS = [{
     return q.content.items.map(item=>'<div class="learning-kit-result">'+(item.mediaId?'<'+(q.type==='Video choice'?'video':'audio')+' controls preload="none" src="'+prefix+'/media/'+esc(item.mediaId)+'"></'+(q.type==='Video choice'?'video':'audio')+'>':'')+'<p>'+esc(item.prompt||item.front||item.shown||item.text||item.left||item.word||'')+'</p>'+(item.parts?'<p>'+esc(item.parts)+'</p>':'')+(item.options?'<ol>'+item.options.map((option,index)=>'<li>'+esc(option)+((item.answers||[item.answer]).includes(index)?' · Correct':'')+'</li>').join('')+'</ol>':'<p>Answer: '+esc(item.back||item.right||item.word||item.answer||'')+'</p>')+(item.transcript?'<p>'+esc(item.transcript)+'</p>':'')+'</div>').join('')+'<p>'+esc(q.content.explanation)+'</p>';
   }
   function reviewRow(entry,q){
-    const allowed=staff()&&entry.writable&&q.state==='submitted'&&q.author.id!==authUser.id;
+    const allowed=staff()&&entry.writable&&q.state==='submitted'&&String(q.author.id)!==String(authUser.id);
     const signal=entry.reportSignals?.get(q.id);
-    const attribution=entry.features?.includes('authors')&&q.author.id===authUser.id&&q.author.kind!=='automatic'?'<button class="btn saas-btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
-    const edit=(entry.writable&&q.author.id===authUser.id&&['draft','returned'].includes(q.state)?'<button class="btn saas-btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
+    const attribution=entry.features?.includes('authors')&&String(q.author.id)===String(authUser.id)&&q.author.kind!=='automatic'?'<button class="btn saas-btn" type="button" data-workbench-attribution="'+esc(q.id)+'">Public attribution</button><div data-workbench-attribution-panel="'+esc(q.id)+'"></div>':'';
+    const edit=(entry.writable&&String(q.author.id)===String(authUser.id)&&['draft','returned'].includes(q.state)?'<button class="btn saas-btn" type="button" data-workbench-edit="'+esc(q.id)+'">Edit quiz</button>':'')+attribution+(signal?'<p>'+signal.reports+' reports from '+signal.reporters+' accounts · Requires review; no automatic decision</p>':'');
     const speechChecks=q.type==='Pronunciation'?'<label><input type="checkbox" name="reference" required>Reading reference and locale checked</label><label><input type="checkbox" name="rubric" required>Scoring weights, scales and sufficiency checked</label>':'';
-    return '<details class="saas-card" data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn saas-btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary saas-btn" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn saas-btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(q.author.id===authUser.id?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
+    return '<details class="saas-card" data-review-key="version-'+esc(q.id)+'"><summary>v'+q.version+' · '+esc(q.state)+(q.reviewer?' · Teacher checked':'')+'</summary><p>'+esc(q.author.name)+' · '+esc(q.author.group)+' · '+esc(q.author.date)+'</p>'+(q.origin?.meaning?'<p>'+esc(q.origin.meaning)+'</p>':'')+preview(q)+(q.feedback?'<blockquote>'+esc(q.feedback)+'</blockquote>':'')+edit+'<button class="btn saas-btn" data-workbench-history="'+esc(q.id)+'">History</button><div data-review-history="'+esc(q.id)+'"></div>'+(allowed?'<form data-workbench-decision="approve" data-id="'+esc(q.id)+'"><label><input type="checkbox" name="meaning" required>Meaning, translation and naturalness checked</label><label><input type="checkbox" name="answers" required>Answers and explanation checked</label><label><input type="checkbox" name="level" required>Level checked</label>'+speechChecks+(['Listen','Video choice'].includes(q.type)||q.type==='Pronunciation'&&q.content.items.some(item=>item.mediaId)?'<label><input type="checkbox" name="media" required>Media, transcript and usage rights checked</label>':'')+'<button class="btn primary saas-btn" type="submit">Approve</button></form><form data-workbench-decision="return" data-id="'+esc(q.id)+'"><label>Changes requested<textarea name="comment" maxlength="2000" required></textarea></label><button class="btn saas-btn" type="submit">Return for changes</button></form>':edit?'':'<p>'+esc(String(q.author.id)===String(authUser.id)?'Your own version cannot be approved by you.':q.state==='returned'?'Awaiting changes by the author.':'Read-only.')+'</p>')+'</details>';
   }
   function paintQueue(entry){
     const query=(entry.search||'').trim().toLocaleLowerCase(),rows=entry.rows.filter(q=>(!entry.filter||q.state===entry.filter)&&(!query||[q.origin?.groupName,q.origin?.lessonName,q.origin?.word,q.type,q.author.name,q.author.group,q.origin?.meaning].join(' ').toLocaleLowerCase().includes(query)));

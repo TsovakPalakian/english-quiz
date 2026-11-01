@@ -78,15 +78,15 @@ export class AccountInvites{
     const kind=body.kind==='teacher'?'teacher':'student';
     if(body.kind!=null&&!['student','teacher'].includes(body.kind))fail(400,'Invalid invite type.');
     const teacherId=String(body.teacherId||actor.id);
-    const directory=new Map((users||[]).map(user=>[user.id,user]));
+    const directory=new Map((users||[]).map(user=>[String(user.id),user]));
     const teacher=directory.get(teacherId);
     if(kind==='student'&&(!teacher||!staff(teacher)||teacher.active===false||teacher.active===0||teacher.revoked))fail(400,'Choose an active teacher.');
     const [group]=await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[body.groupId]);
     if(!group)fail(404,'Group not found.');
     const assignments=await new AccountGroupTeachers(this.db).list(actor,users);
     const assigned=assignments.assignments.find(row=>row.groupId===Number(group.id))?.teacherIds||[];
-    if(assigned.length>0&&actor.role!=='DEVELOPER'&&!assigned.includes(actor.id))fail(403,'You must be assigned to this group to create an invite.');
-    if(kind==='student'&&(!assigned.includes(teacherId)||(actor.role!=='DEVELOPER'&&!assigned.includes(actor.id))))fail(403,'Assign the teacher to this group before creating a student invite.');
+    if(assigned.length>0&&actor.role!=='DEVELOPER'&&!assigned.map(String).includes(String(actor.id)))fail(403,'You must be assigned to this group to create an invite.');
+    if(kind==='student'&&(!assigned.map(String).includes(String(teacherId))||(actor.role!=='DEVELOPER'&&!assigned.map(String).includes(String(actor.id)))))fail(403,'Assign the teacher to this group before creating a student invite.');
     const email=String(body.email||'').trim().toLowerCase();
     if(kind==='teacher'&&email&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>120))fail(400,'Enter a valid email.');
     const maxUses=1,days=3;
@@ -139,7 +139,7 @@ export class AccountInvites{
           expired:inviteExpiry(value)<=now,
           active:!value.revoked&&inviteExpiry(value)>now&&value.uses<1,
         };
-      }).filter(row=>row.createdBy===actor.id||row.teacherId===actor.id||actor.role==='DEVELOPER')
+      }).filter(row=>String(row.createdBy)===String(actor.id)||String(row.teacherId)===String(actor.id)||actor.role==='DEVELOPER')
         .sort((a,b)=>b.createdAt-a.createdAt),
     };
   }
@@ -150,7 +150,7 @@ export class AccountInvites{
     if(!/^[a-zA-Z0-9_-]{8,64}$/.test(id))fail(400,'Invalid invite.');
     const previous=await this.#row(id);
     if(!previous)fail(404,'Invite not found.');
-    if(previous.createdBy!==actor.id&&previous.teacherId!==actor.id&&actor.role!=='DEVELOPER')fail(403,'Teachers only.');
+    if(String(previous.createdBy)!==String(actor.id)&&String(previous.teacherId)!==String(actor.id)&&actor.role!=='DEVELOPER')fail(403,'Teachers only.');
     if(previous.revoked)return {id,revoked:true};
     await this.#save(id,{...previous,revoked:true,revokedAt:Date.now(),revokedBy:actor.id},previous);
     return {id,revoked:true};
@@ -176,7 +176,7 @@ export class AccountInvites{
     const previous=await this.#row(id);
     if(!previous||previous.revoked)fail(404,'Invite not found.');
     if(inviteExpiry(previous)<=Date.now())fail(410,'Invite expired.');
-    const retry=previous.redemptionPending&&previous.lastRedeemedBy===actor.id;
+    const retry=previous.redemptionPending&&String(previous.lastRedeemedBy)===String(actor.id);
     if(previous.uses>=1&&!retry)fail(410,'Invite already used up.');
     if(!timingSafeHexEqual(previous.secretHash,await sha256Hex(secret)))fail(404,'Invite not found.');
     const [group]=await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[previous.groupId]);
@@ -200,14 +200,15 @@ export class AccountInvites{
 
   async #checkAssignedTeacher(invite){
     const [assignment]=await this.db.read('SELECT value_json FROM catalog_documents WHERE namespace=? AND key=?',['accounts-group-teachers',String(invite.groupId)]);
-    if(!assignment||!JSON.parse(assignment.value_json).teacherIds.includes(invite.teacherId))fail(403,'Invite teacher is no longer assigned to this group.');
+    if(!assignment||!JSON.parse(assignment.value_json).teacherIds.map(String).includes(String(invite.teacherId)))fail(403,'Invite teacher is no longer assigned to this group.');
   }
 
   async #assignTeacher(groupId,teacher,users,createdBy){
     const service=new AccountGroupTeachers(this.db),actor={id:createdBy,role:'DEVELOPER'};
-    const directory=[...users.filter(user=>user.id!==teacher.id),teacher];
+    const directory=[...users.filter(user=>String(user.id)!==String(teacher.id)),teacher];
     const current=(await service.list(actor,directory)).assignments.find(row=>row.groupId===groupId);
-    const ids=new Set(current?.teacherIds||[]);ids.add(teacher.id);
+    const toId=id=>(typeof id==='number'&&Number.isSafeInteger(id))||(/^\d+$/.test(String(id))&&Number.isSafeInteger(Number(id)))?Number(id):String(id);
+    const ids=new Set((current?.teacherIds||[]).map(toId));ids.add(toId(teacher.id));
     await service.save(actor,{groupId,teacherIds:[...ids],expectedRevision:current?.revision||0},directory);
   }
 
@@ -230,10 +231,10 @@ export class AccountInvites{
 
   async registrationInvite(actor,registrationId){
     if(!staff(actor))fail(403,'Teachers only.');
-    const rows=await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace=? AND json_extract(value_json,'$.pendingRegistrationId')=?",[namespace,registrationId]);
+    const rows=await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace=? AND CAST(json_extract(value_json,'$.pendingRegistrationId') AS TEXT)=CAST(? AS TEXT)",[namespace,String(registrationId)]);
     if(!rows.length)return null;
     const value=JSON.parse(rows[0].value_json);
-    if(actor.role!=='DEVELOPER'&&value.createdBy!==actor.id)fail(403,'Only the inviting teacher or a developer can approve this account.');
+    if(actor.role!=='DEVELOPER'&&String(value.createdBy)!==String(actor.id))fail(403,'Only the inviting teacher or a developer can approve this account.');
     if(value.revoked)fail(410,'This invitation was revoked.');
     return value;
   }
@@ -241,19 +242,19 @@ export class AccountInvites{
   async registrationPermissions(actor,registrations){
     if(!staff(actor))fail(403,'Teachers only.');
     const rows=await this.db.read("SELECT value_json FROM catalog_documents WHERE namespace=? AND json_extract(value_json,'$.pendingRegistrationId') IS NOT NULL",[namespace]);
-    const invites=new Map(rows.map(row=>{const value=JSON.parse(row.value_json);return [value.pendingRegistrationId,value];}));
+    const invites=new Map(rows.map(row=>{const value=JSON.parse(row.value_json);return [String(value.pendingRegistrationId),value];}));
     return registrations.map(row=>{
-      const invite=invites.get(row.id);if(!invite)return row;
-      return {...row,inviteGroupId:invite.groupId,inviteCanApprove:!invite.revoked&&(actor.role==='DEVELOPER'||invite.createdBy===actor.id)};
+      const invite=invites.get(String(row.id));if(!invite)return row;
+      return {...row,inviteGroupId:invite.groupId,inviteCanApprove:!invite.revoked&&(actor.role==='DEVELOPER'||String(invite.createdBy)===String(actor.id))};
     });
   }
 
   async completeApproval(actor,registrationId,person,users,assignStudent){
     await this.registrationInvite(actor,registrationId);
-    const rows=await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace=? AND json_extract(value_json,'$.pendingRegistrationId')=?",[namespace,registrationId]);
+    const rows=await this.db.read("SELECT key,value_json FROM catalog_documents WHERE namespace=? AND CAST(json_extract(value_json,'$.pendingRegistrationId') AS TEXT)=CAST(? AS TEXT)",[namespace,String(registrationId)]);
     for(const row of rows){
       const value=JSON.parse(row.value_json);
-      if(value.pendingRegistrationId!==registrationId||value.assignedAt||value.revoked)continue;
+      if(String(value.pendingRegistrationId)!==String(registrationId)||value.assignedAt||value.revoked)continue;
       const teacher=value.kind==='teacher';
       if(person.role!==(teacher?'ADMIN':'USER')||String(person.email).toLowerCase()!==(value.registrationEmail||value.email))fail(403,'Account does not match the invite.');
       if(teacher)await this.#assignTeacher(value.groupId,person,users,value.createdBy);

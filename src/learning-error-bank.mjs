@@ -538,7 +538,7 @@ export class ErrorBankService extends StudyService {
       if(docs.length){
         try{
           const val=JSON.parse(docs[0].value_json);
-          assigned=(val.teacherIds||[]).includes(actor.id);
+          assigned=(val.teacherIds||[]).map(String).includes(String(actor.id));
         }catch{}
       }
       if(!assigned)fail(403,'Forbidden: Not assigned to this group.');

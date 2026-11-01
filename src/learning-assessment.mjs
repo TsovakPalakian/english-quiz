@@ -62,7 +62,7 @@ export class AssessmentService{
       if(!found||!reviewer(actor)&&!assigned.has(found.exam_id)&&(hidden.has('exam:'+found.exam_id)||hidden.has('exam-block:'+id)))fail(404,'Exam not found.');
       if(!reviewer(actor)&&found.instance_status==='ready')fail(403,'This exam is being reviewed. Wait for your teacher to publish the review.');
       await instanceAccess(this.db,found.exam_id,account);
-      if(actor.role==='ADMIN'&&actor.id!==account){const [instance]=await this.db.read('SELECT reviewer_id,group_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance&&!await mayReviewInstance(this.db,instance,actor))fail(403,'Only the assigned teacher can review this exam.');}
+      if(actor.role==='ADMIN'&&String(actor.id)!==String(account)){const [instance]=await this.db.read('SELECT reviewer_id,group_id FROM exam_instances WHERE exam_id=? AND active=1',[found.exam_id]);if(instance&&!await mayReviewInstance(this.db,instance,actor))fail(403,'Only the assigned teacher can review this exam.');}
       rows=await this.db.read('SELECT id,type,content_json FROM exam_materials WHERE block_id=? AND deleted_at IS NULL ORDER BY position,id',[id]);
       return {examId:found.exam_id,parts:rows.map(row=>({...JSON.parse(row.content_json),id:row.id,type:row.type}))};
     }
@@ -77,7 +77,7 @@ export class AssessmentService{
   async account(actor,studentId){
     if(!actor?.id)fail(401,'Sign in first.');
     const account=studentId||actor.id;
-    if(account!==actor.id){
+    if(String(account)!==String(actor.id)){
       if(!reviewer(actor))fail(403,'You cannot review another account.');
       if(actor.role==='ADMIN'&&!await teacherMayManageStudent(this.db,actor,account))fail(403,'You cannot review this student.');
     }
@@ -113,7 +113,7 @@ export class AssessmentService{
       const [file]=await this.db.read('SELECT object_key FROM assessment_recordings WHERE account_id=? AND kind=? AND material_id=? AND part_id=? AND question_index=?',[account,kind,id,part,index]);
       if(!file)fail(404,'Recording not found.');return store.response(file.object_key,request.method,request.headers.get('range')||'');
     }
-    if(account!==actor.id)fail(403,'Only the student can record their answer.');
+    if(String(account)!==String(actor.id))fail(403,'Only the student can record their answer.');
     const previous=await this.get(actor,{kind,id});if(previous.saved)fail(409,'Submitted recordings cannot be changed.');
     if(expectedRevision!==previous.revision)fail(409,'Answers changed. Retry the recording.');
     const bytes=await boundedMediaBytes(request),metadata=await chatFileMetadata(bytes,request.headers.get('content-type')||'');
@@ -135,9 +135,9 @@ export class AssessmentService{
       previous=await this.workView(actor,{kind,id,account},document,row);
     }else{previous=await this.get(actor,{kind,id,studentId});row=await this.row(account,kind,id);}
     const revision=row?.revision||0;
-    if(kind==='exam-block'&&action==='submit'&&account===actor.id)await requireExamStarted(this.db,document.examId,account);
+    if(kind==='exam-block'&&action==='submit'&&String(account)===String(actor.id))await requireExamStarted(this.db,document.examId,account);
     if(body.expectedRevision!=null&&body.expectedRevision!==revision)fail(409,kind==='exam-block'?`This work changed (expected revision ${body.expectedRevision}, current ${revision}). Reopen the work before saving; your changes were not published.`:'This work changed. Reload before saving.');
-    const teaching=account!==actor.id&&reviewer(actor),parts=row?JSON.parse(row.snapshot_json):document.parts;
+    const teaching=String(account)!==String(actor.id)&&reviewer(actor),parts=row?JSON.parse(row.snapshot_json):document.parts;
     const questions=gradingQuestions(parts),answerQuestions=parts.some(part=>part.scoringVersion>=3)?examAnswerQuestions(parts):assessmentQuestions(parts.filter(part=>part.scoringVersion!==2||!examChildren(parts,part).length)),max=questions.reduce((sum,q)=>sum+q.max,0);
     if(questions.some(q=>!Number.isFinite(q.max)||q.max<0||q.max>1e12)||max>1e14)fail(400,'Invalid maximum points.');
     let state=previous.state,answers=previous.answers,answerText=previous.answerText||{},grading=row?JSON.parse(row.grading_json):{points:previous.points,comments:previous.corrections},snapshot=parts;
@@ -258,5 +258,5 @@ export class AssessmentService{
     if(kind==='exam-block'&&!reviewer(actor)&&state==='submitted')return {kind,examId:document.examId,blockId:id,revision:revision+1,state,saved:true,answers,materials:[]};
     return this.get(actor,{kind,id,studentId});
   }
-  async history(actor,body){const account=await this.account(actor,body.studentId);if(!reviewer(actor)||account===actor.id)fail(403,'Review history is available to the teacher.');await this.document(actor,body.kind,body.id,account);await this.ensure();return this.db.read('SELECT action,reason,actor_id actorId,created_at createdAt,snapshot_json snapshot FROM assessment_history WHERE account_id=? AND kind=? AND material_id=? ORDER BY id DESC LIMIT 30',[account,body.kind,body.id]);}
+  async history(actor,body){const account=await this.account(actor,body.studentId);if(!reviewer(actor)||String(account)===String(actor.id))fail(403,'Review history is available to the teacher.');await this.document(actor,body.kind,body.id,account);await this.ensure();return this.db.read('SELECT action,reason,actor_id actorId,created_at createdAt,snapshot_json snapshot FROM assessment_history WHERE account_id=? AND kind=? AND material_id=? ORDER BY id DESC LIMIT 30',[account,body.kind,body.id]);}
 }

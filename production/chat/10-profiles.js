@@ -53,7 +53,7 @@
             '<span data-presence-subject="' +
             escape(person.id) +
             '"></span>' +
-            (person.id === signedIn()?.id
+            (String(person.id) === String(signedIn()?.id)
               ? '<button type="button" class="btn" data-avatar-upload="' + escape(person.id) + '">Upload photo</button>'
               : '');
           entry.before(row);
