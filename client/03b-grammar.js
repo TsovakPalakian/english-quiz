@@ -360,8 +360,10 @@
       const title = document.getElementById("verbTitle");
       const sub = document.getElementById("verbSub");
       const box = document.getElementById("verbList");
+      const studyRow = document.getElementById("verbStudyRow");
       if (!box) return;
       if (!verbGroup) {
+        if (studyRow) studyRow.hidden = false;
         box.className='decks';
         if (title) title.textContent = "Irregular verbs · " + list.length;
         if (sub) {
@@ -378,6 +380,7 @@
       const level = VERB_LEVELS.find((pair) => pair[0] === verbGroup);
       const shown = list.filter((v) => v.level === verbGroup && cardVisible(v));
       if (!verbKey) {
+        if (studyRow) studyRow.hidden = false;
         box.className='words';
         if (title) title.textContent = (level ? level[1] : "Irregular verbs") + " · " + shown.length;
         if (sub) sub.hidden = true;
@@ -390,10 +393,11 @@
       const v = shown.find((item) => item.base === verbKey) || (window.IRREGULAR || []).find((item) => item.base === verbKey);
       box.className='words verb-form-cards';
       if (!v || !cardVisible(v)) { verbKey = ""; paintVerbs(); return; }
+      if (studyRow) studyRow.hidden = true;
       if (title) title.textContent = v ? v.base : "Verb";
       if (sub) {
         sub.hidden = false;
-        sub.textContent = "Three cards, one for each form. Study uses these three cards.";
+        sub.textContent = "Three cards, one for each form.";
       }
       if (!v) { box.innerHTML = ""; applyCardSearch(box.closest("section")); return; }
       box.innerHTML = catalogEditHtml(v) + verbFormModels(v).map((model) => verbFormCard(v, model)).join("");

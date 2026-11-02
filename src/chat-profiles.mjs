@@ -3,18 +3,19 @@ const staff=user=>['ADMIN','DEVELOPER'].includes(user?.role);
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function profileAllowed(inbox,id){
   const actor=inbox.get('profile');if(!actor||actor.active===false)return false;
-  if(id.startsWith('group:'))return inbox.get('groups',[]).some(g=>'group:'+g.id===id);
-  if(String(id)===String(actor.id)||staff(actor))return true;
-  const rooms=inbox.rows('SELECT data FROM rooms').map(row=>JSON.parse(row.data)).filter(room=>room.peerId===id&&room.active!==false);
+  const sid=String(id??'');
+  if(sid.startsWith('group:'))return inbox.get('groups',[]).some(g=>'group:'+g.id===sid);
+  if(sid===String(actor.id)||staff(actor))return true;
+  const rooms=inbox.rows('SELECT data FROM rooms').map(row=>JSON.parse(row.data)).filter(room=>String(room.peerId)===sid&&room.active!==false);
   if(rooms.some(room=>room.access?.blocked))return false;
-  return inbox.get('contacts',[]).some(u=>u.id===id)||rooms.length>0||inbox.get('discovered:'+id)?.expires>Date.now();
+  return inbox.get('contacts',[]).some(u=>String(u.id)===sid)||rooms.length>0||inbox.get('discovered:'+sid)?.expires>Date.now();
 }
 export function profileDetails(store,id){const row=store.sql.exec('SELECT phone,phone_visible,birthday,birthday_visible FROM profiles WHERE user_id=?',id).toArray()[0];return {phone:row?.phone||'',phoneVisible:!!row?.phone_visible,birthday:row?.birthday||'',birthdayVisible:!!row?.birthday_visible};}
 function record(store,id){const saved=store.get('avatar:'+id)||{},presence=store.get('presence:'+id)||{online:false};return {id,...saved,...presence,username:store.get('username:'+id)||'',...profileDetails(store,id)};}
 export function readProfiles(store,body){
   const ids=body.ids;if(!Array.isArray(ids)||ids.length>100)fail(400,'Choose up to 100 profiles.');
   const profiles=[];
-  for(const id of new Set(ids)){if(typeof id!=='string'||!/^[A-Za-z0-9:_-]{1,180}$/.test(id))fail(400,'Invalid profile.');profiles.push(record(store,id));const watchers=new Set(store.get('watchers:'+id)||[]);if(!watchers.has(body.actor.id)){watchers.add(body.actor.id);store.set('watchers:'+id,[...watchers]);}}
+  for(const rawId of new Set(ids)){const id=String(rawId??'');if(!id||!/^[A-Za-z0-9:_-]{1,180}$/.test(id))fail(400,'Invalid profile.');profiles.push(record(store,id));const watchers=new Set(store.get('watchers:'+id)||[]);if(!watchers.has(String(body.actor.id))){watchers.add(String(body.actor.id));store.set('watchers:'+id,[...watchers]);}}
   return {profiles};
 }
 async function publish(store,id){
@@ -23,7 +24,7 @@ async function publish(store,id){
   return {profile};
 }
 export async function setPresence(store,body){
-  const id=body.id;if(typeof id!=='string'||!/^[A-Za-z0-9:_-]{1,180}$/.test(id)||id.startsWith('group:')||typeof body.online!=='boolean')fail(400,'Invalid presence.');
+  const id=String(body.id??'');if(!id||!/^[A-Za-z0-9:_-]{1,180}$/.test(id)||id.startsWith('group:')||typeof body.online!=='boolean')fail(400,'Invalid presence.');
   if(store.get('presence:'+id)?.online===body.online)return {unchanged:true};
   store.set('presence:'+id,{online:body.online,lastSeen:body.online?null:Date.now()});return publish(store,id);
 }
@@ -51,7 +52,7 @@ export function signupUsername(store,body){
   const username='@'+String(body.login||'').toLowerCase(),reservation='signup:'+body.reservationId;
   if(!/^@[a-z0-9_]{3,32}$/.test(username)||! /^[A-Za-z0-9_-]{1,100}$/.test(body.reservationId||''))fail(400,'Invalid signup username.');
   if(!['reserve','activate','release','rollback'].includes(body.action))fail(400,'Invalid signup action.');
-  if(['activate','rollback'].includes(body.action)&&! /^[A-Za-z0-9_-]{1,100}$/.test(body.userId||''))fail(400,'Invalid account.');
+  if(['activate','rollback'].includes(body.action)&&! /^[A-Za-z0-9_-]{1,100}$/.test(String(body.userId||'')))fail(400,'Invalid account.');
   store.ctx.storage.transactionSync(()=>{
     const owner=store.get('username-owner:'+username);
     if(body.action==='reserve'){

@@ -25259,24 +25259,44 @@
     ],
     "connections": [
       [
-        "hip_109937",
+        "five_lac",
         "alpha_lac"
       ],
       [
         "alpha_lac",
-        "hip_110609"
-      ],
-      [
-        "hip_110609",
         "beta_lac"
       ],
       [
         "beta_lac",
+        "hip_110609"
+      ],
+      [
+        "hip_110609",
+        "five_lac"
+      ],
+      [
+        "five_lac",
         "hip_110351"
       ],
       [
         "hip_110351",
+        "hip_111104"
+      ],
+      [
+        "hip_111104",
+        "hip_111944"
+      ],
+      [
+        "hip_111944",
         "five_lac"
+      ],
+      [
+        "hip_111104",
+        "hip_109754"
+      ],
+      [
+        "hip_109754",
+        "hip_109937"
       ]
     ],
     "deepSkyObjects": [
@@ -25380,12 +25400,24 @@
       "gitBlobSha1": "3130f685e7e6ae303b31fce0a0371b54e8810d49",
       "previousConnections": [
         [
-          "alpha_lac",
-          "five_lac"
+          "hip_109937",
+          "alpha_lac"
         ],
         [
-          "five_lac",
+          "alpha_lac",
+          "hip_110609"
+        ],
+        [
+          "hip_110609",
           "beta_lac"
+        ],
+        [
+          "beta_lac",
+          "hip_110351"
+        ],
+        [
+          "hip_110351",
+          "five_lac"
         ]
       ],
       "override": "constellation_refinements_source.json"

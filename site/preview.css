@@ -2771,10 +2771,16 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .seg button { flex: 1; border: 0; background: transparent; color: var(--acc); border-radius: 10px; padding: 8px 6px; font-weight: 800; }
 .seg button.on { background: var(--card); }
 .accounts-tabs { flex-wrap: wrap; }
-.account-approval-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px) 110px 100px;align-items:center;gap:12px;margin:12px 0;text-align:left}
+.account-approval-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(150px,220px) 110px 100px;align-items:center;gap:12px;margin:12px 0;text-align:left}
 .account-approval-row>div{min-width:0;overflow-wrap:anywhere}
+.account-approval-row>div:nth-child(2){display:flex;flex-direction:column;gap:6px;justify-content:center;min-width:0}
+.account-approval-row>div:nth-child(2) select{box-sizing:border-box;width:100%;min-width:0;height:36px;min-height:36px;margin:0;padding:0 10px;font-size:13px;font-family:inherit;border:1px solid var(--saas-border,#e2e8f0);border-radius:var(--saas-radius-md,6px);background-color:var(--saas-input-bg,#ffffff);color:var(--saas-text-primary,#0f172a);outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease}
+.account-approval-row>div:nth-child(2) select:focus{border-color:var(--saas-brand,#2563eb);box-shadow:0 0 0 3px var(--saas-focus-ring,rgba(37,99,235,0.15))}
 .account-approval-row>.btn,.account-approval-row>select{box-sizing:border-box;width:100%;min-width:0;height:44px;min-height:44px;margin:0;padding:8px 12px}
-.account-approval-row>.btn{display:flex;align-items:center;justify-content:center}
+.account-approval-row>.btn{display:flex;align-items:center;justify-content:center;border-radius:var(--saas-radius-md,6px);font-size:13px;font-weight:600}
+.card .account-approval-row .hint,
+.account-approval-row .hint{display:block;margin:4px 0 0;padding:0;background:transparent;border:none;border-radius:0;color:var(--saas-text-muted,#64748b);font-size:13px;font-weight:500;line-height:1.4}
+.account-approval-row br{display:none}
 @media(max-width:700px){.account-approval-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.account-approval-row>div,.account-approval-row>select,.account-approval-row>span{grid-column:1/-1}}
 .accounts-tabs button { flex: 1 1 150px; min-width: 0; overflow-wrap: anywhere; }
 #adminAccountSearch { margin: 8px 0 16px; }

@@ -490,3 +490,13 @@ test('Logout keeps the cookie reset when chat socket revocation fails, and retri
   assert.equal(response.status,200);assert.match(response.headers.get('Set-Cookie'),/Max-Age=0/);
   await Promise.all(waits);assert.equal(calls,2);
 });
+test('Integer account identifiers work with chat inbox profiles and commands',async()=>{
+  const f=fixture({});
+  try{
+    const env=f.env,user={id:1,login:'tsovak',role:'DEVELOPER',active:1};
+    await chatCall(env,'CHAT_INBOX',1,'/configure',{profile:user,contacts:[],groups:[]});
+    const result=await chatCall(env,'CHAT_INBOX',1,'/command',{action:'profiles',body:{ids:[1]}});
+    assert.equal(result.profiles.length,1);
+    assert.equal(String(result.profiles[0].id),'1');
+  }finally{await f.drain();f.close();}
+});

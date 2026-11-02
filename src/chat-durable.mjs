@@ -457,7 +457,7 @@ export class ChatInbox extends Store{
     }
     if(action==='profiles'){
       if(!Array.isArray(body.ids)||body.ids.length>100)fail(400,'Choose up to 100 profiles.');
-      const ids=body.ids.filter(id=>typeof id==='string'&&profileAllowed(this,id));
+      const ids=body.ids.map(id=>String(id??'')).filter(id=>id&&/^[A-Za-z0-9:_-]{1,180}$/.test(id)&&profileAllowed(this,id));
       if(!this.env.CHAT_BRIDGE)return {profiles:[]};
       const result=await chatCall(this.env,'CHAT_BRIDGE','global','/profiles',{actor,ids});const profiles=result.profiles.map(publicProfile);
       this.set('profileViews',{...this.get('profileViews',{}),...Object.fromEntries(profiles.map(p=>[p.id,p]))});return {profiles};

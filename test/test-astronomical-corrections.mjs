@@ -147,21 +147,26 @@ const conByAbbr = new Map(catalogue.map(c => [c.abbr, c]));
   assert.equal(visited.size, adj.size, 'Grus figure must be a single connected component');
 }
 
-// 8. Lacerta (Lac)
+// 8. Lacerta (Lac) - Canonical IAU / Sky & Telescope / Stellarium modern_st figure (10 connections)
 {
   const lac = conByAbbr.get('Lac');
   assert.ok(lac, 'Lac missing in catalogue');
-  const expectedZigzag = [
-    ['hip_109937', 'alpha_lac'],
-    ['alpha_lac', 'hip_110609'],
-    ['hip_110609', 'beta_lac'],
-    ['beta_lac', 'hip_110351'],
-    ['hip_110351', 'five_lac']
+  const expectedCanonical = [
+    ['five_lac', 'alpha_lac'],
+    ['alpha_lac', 'beta_lac'],
+    ['beta_lac', 'hip_110609'],
+    ['hip_110609', 'five_lac'],
+    ['five_lac', 'hip_110351'],
+    ['hip_110351', 'hip_111104'],
+    ['hip_111104', 'hip_111944'],
+    ['hip_111944', 'five_lac'],
+    ['hip_111104', 'hip_109754'],
+    ['hip_109754', 'hip_109937']
   ];
-  assert.equal(lac.connections.length, 5, 'Lacerta must have exactly 5 connections in canonical zigzag');
-  for (const edge of expectedZigzag) {
+  assert.equal(lac.connections.length, 10, 'Lacerta must have exactly 10 connections in canonical IAU / Sky & Telescope figure');
+  for (const edge of expectedCanonical) {
     const found = lac.connections.some(e => (e[0] === edge[0] && e[1] === edge[1]) || (e[0] === edge[1] && e[1] === edge[0]));
-    assert.ok(found, `Lacerta must contain canonical zigzag edge ${edge.join(' — ')}`);
+    assert.ok(found, `Lacerta must contain canonical edge ${edge.join(' — ')}`);
   }
 }
 

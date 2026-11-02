@@ -61,7 +61,7 @@ export class ChatBridge{
         if(staffUser.role==='DEVELOPER')return true;
         const assigned=groupTeachers(studentGroupId);
         if(!assigned)return false;
-        return assigned.has(staffUser.id);
+        return assigned.has(String(staffUser.id));
       };
       const taughtGroupIds=staffUser=>{
         const ids=new Set();
@@ -184,9 +184,10 @@ export class ChatBridge{
     }else await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:true,messages:[],complete:true});
   }
   async bootstrap(actor){
-    const policy=await this.policy(),known=policy.users.find(u=>String(u.id)===String(actor.id));
-    if(!known||known.role!==actor.role||known.active===0||known.is_personal_data_revoked)await this.policy(true);
-    const activePolicy=this.get('policy'),db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=?',[actor.id]);
+    let policy=await this.policy(),known=policy.users.find(u=>String(u.id)===String(actor.id));
+    const inboxSnapshot=await chatCall(this.env,'CHAT_INBOX',actor.id,'/snapshot',{}).catch(()=>null);
+    if(!known||known.role!==actor.role||known.active===0||known.is_personal_data_revoked||!inboxSnapshot?.profile)policy=await this.policy(true,true);
+    const activePolicy=this.get('policy')||policy,db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=?',[actor.id]);
     const taught=new Set((activePolicy.teachersByGroup||[]).filter(row=>(row.teacherIds||[]).map(String).includes(String(actor.id))).map(row=>Number(row.groupId)));
     const groups=activePolicy.groups.filter(g=>actor.role==='DEVELOPER'||(actor.role==='ADMIN'?taught.has(Number(g.id)):activePolicy.members.some(m=>String(m.account_id)===String(actor.id)&&m.group_id===g.id)));
     const roomIds=[...new Set([...legacy.map(r=>r.id),...groups.map(g=>'group:'+g.id)])].filter(id=>!(id.startsWith('group:')&&!groups.some(g=>'group:'+g.id===id)));
@@ -281,7 +282,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
       }
       if(path==='/api/messages/profile'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
-        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[actor.id]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
+        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[String(actor.id)]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
         if(request.method==='GET'){const result=await chatCall(env,'CHAT_BRIDGE','global','/profile',{actor,read:true});return json(result);}
         if(request.method!=='POST'||request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true')fail(403,'Unavailable.');const raw=await request.text();if(raw.length>1024)fail(413,'Profile request is too large.');let body;try{body=JSON.parse(raw);}catch{fail(400,'Invalid profile.');}if(!body||typeof body!=='object')fail(400,'Invalid profile.');
         const result=await chatCall(env,'CHAT_BRIDGE','global','/profile',{actor,phone:body.phone,phoneVisible:body.phoneVisible,birthday:body.birthday,birthdayVisible:body.birthdayVisible});return json({details:result.details,profile:publicProfile(result.profile)});
@@ -292,17 +293,17 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         if(request.method!=='POST'||request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true')fail(403,'Unavailable.');
         const raw=await request.text();if(raw.length>1024)fail(413,'Username request is too large.');let body;try{body=JSON.parse(raw);}catch{fail(400,'Invalid username.');}
         if(!body||typeof body.username!=='string'||body.expectedUsername!==undefined&&typeof body.expectedUsername!=='string')fail(400,'Invalid username.');
-        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[actor.id]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
+        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[String(actor.id)]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
         const result=await chatCall(env,'CHAT_BRIDGE','global','/username',{actor,username:body.username,expectedUsername:body.expectedUsername});return json({profile:publicProfile(result.profile)});
       }
       if(path==='/api/messages/avatar'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');
         const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
         const subject=url.searchParams.get('subject')||actor.id;
-        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[subject]}});
-        if(!allowed.profiles.some(p=>p.id===subject))fail(403,'This profile is unavailable.');
+        const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[String(subject)]}});
+        if(!allowed.profiles.some(p=>String(p.id)===String(subject)))fail(403,'This profile is unavailable.');
         if(request.method==='GET'||request.method==='HEAD'){
-          const saved=await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor,ids:[subject]});const profile=saved.profiles[0];if(!profile?.storageKey)fail(404,'No avatar.');
+          const saved=await chatCall(env,'CHAT_BRIDGE','global','/profiles',{actor,ids:[String(subject)]});const profile=saved.profiles[0];if(!profile?.storageKey)fail(404,'No avatar.');
           const response=await chatFileResponse(env.CONTENT_MEDIA,{storage_key:profile.storageKey,mime:profile.mime,name:'avatar'},request);
           if(response.status===200&&url.searchParams.get('v'))response.headers.set('Cache-Control','private, max-age=31536000, immutable');
           return response;
