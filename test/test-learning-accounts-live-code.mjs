@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync,createHash} from 'node:crypto';
 import accounts from '../src/worker.js';
-import {sessionForPasskey} from '../src/worker.js';
+import {sessionForPasskey,sessionForFederated} from '../src/worker.js';
 import {integratedWorker,accountMedia} from '../src/learning-integrated-worker.mjs';
 import {signupUsername} from '../src/chat-profiles.mjs';
 import {MicrosoftOAuth,verifyMicrosoftIdToken} from '../src/microsoft-oauth.mjs';
@@ -52,6 +52,7 @@ function fixture(options={}){
   sqlite.exec(`CREATE TABLE users(id INTEGER PRIMARY KEY AUTOINCREMENT,login TEXT UNIQUE,email TEXT UNIQUE,name TEXT DEFAULT '',password_salt TEXT,password_hash TEXT,password_iterations INTEGER,role TEXT DEFAULT 'USER',is_personal_data_revoked INTEGER DEFAULT 0,revoked_at INTEGER,hidden INTEGER DEFAULT 0,active INTEGER DEFAULT 1,created_at INTEGER);
     CREATE TABLE registrations(id INTEGER PRIMARY KEY AUTOINCREMENT,login TEXT,email TEXT,name TEXT,password_salt TEXT,password_hash TEXT,password_iterations INTEGER,status TEXT,role TEXT DEFAULT 'USER',user_id INTEGER,created_at INTEGER,decided_at INTEGER);
     CREATE TABLE account_changes(id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER,login TEXT,email TEXT,name TEXT DEFAULT '',from_login TEXT,from_email TEXT,from_name TEXT,role TEXT DEFAULT 'USER',status TEXT,created_at INTEGER,decided_at INTEGER);
+    CREATE TABLE legacy_account_ids(old_id TEXT PRIMARY KEY, new_id INTEGER);
     CREATE TABLE catalog_documents(namespace TEXT,key TEXT,value_json TEXT,PRIMARY KEY(namespace,key));`);
   const salt='1'.repeat(32),hash=pbkdf2Sync(password,Buffer.from(salt,'hex'),100000,32,'sha256').toString('hex');
   sqlite.prepare("INSERT INTO users(id,login,email,name,password_salt,password_hash,password_iterations,role,created_at) VALUES(?,'FixtureDev','dev@example.invalid','Fixture',?,?,100000,'DEVELOPER',0)").run(devId,salt,hash);
@@ -155,6 +156,19 @@ test('passkeys management requires a live session and its own email proof; login
     f.sqlite.prepare('UPDATE users SET active=0 WHERE id=?').run(devId);
     assert.equal((await sessionForPasskey(f.env,request,devId,true)).status,403);
     assert.equal((await sessionForPasskey(f.env,request,'unapproved-account',true)).status,403);
+  }finally{f.close();}
+});
+test('sessionForApprovedIdentity resolves legacy 32-character string ID via legacy_account_ids',async()=>{
+  const f=fixture();
+  try{
+    const legacyId='f1ef79bf7bfa84fcbb00d2b7bba05683';
+    f.sqlite.prepare('INSERT INTO legacy_account_ids(old_id, new_id) VALUES(?, ?)').run(legacyId,devId);
+    const request=new Request('https://fixture.invalid/api/auth/telegram/callback');
+    const response=await sessionForFederated(f.env,request,legacyId,true,'telegram');
+    assert.equal(response.status,200);
+    const data=await response.json();
+    assert.equal(data.user.id,devId);
+    assert.equal(data.authMethod,'telegram');
   }finally{f.close();}
 });
 test('Microsoft confirms email before linking, preserves pending approval and signs in by stable identity afterwards',async()=>{

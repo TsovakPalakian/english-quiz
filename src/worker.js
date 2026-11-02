@@ -3719,7 +3719,15 @@ export async function approveRegistration(env, actor, regId, invitation = null) 
 }
 
 async function sessionForApprovedIdentity(env,request,accountId,secure,authMethod){
-  const row=await env.DB.prepare('SELECT * FROM users WHERE id=? AND is_personal_data_revoked=0').bind(accountId).first();
+  let row=await env.DB.prepare('SELECT * FROM users WHERE id=? AND is_personal_data_revoked=0').bind(accountId).first();
+  if(!row&&typeof accountId==='string'&&accountId.length===32){
+    try{
+      const mapped=await env.DB.prepare('SELECT new_id FROM legacy_account_ids WHERE old_id=?').bind(accountId).first();
+      if(mapped?.new_id){
+        row=await env.DB.prepare('SELECT * FROM users WHERE id=? AND is_personal_data_revoked=0').bind(mapped.new_id).first();
+      }
+    }catch{}
+  }
   if(!row||row.active===0||!['USER','ADMIN','DEVELOPER'].includes(row.role))return json({error:'This account is unavailable.'},403);
   if(env.MEDIA&&await env.MEDIA.head('gone/'+row.id))return json({error:'This account is unavailable.'},403);
   try{await copyStateOnce(env,row.id);}catch{}
