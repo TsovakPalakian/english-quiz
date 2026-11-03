@@ -67,7 +67,9 @@
         }
         const saved=token||sessionStorage.getItem('enquiz-invite');
         if(saved&&!params.has('auth')&&(token||!sessionStorage.getItem('enquiz-auth-form')))sessionStorage.setItem('enquiz-auth-form','register');
-        if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved)).then(details=>{inviteDetails=details;}).catch(error=>{inviteDetailsError=error.message;}).finally(()=>{
+        if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved),{quietBug:true}).then(details=>{inviteDetails=details;}).catch(error=>{
+          inviteDetailsError=error.message;
+        }).finally(()=>{
           if(document.querySelector('[data-invite-loading]'))paintAccountForm(true);
           offerTeacherInvite();
         });
@@ -78,10 +80,11 @@
       try { token = sessionStorage.getItem('enquiz-invite') || ''; } catch (e) {}
       if (!token || !authUser || authUser.role !== 'USER') return;
       try {
-        await accountFetch('/api/accounts/invites', { method: 'POST', body: JSON.stringify({ action: 'redeem', token }) });
-        try { sessionStorage.removeItem('enquiz-invite'); } catch (e) {}
+        await accountFetch('/api/accounts/invites', { method: 'POST', body: JSON.stringify({ action: 'redeem', token }), quietBug: true });
       } catch (error) {
         console.warn(error.message || 'Invite could not be used.');
+      } finally {
+        try { sessionStorage.removeItem('enquiz-invite'); } catch (e) {}
       }
     }
     captureInviteFromLocation();

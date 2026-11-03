@@ -193,7 +193,10 @@ test('expected client validation barriers and rate quotas are completely ignored
     {method:'POST',path:'/api/lessons',status:400,error:'Lesson title is required.'},
     {method:'POST',path:'/api/lessons/parse-pdf',status:504,error:'Request timed out.'},
     {method:'POST',path:'/api/lessons/parse-pdf',status:429,error:'Daily quota exceeded.'},
-    {method:'GET',path:'/api/lesson-file?id=556',status:404,error:'Lesson file not found.'}
+    {method:'GET',path:'/api/lesson-file?id=556',status:404,error:'Lesson file not found.'},
+    {method:'POST',path:'/api/accounts/invites',status:410,error:'Invite already used up.'},
+    {method:'GET',path:'/api/accounts/invites?token=abc',status:410,error:'Invite already used up.'},
+    {method:'GET',path:'/api/accounts/invites?token=abc',status:404,error:'Invite not found.'}
   ];
   for(const ev of events){
     const result=await saveBug(db,ev);

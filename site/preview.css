@@ -1180,6 +1180,13 @@ img, video, iframe, table { max-width: 100%; }
   padding: 22px 14px 16px;
   background: var(--card);
   border-right: 1px solid var(--line);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.side::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 .brand {
   display: inline-flex;
@@ -3377,6 +3384,7 @@ body:not(.chat-active) .shell {
 }
 body:not(.chat-active) .side {
   width: auto; height: auto; max-height: calc(100dvh - 48px); overflow-y: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
   top: 24px; padding: 18px 14px; border: 1px solid var(--line); border-radius: 6px;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 5%, transparent);
 }

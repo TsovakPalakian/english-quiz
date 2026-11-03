@@ -13097,7 +13097,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) viewCache.clear();
           const plain = text && text.length <= 180 && text.indexOf("<") < 0 ? text.trim() : "";
-          throw new Error(data.error || plain || "The server could not finish this request.");
+          const err = new Error(data.error || plain || "The server could not finish this request.");
+          err.status = res.status;
+          throw err;
         }
         return data;
       });
@@ -13514,7 +13516,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
-        if(invite&&!inviteDetails){
+        if((invite||inviteDetailsError)&&!inviteDetails){
           box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
           return;
         }
@@ -18589,7 +18591,9 @@ const STUDIO_CONSTELLATIONS = [{
         }
         const saved=token||sessionStorage.getItem('enquiz-invite');
         if(saved&&!params.has('auth')&&(token||!sessionStorage.getItem('enquiz-auth-form')))sessionStorage.setItem('enquiz-auth-form','register');
-        if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved)).then(details=>{inviteDetails=details;}).catch(error=>{inviteDetailsError=error.message;}).finally(()=>{
+        if(saved)accountFetch('/api/accounts/invites?token='+encodeURIComponent(saved),{quietBug:true}).then(details=>{inviteDetails=details;}).catch(error=>{
+          inviteDetailsError=error.message;
+        }).finally(()=>{
           if(document.querySelector('[data-invite-loading]'))paintAccountForm(true);
           offerTeacherInvite();
         });
@@ -18600,10 +18604,11 @@ const STUDIO_CONSTELLATIONS = [{
       try { token = sessionStorage.getItem('enquiz-invite') || ''; } catch (e) {}
       if (!token || !authUser || authUser.role !== 'USER') return;
       try {
-        await accountFetch('/api/accounts/invites', { method: 'POST', body: JSON.stringify({ action: 'redeem', token }) });
-        try { sessionStorage.removeItem('enquiz-invite'); } catch (e) {}
+        await accountFetch('/api/accounts/invites', { method: 'POST', body: JSON.stringify({ action: 'redeem', token }), quietBug: true });
       } catch (error) {
         console.warn(error.message || 'Invite could not be used.');
+      } finally {
+        try { sessionStorage.removeItem('enquiz-invite'); } catch (e) {}
       }
     }
     captureInviteFromLocation();

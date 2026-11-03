@@ -5,6 +5,7 @@
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
 - Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; "do"/"делай" approves only the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
+- Mandatory: every task in summary or remediation documents must include an explicit warning block forbidding touching or breaking functionality unrelated to the current scoped edit; if adjacent functionality must be affected, explicitly state this to the user in Russian before making changes and wait for confirmation.
 - After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for the user's `do` before starting that next implementation; proposing it is not authorization to proceed. Always include an English past-tense commit message for completed changes.
 - For each new feature, create a Markdown (.md) document detailing implementation steps and stages. Do not automatically create or update change-history documents unless explicitly requested. Explicit requests to save working preferences authorize editing existing instruction files.
 - Use only colored squares for checklist status, without checkmarks, crosses or Markdown checkboxes: `🟩` verified done, `🟨` selected/current work, `⬜` not started, `🟥` checked but needs rework. For rework, record the failed check and required correction; use green only after fixing and reverifying. Mark the selected scope before implementation; do not mark a prototype as a completed production integration. Split mixed tasks when only part is selected.
@@ -46,6 +47,7 @@
   1. Single Source of Truth: In any conflict between client state and server state, server validation holds absolute priority.
   2. Prohibition of Destructive Changes: Deleting existing error handlers, telemetry logging, or guard conditions is forbidden; only appending or refining conditional logic is permitted.
   3. Mandatory Edge Case Analysis: Every collision resolution must account for `null`/`undefined` inputs, asynchronous timeouts, and concurrent requests.
+  4. Prohibition of Collateral Modifications: Strictly prohibit touching, breaking, or modifying any functionality unrelated to the current scoped task. If adjacent functionality must be affected, explicitly state this to the user in Russian before making changes and wait for confirmation.
 - Antigravity Native Control Mechanisms:
   1. Artifacts: Plan and hypothesis tracking in Markdown documents prior to code modifications.
   2. Verification Loops: Automated validation via targeted test runs and production asset builder before task completion.

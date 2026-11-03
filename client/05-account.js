@@ -17,7 +17,9 @@
         if (!res.ok) {
           if (res.status === 401 || res.status === 403) viewCache.clear();
           const plain = text && text.length <= 180 && text.indexOf("<") < 0 ? text.trim() : "";
-          throw new Error(data.error || plain || "The server could not finish this request.");
+          const err = new Error(data.error || plain || "The server could not finish this request.");
+          err.status = res.status;
+          throw err;
         }
         return data;
       });
@@ -434,7 +436,7 @@
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
-        if(invite&&!inviteDetails){
+        if((invite||inviteDetailsError)&&!inviteDetails){
           box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
           return;
         }
