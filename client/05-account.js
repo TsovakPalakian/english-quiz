@@ -436,8 +436,9 @@
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
-        if((invite||inviteDetailsError)&&!inviteDetails){
-          box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteDetailsError||'Loading invitation…')+'</p></div></div>';
+        const inviteErr = typeof inviteDetailsError !== "undefined" ? inviteDetailsError : "";
+        if((invite||inviteErr)&&!inviteDetails){
+          box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1><p class="hint" role="status" data-invite-loading>'+esc(inviteErr||'Loading invitation…')+'</p></div></div>';
           return;
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
