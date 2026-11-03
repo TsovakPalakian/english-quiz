@@ -1,6 +1,6 @@
 // Optional main-app consumer. Existing Study and exam runners remain untouched.
 (() => {
-  const prefix='/api/learning-workbench',valid=id=>Number.isSafeInteger(id)&&id>0;
+  const prefix='/api/learning-workbench',valid=id=>(Number.isSafeInteger(id)||(typeof id==='string'&&/^[1-9]\d{0,15}$/.test(id)))&&Number(id)>0;
   let job=null,dialog=null,observer=null,serial=0;
   const displayedCards=new Map();
   let speechUI=null,providerUI=null;
@@ -158,7 +158,7 @@
       for(const q of list){const key=String(q[keys[depth]]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);}
       return [...groups].map(([key,items])=>'<details data-review-key="'+esc(keys.slice(0,depth+1).map(field=>items[0][field]).join(':'))+'"><summary>'+esc(labels[depth](items[0]))+' · '+items.length+'</summary><div class="learning-review-group">'+group(items,depth+1)+'</div></details>').join('');
     }
-    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
+    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>'+(entry.view==='mine'?'No matching quizzes. To create a quiz, open a lesson and click the ⋮ menu on any word card.':'No matching quizzes.')+'</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
     if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn saas-btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn saas-btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
   }
   async function coverage(entry){

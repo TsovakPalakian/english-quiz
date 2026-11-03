@@ -192,11 +192,37 @@ test('expected client validation barriers and rate quotas are completely ignored
     {method:'POST',path:'/api/lessons',status:400,error:'Enter a lesson title before saving.'},
     {method:'POST',path:'/api/lessons',status:400,error:'Lesson title is required.'},
     {method:'POST',path:'/api/lessons/parse-pdf',status:504,error:'Request timed out.'},
-    {method:'POST',path:'/api/lessons/parse-pdf',status:429,error:'Daily quota exceeded.'}
+    {method:'POST',path:'/api/lessons/parse-pdf',status:429,error:'Daily quota exceeded.'},
+    {method:'GET',path:'/api/lesson-file?id=556',status:404,error:'Lesson file not found.'}
   ];
   for(const ev of events){
     const result=await saveBug(db,ev);
     assert.deepEqual(result,{ignored:true});
   }
   assert.equal(db.rows.length,0);
+});
+test('aborted get requests on page unload or hidden state are ignored while mutating requests are recorded',async()=>{
+  resetBugStoreForTests();
+  const db=memory();
+  const abortedGet1=await saveBug(db,{
+    method:'GET',path:'/api/me',status:0,
+    error:'Connection interrupted. Saving is not confirmed; retry the same operation.',
+    request:{context:{visibility:'hidden',navigation:{type:'reload'}}},response:{}
+  });
+  assert.deepEqual(abortedGet1,{ignored:true});
+  const abortedGet2=await saveBug(db,{
+    method:'GET',path:'/api/lessons',status:0,
+    error:'Failed to fetch',
+    request:{context:{visibility:'hidden'}},response:{}
+  });
+  assert.deepEqual(abortedGet2,{ignored:true});
+  assert.equal(db.rows.length,0);
+
+  const mutatingPost=await saveBug(db,{
+    method:'POST',path:'/api/me/cards/new',status:0,
+    error:'Connection interrupted. Saving is not confirmed; retry the same operation.',
+    request:{context:{visibility:'hidden'}},response:{}
+  });
+  assert.notDeepEqual(mutatingPost,{ignored:true});
+  assert.equal(db.rows.length,1);
 });

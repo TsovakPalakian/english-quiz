@@ -6,7 +6,7 @@ const fail=(status,message)=>{throw new StudyError(status,message);};
 
 function visitorId(raw){
   const text=String(raw||'').trim().slice(0,80);
-  if(!/^[A-Za-z0-9._:-]{8,80}$/.test(text))fail(400,'Invalid visitor.');
+  if(!/^[A-Za-z0-9._:-]{1,80}$/.test(text))fail(400,'Invalid visitor.');
   return text;
 }
 

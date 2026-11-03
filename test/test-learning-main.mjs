@@ -630,6 +630,9 @@ test('Imported PDF copies resolve the original file ID after integer migration',
     f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(3,1,1,'pdf',?)").run(JSON.stringify({name:'lesson.pdf'}));
     const actor={id:'teacher',role:'ADMIN'},bytes=new TextEncoder().encode('%PDF-1.4\nlegacy'),files=new Map();
     assert.equal(await mediaKey(f.db,actor,'lesson','3'),'lessons/files/old_pdf');
+    f.sqlite.prepare('INSERT INTO entity_id_legacy VALUES(?,?,?)').run('lesson_block','old_lesson\u001fcharisma_pdf',4);
+    f.sqlite.prepare("INSERT INTO lesson_blocks(id,lesson_id,position,type,content_json) VALUES(4,1,2,'pdf',?)").run(JSON.stringify({title:'13 charisma.pdf',pdfImport:true}));
+    assert.equal(await mediaKey(f.db,actor,'lesson','4'),'lessons/files/charisma_pdf');
     const service=new ContentCopyService(f.db,{store:{putImmutable:async(key,bytes)=>files.set(key,bytes)},readLegacy:async key=>{assert.equal(key,'lessons/files/old_pdf');return {bytes,mime:'application/pdf'};}});
     const result=await service.copy(actor,{mutationId:crypto.randomUUID(),source:{type:'lesson',id:1},destination:{type:'group',id:1},title:'Imported PDF copy'});
     const lessonId=result.ids.find(row=>row.type==='lesson').id,content=JSON.parse(f.sqlite.prepare("SELECT content_json FROM lesson_blocks WHERE lesson_id=? AND type='pdf'").get(lessonId).content_json);
@@ -2618,4 +2621,198 @@ test('LearningMain.perform stops on paused personal items until explicit flushPe
   await window.LearningMain.perform(async()=>{actions.push('performed');});
   assert.deepEqual(actions,['performed']);
 });
+
+test('Russian word lookup links existing catalog card without duplicate 409 conflict',async()=>{
+  let list=[];const linkedCards=[],createdCards=[];
+  const context={
+    authUser:{role:'USER'},accountReady:true,viewAccount:null,viewGen:0,viewSwitching:false,
+    confirm:()=>true,trackEvent(){},stageStampLinks(){},
+    loadAdded:()=>list,rememberAdded:value=>list=value,paintAdded(){},paintAllWords(){},
+    accountFetch:async path=>{
+      if(path==='/lookup?word=%D0%B4%D0%BE%D0%BC')return {found:true,word:'house',ru:'дом'};
+      return {found:false};
+    },
+    document:{addEventListener(){}},
+    window:{LearningMain:{
+      findCard:async word=>{
+        if(word==='house')return {id:101,revision:1,en:'house',ru:'дом'};
+        throw new Error('В тестовой Learning такой карточки нет. Создание новых слов и внешний словарь пока не подключены.');
+      },
+      linkCard:async card=>{
+        linkedCards.push(card);
+        return {card:{stageId:card.id,word:card.en,ru:card.ru,place:'mine'},revision:1};
+      },
+      newCard:async(en,ru,place)=>{
+        createdCards.push({en,ru,place});
+        return {card:{stageId:202,word:en,ru,place},revision:1};
+      },
+      perform:async action=>{await action();}
+    }}
+  };
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
+  const input={value:'дом'};
+  await context.stageSaveWord('mine',input,{},null,false);
+  assert.equal(createdCards.length,0,'Must not create new card when English equivalent exists in catalog');
+  assert.equal(linkedCards.length,1,'Must link existing catalog card');
+  assert.equal(linkedCards[0].id,101);
+  assert.equal(list.length,1);
+  assert.equal(list[0].stageId,101);
+});
+
+test('System errors are masked for USER and ADMIN but kept detailed for DEVELOPER',async()=>{
+  const runBridgeTest=async(role,errorToThrow)=>{
+    const status={textContent:'',classList:{add(){},remove(){}}};
+    const notes=[];
+    const scope={
+      window:{},crypto,CustomEvent:class{},location:{pathname:'/',reload(){}},
+      authUser:{role},
+      setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+      localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+      document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null,querySelectorAll:()=>[]},
+      fetch:async(path)=>{
+        if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'test-actor',role}})};
+        return {ok:true,json:async()=>({})};
+      }
+    };
+    runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
+    await scope.window.LearningMain.fetch('/api/me');
+    await scope.window.LearningMain.perform(async()=>{throw errorToThrow;},status);
+    return status.textContent;
+  };
+  const systemErr=Object.assign(new Error('Internal Server Error: 500 DB connection timed out'),{status:500});
+  const userMsg=await runBridgeTest('USER',systemErr);
+  assert.equal(userMsg,'Произошла ошибка, она находится на исправлении.');
+  const adminMsg=await runBridgeTest('ADMIN',systemErr);
+  assert.equal(adminMsg,'Произошла ошибка, она находится на исправлении.');
+  const devMsg=await runBridgeTest('DEVELOPER',systemErr);
+  assert.equal(devMsg,'Internal Server Error: 500 DB connection timed out');
+
+  const validationErr=new Error('Эта карточка уже добавлена на страницу.');
+  const userValidationMsg=await runBridgeTest('USER',validationErr);
+  assert.equal(userValidationMsg,'Эта карточка уже добавлена на страницу.');
+});
+
+test('Lesson Speech button and speech tab are hidden for USER and ADMIN but accessible for DEVELOPER',async()=>{
+  const lessonSource=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
+  const lmTabFn=lessonSource.slice(lessonSource.indexOf('    function lmTab() {'),lessonSource.indexOf('    function lmBlocksFor('));
+  const lmChromeHtmlFn=lessonSource.slice(lessonSource.indexOf('    function lmChromeHtml() {'),lessonSource.indexOf('    function lmQuizCards() {'));
+  const runLessonTest=(role,tab='overview')=>{
+    const scope={
+      authUser:{role},
+      lmState:{id:1,tab,examOwned:false},
+      lmBlockCounts:()=>({words:0,phrases:0,rules:0}),
+      window:{
+        LearningWorkbench:{
+          lessonSpeechButton:()=>'<button type="button" data-lm-tab="speech" data-workbench-lesson-speech>Speech</button>',
+          examButton:()=>''
+        }
+      }
+    };
+    runInNewContext(lmTabFn+'\n'+lmChromeHtmlFn+';result={activeTab:lmTab(),html:lmChromeHtml()};',scope);
+    return scope.result;
+  };
+  const user=runLessonTest('USER','speech');
+  assert.equal(user.html.includes('data-workbench-lesson-speech'),false,'Speech button must be hidden for USER');
+  assert.equal(user.activeTab,'overview','Speech tab must fall back to overview for USER');
+
+  const admin=runLessonTest('ADMIN','speech');
+  assert.equal(admin.html.includes('data-workbench-lesson-speech'),false,'Speech button must be hidden for ADMIN');
+  assert.equal(admin.activeTab,'overview','Speech tab must fall back to overview for ADMIN');
+
+  const dev=runLessonTest('DEVELOPER','speech');
+  assert.equal(dev.html.includes('data-workbench-lesson-speech'),true,'Speech button must be visible for DEVELOPER');
+  assert.equal(dev.activeTab,'speech','Speech tab must be active for DEVELOPER');
+});
+
+test('Registration requests queue displays full name in bold and credentials across lines',async()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const box={innerHTML:''};
+  const scope={
+    authUser:{id:'admin',role:'ADMIN'},
+    viewGen:1,
+    viewAccount:null,
+    viewCache:new Map(),
+    classGroupsDirty:false,
+    accountFetch:async path=>{
+      if(path==='/api/admin/registrations')return {registrations:[
+        {id:'1',status:'pending',login:'alex_1',name:'Alex Smith',email:'alex@example.com',role:'USER'},
+        {id:'2',status:'pending',login:'no_name_user',name:'',email:'noname@example.com',role:'ADMIN'}
+      ]};
+      if(path==='/api/admin/users')return {users:[]};
+      if(path==='/api/admin/changes')return {changes:[]};
+      if(path==='/api/groups')return {groups:[]};
+      if(path==='/api/groups/members')return {members:[]};
+      if(path==='/api/accounts/group-teachers')return {assignments:[]};
+      return {};
+    },
+    adminSearch:'',
+    detailPage:'',
+    searching:false,
+    isTeacher:()=>true,
+    sessionIsDeveloper:()=>true,
+    isDeveloper:()=>true,
+    accountVisible:()=>true,
+    paintAccountsCount:()=>{},
+    esc:s=>String(s??''),
+    roleLabel:r=>r==='ADMIN'?'Teacher':'Student',
+    statusLabel:s=>s,
+    adminGroupOptions:()=>'',
+    recentRows:()=>'',
+    document:{getElementById:id=>id==='adminBody'?box:null,querySelectorAll:()=>[],addEventListener:()=>{}}
+  };
+  runInNewContext(source.slice(source.indexOf('    // Read-only views:'),source.indexOf('    function accountSnapshot() {')),scope);
+  runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
+  runInNewContext("adminTab = 'requests';",scope);
+  scope.paintAdmin();
+  await new Promise(resolve=>setTimeout(resolve,50));
+  assert.ok(box.innerHTML.includes('<b>Alex Smith</b>'),'Full name must be bold when present');
+  assert.ok(box.innerHTML.includes('<span class="hint">Login: alex_1<br>Email: alex@example.com · Role: Student</span>'),'Credentials must be formatted across lines');
+  assert.ok(box.innerHTML.includes('<b>no_name_user</b>'),'Login must be used as fallback when name is absent');
+  assert.ok(box.innerHTML.includes('<span class="hint">Login: no_name_user<br>Email: noname@example.com · Role: Teacher</span>'),'Fallback item credentials must be formatted across lines');
+});
+
+test('Send password reset is visible only to owner and performs sign out and recovery activation',async()=>{
+  const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const slot={innerHTML:'',isConnected:true};
+  const makeScope=(authId)=>{
+    const s={
+      authUser:{id:authId,role:'ADMIN'},
+      viewGen:1,
+      viewAccount:null,
+      viewCache:new Map(),
+      adminGroups:[],
+      adminTeacherAssignments:[],
+      adminMembers:[],
+      canInspectAccount:()=>true,
+      canOpenPages:()=>false,
+      accountFetch:async path=>({user:{id:'u1',login:'user1',email:'u1@example.com',role:'ADMIN',active:true,created_at:Date.now()}}),
+      isDeveloper:()=>true,
+      sessionIsDeveloper:()=>true,
+      isTeacher:()=>true,
+      esc:String,
+      roleLabel:()=>'Teacher',
+      accountGroupLevel:()=>'',
+      adminGroupOptions:()=>'',
+      when:()=>'today',
+      document:{getElementById:id=>id==='adminUser'?slot:null,addEventListener:()=>{},querySelectorAll:()=>[]}
+    };
+    runInNewContext(source.slice(source.indexOf('    // Read-only views:'),source.indexOf('    function accountSnapshot() {')),s);
+    runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),s);
+    runInNewContext("adminAccounts = [{id:'u1',login:'user1',email:'u1@example.com',role:'ADMIN',active:true}];",s);
+    return s;
+  };
+  const ownerScope=makeScope('u1');
+  ownerScope.paintAdminUser('u1');
+  await new Promise(resolve=>setTimeout(resolve,50));
+  assert.ok(slot.innerHTML.includes('data-account="reset-password"'),'Reset button must be present for owner');
+
+  const otherScope=makeScope('other_id');
+  otherScope.paintAdminUser('u1');
+  await new Promise(resolve=>setTimeout(resolve,50));
+  assert.equal(slot.innerHTML.includes('data-account="reset-password"'),false,'Reset button must be absent for non-owner');
+});
+
+
+
+
 

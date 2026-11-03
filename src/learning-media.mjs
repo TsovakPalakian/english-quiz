@@ -89,7 +89,7 @@ export async function mediaKey(db,actor,kind,id){
        AND COALESCE(json_extract(b.content_json,'$.fileId'),'')=''
        AND json_type(b.content_json,'$.localMediaKey') IS NULL
        AND COALESCE(json_extract(b.content_json,'$.sample'),0)=0
-       AND (json_extract(b.content_json,'$.hasFile')=1 OR length(trim(COALESCE(json_extract(b.content_json,'$.name'),'')))>0)))
+       AND (json_extract(b.content_json,'$.hasFile')=1 OR length(trim(COALESCE(json_extract(b.content_json,'$.name'),'')))>0 OR json_extract(b.content_json,'$.pdfImport')=1 OR (b.type='pdf' AND length(trim(COALESCE(json_extract(b.content_json,'$.title'),'')))>0))))
     AND ${lessonAccess} LIMIT 2`,[id,id,+['ADMIN','DEVELOPER'].includes(actor.role),actor.id,actor.id]);
   if(!rows.length){
     const instances=(await db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length>0;

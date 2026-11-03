@@ -500,3 +500,50 @@ test('Integer account identifiers work with chat inbox profiles and commands',as
     assert.equal(String(result.profiles[0].id),'1');
   }finally{await f.drain();f.close();}
 });
+test('Direct room opens with string accountId matching numeric contact ID from D1',async()=>{
+  const f=fixture();
+  try{
+    const alice={id:1,name:'Alice',role:'USER',groupId:1},bob={id:2,name:'Bob',role:'USER',groupId:1};
+    await chatCall(f.env,'CHAT_INBOX',1,'/configure',{profile:alice,contacts:[bob],groups:[{id:1,title:'A1'}]});
+    await chatCall(f.env,'CHAT_INBOX',2,'/configure',{profile:bob,contacts:[alice],groups:[{id:1,title:'A1'}]});
+    await f.drain();
+    const result=await chatCall(f.env,'CHAT_INBOX',1,'/command',{action:'open',body:{kind:'direct',accountId:'2'}});
+    await f.drain();
+    assert.equal(result.roomId,directRoomId(1,2));
+    assert.ok(result.room);
+  }finally{await f.drain();f.close();}
+});
+test('WebSocket connection route ensures profile bootstrap for student without throwing 403',async()=>{
+  const student={id:'student_test_1',login:'student1',name:'Student One',role:'USER',groupId:1};
+  let inboxConfigured=false;
+  const inbox={
+    idFromName:name=>name,
+    get:()=>({
+      fetch:async(req)=>{
+        const url=new URL(req.url);
+        if(url.pathname==='/snapshot')return Response.json(inboxConfigured?{profile:student}:{profile:null});
+        if(url.pathname==='/configure'){inboxConfigured=true;return Response.json({configured:true});}
+        if(url.pathname==='/connect')return {status:101,webSocket:{}};
+        return Response.json({ok:true});
+      }
+    })
+  };
+  const bridge={idFromName:name=>name,get:()=>({fetch:async()=>Response.json({ready:true})})};
+  const env={
+    CHAT_V2_ENABLED:'true',
+    STORAGE_MODE:'production',
+    CONTENT_ALLOWED_HOST:'lumiscia.org',
+    CHAT_INBOX:inbox,
+    CHAT_BRIDGE:bridge,
+    CONTENT_SESSION_SECRET:'fixture'
+  };
+  const worker=durableChatWorker(
+    {fetch:()=>Response.json({ok:true})},
+    {authenticate:async()=>student}
+  );
+  const response=await worker.fetch(new Request('https://lumiscia.org/api/messages/socket',{
+    headers:{Upgrade:'websocket',Origin:'https://lumiscia.org'}
+  }),env,{waitUntil:()=>{}});
+  assert.equal(response.status,101);
+  assert.equal(inboxConfigured,true);
+});

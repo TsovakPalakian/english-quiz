@@ -292,7 +292,9 @@ async function stagePaintStats(){
   const token=++statsToken,generation=viewGen,target=viewAccount?.id||'';
   if(!authUser||!accountReady||viewSwitching){box.textContent='Sign in and wait for the profile to load.';return;}
   box.textContent='Loading Learning activity…';
-  const params=new URLSearchParams({from:document.getElementById('statsFrom').value,to:document.getElementById('statsTo').value});
+  let fromVal=document.getElementById('statsFrom').value,toVal=document.getElementById('statsTo').value;
+  if(fromVal&&toVal&&fromVal>toVal){const swap=fromVal;fromVal=toVal;toVal=swap;}
+  const params=new URLSearchParams({from:fromVal,to:toVal});
   try{
     const path=target?'/api/admin/users/'+encodeURIComponent(target)+'/stats':'/api/stats';
     const developer=typeof isDeveloper==='function'&&isDeveloper();
@@ -307,7 +309,9 @@ async function stageStatsHistory(all){
   if(!stageOwnReady()||!window.LearningMain.capabilities().legacyHistory)return;
   const token=++statsToken,box=document.getElementById('statsBody');if(!box)return;
   box.textContent='Loading read-only archive…';
-  const params=new URLSearchParams({from:document.getElementById('statsFrom').value,to:document.getElementById('statsTo').value});
+  let fromVal=document.getElementById('statsFrom').value,toVal=document.getElementById('statsTo').value;
+  if(fromVal&&toVal&&fromVal>toVal){const swap=fromVal;fromVal=toVal;toVal=swap;}
+  const params=new URLSearchParams({from:fromVal,to:toVal});
   if(all)params.set('scope','all');
   try{
     const data=await accountFetch('/api/stats/history?'+params.toString());if(token!==statsToken)return;
@@ -435,8 +439,38 @@ function stageSaveWord(place,input,status,button,openCard){
       const en=String(data&&data.word||word).trim(),ru=String(data&&data.ru||'').trim();
       if(!data||!data.found||!en||!ru)throw new Error('No translation came back for this word.');
       if(loadAdded().some(row=>(row.place||'mine')===place&&String(row.word||row.en||'').toLowerCase()===en.toLowerCase()))throw duplicateError();
-      result=managed?await window.LearningMain.newManagedCard(accountId,en,ru,place):await window.LearningMain.newCard(en,ru,place);
-      result={...result,card:{...result.card,word:en,ru,place:result.card.place||place,data}};
+      let existingCard=null;
+      try{
+        existingCard=await window.LearningMain.findCard(en);
+      }catch(err){
+        if(err?.cards?.length){
+          existingCard=err.cards.find(c=>String(c.ru||'').trim().toLowerCase()===ru.toLowerCase())||err.cards[0];
+        }
+      }
+      if(existingCard){
+        if(loadAdded().some(row=>row.stageId===existingCard.id&&(row.place||'mine')===place))throw duplicateError();
+        result=managed?await window.LearningMain.linkManagedCard(accountId,existingCard,place):await window.LearningMain.linkCard(existingCard,place);
+        result={...result,card:{...result.card,word:result.card.word||en,ru:result.card.ru||ru,place:result.card.place||place,data}};
+      }else{
+        try{
+          result=managed?await window.LearningMain.newManagedCard(accountId,en,ru,place):await window.LearningMain.newCard(en,ru,place);
+          result={...result,card:{...result.card,word:en,ru,place:result.card.place||place,data}};
+        }catch(createErr){
+          if(createErr?.status===409&&String(createErr.message).includes('The same definition exists')){
+            const fallbackRows=await accountFetch('/api/cards?exact=1&q='+encodeURIComponent(en));
+            const fallbackCard=(Array.isArray(fallbackRows)?fallbackRows:[]).find(r=>r.en.trim().toLowerCase()===en.toLowerCase()&&String(r.ru||'').trim().toLowerCase()===ru.toLowerCase())||(Array.isArray(fallbackRows)?fallbackRows[0]:null);
+            if(fallbackCard){
+              if(loadAdded().some(row=>row.stageId===fallbackCard.id&&(row.place||'mine')===place))throw duplicateError();
+              result=managed?await window.LearningMain.linkManagedCard(accountId,fallbackCard,place):await window.LearningMain.linkCard(fallbackCard,place);
+              result={...result,card:{...result.card,word:result.card.word||en,ru:result.card.ru||ru,place:result.card.place||place,data}};
+            }else{
+              throw createErr;
+            }
+          }else{
+            throw createErr;
+          }
+        }
+      }
     }
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
     const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);if(!managed)trackEvent('card',place,'add');
@@ -2270,7 +2304,8 @@ function stageFetchLessons(materials){
   });
 }
 function stageQueueLessons(){
-  return Promise.resolve(stagePullLessons()).then(()=>{
+  const groupsReady = typeof classGroupsReady !== 'undefined' && !classGroupsReady && typeof groupPull === 'function' ? groupPull() : Promise.resolve();
+  return Promise.all([Promise.resolve(stagePullLessons()), groupsReady]).then(()=>{
     window.ContentCache?.set('lesson:summary',lmLibrary?.materials||[]);
     if((document.querySelector('section.on')||{}).id==='days'&&typeof paintLmDays==='function')paintLmDays();
     for(const material of lmLibrary?.materials||[])stageLessonGap(material);

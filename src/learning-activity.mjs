@@ -34,6 +34,7 @@ export class ActivityService extends StudyService {
     if(!/^\d{4}-\d{2}-\d{2}$/.test(to)||!Number.isFinite(Date.parse(to)))fail(400,'Invalid dates.');
     from ||= new Date(Date.parse(to)-29*86400000).toISOString().slice(0,10);
     for(const date of [from,to])if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date)fail(400,'Invalid dates.');
+    if(Date.parse(to)<Date.parse(from)){const swap=from;from=to;to=swap;}
     const days=(Date.parse(to)-Date.parse(from))/86400000+1;if(days<1||days>366)fail(400,'Use at most 366 days.');
     const previousTo=new Date(Date.parse(from)-86400000).toISOString().slice(0,10),previousFrom=new Date(Date.parse(from)-days*86400000).toISOString().slice(0,10);
     const rows=await this.db.read("SELECT p.key,p.value_json FROM profile_settings p JOIN profile_members m ON m.profile_id=p.profile_id WHERE m.account_id=? AND p.key LIKE 'activity:%' ORDER BY p.key",[actor.id]);

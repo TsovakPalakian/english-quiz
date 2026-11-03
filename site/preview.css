@@ -2085,11 +2085,6 @@ input[type="text"], input[type="search"], input[type="password"], input[type="em
 #themes > .meta h1 { flex: 1; text-align: left; }
 #themes > .sub { text-align: left; }
 #themes > .card { width: 100%; }
-#profile.on { align-items: stretch; }
-#profile.on > .meta { width: 100%; justify-content: flex-start; }
-#profile > .meta h1 { flex: 1; text-align: left; }
-#profile > .row { justify-content: flex-start; text-align: left; }
-#profile #profileBody { width: 100%; }
 #account.on { align-items: flex-start; }
 #account.on > .meta,
 #account.on > .account-stage { width: min(640px, 100%); justify-content: flex-start; }
@@ -2780,7 +2775,6 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .account-approval-row>.btn{display:flex;align-items:center;justify-content:center;border-radius:var(--saas-radius-md,6px);font-size:13px;font-weight:600}
 .card .account-approval-row .hint,
 .account-approval-row .hint{display:block;margin:4px 0 0;padding:0;background:transparent;border:none;border-radius:0;color:var(--saas-text-muted,#64748b);font-size:13px;font-weight:500;line-height:1.4}
-.account-approval-row br{display:none}
 @media(max-width:700px){.account-approval-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0}.account-approval-row>div,.account-approval-row>select,.account-approval-row>span{grid-column:1/-1}}
 .accounts-tabs button { flex: 1 1 150px; min-width: 0; overflow-wrap: anywhere; }
 #adminAccountSearch { margin: 8px 0 16px; }
@@ -3862,6 +3856,12 @@ button.group-person:hover { background: var(--acc-s); }
   flex-direction: column;
   gap: 6px;
 }
+#adminuser .account-group-controls select,
+#adminuser .account-role-controls select {
+  height: 42px;
+  min-height: 42px;
+  box-sizing: border-box;
+}
 #adminuser .account-group-controls > label > span,
 #adminuser .account-role-controls > label > span {
   font-size: 12px;
@@ -3869,9 +3869,17 @@ button.group-person:hover { background: var(--acc-s); }
   line-height: 1.4;
 }
 #adminuser .account-group-hint { margin: 0; }
+#adminuser .account-group-actions,
+#adminuser .account-role-actions {
+  display: flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
 #adminuser .account-group-actions .btn,
 #adminuser .account-role-actions .btn {
   height: 42px;
+  min-height: 42px;
+  box-sizing: border-box;
   margin-bottom: 0;
   white-space: nowrap;
 }

@@ -134,13 +134,18 @@
       if (on && (on.id === "account" || on.id === "profile")) show("home");
       else if (on && on.id === "home") show("home");
       examPreload();
+      if (typeof groupPull === "function") groupPull();
       return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
         accountReady = true;
         paintGuestAccess();
         paintThemeSegs();
         startAccountPull();
-        lmPullFromServer();
+        const lessonsReady = lmPullFromServer();
+        const groupsReady = typeof classGroupsReady !== "undefined" && !classGroupsReady && typeof groupPull === "function" ? groupPull() : Promise.resolve();
+        Promise.all([Promise.resolve(lessonsReady), groupsReady]).then(() => {
+          if (document.querySelector("section.on")?.id === "days" && typeof paintLmDays === "function") paintLmDays();
+        });
         if (syncQueue.length) scheduleStateSave();
       }).catch(() => {
         accountReady = !!(loadAdded().length || loadSongs().length);
@@ -244,6 +249,11 @@
       }
       if (id === "statsFrom" || id === "statsTo") {
         document.querySelectorAll("[data-stats-range]").forEach((btn) => btn.classList.remove("primary"));
+        const f = document.getElementById("statsFrom"), t = document.getElementById("statsTo");
+        if (f && t && f.value && t.value) {
+          if (id === "statsFrom" && f.value > t.value) t.value = f.value;
+          else if (id === "statsTo" && t.value < f.value) f.value = t.value;
+        }
       }
       if (id === "statsFrom" || id === "statsTo" || id === "statsRole" || id === "statsUser" || id === "statsCompare") paintStats();
     });
@@ -555,9 +565,24 @@
         if (!email) return;
         button.disabled = true;
         accountFetch('/api/auth/password/code', { method: 'POST', body: JSON.stringify({ email }) })
+          .then(() => accountFetch('/api/logout', { method: 'POST', body: '{}' }).catch(() => {}))
+          .then(() => leaveAccount({ signedOut: true, authEntry: true }))
           .then(() => {
-            button.textContent = 'Reset code sent ✓';
-            window.LearningMain?.notice?.('Password reset code sent to student email.');
+            if (typeof visit === 'function') visit('account');
+            if (typeof window.paintRecovery === 'function') window.paintRecovery();
+            const form = document.getElementById('passwordRecoveryForm');
+            if (form) {
+              if (form.elements.email) {
+                form.elements.email.value = email;
+                form.elements.email.readOnly = true;
+              }
+              const fields = form.querySelector('[data-recovery-fields]');
+              if (fields) fields.hidden = false;
+              form.querySelectorAll('[data-recovery-fields] input').forEach(input => input.disabled = false);
+              const status = form.querySelector('[data-form-status]');
+              if (status) status.textContent = 'Check your inbox for a password reset code. It expires in 10 minutes.';
+              form.elements.code?.focus();
+            }
           })
           .catch(err => {
             button.disabled = false;

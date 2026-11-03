@@ -403,8 +403,8 @@
         const person = faceUser();
         box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
-          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="profile">Account</button>' +
-          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
+          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="settings" data-user-settings>Settings</button>' +
+          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
       }

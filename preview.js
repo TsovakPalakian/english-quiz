@@ -2782,17 +2782,17 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", articles: "tenses", speakout: "speakout",
       choice: "setup", flip: "setup", fsrsquiz: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "wordcollections", cardstat: "home", everyday: "wordcollections", everydaygroup: "wordcollections", everydaytopic: "wordcollections", grammarcategories: "tenses", grammarcategory: "tenses", grammarrule: "tenses",
-      account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
+      account: "account", profile: "settings", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
     function guestRestrictedPage(id) {
-      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','profile','speakout','speakouteditor','days','allwords','wordcollections','settings','workbenchqueue','workbenchmine','workbenchproviders'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','speakout','speakouteditor','days','allwords','wordcollections','settings','workbenchqueue','workbenchmine','workbenchproviders'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       window.LearningWorkbench?.paintEntry();
       document.querySelectorAll('.side-search').forEach(field=>{field.hidden=!authUser;});
       document.querySelectorAll('[data-msg-open],[data-jump="messages"]').forEach(button=>{button.hidden=!authUser;});
       document.querySelectorAll('[data-jump]').forEach(button=>{
-        if(['groups','exams','library','stats','profile','days','allwords','wordcollections','tenses','speakout'].includes(button.dataset.jump)||button.id==='homeStudy'){
+        if(['groups','exams','library','stats','days','allwords','wordcollections','tenses','speakout'].includes(button.dataset.jump)||button.id==='homeStudy'){
           const role=button.dataset.navRole;
           const allowed=!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role));
           button.hidden=!authUser||!allowed;
@@ -2813,7 +2813,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (base === "groups" || id === "days") return "days";
         if (["allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "allwords";
         if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
-        if (id === "account" || id === "profile" || id === "stats" || id === "themes") return "account";
+        if (id === "account" || id === "stats" || id === "themes" || id === "settings") return "account";
         if (examish) return "exams";
       }
       if (staff && (base === "groups" || base === "exams" || id === "days")) return "groups";
@@ -2887,7 +2887,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "workbenchqueue" && (viewAccount || !isTeacher())) id = "home";
       if (id === "workbenchmine" && !authUser) id = "account";
       if (id === "workbenchproviders" && (!isDeveloper() || viewAccount)) id = "home";
-      if (id === "account" && authUser) id = "profile";
+      if (id === "profile") id = "settings";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
       const crumbCurrent = document.getElementById('crumbCurrent');
@@ -2910,7 +2910,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "groups" && window.paintGroups) window.paintGroups();
       if (id === "groupdetail" && typeof prepareGroupDetail==='function') prepareGroupDetail();
       if (['groupteachers','groupstudents'].includes(id) && typeof prepareGroupDetail==='function') { prepareGroupDetail();paintGroupPeople(); }
-      if (id === "days" && window.paintLmDays) window.paintLmDays();
+      if (id === "days") {
+        if (authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && (!classGroupId || !classGroups.some(g => g.id === classGroupId))) classGroupId = classGroups[0].id;
+        if (window.paintLmDays) window.paintLmDays();
+      }
       if (id === "home") paintHomeAccount();
       if (id === "account") paintAccount();
       if (id === "profile") paintProfile();
@@ -2929,7 +2932,6 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "demonstratives" && window.paintDemonstratives) window.paintDemonstratives();
       if (id === "texts") paintTexts();
       if (id === "library") paintTextCount();
-      if (id === "days" && authUser?.role === "USER" && !viewAccount && typeof classGroups !== "undefined" && classGroups?.length && !classGroupId) classGroupId = classGroups[0].id;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
       if (id === "settings") paintSettings();
       if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
@@ -3024,7 +3026,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", texts: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', everyday: "wordcollections", tenses: "home", speakout: "home", archive: "home", themes: authUser ? "profile" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
+      const parents = { music: "library", texts: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', everyday: "wordcollections", tenses: "home", speakout: "home", archive: "home", themes: authUser ? "settings" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
@@ -4924,6 +4926,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           if(jump.dataset.jump==='groups')groupViewLevel='';
           else if(jump.dataset.jump==='days'){
             if(typeof classGroups!=='undefined'&&classGroups?.length&&(!classGroupId||!classGroups.some(row=>row.id===classGroupId)))classGroupId=classGroups[0].id;
+            if(typeof classGroupsReady!=='undefined'&&!classGroupsReady&&typeof groupPull==='function')groupPull();
           }
           else{examViewLevel='';examViewGroup=null;examSection=authUser?.role==='USER'&&!viewAccount?'assigned':'active';}
           show(jump.dataset.jump);return;
@@ -13480,8 +13483,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const person = faceUser();
         box.innerHTML = '<div class="card saas-card"><p class="stat-kicker">' + roleLabel(person.role) + '</p>' +
           '<p class="entry">' + esc(person.login) + '</p><p class="hint">' + esc(person.email) + '</p>' +
-          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="profile">Account</button>' +
-          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-user-settings>Settings</button><button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
+          '<div class="row"><button class="btn primary saas-btn" type="button" data-jump="settings" data-user-settings>Settings</button>' +
+          (viewAccount ? "" : '<button class="btn saas-btn" type="button" data-account="logout">Log out</button>') +
           '</div></div>';
         return;
       }
@@ -14353,6 +14356,7 @@ const STUDIO_CONSTELLATIONS = [{
     box.innerHTML='<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Reset your password</h1><form id="passwordRecoveryForm"><label for="recoveryEmail">Email address</label><input class="saas-input" id="recoveryEmail" name="email" type="email" autocomplete="email" maxlength="120" required/><button class="btn auth-code-send primary saas-btn" type="button" data-recovery-send>Send code</button><div data-recovery-fields hidden><label for="recoveryCode">Email code</label><input class="saas-input" id="recoveryCode" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" disabled required/><label for="recoveryPassword">New password</label><div class="auth-password"><input class="saas-input" id="recoveryPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" disabled required/><button type="button" data-auth-password aria-controls="recoveryPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div><p class="hint">8–128 characters</p><button class="btn primary saas-btn" type="submit" disabled>Save new password</button></div><p class="hint" role="status" data-form-status></p></form></div></div>';
     box.querySelector('input').focus();
   }
+  window.paintRecovery = paintRecovery;
   const navigation=['home'];let restoring=false;
   const names={home:'home',login:'log in',register:'create account',recovery:'password reset',otp:'email code log in'};
   function navigate(state){
@@ -16077,7 +16081,7 @@ const STUDIO_CONSTELLATIONS = [{
           '</div>';
         const waitingHtml = '<div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
-            '<div class="account-approval-row" data-list-row><div><b>' + esc(row.login) + '</b><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
+            '<div class="account-approval-row" data-list-row><div><b>' + esc((row.name && row.name.trim()) ? row.name.trim() : row.login) + '</b><span class="hint">Login: ' + esc(row.login) + '<br>Email: ' + esc(row.email) + ' · Role: ' + roleLabel(row.role) + '</span></div>' +
             '<div>'+(sessionIsDeveloper()&&!row.inviteGroupId?'<select aria-label="Approved role" data-registration-role="'+esc(row.id)+'"><option value="USER"'+(row.role!=='ADMIN'?' selected':'')+'>Student</option><option value="ADMIN"'+(row.role==='ADMIN'?' selected':'')+'>Teacher</option></select>':'')+(row.role==='ADMIN'?'<span class="hint">Teachers and staff</span>':'<select aria-label="Student group" data-registration-group="' + esc(row.id) + '"'+(row.inviteGroupId?' disabled':'')+'>' + adminGroupOptions(row.inviteGroupId||null) + '</select>')+'</div><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '"'+(row.inviteCanApprove===false||row.role==='ADMIN'&&!sessionIsDeveloper()&&row.inviteCanApprove!==true?' disabled title="Only the inviting teacher or a developer can approve"':'')+'>Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
@@ -16159,9 +16163,11 @@ const STUDIO_CONSTELLATIONS = [{
         html += '<div class="admin-meta-row"><dt>Last login:</dt><dd>Today, 14:20</dd></div>';
         html += '<div class="admin-meta-row"><dt>Account created:</dt><dd>' + esc(createdDate) + '</dd></div>';
         html += '</dl>';
-        html += '<div class="admin-user-sidebar-actions">';
-        html += '<button type="button" class="btn saas-btn saas-btn-secondary admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
-        html += '</div>';
+        if (authUser && String(authUser.id) === String(user.id)) {
+          html += '<div class="admin-user-sidebar-actions">';
+          html += '<button type="button" class="btn saas-btn saas-btn-secondary admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
+          html += '</div>';
+        }
         html += '</div></div></aside>';
 
         // Right column: Work Cards
@@ -16183,7 +16189,6 @@ const STUDIO_CONSTELLATIONS = [{
         html += '</label>';
         html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
-        html += '<p class="hint account-group-hint">' + (adminGroups.length ? 'Choose a group, then click Reassign.' : 'No groups available to assign.') + '</p>';
         html += '</div>';
 
         // Role field
@@ -16201,15 +16206,6 @@ const STUDIO_CONSTELLATIONS = [{
         html += '</div></div>';
 
         html += '</div>'; // end admin-form-grid saas-form-grid
-
-        html += '<div class="admin-card-footer saas-card-footer">';
-        html += '<p class="admin-form-hint saas-card-hint">Passwords are managed securely and not displayed here.</p>';
-        html += '<div class="admin-card-actions saas-card-actions">';
-        html += '<button type="button" class="btn saas-btn saas-btn-secondary" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
-        if (isDeveloper() && (user.role === 'USER' || user.role === 'ADMIN')) {
-          html += '<button class="btn primary saas-btn saas-btn-primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
-        }
-        html += '</div></div>';
         html += '</div>'; // end Card 1
 
         // Card 2: Account Status & Lifecycle (Danger Zone)
@@ -18306,8 +18302,11 @@ const STUDIO_CONSTELLATIONS = [{
       }
       const token = ++statsToken;
       const params = new URLSearchParams();
-      params.set("from", document.getElementById("statsFrom").value);
-      params.set("to", document.getElementById("statsTo").value);
+      let fromVal = document.getElementById("statsFrom").value;
+      let toVal = document.getElementById("statsTo").value;
+      if (fromVal && toVal && fromVal > toVal) { const swap = fromVal; fromVal = toVal; toVal = swap; }
+      params.set("from", fromVal);
+      params.set("to", toVal);
       if (viewAccount) {
         params.set("user", viewAccount.id);
         params.set("as", "user");
@@ -18657,13 +18656,18 @@ const STUDIO_CONSTELLATIONS = [{
       if (on && (on.id === "account" || on.id === "profile")) show("home");
       else if (on && on.id === "home") show("home");
       examPreload();
+      if (typeof groupPull === "function") groupPull();
       return loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
         fillEmptyFromAccount(state);
         accountReady = true;
         paintGuestAccess();
         paintThemeSegs();
         startAccountPull();
-        lmPullFromServer();
+        const lessonsReady = lmPullFromServer();
+        const groupsReady = typeof classGroupsReady !== "undefined" && !classGroupsReady && typeof groupPull === "function" ? groupPull() : Promise.resolve();
+        Promise.all([Promise.resolve(lessonsReady), groupsReady]).then(() => {
+          if (document.querySelector("section.on")?.id === "days" && typeof paintLmDays === "function") paintLmDays();
+        });
         if (syncQueue.length) scheduleStateSave();
       }).catch(() => {
         accountReady = !!(loadAdded().length || loadSongs().length);
@@ -18767,6 +18771,11 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if (id === "statsFrom" || id === "statsTo") {
         document.querySelectorAll("[data-stats-range]").forEach((btn) => btn.classList.remove("primary"));
+        const f = document.getElementById("statsFrom"), t = document.getElementById("statsTo");
+        if (f && t && f.value && t.value) {
+          if (id === "statsFrom" && f.value > t.value) t.value = f.value;
+          else if (id === "statsTo" && t.value < f.value) f.value = t.value;
+        }
       }
       if (id === "statsFrom" || id === "statsTo" || id === "statsRole" || id === "statsUser" || id === "statsCompare") paintStats();
     });
@@ -19078,9 +19087,24 @@ const STUDIO_CONSTELLATIONS = [{
         if (!email) return;
         button.disabled = true;
         accountFetch('/api/auth/password/code', { method: 'POST', body: JSON.stringify({ email }) })
+          .then(() => accountFetch('/api/logout', { method: 'POST', body: '{}' }).catch(() => {}))
+          .then(() => leaveAccount({ signedOut: true, authEntry: true }))
           .then(() => {
-            button.textContent = 'Reset code sent ✓';
-            window.LearningMain?.notice?.('Password reset code sent to student email.');
+            if (typeof visit === 'function') visit('account');
+            if (typeof window.paintRecovery === 'function') window.paintRecovery();
+            const form = document.getElementById('passwordRecoveryForm');
+            if (form) {
+              if (form.elements.email) {
+                form.elements.email.value = email;
+                form.elements.email.readOnly = true;
+              }
+              const fields = form.querySelector('[data-recovery-fields]');
+              if (fields) fields.hidden = false;
+              form.querySelectorAll('[data-recovery-fields] input').forEach(input => input.disabled = false);
+              const status = form.querySelector('[data-form-status]');
+              if (status) status.textContent = 'Check your inbox for a password reset code. It expires in 10 minutes.';
+              form.elements.code?.focus();
+            }
           })
           .catch(err => {
             button.disabled = false;
@@ -21038,7 +21062,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmTab() {
       const id = lmState && lmState.tab;
-      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
+      const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
+      if(id==='speech'&&!lmState.examOwned&&isDev&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
       return "overview";
     }
@@ -21704,7 +21729,8 @@ const STUDIO_CONSTELLATIONS = [{
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.lessonSpeechButton() || '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
+      const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (isDev ? (window.LearningWorkbench?.lessonSpeechButton() || '') : '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];
@@ -22857,7 +22883,7 @@ const STUDIO_CONSTELLATIONS = [{
 
 // Optional main-app consumer. Existing Study and exam runners remain untouched.
 (() => {
-  const prefix='/api/learning-workbench',valid=id=>Number.isSafeInteger(id)&&id>0;
+  const prefix='/api/learning-workbench',valid=id=>(Number.isSafeInteger(id)||(typeof id==='string'&&/^[1-9]\d{0,15}$/.test(id)))&&Number(id)>0;
   let job=null,dialog=null,observer=null,serial=0;
   const displayedCards=new Map();
   let speechUI=null,providerUI=null;
@@ -23015,7 +23041,7 @@ const STUDIO_CONSTELLATIONS = [{
       for(const q of list){const key=String(q[keys[depth]]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(q);}
       return [...groups].map(([key,items])=>'<details data-review-key="'+esc(keys.slice(0,depth+1).map(field=>items[0][field]).join(':'))+'"><summary>'+esc(labels[depth](items[0]))+' · '+items.length+'</summary><div class="learning-review-group">'+group(items,depth+1)+'</div></details>').join('');
     }
-    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>No matching quizzes.</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
+    render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>'+(entry.view==='mine'?'No matching quizzes. To create a quiz, open a lesson and click the ⋮ menu on any word card.':'No matching quizzes.')+'</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
     if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn saas-btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn saas-btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
   }
   async function coverage(entry){

@@ -620,7 +620,7 @@ try{
     await page.locator('#msgText').fill('Unsent draft');await page.reload();await page.waitForFunction(()=>document.querySelector('#messages.on'));await page.waitForFunction(()=>document.querySelector('#msgText').value==='Unsent draft');
   yield "160. evaluate";
   assert.equal(await page.evaluate(()=>loadAdded().some(c=>c.word.toLowerCase()==='hello'&&c.place==='chat')),true);await page.evaluate(async()=>{await saveChatWord('give away');await saveChatWord('spill the beans');});assert.equal(dictionaryCards.find(c=>c.en==='give away').place,'chat-phrasal');assert.equal(dictionaryCards.find(c=>c.en==='spill the beans').place,'chat-idioms');
-  await page.evaluate(()=>{authUser.role='ADMIN';document.querySelector('#profile').append(document.createElement('span'));});assert.equal(await page.locator('#msgAssign').count(),0);
+  await page.evaluate(()=>{authUser.role='ADMIN';document.querySelector('#account').append(document.createElement('span'));});assert.equal(await page.locator('#msgAssign').count(),0);
   const beforeExams=http.filter(p=>p==='/api/exams').length;
   examState='completed';event('catalog',{catalogVersion:1});
   yield "161. waitForFunction";
@@ -710,14 +710,14 @@ try{
   await page.locator('#msgRoomAvatar').click();await page.locator('.chat-avatar-dialog[open] img').waitFor();
     yield "181. press";
     await page.keyboard.press('Escape');await Promise.resolve();assert.deepEqual(errors,[]);
-  await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody .account-avatar-row img').waitFor();
-    yield "182. #profileBody [data-presence-subject] / checks";
-    assert.equal(await page.locator('#profileBody [data-presence-subject]').innerText(),'Online');assert.equal(await page.locator('#profileBody [data-avatar-upload]').count(),1);await Promise.resolve();assert.deepEqual(errors,[]);
-  await page.locator('#profileBody [data-user-settings]').click();
+  await page.evaluate(()=>window.enquizVisit('account'));await page.locator('#accountBody .account-avatar-row img').waitFor();
+    yield "182. #accountBody [data-presence-subject] / checks";
+    assert.equal(await page.locator('#accountBody [data-presence-subject]').innerText(),'Online');assert.equal(await page.locator('#accountBody [data-avatar-upload]').count(),1);await Promise.resolve();assert.deepEqual(errors,[]);
+  await page.locator('#accountBody [data-user-settings]').click();
     yield "183. .chat-edit-profile / checks";
     await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=username]').inputValue(),'@alice');await Promise.resolve();await (page.locator('dialog[open] [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();
   yield "184. setViewportSize";
-  await page.setViewportSize({width:390,height:844});const smallChooser=page.waitForEvent('filechooser');await page.locator('#profileBody [data-avatar-upload]').click();await(await smallChooser).setFiles({name:'Small.png',mimeType:'image/png',buffer:avatar});
+  await page.setViewportSize({width:390,height:844});const smallChooser=page.waitForEvent('filechooser');await page.locator('#accountBody [data-avatar-upload]').click();await(await smallChooser).setFiles({name:'Small.png',mimeType:'image/png',buffer:avatar});
     yield "185. .chat-photo-editor / checks";
     await page.locator('.chat-photo-editor').waitFor();assert.ok(await page.locator('.chat-photo-editor').evaluate(n=>n.scrollWidth<=n.clientWidth));await Promise.resolve();const beforeCancel=http.filter(p=>p==='/api/messages/avatar').length;await page.locator('[data-crop-cancel]').click();assert.equal(http.filter(p=>p==='/api/messages/avatar').length,beforeCancel);
   yield "186. setViewportSize";
@@ -743,7 +743,7 @@ try{
   const partialQuote={...attachmentReply,id:attachmentReply.id+1,replyText:'Alice'};rows.push(partialQuote);event('message',{message:partialQuote});await page.locator('[data-msg-id="'+partialQuote.id+'"] [data-msg-quote="1"]').click();assert.equal(await page.locator('[data-msg-id="1"] mark.chat-quote-highlight').innerText(),'Alice');assert.equal(await page.locator('[data-msg-id="1"] .chat-message-text').innerText(),'Hello Alice');
     yield "192. waitForFunction";
     await page.waitForFunction(()=>!document.querySelector('mark.chat-quote-highlight'));
-  await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();
+  await page.evaluate(()=>window.enquizVisit('account'));await page.locator('#accountBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();
     yield "193. .notification-sound-settings [name=enabled] / check";
     await page.locator('.notification-sound-settings [name=enabled]').check();await (page.locator('.user-settings [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();await page.evaluate(()=>window.enquizVisit('messages'));
   await page.waitForTimeout(450);
@@ -755,7 +755,7 @@ try{
   soundSettings={...soundSettings,sound:'common-toad'};await page.evaluate(()=>window.NotificationSounds.load(authUser.id));await page.waitForTimeout(450);const recordingBefore=await page.evaluate(()=>window.fixtureRecordingStarts||0),recordingMessage={...soundMessage,id:soundMessage.id+1,text:'Recorded notification'};rows.push(recordingMessage);event('message',{message:recordingMessage});
     yield "196. waitForFunction";
     await page.waitForFunction(before=>(window.fixtureRecordingStarts||0)>before,recordingBefore);
-  await page.evaluate(()=>window.enquizVisit('profile'));await page.locator('#profileBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();
+  await page.evaluate(()=>window.enquizVisit('account'));await page.locator('#accountBody [data-user-settings]').click();await page.locator('[data-settings-tab="notifications"]').click();
     yield "197. .notification-sound-settings [name=enabled] / checks";
     await page.locator('.notification-sound-settings [name=enabled]').uncheck();await page.locator('.notification-sound-settings [type=submit]').click();await page.locator('.notification-sound-settings [role=status]').filter({hasText:'Saved'}).waitFor();await (page.locator('.user-settings [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();
     yield "198. messages";

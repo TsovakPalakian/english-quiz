@@ -39,5 +39,17 @@ test('guide visits endpoint accepts anonymous POST',async()=>{
     const post2=await app.fetch(new Request('https://accounts.example/api/guide/visits',{method:'POST',headers:{Origin:'https://accounts.example','Content-Type':'application/json'},body:JSON.stringify({visitor:'device-abcdef12'})}),env,{});
     assert.equal(post2.status,200);
     assert.deepEqual(await post2.json(),{views:2,uniques:1});
+    const postShortId=await app.fetch(new Request('https://accounts.example/api/guide/visits',{method:'POST',headers:{Origin:'https://accounts.example','Content-Type':'application/json'},body:JSON.stringify({visitor:'4'})}),env,{});
+    assert.equal(postShortId.status,200);
+    assert.deepEqual(await postShortId.json(),{views:3,uniques:2});
+  }finally{f.close();}
+});
+
+test('guide visits accepts short numeric visitor IDs from D1 accounts',async()=>{
+  const f=fixture();
+  try{
+    assert.deepEqual(await f.service.hit('1'),{views:1,uniques:1});
+    assert.deepEqual(await f.service.hit('4'),{views:2,uniques:2});
+    assert.deepEqual(await f.service.hit('4'),{views:3,uniques:2});
   }finally{f.close();}
 });

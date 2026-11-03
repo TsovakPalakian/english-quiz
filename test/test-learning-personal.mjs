@@ -251,6 +251,10 @@ test('Activity batch: replay counts once, UTC period/previous, profile isolation
   const f=fixture(),service=new ActivityService(f.db),body={mutationId:mutation(),events:[{kind:'answer',area:'Type',result:'ok'},{kind:'exam',area:'score',result:'pass'},{kind:'duration',area:'study',result:'',seconds:60}]};
   const result=await service.events(f.own,body);assert.deepEqual(await service.events(f.own,body),result);
   const stats=await service.stats(f.own,{});assert.equal(stats.activity.answers,1);assert.equal(stats.activity.examPass,1);assert.equal(stats.activity.seconds,60);assert.equal(stats.legacyHistoryIncluded,false);
+  const inverted=await service.stats(f.own,{from:'2026-11-03',to:'2026-11-02'});
+  assert.equal(inverted.from,'2026-11-02');
+  assert.equal(inverted.to,'2026-11-03');
+  assert.ok(inverted.activity);
   assert.equal((await service.stats(f.other,{})).activity.tracked,false);
   await assert.rejects(service.stats(f.own,{user:'u2'}),e=>e.status===403);await assert.rejects(service.stats(f.own,{to:'invalid'}),e=>e.status===400);
   await assert.rejects(service.events(f.own,{...body,mutationId:mutation(),forUserId:'u2'}),e=>e.status===400);

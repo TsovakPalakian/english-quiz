@@ -222,13 +222,18 @@
     ws.onclose = (event) => {
       if (socket !== ws || gen !== generation) return;
       disconnect();
+      if (event.code === 1000 || event.code === 1005) return;
       if (event.code === 4003) {
         if (current() && typeof leaveAccount === 'function') void leaveAccount({ signedOut: true });
         return;
       }
       void window.DatabaseContext?.check?.();
       if (!signedIn()) return;
-      status('Connection interrupted. Reconnecting...');
+      if (event.code === 4001 || event.code === 4002) {
+        status('Chat permissions updated. Reconnecting...');
+      } else {
+        status('Connection interrupted. Reconnecting...');
+      }
       if (reconnectCount >= 8) {
         status('Chat unavailable. Click Chats to reconnect.');
         return;

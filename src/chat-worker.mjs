@@ -345,6 +345,10 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in to open messages.');
         const identity=await sessionIdentity(env,request);
         await chatCall(env,'CHAT_BRIDGE','global','/bootstrap',{actor});
+        const currentProfile=await chatCall(env,'CHAT_INBOX',actor.id,'/snapshot',{}).catch(()=>null);
+        if(!currentProfile?.profile){
+          await chatCall(env,'CHAT_INBOX',actor.id,'/configure',{profile:{id:actor.id,name:actor.name,login:actor.login,email:actor.email,groupId:actor.groupId,role:actor.role,active:true},contacts:[],groups:[]});
+        }
         const target='https://chat.internal/connect?after='+Math.max(0,Number(url.searchParams.get('after'))||0);
         return env.CHAT_INBOX.get(env.CHAT_INBOX.idFromName(chatStorageName(env,actor.id))).fetch(new Request(target,{headers:{Upgrade:'websocket','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET,...(identity?{'X-Chat-Session':identity.sid,'X-Chat-Session-Expires':String(identity.exp*1000),'X-Chat-Session-Namespace':env.AUTH_DATABASE_PROVIDER==='neon'?'auth/neon/':''}:{}),...chatDatabaseHeaders(env)}}));
       }

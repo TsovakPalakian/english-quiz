@@ -148,8 +148,11 @@
       }
       const token = ++statsToken;
       const params = new URLSearchParams();
-      params.set("from", document.getElementById("statsFrom").value);
-      params.set("to", document.getElementById("statsTo").value);
+      let fromVal = document.getElementById("statsFrom").value;
+      let toVal = document.getElementById("statsTo").value;
+      if (fromVal && toVal && fromVal > toVal) { const swap = fromVal; fromVal = toVal; toVal = swap; }
+      params.set("from", fromVal);
+      params.set("to", toVal);
       if (viewAccount) {
         params.set("user", viewAccount.id);
         params.set("as", "user");

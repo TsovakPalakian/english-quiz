@@ -187,10 +187,11 @@
     const status=Number(entry.status)||0;
     const stack=String(entry.stack||'');
     if(/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(stack))return;
-    if(path.startsWith('/api/bugs')||status===401||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
+    if(path.startsWith('/api/bugs')||status===401||(status===404&&path==='/api/lesson-file')||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
     if(status===400&&(entry.error==='Enter a lesson title before saving.'||path==='/api/lessons'&&entry.error?.includes?.('title')))return;
     if((status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')))return;
-    if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
+    if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Wait for pending personal changes')||entry.error?.includes?.('Дождитесь сохранения личной очереди.')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
+    if(status===0&&String(entry.method||'GET').toUpperCase()==='GET'&&(typeof document!=='undefined'&&document.visibilityState==='hidden'))return;
     // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.
     if(status===409&&(path==='/api/groups'||/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path)))return;
     try{
@@ -352,7 +353,7 @@
       return result;
     }catch(error){
       if(error.status>=400 && error.status<500){pending=null;localStorage.removeItem(queueKey);}
-      if(error.status===409)error.message='Конфликт версии. Изменение не сохранено. Перечитайте сервер и повторите редактирование.';
+      if(error.status===409 && (!error.message || /revision/i.test(error.message)))error.message='Конфликт версии. Изменение не сохранено. Перечитайте сервер и повторите редактирование.';
       throw error;
     }
   }
@@ -377,6 +378,7 @@
   }
   async function binaryWrite(path,body,file,kind='media',onProgress){
     if(!actorId||!mediaAllowed())throw new Error('Файлы доступны только вошедшему пользователю разрешённого тестового стенда.');
+    if(personalQueue.length)await drainPersonal(true).catch(()=>{});
     if(personalQueue.length)throw new Error('Дождитесь сохранения личной очереди.');
     if(!file.size||file.size>25*1024*1024)throw new Error('Размер файла должен быть от 1 байта до 25 MiB.');
     const bytes=await file.arrayBuffer(),sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
@@ -419,7 +421,18 @@
       busy=true;preparing=false;
       await action();notice('Подтверждено тестовой Learning.');if(status){status.textContent='Сохранено на тестовом сервере.';status.classList?.remove('bad');}
     }
-    catch(error){notice(error.message,true);if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message,stack:error.stack});if(status){status.textContent=error.message;status.classList.add('bad');}}
+    catch(error){
+      const isDev=(typeof authUser!=='undefined'&&authUser?.role==='DEVELOPER')||(window.authUser?.role==='DEVELOPER'||workbenchRole==='DEVELOPER');
+      let userMessage=error.message;
+      if(!isDev){
+        const msg=String(error.message||'');
+        const isSystem=(error.status>=500)||(error.status===409)||(error instanceof TypeError)||(error instanceof ReferenceError)||(error instanceof SyntaxError)||error.message==='Ошибка тестового сервера'||/fetch|network|unexpected response|d1_error|sqlite|syntaxerror|typeerror|referenceerror|server error/i.test(msg);
+        if(isSystem){userMessage='Произошла ошибка, она находится на исправлении.';}
+      }
+      notice(userMessage,true);
+      if(!error.reported)reportClientBug({method:'CLIENT',path:(location&&location.pathname)||'/',status:Number(error.status)||0,error:error.message,stack:error.stack});
+      if(status){status.textContent=userMessage;status.classList.add('bad');}
+    }
     finally{busy=false;preparing=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);for(const el of rich)if(el.isConnected)el.setAttribute('contenteditable','true');if(!pending)void drainPersonal();}
   }
   function savePersonal(){
@@ -660,7 +673,7 @@
     async findCard(word){
       const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(word));
       const found=rows.filter(row=>row.en.trim().toLowerCase()===word.trim().toLowerCase());
-      if(found.length!==1)throw Object.assign(new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Learning такой карточки нет. Создание новых слов и внешний словарь пока не подключены.'),{code:found.length?'CARD_AMBIGUOUS':'CARD_NOT_FOUND'});
+      if(found.length!==1)throw Object.assign(new Error(found.length?'Есть несколько карточек с этим словом. Нужен выбор конкретного ID; ничего не добавлено.':'В тестовой Learning такой карточки нет. Создание новых слов и внешний словарь пока не подключены.'),{code:found.length?'CARD_AMBIGUOUS':'CARD_NOT_FOUND',cards:found});
       return found[0];
     },
     async lessonCards(word){

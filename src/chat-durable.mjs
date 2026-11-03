@@ -58,35 +58,36 @@ export class ChatRoom extends Store{
   }
   member(actor){
     if(!actor?.id||!this.get('room')?.active)fail(403,'This conversation is unavailable.');
-    let row=this.one('SELECT * FROM members WHERE id=? AND active=1',actor.id);
+    const actorId=String(actor.id);
+    let row=this.one('SELECT * FROM members WHERE id=? AND active=1',actorId);
     if(!row&&staff(actor)&&this.get('room').kind==='group'){
       const last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
-      this.sql.exec('INSERT INTO members(id,name,role,read_personal,read_learning) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET active=1,name=excluded.name,role=excluded.role,joined=0',actor.id,publicName(actor),actor.role,last,last);
-      row=this.one('SELECT * FROM members WHERE id=?',actor.id);
+      this.sql.exec('INSERT INTO members(id,name,role,read_personal,read_learning) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET active=1,name=excluded.name,role=excluded.role,joined=0',actorId,publicName(actor),actor.role,last,last);
+      row=this.one('SELECT * FROM members WHERE id=?',actorId);
     }
-    if(!row)fail(403,'This is a private conversation.');return {...row,joined:this.visibilityFloor(actor.id,row.joined)};
+    if(!row)fail(403,'This is a private conversation.');return {...row,joined:this.visibilityFloor(actorId,row.joined)};
   }
-  visibilityFloor(account,joined=0){return Math.max(joined,this.get('cleared:'+account,0),this.get('cleared:everyone',0));}
-  settings(account){const value=this.get('settings:'+account,{}),legacy=this.one('SELECT muted FROM members WHERE id=?',account);return {...value,muted:value.muteUntil===undefined?!!legacy?.muted:value.muteUntil===-1||value.muteUntil>Date.now()};}
+  visibilityFloor(account,joined=0){return Math.max(joined,this.get('cleared:'+String(account),0),this.get('cleared:everyone',0));}
+  settings(account){const acc=String(account),value=this.get('settings:'+acc,{}),legacy=this.one('SELECT muted FROM members WHERE id=?',acc);return {...value,muted:value.muteUntil===undefined?!!legacy?.muted:value.muteUntil===-1||value.muteUntil>Date.now()};}
   summary(account){
-    const m=this.one('SELECT * FROM members WHERE id=? AND active=1',account),room=this.get('room');if(!m||!room?.active)return null;
-    const peer=room.kind==='direct'?this.one('SELECT id,name,role FROM members WHERE id<>? LIMIT 1',account):null;
-    const floor=this.visibilityFloor(account,m.joined),settings=this.settings(account);
+    const acc=String(account),m=this.one('SELECT * FROM members WHERE id=? AND active=1',acc),room=this.get('room');if(!m||!room?.active)return null;
+    const peer=room.kind==='direct'?this.one('SELECT id,name,role FROM members WHERE id<>? LIMIT 1',acc):null;
+    const floor=this.visibilityFloor(acc,m.joined),settings=this.settings(acc);
     const last=this.one("SELECT * FROM messages WHERE deleted=0 AND (id>? OR category='learning') ORDER BY id DESC LIMIT 1",floor);
     const counts=this.get('counts',{personal:0,learning:0});
-    const pins=this.pins(account);
-    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(account),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
+    const pins=this.pins(acc);
+    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(acc),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
   }
   access(account){
-    const room=this.get('room');
-    if((room?.kind==='group'||room?.kind==='circle')&&this.get('settings:'+account,{})?.deletedGroup)return {protected:true,blocked:true,blockedByMe:true,state:'accepted',canSend:false};
-    const protectedChat=this.get('protected',true),blocks=this.get('blocks',[]),consent=this.get('consent',{state:'new'}),blocked=!protectedChat&&blocks.length>0;
-    const member=this.one('SELECT role FROM members WHERE id=? AND active=1',account);
-    let canSend=!blocked&&(protectedChat||consent.state==='accepted'||consent.state==='new'||consent.state==='pending'&&consent.requestedBy!==account);
-    if(canSend&&room?.kind==='circle'&&room.restrictions?.send==='admins'&&room.ownerId!==account&&!staff(member))canSend=false;
-    return {protected:protectedChat,blocked,blockedByMe:!protectedChat&&blocks.includes(account),state:protectedChat?'accepted':consent.state,requestedBy:consent.requestedBy,canAccept:!protectedChat&&!blocked&&consent.state==='pending'&&consent.requestedBy!==account,canSend};
+    const room=this.get('room'),acc=String(account);
+    if((room?.kind==='group'||room?.kind==='circle')&&this.get('settings:'+acc,{})?.deletedGroup)return {protected:true,blocked:true,blockedByMe:true,state:'accepted',canSend:false};
+    const protectedChat=this.get('protected',true),blocks=this.get('blocks',[]).map(String),consent=this.get('consent',{state:'new'}),blocked=!protectedChat&&blocks.length>0;
+    const member=this.one('SELECT role FROM members WHERE id=? AND active=1',acc);
+    let canSend=!blocked&&(protectedChat||consent.state==='accepted'||consent.state==='new'||consent.state==='pending'&&String(consent.requestedBy)!==acc);
+    if(canSend&&room?.kind==='circle'&&room.restrictions?.send==='admins'&&String(room.ownerId)!==acc&&!staff(member))canSend=false;
+    return {protected:protectedChat,blocked,blockedByMe:!protectedChat&&blocks.includes(acc),state:protectedChat?'accepted':consent.state,requestedBy:consent.requestedBy,canAccept:!protectedChat&&!blocked&&consent.state==='pending'&&String(consent.requestedBy)!==acc,canSend};
   }
-  circleAdmin(actor){const room=this.get('room');return !!room&&(room.ownerId===actor.id||staff(actor));}
+  circleAdmin(actor){const room=this.get('room');return !!room&&(String(room.ownerId)===String(actor.id)||staff(actor));}
   writable(actor){
     const access=this.access(actor.id);if(!access.canSend)fail(403,access.blocked?'This conversation is blocked.':access.state==='rejected'?'The message request was declined.':'Wait for this person to accept your message request.');
     const room=this.get('room'),restr=room?.restrictions||{};
@@ -94,7 +95,7 @@ export class ChatRoom extends Store{
   }
   pinIds(){const pins=this.get('pins');if(Array.isArray(pins))return pins.filter(id=>Number.isSafeInteger(id));const legacy=this.get('pinned');return Number.isSafeInteger(legacy)?[legacy]:[];}
   pins(account){
-    const m=this.one('SELECT joined FROM members WHERE id=?',account),floor=this.visibilityFloor(account,m?.joined||0);
+    const acc=String(account),m=this.one('SELECT joined FROM members WHERE id=?',acc),floor=this.visibilityFloor(acc,m?.joined||0);
     return this.pinIds().map(id=>{
       const row=this.one("SELECT id,body,category FROM messages WHERE id=? AND deleted=0 AND (id>? OR category='learning')",id,floor);
       return row?{id:row.id,text:row.body.slice(0,120),category:row.category}:null;
@@ -102,8 +103,9 @@ export class ChatRoom extends Store{
   }
   pinned(account){const list=this.pins(account);return list.length?list[list.length-1]:null;}
   message(row,account){
-    const peer=this.one('SELECT MIN(read_'+row.category+') read,MIN(delivered_'+row.category+') delivered FROM members WHERE active=1 AND id<>?',account);
-    const member=this.one('SELECT joined FROM members WHERE id=?',account);if(member)member.joined=this.visibilityFloor(account,member.joined);
+    const acc=String(account);
+    const peer=this.one('SELECT MIN(read_'+row.category+') read,MIN(delivered_'+row.category+') delivered FROM members WHERE active=1 AND id<>?',acc);
+    const member=this.one('SELECT joined FROM members WHERE id=?',acc);if(member)member.joined=this.visibilityFloor(acc,member.joined);
     const reply=row.reply?this.one("SELECT body,name,category,deleted FROM messages WHERE id=? AND (id>? OR category='learning')",row.reply,member?.joined||0):null;
     if(reply&&!reply.deleted&&!reply.body)reply.body=this.get('files:'+row.reply,[]).map(file=>file.name).join(', ')||'Message';
     if(reply&&!reply.deleted){const quote=this.get('quote:'+row.id);if(quote)reply.body=quote;}
@@ -501,10 +503,10 @@ export class ChatInbox extends Store{
       const choice=value=>['everyone','admins'].includes(value)?value:null;
       const restrictions={send:choice(body.restrictions?.send),invite:choice(body.restrictions?.invite),media:choice(body.restrictions?.media)};
       if(!restrictions.send||!restrictions.invite||!restrictions.media)fail(400,'Choose every group restriction before creating.');
-      const contacts=this.get('contacts',[]),members=[actor],seen=new Set([actor.id]);
+      const contacts=this.get('contacts',[]),members=[actor],seen=new Set([String(actor.id)]);
       for(const raw of body.memberIds){
-        ref(raw);if(seen.has(raw))continue;seen.add(raw);
-        const discovery=this.get('discovered:'+raw),peer=contacts.find(u=>u.id===raw)||(discovery?.expires>Date.now()?discovery.person:null);
+        ref(raw);if(seen.has(String(raw)))continue;seen.add(String(raw));
+        const discovery=this.get('discovered:'+raw),peer=contacts.find(u=>String(u.id)===String(raw))||(discovery?.expires>Date.now()?discovery.person:null);
         if(!peer)fail(403,'Every member must be in your contacts or recently found.');
         members.push(peer);
       }
@@ -528,8 +530,8 @@ export class ChatInbox extends Store{
     if(action==='open'){
       let id;
       if(body.kind==='direct'){
-        ref(body.accountId);if(body.accountId===actor.id)fail(400,'Choose another person.');
-        const discovery=this.get('discovered:'+body.accountId),peer=this.get('contacts',[]).find(u=>u.id===body.accountId)||(discovery?.expires>Date.now()?discovery.person:null);
+        ref(body.accountId);if(String(body.accountId)===String(actor.id))fail(400,'Choose another person.');
+        const discovery=this.get('discovered:'+body.accountId),peer=this.get('contacts',[]).find(u=>String(u.id)===String(body.accountId))||(discovery?.expires>Date.now()?discovery.person:null);
         id=directRoomId(actor.id,body.accountId);
         if(!peer){if(!this.one('SELECT id FROM rooms WHERE id=?',id))fail(403,'Find this person by their full email or login first.');return {roomId:id,...await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor})};}
         id=directRoomId(actor.id,peer.id);const status=await chatCall(this.env,'CHAT_ROOM',id,'/status',{});
@@ -574,14 +576,14 @@ export class ChatInbox extends Store{
   async receiveRequest(request){
     if(new URL(request.url).pathname!=='/connect')return this.handle(request,async(path,body)=>{
       if(path==='/purge-account'){
-        const id=ref(body.accountId),own=this.get('profile')?.id===id;
+        const id=ref(body.accountId),own=String(this.get('profile')?.id)===String(id);
         this.tx(()=>{
           if(own){this.sql.exec('DELETE FROM events');this.sql.exec('DELETE FROM rooms');this.sql.exec('DELETE FROM meta');this.set('profile',{id,active:false});}
           else{
             for(const row of this.rows('SELECT id,data FROM rooms'))if(JSON.parse(row.data).peerId===id||row.id.split(':').includes(id))this.sql.exec('DELETE FROM rooms WHERE id=?',row.id);
             for(const row of this.rows('SELECT id,data FROM events'))if(row.data.includes(id))this.sql.exec('DELETE FROM events WHERE id=?',row.id);
             const views=this.get('profileViews',{});delete views[id];this.set('profileViews',views);
-            this.set('contacts',this.get('contacts',[]).filter(person=>person.id!==id));
+            this.set('contacts',this.get('contacts',[]).filter(person=>String(person.id)!==String(id)));
             for(const row of this.rows('SELECT key,value FROM meta'))if(row.key.includes(id))this.sql.exec('DELETE FROM meta WHERE key=?',row.key);
           }
         });

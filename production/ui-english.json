@@ -5,6 +5,7 @@
   "автономную SQLite": "offline SQLite",
   "Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.": "Connection interrupted. Saving is not confirmed; retry the same operation.",
   "Ошибка тестового сервера": "Server error",
+  "Произошла ошибка, она находится на исправлении.": "An error occurred and is being resolved.",
   "Есть несохранённые изменения. Повторите запись или явно отмените её через «Проверить сервер» перед выходом.": "Unsaved changes remain. Retry saving or explicitly discard them using Reload server before signing out.",
   "Вход подтверждён. Подключено к тестовой Learning.": "Signed in. Connected to Learning.",
   "Карточку нельзя однозначно связать с ID. Перезагрузите стенд; запись не отправлена.": "The card ID is ambiguous. Reload the page; no change was sent.",

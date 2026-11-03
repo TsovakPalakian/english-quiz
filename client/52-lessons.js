@@ -574,7 +574,8 @@
     }
     function lmTab() {
       const id = lmState && lmState.tab;
-      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
+      const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
+      if(id==='speech'&&!lmState.examOwned&&isDev&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
       return "overview";
     }
@@ -1240,7 +1241,8 @@
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.lessonSpeechButton() || '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
+      const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (isDev ? (window.LearningWorkbench?.lessonSpeechButton() || '') : '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];

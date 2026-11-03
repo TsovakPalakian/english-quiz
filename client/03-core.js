@@ -199,6 +199,7 @@
           if(jump.dataset.jump==='groups')groupViewLevel='';
           else if(jump.dataset.jump==='days'){
             if(typeof classGroups!=='undefined'&&classGroups?.length&&(!classGroupId||!classGroups.some(row=>row.id===classGroupId)))classGroupId=classGroups[0].id;
+            if(typeof classGroupsReady!=='undefined'&&!classGroupsReady&&typeof groupPull==='function')groupPull();
           }
           else{examViewLevel='';examViewGroup=null;examSection=authUser?.role==='USER'&&!viewAccount?'assigned':'active';}
           show(jump.dataset.jump);return;

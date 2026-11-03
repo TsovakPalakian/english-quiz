@@ -589,7 +589,7 @@
             : details.locked
               ? 'Name and email changes are currently locked.'
               : '') +
-          '</p><button type="submit" class="primary" data-profile-save>Done</button></form><button class="chat-link" type="button" data-profile-open>My account</button><button class="chat-link" type="button" data-chat-blocked>Blocked users</button>';
+          '</p><button type="submit" class="primary" data-profile-save>Done</button></form><button class="chat-link" type="button" data-chat-blocked>Blocked users</button>';
       }
       if (id === 'notifications')
         html =
@@ -649,7 +649,6 @@
         node.close();
         performLogout();
       });
-      pane.querySelector('[data-profile-open]')?.remove();
       pane.querySelector('[data-chat-blocked]')?.remove();
       if (id === 'theme') {
         mountSection('themes', pane);
@@ -1011,7 +1010,8 @@
         paintRooms();
         await history();
       } else if (target.dataset.contactId) {
-        const result = await request('open', { kind: 'direct', accountId: target.dataset.contactId });
+        const rawId = target.dataset.contactId;
+        const result = await request('open', { kind: 'direct', accountId: /^[0-9]+$/.test(rawId) ? Number(rawId) : rawId });
         upsertRoom(result.room);
         kind = 'personal';
         await openRoom(result.roomId);

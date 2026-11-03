@@ -348,7 +348,7 @@
           '</div>';
         const waitingHtml = '<div class="card"><p class="label">Waiting for approval</p>' +
           (waiting.length ? waiting.map((row) =>
-            '<div class="account-approval-row" data-list-row><div><b>' + esc(row.login) + '</b><span class="hint">' + esc(row.email) + (row.name ? " · " + esc(row.name) : "") + ' · ' + roleLabel(row.role) + '</span></div>' +
+            '<div class="account-approval-row" data-list-row><div><b>' + esc((row.name && row.name.trim()) ? row.name.trim() : row.login) + '</b><span class="hint">Login: ' + esc(row.login) + '<br>Email: ' + esc(row.email) + ' · Role: ' + roleLabel(row.role) + '</span></div>' +
             '<div>'+(sessionIsDeveloper()&&!row.inviteGroupId?'<select aria-label="Approved role" data-registration-role="'+esc(row.id)+'"><option value="USER"'+(row.role!=='ADMIN'?' selected':'')+'>Student</option><option value="ADMIN"'+(row.role==='ADMIN'?' selected':'')+'>Teacher</option></select>':'')+(row.role==='ADMIN'?'<span class="hint">Teachers and staff</span>':'<select aria-label="Student group" data-registration-group="' + esc(row.id) + '"'+(row.inviteGroupId?' disabled':'')+'>' + adminGroupOptions(row.inviteGroupId||null) + '</select>')+'</div><button class="btn primary" type="button" data-account="approve" data-id="' + esc(row.id) + '"'+(row.inviteCanApprove===false||row.role==='ADMIN'&&!sessionIsDeveloper()&&row.inviteCanApprove!==true?' disabled title="Only the inviting teacher or a developer can approve"':'')+'>Approve</button>' +
             '<button class="btn" type="button" data-account="reject" data-id="' + esc(row.id) + '">Reject</button></div>'
           ).join("") : '<p class="hint">No one is waiting.</p>') +
@@ -430,9 +430,11 @@
         html += '<div class="admin-meta-row"><dt>Last login:</dt><dd>Today, 14:20</dd></div>';
         html += '<div class="admin-meta-row"><dt>Account created:</dt><dd>' + esc(createdDate) + '</dd></div>';
         html += '</dl>';
-        html += '<div class="admin-user-sidebar-actions">';
-        html += '<button type="button" class="btn saas-btn saas-btn-secondary admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
-        html += '</div>';
+        if (authUser && String(authUser.id) === String(user.id)) {
+          html += '<div class="admin-user-sidebar-actions">';
+          html += '<button type="button" class="btn saas-btn saas-btn-secondary admin-pwd-reset-btn" data-account="reset-password" data-email="' + esc(user.email) + '" data-id="' + esc(user.id) + '">🔑 Send password reset</button>';
+          html += '</div>';
+        }
         html += '</div></div></aside>';
 
         // Right column: Work Cards
@@ -454,7 +456,6 @@
         html += '</label>';
         html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
-        html += '<p class="hint account-group-hint">' + (adminGroups.length ? 'Choose a group, then click Reassign.' : 'No groups available to assign.') + '</p>';
         html += '</div>';
 
         // Role field
@@ -472,15 +473,6 @@
         html += '</div></div>';
 
         html += '</div>'; // end admin-form-grid saas-form-grid
-
-        html += '<div class="admin-card-footer saas-card-footer">';
-        html += '<p class="admin-form-hint saas-card-hint">Passwords are managed securely and not displayed here.</p>';
-        html += '<div class="admin-card-actions saas-card-actions">';
-        html += '<button type="button" class="btn saas-btn saas-btn-secondary" data-account="cancel-profile" data-id="' + esc(user.id) + '">Cancel</button>';
-        if (isDeveloper() && (user.role === 'USER' || user.role === 'ADMIN')) {
-          html += '<button class="btn primary saas-btn saas-btn-primary" type="button" data-account="save-profile" data-id="' + esc(user.id) + '">Save changes</button>';
-        }
-        html += '</div></div>';
         html += '</div>'; // end Card 1
 
         // Card 2: Account Status & Lifecycle (Danger Zone)
