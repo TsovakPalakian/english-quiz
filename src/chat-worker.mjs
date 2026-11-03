@@ -28,6 +28,31 @@ export class ChatBridge{
   get(key){const row=this.sql.exec('SELECT value FROM meta WHERE key=?',key).toArray()[0];return row?JSON.parse(row.value):null;}
   set(key,value){this.sql.exec('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',key,JSON.stringify(value));}
   async ensureJournal(){if(this.get('journalVersion')!==1){await new MessageService(this.database(this.env),async()=>[]).ensure();this.set('journalVersion',1);}}
+  async reconcileLegacyProfiles(){
+    if(!this.env.DB)return;
+    try{
+      const hasTable=(await this.env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_account_ids'").all()).results?.length;
+      if(!hasTable)return;
+      const mappings=(await this.env.DB.prepare('SELECT old_id, new_id FROM legacy_account_ids').all()).results||[];
+      for(const {old_id,new_id} of mappings){
+        if(!old_id||!new_id||String(old_id)===String(new_id))continue;
+        const newStr=String(new_id),oldStr=String(old_id);
+        const oldAvatar=this.get('avatar:'+oldStr);
+        if(oldAvatar&&!this.get('avatar:'+newStr)){
+          this.set('avatar:'+newStr,{
+            ...oldAvatar,
+            avatarUrl:'/api/messages/avatar?subject='+encodeURIComponent(newStr)+'&v='+(oldAvatar.avatarUrl?.split('&v=')[1]||crypto.randomUUID())
+          });
+        }
+        const oldUsername=this.get('username:'+oldStr);
+        if(oldUsername&&!this.get('username:'+newStr)){
+          this.set('username:'+newStr,oldUsername);
+          this.set('username-owner:'+oldUsername,newStr);
+        }
+        this.sql.exec("INSERT OR IGNORE INTO profiles(user_id, phone, phone_visible, birthday, birthday_visible) SELECT ?, phone, phone_visible, birthday, birthday_visible FROM profiles WHERE user_id = ?",newStr,oldStr);
+      }
+    }catch{}
+  }
   async policy(force=false,release=false){
     if(this.get('policyDirtyAt')&&!release){
       const dirty=this.get('policy');
@@ -40,6 +65,7 @@ export class ChatBridge{
     if(this.loading){const value=await this.loading;return force?this.policy(true,release):value;}
     this.loading=(async()=>{
       const db=this.database(this.env);await this.ensureJournal();
+      await this.reconcileLegacyProfiles();
       const users=(await this.env.DB.prepare('SELECT id,login,name,email,role,active,hidden,is_personal_data_revoked FROM users').all()).results||[];
       const [groups,members,teacherDocs]=await db.readMany([
         statement('SELECT id,title FROM class_groups WHERE deleted_at IS NULL'),
@@ -95,6 +121,10 @@ export class ChatBridge{
         });
       }
       for(const group of groups)allRooms.set('group:'+group.id,{id:'group:'+group.id,kind:'group',groupId:group.id});
+      const dbRooms=typeof db.read==='function'?await db.read('SELECT id,kind,group_id FROM chat_rooms').catch(()=>[]):[];
+      for(const room of dbRooms||[]){
+        allRooms.set(room.id,{id:room.id,kind:room.kind,groupId:room.group_id||null});
+      }
       await mapPool(users,8,async user=>{
         const own=members.find(m=>String(m.account_id)===String(user.id))?.group_id;
         const contacts=active.filter(u=>{
@@ -184,10 +214,11 @@ export class ChatBridge{
     }else await chatCall(this.env,'CHAT_ROOM',roomId,'/import',{initial:true,messages:[],complete:true});
   }
   async bootstrap(actor){
+    await this.reconcileLegacyProfiles();
     let policy=await this.policy(),known=policy.users.find(u=>String(u.id)===String(actor.id));
     const inboxSnapshot=await chatCall(this.env,'CHAT_INBOX',actor.id,'/snapshot',{}).catch(()=>null);
     if(!known||known.role!==actor.role||known.active===0||known.is_personal_data_revoked||!inboxSnapshot?.profile)policy=await this.policy(true,true);
-    const activePolicy=this.get('policy')||policy,db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=?',[actor.id]);
+    const activePolicy=this.get('policy')||policy,db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=? OR m.account_id=?',[String(actor.id),Number(actor.id)]);
     const taught=new Set((activePolicy.teachersByGroup||[]).filter(row=>(row.teacherIds||[]).map(String).includes(String(actor.id))).map(row=>Number(row.groupId)));
     const groups=activePolicy.groups.filter(g=>actor.role==='DEVELOPER'||(actor.role==='ADMIN'?taught.has(Number(g.id)):activePolicy.members.some(m=>String(m.account_id)===String(actor.id)&&m.group_id===g.id)));
     const roomIds=[...new Set([...legacy.map(r=>r.id),...groups.map(g=>'group:'+g.id)])].filter(id=>!(id.startsWith('group:')&&!groups.some(g=>'group:'+g.id===id)));

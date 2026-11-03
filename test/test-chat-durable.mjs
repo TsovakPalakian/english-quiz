@@ -547,3 +547,56 @@ test('WebSocket connection route ensures profile bootstrap for student without t
   assert.equal(response.status,101);
   assert.equal(inboxConfigured,true);
 });
+test('ChatBridge reconciles legacy avatar, username, and profiles using legacy_account_ids', async () => {
+  const sqlite = new DatabaseSync(':memory:');
+  sqlite.exec(`
+    CREATE TABLE users(id INTEGER PRIMARY KEY, login TEXT, name TEXT, email TEXT, role TEXT, active INTEGER, hidden INTEGER, is_personal_data_revoked INTEGER);
+    CREATE TABLE legacy_account_ids(old_id TEXT PRIMARY KEY, new_id INTEGER);
+    INSERT INTO users VALUES(1, 'tsovak', 'Tsovak', 'tsovak@example.com', 'DEVELOPER', 1, 0, 0);
+    INSERT INTO legacy_account_ids VALUES('old_dev_uuid_12345', 1);
+  `);
+  const mockDb = {
+    prepare(sql) {
+      return {
+        all() {
+          const stmt = sqlite.prepare(sql);
+          return { results: stmt.all() };
+        }
+      };
+    }
+  };
+  const bridgeDb = new DatabaseSync(':memory:');
+  const ctx = {
+    storage: {
+      sql: {
+        exec(query, ...args) {
+          let result = [];
+          for (const text of query.split(';').filter(s => s.trim())) {
+            const stmt = bridgeDb.prepare(text);
+            if (stmt.columns().length) result = stmt.all(...args);
+            else stmt.run(...args);
+          }
+          return { toArray: () => result };
+        }
+      },
+      transactionSync(fn) { return fn(); },
+      setAlarm: async () => {},
+      deleteAlarm: async () => {}
+    },
+    waitUntil() {}
+  };
+  const bridge = new ChatBridge(ctx, { DB: mockDb });
+  bridge.set('avatar:old_dev_uuid_12345', { storageKey: 'chat/avatars/dev-pic.jpg', mime: 'image/jpeg' });
+  bridge.set('username:old_dev_uuid_12345', '@tsovak');
+  bridge.sql.exec("INSERT INTO profiles(user_id, phone) VALUES('old_dev_uuid_12345', '+37499123456')");
+
+  assert.equal(bridge.get('avatar:1'), null);
+  assert.equal(bridge.get('username:1'), null);
+
+  await bridge.reconcileLegacyProfiles();
+
+  assert.equal(bridge.get('avatar:1')?.storageKey, 'chat/avatars/dev-pic.jpg');
+  assert.equal(bridge.get('username:1'), '@tsovak');
+  const prof = bridge.sql.exec("SELECT phone FROM profiles WHERE user_id='1'").toArray()[0];
+  assert.equal(prof?.phone, '+37499123456');
+});

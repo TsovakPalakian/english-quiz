@@ -527,7 +527,9 @@
               if (!response.ok) throw new Error(value.error || 'Profile unavailable.');
               return value;
             }),
-            request('profiles', { ids: [profile.id] }),
+            (ready && socket?.readyState === WebSocket.OPEN
+              ? request('profiles', { ids: [profile.id] }).catch(() => ({ profiles: [profileViews[profile.id] || profile] }))
+              : Promise.resolve({ profiles: [profileViews[profile.id] || profile] })),
             domain('/profile'),
           ]).then(([account, fresh, own]) => {
             if (gen !== generation) throw new Error('Account changed.');

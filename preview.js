@@ -20550,7 +20550,7 @@ const STUDIO_CONSTELLATIONS = [{
           return true;
         });
       });
-      if (lmLibrary && classGroups.length) lmLibrary.materials.forEach((material) => {
+      if (lmLibrary && classGroups.length && (!authUser || !classGroupsReady)) lmLibrary.materials.forEach((material) => {
         if (material && material.id && !assigned.has(material.id)) {
           classGroups[0].lessonIds.push(material.id);
           assigned.add(material.id);
