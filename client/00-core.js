@@ -58,7 +58,7 @@
       account: "account", profile: "settings", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
     };
     function guestRestrictedPage(id) {
-      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','speakout','speakouteditor','days','allwords','wordcollections','settings','workbenchqueue','workbenchmine','workbenchproviders'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
+      return ['groups','groupdetail','groupteachers','groupstudents','exams','library','stats','speakout','speakouteditor','days','allwords','wordcollections','settings','profile','workbenchqueue','workbenchmine','workbenchproviders'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
     }
     function paintGuestAccess() {
       window.LearningWorkbench?.paintEntry();
@@ -155,12 +155,12 @@
       if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
+      if (id === "profile") id = "settings";
       if (id === "stats" && !authUser) id = "account";
       if (id === "settings" && !authUser) id = "account";
       if (id === "workbenchqueue" && (viewAccount || !isTeacher())) id = "home";
       if (id === "workbenchmine" && !authUser) id = "account";
       if (id === "workbenchproviders" && (!isDeveloper() || viewAccount)) id = "home";
-      if (id === "profile") id = "settings";
       if(id==='home')id=roleHome();
       if (typeof rememberHomeNavigation === 'function') rememberHomeNavigation(id);
       const crumbCurrent = document.getElementById('crumbCurrent');
