@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {extractFunction} from './helpers/extract-function.mjs';
 import {normalizeLessonPdfDraft,parseLessonPdfMeta} from '../src/lesson-pdf-meta.mjs';
 
 const source={pages:[1],generated:false};
@@ -129,7 +130,7 @@ test('imported exercise feedback stays hidden before checking and appears afterw
   const context=vm.createContext({crypto:webcrypto,TextEncoder,lmBlank:type=>({id:'exercise',type}),esc:String,lmPreviewChoices:()=>'<button>Answer</button>'});
   vm.runInContext(readFileSync(new URL('../client/52b-lesson-pdf-import.js',import.meta.url),'utf8'),context);
   const source=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
-  vm.runInContext(source.slice(source.indexOf('    function lmPreviewBlock(block)'),source.indexOf('    function lmPreviewParts(blocks)')),context);
+  vm.runInContext(extractFunction(source, 'lmPreviewBlock'), context);
   const block=(await context.lmPdfDraftBlocks(fixture(),'source')).classwork[1];
   assert.ok(!context.lmPreviewBlock(block).includes(block.pdfTeacherNotes));
   block.items[0].marked=true;block.items[0].correct=true;

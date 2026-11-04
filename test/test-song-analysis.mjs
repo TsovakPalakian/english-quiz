@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {extractFunctions} from './helpers/extract-function.mjs';
 const hooks=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8');
 const preview=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
 const missing=()=>Object.assign(new Error('Missing'),{code:'CARD_NOT_FOUND'});
@@ -62,10 +63,10 @@ test('Failed continuation keeps the useful result but reports partial analysis',
   scope.accountFetch=async()=>{if(calls++)throw Error('Unavailable');return {expressions:[{type:'IDIOM',canonicalForm:'take it easy'}],stats:{llmCandidates:2,llmPartial:true,nextReviewOffset:1}};};
   const result=await scope.stageRequestAnalysis('text','LYRICS');assert.equal(result.expressions.length,1);assert.equal(result.stats.llmPartial,true);assert.equal(result.error,'Unavailable');
 });
-function extract(name,next){return preview.slice(preview.indexOf('    function '+name+'('),preview.indexOf('    function '+next+'('));}
 test('Rendering uses saved surface aliases, does not cross sentence boundaries and distinguishes failures',()=>{
   const scope={cardIndex:()=>new Map([['give up',{en:'give up'}],['run',{en:'run'}]]),lemmaVerb:word=>({running:'run'}[word]||word),esc:value=>String(value),loadLearned:()=>new Set(),lyricCard:()=>null};
-  runInNewContext(extract('cardForLyric','lyricCard')+extract('lyricShownMark','mediaDb')+extract('lyricPieces','lyricCountLine')+extract('lyricMark','setSongHead'),scope);
+  const code = extractFunctions(preview, 'cardForLyric', 'lyricShownMark', 'lyricHtml', 'lyricPieces', 'lyricMark');
+  runInNewContext(code,scope);
   assert.equal(scope.cardForLyric('running').en,'run');
   const html=scope.lyricHtml('gave it up',{ 'gave it up':{state:'have',word:'give up'}});
   assert.match(html,/data-lyric-open="give up"/);assert.doesNotMatch(html,/lyric-miss/);

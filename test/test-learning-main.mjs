@@ -5,6 +5,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {pbkdf2Sync} from 'node:crypto';
 import {once} from 'node:events';
 import {runInNewContext as runVm} from 'node:vm';
+import {extractFunction, extractFunctions} from './helpers/extract-function.mjs';
 import {RealStageAuth,cloudflareAccountSource} from '../ops/learning-real-auth.mjs';
 import {createMainServer} from '../ops/run-learning-main.mjs';
 import {mainPreview} from '../ops/learning-main-preview.mjs';
@@ -58,8 +59,9 @@ test('Open-source showcase covers every material type and quiz type without empt
   assert.ok(materials.every(p=>p.tab==='overview'));
   assert.ok(materials.filter(p=>['image','audio','pdf','file','pronunciation'].includes(p.type)).every(p=>p.remoteUrl?.startsWith('https:')));
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   const scope={URL,lmFiles:{}};
-  runInNewContext(source.slice(source.indexOf('    function lmFileUrl('),source.indexOf('    function lmUploadFile(')),scope);
+  runInNewContext(extractFunctions(source, 'lmFileUrl', 'lmExternalFile', 'lmSrc'), scope);
   assert.equal(scope.lmSrc({id:1,remoteUrl:sources.image}),sources.image);
   for(const remoteUrl of ['javascript:alert(1)','http://example.invalid/a','https://password@example.invalid/a'])assert.equal(scope.lmExternalFile({remoteUrl}),'');
   assert.equal(scope.lmSrc({id:1,hasFile:true,remoteUrl:sources.image}),'/api/lesson-file?id=1');
@@ -398,7 +400,8 @@ test('Rich text review preserves original answers, hides drafts and validates fo
 });
 test('Lesson navigation keeps its original buttons and shows counts including zero and older lessons',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
-  const code=source.slice(source.indexOf('    function lmChromeHtml()'),source.indexOf('    function lmQuizCards()'));
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
+  const code=extractFunction(source, 'lmChromeHtml');
   const scope={lmState:{id:1},lmTab:()=> 'phrases',lmBlockCounts:()=>({words:0,phrases:1,rules:1})};
   runInNewContext(code,scope);const html=scope.lmChromeHtml();
   for(const label of ['Words · 0','Phrases · 1','Rules · 1'])assert.ok(html.includes(label));
@@ -1187,10 +1190,8 @@ test('R5 attachment removal updates editor only after server success and ignores
 });
 test('Home greets guests, says goodbye only after explicit logout, and welcomes signed-in users back',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
-  const helloStart=source.indexOf('    function paintHomeHello() {');
-  const leaveStart=source.indexOf('    function leaveAccount(options) {');
-  const code=source.slice(helloStart,source.indexOf('    function paintHomeAccount()',helloStart))+
-    source.slice(leaveStart,source.indexOf('    document.body.addEventListener("change"',leaveStart));
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
+  const code=extractFunctions(source, 'paintHomeHello', 'leaveAccount');
   function page(user=null){
     const hello={style:{}},actions={},scope={authUser:user,accountChecked:true,signedOutHello:false,syncQueue:[],syncTimer:0,DEFAULT_THEME:'almond',viewCache:new Map(),
       document:{querySelector:()=>hello,getElementById:()=>actions,documentElement:{removeAttribute(){}},body:{removeAttribute(){}}},
@@ -1238,6 +1239,7 @@ test('Expected sign-in failures do not show a notice or file bugs, and logout do
 });
 test('Bug cards include deployment data, compact resolve/copy controls and copy the full body',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   const start=source.indexOf('    function bugWhen(ms, zone) {'),end=source.indexOf('    let bugTab = "open";',start);
   let copied='';
   const scope={esc:value=>String(value),navigator:{clipboard:{writeText:async value=>{copied=value;}}},window:{isSecureContext:true},setTimeout};
@@ -1296,7 +1298,8 @@ test('Theme pictures switch from cached data to remote keys without clearing the
   const scope={authUser:{id:'fixture'},viewAccount:null,THEME_PICTURE_KEY:'enquiz-theme-picture',CUSTOM_COLOR_KEYS:['--bg','--card','--acc'],
     document:{documentElement:root},localStorage:{getItem:key=>saved.get(key)||null,setItem:(key,value)=>saved.set(key,value)}};
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
-  runInNewContext(source.slice(source.indexOf('    function clearCustomPaint('),source.indexOf('    function themeNameParts(')),scope);
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
+  runInNewContext(extractFunctions(source, 'clearCustomPaint', 'keptThemePhoto', 'themePhotoStamp', 'rememberedThemePhoto', 'rememberThemePicture', 'cacheThemePicture', 'themePhotoUrl', 'paintCustomVars'), scope);
   const theme={id:'user-next',photo:'stage-local/themes/1/user-next/'+'b'.repeat(64),vars:{'--bg':'#ffffff'}};
   scope.paintCustomVars(root,theme);assert.match(styles.get('--theme-photo'),/theme-photo\?id=user-next/);
   scope.rememberThemePicture(theme.id,'a'.repeat(64),'data:image/png;base64,OLD');
@@ -2083,10 +2086,11 @@ test('A text expression uses the dedicated card route and updates the list only 
 });
 test('Text expressions classify into Text, Phrasal verbs or Idioms, never My words',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   let cards=[{word:'example',place:'mine'}];
   const scope={PLACE_LABEL:{text:'Text',mine:'My words',phrasal:'Phrasal verbs',idioms:'Idioms'},loadAdded:()=>cards,
     expressionHead:value=>value||'',expressionIdentity:expr=>expr.canonicalForm,addedExpressionIdentity:row=>row.expressionKey};
-  runInNewContext(source.slice(source.indexOf('    function expressionPlace(expr)'),source.indexOf('    function expressionSaved(expr)')),scope);
+  runInNewContext(extractFunctions(source, 'expressionPlace', 'expressionDeckName', 'findExpressionCard'), scope);
   assert.equal(scope.expressionPlace({type:'WORD'}),'text');assert.equal(scope.expressionPlace(null),'text');
   assert.equal(scope.expressionPlace({type:'PHRASAL_VERB'}),'phrasal');assert.equal(scope.expressionPlace({type:'IDIOM'}),'idioms');
   const expr={type:'WORD',canonicalForm:'example'};
@@ -2319,11 +2323,12 @@ test('Numeric song and text IDs open when DOM attributes provide strings',async(
 });
 test('Lesson refresh cannot replace an open exam block with a matching lesson ID',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   const examDoc={id:8,examOwned:true,examId:9,blockId:8,published:false};
   const remote={id:8,title:'Updated lesson',published:true};
   const scope={lmState:examDoc,lmLibrary:{materials:[{id:8,title:'Old lesson'}, {id:10,examOwned:true}],activeId:8},
     lmEnsure(){},lmIsDemoId:()=>false,localStorage:{setItem(){}},LM_KEY:'lessons',paintLmDays(){},lmSchedulePush(){}};
-  runInNewContext(source.slice(source.indexOf('    function lmApplyRemote('),source.indexOf('    function lmPullFromServer()')),scope);
+  runInNewContext(extractFunction(source, 'lmApplyRemote'), scope);
   scope.lmApplyRemote([remote],{push:false});
   assert.equal(scope.lmState,examDoc);
   assert.equal(scope.lmLibrary.materials.length,1);assert.equal(scope.lmLibrary.materials[0],remote);
@@ -2337,13 +2342,13 @@ test('Page restoration keeps examination identity separate from lesson IDs',()=>
   const scope={accountChecked:true,placeBoot:true,lmState:examDoc,examReady:true,examCurrentId:'',examFind:()=>null,authUser:{role:'USER'},
     workFromLocation:()=>false,sessionStorage:{getItem:()=>JSON.stringify(place)},document:{getElementById:()=>({})},
     lmEnsure(){throw Error('Exam restoration must not search lessons');},examOpenBlock:id=>opened.push(id),show(){}};
-  runInNewContext(source.slice(source.indexOf('    function resumePlace() {'),source.indexOf('    function finishPlace(target) {')),scope);
+  runInNewContext(extractFunction(source, 'resumePlace'), scope);
   scope.resumePlace();assert.equal(scope.lmState,examDoc);assert.equal(opened.length,0);
   scope.lmState={id:8};scope.resumePlace();assert.deepEqual(opened,[8]);assert.equal(scope.examCurrentId,9);
   const written=[];
   const remember={capture:()=>({id:'material'}),placeBoot:false,lmState:null,dayQuizPlace:'',dayReturn:'',studyScreen:'',
     sessionStorage:{getItem:()=>JSON.stringify(place),setItem:(key,value)=>written.push(JSON.parse(value))}};
-  runInNewContext(source.slice(source.indexOf('    function rememberPlace() {'),source.indexOf('    function placeKey(')),remember);
+  runInNewContext(extractFunction(source, 'rememberPlace'), remember);
   remember.rememberPlace();assert.equal(written.length,0);
   remember.lmState=examDoc;remember.rememberPlace();
   assert.equal(written[0].examId,9);assert.equal(written[0].examBlockId,8);assert.equal(written[0].materialId,undefined);
@@ -2354,7 +2359,7 @@ test('Exam publication uses exam persistence and implicit saves preserve Publish
     canEditLessons:()=>true,clearTimeout(){},document:{getElementById:()=>({dataset:{lmKind:'exam'}})},
     window:{LearningMain:{perform:fn=>fn(),notice(){throw Error('Unexpected lesson save');}}},
     examSync:async()=>saved.push(scope.lmState.published),lmShow(){},lmNote(){},examDress(){}};
-  runInNewContext(source.slice(source.indexOf('function stageSaveLesson('),source.indexOf('function stageServerBaseline(')),scope);
+  runInNewContext(extractFunction(source, 'stageSaveLesson'), scope);
   await scope.stageSaveLesson();assert.equal(scope.lmState.published,true);
   await scope.stageSaveLesson(false);assert.equal(scope.lmState.published,false);
   await scope.stageSaveLesson(true);assert.equal(scope.lmState.published,true);
@@ -2367,7 +2372,7 @@ test('Deleting an unsaved draft never creates or archives it, while saved lesson
     canEditLessons:()=>true,stageDomId:value=>/^\d+$/.test(String(value))?Number(value):value,confirm:()=>true,
     window:{LearningMain:{perform(){throw Error('Unsaved local deletion must not wait for queued server operations');},saveLesson(){throw Error('Deletion must not create a lesson');},deleteLesson:async lesson=>calls.push(lesson.id)}},
     lmPersist:()=>calls.push('persist'),show:page=>calls.push(page)};
-  runInNewContext(source.slice(source.indexOf('function stageDeleteLesson('),source.indexOf('globalThis.lmDeleteLesson=')),scope);
+  runInNewContext(extractFunction(source, 'stageDeleteLesson'), scope);
   await scope.stageDeleteLesson(local.id);
   assert.deepEqual(calls,['persist','days']);assert.equal(scope.lmState,null);assert.equal(scope.lmLibrary.materials.length,1);assert.deepEqual(scope.classGroups[0].lessonIds,[31]);
   calls.length=0;scope.window.LearningMain.perform=fn=>fn();scope.lmState=saved;await scope.stageDeleteLesson(31);assert.deepEqual(calls,[31,'persist','days']);assert.equal(scope.lmLibrary.materials.length,0);
@@ -2378,9 +2383,11 @@ test('Administration ignores older page and user responses',async()=>{
   const box={innerHTML:''},slot={innerHTML:'',isConnected:true};
   const scope={URLSearchParams,location:{search:''},authUser:{id:'developer'},viewGen:1,viewAccount:null,document:{getElementById:id=>id==='adminBody'?box:id==='adminUser'?slot:null,addEventListener(){},querySelectorAll:()=>[]},
     accountFetch:path=>new Promise(resolve=>pending.push({path,resolve})),isTeacher:()=>true,isDeveloper:()=>false,
-    sessionIsDeveloper:()=>true,paintAccountsCount(){},accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String,viewCache:new Map()};
-  runInNewContext(source.slice(source.indexOf('    // Read-only views:'),source.indexOf('    function accountSnapshot() {')),scope);
-  runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
+    sessionIsDeveloper:()=>true,paintAccountsCount(){},accountVisible:()=>true,recentRows:()=>'',canOpenPages:()=>false,roleLabel:()=> 'Student',accountMark:()=>'',esc:String,viewCache:new Map(),
+    classGroupsDirty:false,classGroups:[],classGroupsReady:false};
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
+  runInNewContext(extractFunction(source, 'viewFresh'),scope);
+  runInNewContext(adminSource,scope);
   scope.paintAdmin();scope.paintAdmin();
   for(const item of pending.slice(6,12))item.resolve({});await new Promise(resolve=>setImmediate(resolve));
   box.innerHTML='Selected user';
@@ -2394,19 +2401,13 @@ test('Administration ignores older page and user responses',async()=>{
 });
 test('Numeric group, lesson, exam and exam-block IDs open from DOM strings',()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
-  const part=(from,to)=>source.slice(source.indexOf(from),source.indexOf(to,source.indexOf(from)));
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   const visits=[],exam={id:9,blocks:[{id:10,doc:{title:'Published block'}}]};
   const scope={classGroups:[{id:7,lessonIds:[8]}],classGroupId:'',isTeacher:()=>false,visit:id=>visits.push(id),
     lmLoadLibrary(){throw Error('Must preserve loaded server lessons');},lmLibrary:{materials:[{id:8,published:true}]},lmLessonVisibleToViewer:()=>true,canEditLessons:()=>false,lmState:null,
     localStorage:{getItem:key=>key==='enquiz-exams'?JSON.stringify([{id:9,title:'Published exam'}]):null},
     examLoad:()=>[{id:9,title:'Published exam'}],examCurrentId:9,examView:id=>id===9?structuredClone(exam):null,examHold:null};
-  runInNewContext(
-    part('    function domEntityId(value) {','    const dayScreens')+
-    part('    function groupOpen(id) {','    function groupCreate() {')+
-    part('    function lmEnsure() {','    function loadHiddenLessons() {')+
-    part('    function lmOpenLesson(id) {','    function lmKeepLesson() {')+
-    part('    function examFind(id) {','    let examWork = {}')+
-    part('    function examOpenBlock(blockId) {','    function examBoot() {'),scope);
+  runInNewContext(extractFunctions(source, 'domEntityId', 'groupOpen', 'lmEnsure', 'lmOpenLesson', 'examFind', 'examOpenBlock'),scope);
   scope.groupOpen('7');scope.lmOpenLesson('8');
   assert.equal(scope.examFind('9').title,'Published exam');
   scope.examOpenBlock('10');
@@ -2694,8 +2695,8 @@ test('System errors are masked for USER and ADMIN but kept detailed for DEVELOPE
 
 test('Lesson Speech button and speech tab are hidden for USER and ADMIN but accessible for DEVELOPER',async()=>{
   const lessonSource=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
-  const lmTabFn=lessonSource.slice(lessonSource.indexOf('    function lmTab() {'),lessonSource.indexOf('    function lmBlocksFor('));
-  const lmChromeHtmlFn=lessonSource.slice(lessonSource.indexOf('    function lmChromeHtml() {'),lessonSource.indexOf('    function lmQuizCards() {'));
+  const lmTabFn=extractFunction(lessonSource, 'lmTab');
+  const lmChromeHtmlFn=extractFunction(lessonSource, 'lmChromeHtml');
   const runLessonTest=(role,tab='overview')=>{
     const scope={
       authUser:{role},
@@ -2726,6 +2727,7 @@ test('Lesson Speech button and speech tab are hidden for USER and ADMIN but acce
 
 test('Registration requests queue displays full name in bold and credentials across lines',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   const box={innerHTML:''};
   const scope={
     authUser:{id:'admin',role:'ADMIN'},
@@ -2758,10 +2760,11 @@ test('Registration requests queue displays full name in bold and credentials acr
     statusLabel:s=>s,
     adminGroupOptions:()=>'',
     recentRows:()=>'',
+    classGroupsDirty:false,classGroups:[],classGroupsReady:false,
     document:{getElementById:id=>id==='adminBody'?box:null,querySelectorAll:()=>[],addEventListener:()=>{}}
   };
-  runInNewContext(source.slice(source.indexOf('    // Read-only views:'),source.indexOf('    function accountSnapshot() {')),scope);
-  runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),scope);
+  runInNewContext(extractFunction(source, 'viewFresh'),scope);
+  runInNewContext(adminSource,scope);
   runInNewContext("adminTab = 'requests';",scope);
   scope.paintAdmin();
   await new Promise(resolve=>setTimeout(resolve,50));
@@ -2773,6 +2776,7 @@ test('Registration requests queue displays full name in bold and credentials acr
 
 test('Send password reset is visible only to owner and performs sign out and recovery activation',async()=>{
   const source=readFileSync(new URL('../preview.js',import.meta.url),'utf8');
+  const adminSource=readFileSync(new URL('../client/10-admin.js',import.meta.url),'utf8');
   const slot={innerHTML:'',isConnected:true};
   const makeScope=(authId)=>{
     const s={
@@ -2794,10 +2798,11 @@ test('Send password reset is visible only to owner and performs sign out and rec
       accountGroupLevel:()=>'',
       adminGroupOptions:()=>'',
       when:()=>'today',
+      classGroupsDirty:false,classGroups:[],classGroupsReady:false,
       document:{getElementById:id=>id==='adminUser'?slot:null,addEventListener:()=>{},querySelectorAll:()=>[]}
     };
-    runInNewContext(source.slice(source.indexOf('    // Read-only views:'),source.indexOf('    function accountSnapshot() {')),s);
-    runInNewContext(source.slice(source.indexOf('    let adminPaintToken'),source.indexOf('    function viewKeys() {')),s);
+    runInNewContext(extractFunction(source, 'viewFresh'),s);
+    runInNewContext(adminSource,s);
     runInNewContext("adminAccounts = [{id:'u1',login:'user1',email:'u1@example.com',role:'ADMIN',active:true}];",s);
     return s;
   };

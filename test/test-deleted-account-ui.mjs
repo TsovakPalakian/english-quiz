@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
+import {extractStatement} from './helpers/extract-function.mjs';
 const {chromium}=createRequire(import.meta.url)(resolveTestDependency('playwright'));
 const source=readFileSync('client/40-account.js','utf8');
-const handler=source.slice(source.indexOf('    document.body.addEventListener("click", (e) => {'));
-assert.ok(handler.startsWith('    document.body.addEventListener'));
+const handler=extractStatement(source, 'document.body.addEventListener("click"');
 const server=createServer((req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<section id="adminuser" class="on"><button data-account="archive-user" data-id="student">Archive account</button></section><section id="admin"></section>');});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
 try{

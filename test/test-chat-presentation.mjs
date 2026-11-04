@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {extractFunction} from './helpers/extract-function.mjs';
 
 const source=readFileSync(new URL('../production/chat.js',import.meta.url),'utf8');
 // Top-level statements inside the chat IIFE start at a two-space indent.
@@ -42,7 +43,7 @@ test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
   const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;}},set innerHTML(value){writes++;},set title(value){writes++;}};
   const node={dataset:{content,msgId:'1'},querySelector:()=>receipt};
   const timeline={querySelector:()=>node,querySelectorAll:()=>[node]};
-  const merge=runInNewContext(source.slice(source.indexOf('  function mergeNode('),source.indexOf('  function syncDays('))+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
+  const merge=runInNewContext(extractFunction(source, 'mergeNode')+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
   for(let i=0;i<100;i++)merge(message);
   assert.equal(writes,0);assert.equal(scans,0);
 });

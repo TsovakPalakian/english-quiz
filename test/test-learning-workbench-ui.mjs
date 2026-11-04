@@ -13,6 +13,7 @@ import {bundleSource,speechUIFactory,reviewEditorFactory} from '../ops/build-pre
 import {LOCAL_SPEECH_RUBRIC,LOCAL_LANGUAGE_RUBRIC,localSpeechAdapter} from '../ops/local-speech-provider.mjs';
 import {WORKBENCH_TEST_BUCKET} from '../src/quiz-r2-media-store.mjs';
 import {wav} from './quiz-media-fixture.mjs';
+import {extractFunction} from './helpers/extract-function.mjs';
 import {QuizGenerationService} from '../src/quiz-generation.mjs';
 import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
@@ -34,7 +35,7 @@ yield "00. Fixture and browser setup";
     const pending=await f.draft(),returned=await f.draft(),own=await f.draft(actors.teacher);
     for(const [row,author] of [[pending,actors.student],[returned,actors.student],[own,actors.teacher]])await f.service.submit(author,row.id,body({expectedRevision:1}));
     const component=readFileSync(new URL('../client/52a-workbench.js',import.meta.url),'utf8'),lessonSource=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
-    const lesson=lessonSource.slice(lessonSource.indexOf('    function lmWordCardHtml('),lessonSource.indexOf('    function lmRuleCardHtml('));
+    const lesson=extractFunction(lessonSource, 'lmWordCardHtml');
     assert.ok(bundleSource('preview.js').includes(component));
     const script=`window.authUser={id:'u1',role:'USER'};window.accountReady=true;window.viewAccount=null;window.viewSwitching=false;window.viewGen=1;window.lmState={id:1,blocks:[{id:1,stageId:1,word:'drizzle'}]};window.classGroups=[{id:1,title:'A1 Monday',lessonIds:[1]},{id:2,title:'A2 Friday',lessonIds:[1]}];let flag=false;window.esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));window.wordPic=()=>'';window.ipaHtml=()=>'';window.examStudentRestricted=()=>false;window.LearningMain={capabilities:()=>flag?{learningWorkbench:true}:{},fetch:async(path,options={})=>{const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const data=await response.json();if(!response.ok)throw Error(data.error);return data;}};${component}\n${lesson}\nwindow.paint=()=>{document.querySelector('#lesson').innerHTML=lmWordCardHtml(lmState.blocks[0]);document.querySelector('#personal').innerHTML=LearningWorkbench.cardButton({stageId:1,word:'drizzle'});};window.toggle=value=>{flag=value;paint();};paint();`;
     server=createServer(async(req,res)=>{

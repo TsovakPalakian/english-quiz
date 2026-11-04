@@ -2,10 +2,11 @@ import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
+import {extractFunctions} from './helpers/extract-function.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(resolveTestDependency('playwright'));
 const source=readFileSync('production/chat/80-dialogs.js','utf8');
-const search=source.slice(source.indexOf('  function chatSearchRanges('),source.indexOf("  el('msgTextSearch').oninput"));
+const search=extractFunctions(source, 'chatSearchRanges', 'chatSearchSnippet', 'highlightChatSearch', 'search', 'messageFocusTimer', 'clearMessageFocus', 'highlightQuote', 'focusMessage');
 const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
 try{
   const page=await browser.newPage();
