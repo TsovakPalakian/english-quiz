@@ -178,6 +178,12 @@
       } else if (value.type === 'snapshot') {
         profileRequested.clear();
         Object.assign(profileViews, value.data.profiles || {});
+        if (value.data.profile) {
+          profileViews[value.data.profile.id] = {
+            ...profileViews[value.data.profile.id],
+            ...value.data.profile,
+          };
+        }
         const reconnect = ready;
         ready = true;
         reconnectCount = 0;
@@ -190,6 +196,7 @@
         status('');
         void writeChatCache(data);
         paintRooms();
+        paintProfiles();
         badge();
         const windowRoom = new URL(location.href).searchParams.get('chatWindow');
         if (!reconnect && windowRoom && data.rooms.some((r) => r.id === windowRoom)) {

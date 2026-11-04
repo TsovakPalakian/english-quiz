@@ -673,3 +673,54 @@ test('Socket reconnect automatically reactivates inactive profile via /configure
   assert.ok(configuredProfile);
   assert.equal(configuredProfile.active, true);
 });
+
+test('GET /api/messages/profile returns details and enriched public profile', async () => {
+  const user = { id: 1, role: 'USER', name: 'User', login: 'user' };
+  const inbox = {
+    idFromName: name => name,
+    get: () => ({
+      fetch: async (req) => {
+        const path = new URL(req.url).pathname;
+        if (path === '/command') {
+          return Response.json({ profiles: [{ id: 1, name: 'User' }] });
+        }
+        return Response.json({});
+      }
+    })
+  };
+  const bridge = {
+    idFromName: name => name,
+    get: () => ({
+      fetch: async (req) => {
+        const path = new URL(req.url).pathname;
+        if (path === '/profile') {
+          return Response.json({
+            details: { phone: '+123456789', birthday: '2000-01-01' },
+            profile: { id: 1, name: 'User', username: '@myuser', avatarUrl: '/api/messages/avatar?subject=1&v=abc' }
+          });
+        }
+        return Response.json({});
+      }
+    })
+  };
+  const env = {
+    CHAT_V2_ENABLED: 'true',
+    STORAGE_MODE: 'production',
+    CONTENT_ALLOWED_HOST: 'lumiscia.org',
+    CHAT_INBOX: inbox,
+    CHAT_BRIDGE: bridge,
+    CONTENT_SESSION_SECRET: 'fixture'
+  };
+  const worker = durableChatWorker({ fetch: () => Response.json({}) }, { authenticate: async () => user });
+  const response = await worker.fetch(new Request('https://lumiscia.org/api/messages/profile', {
+    method: 'GET',
+    headers: { Origin: 'https://lumiscia.org' }
+  }), env, { waitUntil: () => {} });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.ok(data.details);
+  assert.equal(data.details.phone, '+123456789');
+  assert.ok(data.profile);
+  assert.equal(data.profile.username, '@myuser');
+  assert.equal(data.profile.avatarUrl, '/api/messages/avatar?subject=1&v=abc');
+});

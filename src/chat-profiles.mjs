@@ -11,7 +11,7 @@ export function profileAllowed(inbox,id){
   return inbox.get('contacts',[]).some(u=>String(u.id)===sid)||rooms.length>0||inbox.get('discovered:'+sid)?.expires>Date.now();
 }
 export function profileDetails(store,id){const row=store.sql.exec('SELECT phone,phone_visible,birthday,birthday_visible FROM profiles WHERE user_id=?',id).toArray()[0];return {phone:row?.phone||'',phoneVisible:!!row?.phone_visible,birthday:row?.birthday||'',birthdayVisible:!!row?.birthday_visible};}
-function record(store,id){const saved=store.get('avatar:'+id)||{},presence=store.get('presence:'+id)||{online:false};return {id,...saved,...presence,username:store.get('username:'+id)||'',...profileDetails(store,id)};}
+export function record(store,id){const saved=store.get('avatar:'+id)||{},presence=store.get('presence:'+id)||{online:false};return {id,...saved,...presence,username:store.get('username:'+id)||'',...profileDetails(store,id)};}
 export function readProfiles(store,body){
   const ids=body.ids;if(!Array.isArray(ids)||ids.length>100)fail(400,'Choose up to 100 profiles.');
   const profiles=[];

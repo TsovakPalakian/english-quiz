@@ -25,12 +25,12 @@
 | **Этап 2** | `RACE-SRV-02` | [`src/chat-durable.mjs#L411`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-durable.mjs#L411), [`src/chat-durable.mjs#L443`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-durable.mjs#L443) | Сброс флага `active` и постоянная блокировка сокетов 403 `Sign in first.` | Невозможность восстановить соединение без повторного логина | 🟩 |
 | **Этап 2** | `RACE-SRV-03` | [`src/chat-worker.mjs#L60`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-worker.mjs#L60) | Блокировка 503 `Permissions are being synchronized.` при наличии `policyDirtyAt` | 120-секундный каскадный отказ сокетов при инвалидации | 🟩 |
 | **Этап 2** | `RACE-SRV-04` | [`src/chat-durable.mjs#L606`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-durable.mjs#L606) | Блокировка отправки `snapshot` внешним вызовом `await this.presence()` | Задержка входа клиента чата в рабочее состояние | 🟩 |
-| **Этап 3** | `RACE-CLI-01` | [`production/chat/90-settings.js#L530`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L530) | Блокирующий вызов сокета `request('profiles')` при открытии вкладки настроек | Падение вкладки с ошибкой при реконнекте сокета | ⬜ |
-| **Этап 3** | `RACE-CLI-02` | [`src/chat-worker.mjs#L316`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-worker.mjs#L316) | Неполный ответ эндпоинта `GET /api/messages/profile` | Необходимость вторичных запросов аватара по сокету | ⬜ |
-| **Этап 3** | `RACE-CLI-03` | [`production/chat/20-connection.js#L180`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/20-connection.js#L180) | Пропуск вызова `paintProfiles()` при обработке входящего снимка `snapshot` | Пропадание фото аватара при переподключении сокета | ⬜ |
-| **Этап 4** | `RACE-CLI-04` | [`client/52-lessons.js#L780`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L780) | Перезапись активного экрана экзамена фоновым событием входящего сообщения | Сброс фокуса и потеря ввода учащегося во время теста | ⬜ |
-| **Этап 4** | `RACE-CLI-05` | [`client/00-core.js#L230`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/00-core.js#L230) | Сохранение устаревшего контекста предыдущей роли при смене аккаунта | Утечка интерфейсных прав между студентом и учителем | ⬜ |
-| **Этап 4** | `RACE-CLI-06` | [`client/52-lessons.js#L1120`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1120) | Зависание очереди сохранения ответов экзамена при получении статуса 409 | Остановка синхронизации прогресса тестирования | ⬜ |
+| **Этап 3** | `RACE-CLI-01` | [`production/chat/90-settings.js#L530`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js#L530) | Блокирующий вызов сокета `request('profiles')` при открытии вкладки настроек | Падение вкладки с ошибкой при реконнекте сокета | 🟩 |
+| **Этап 3** | `RACE-CLI-02` | [`src/chat-worker.mjs#L316`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/chat-worker.mjs#L316) | Неполный ответ эндпоинта `GET /api/messages/profile` | Необходимость вторичных запросов аватара по сокету | 🟩 |
+| **Этап 3** | `RACE-CLI-03` | [`production/chat/20-connection.js#L180`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/20-connection.js#L180) | Пропуск вызова `paintProfiles()` при обработке входящего снимка `snapshot` | Пропадание фото аватара при переподключении сокета | 🟩 |
+| **Этап 4** | `RACE-CLI-04` | [`client/54-exams.js#L382`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L382) | Перезапись активного экрана экзамена фоновым событием входящего сообщения | Сброс фокуса и потеря ввода учащегося во время теста | ⬜ |
+| **Этап 4** | `RACE-CLI-05` | [`client/47-account.js#L199`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L199) | Сохранение устаревшего контекста предыдущей роли при смене аккаунта | Утечка интерфейсных прав между студентом и учителем | ⬜ |
+| **Этап 4** | `RACE-CLI-06` | [`client/54-exams.js#L332`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L332) | Зависание очереди сохранения ответов экзамена при получении статуса 409 | Остановка синхронизации прогресса тестирования | ⬜ |
 | **Этап 5** | `SCHEMA-01` | Схемы миграций баз данных D1 | Наличие 60 неиспользуемых таблиц `_v6` и `_v9` в схеме базы данных | Избыточность схемы D1 и замедление системного анализа | ⬜ |
 | **Этап 5** | `VERIFY-01` | Модули сборки и тестирования | Верификация отсутствия регрессий через целевые тест-сьюты и билдер | Подтверждение стабильности платформы | ⬜ |
 
@@ -186,24 +186,24 @@
 > Запрещено изменять алгоритмы расчета баллов экзаменов, структуру конспектов уроков и логику отображения карточек слов.
 
 #### Задача 4.1 (`RACE-CLI-04`): Защита активного экрана экзамена от фоновых событий
-- **Файл**: [`client/52-lessons.js#L780`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L780)
-- **Причина дефекта**: Глобальные события чата и уведомлений инициируют принудительную перерисовку контейнера страницы, стирая текущее состояние ввода студента во время тестирования.
+- **Файл**: [`client/54-exams.js#L382`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L382)
+- **Причина дефекта**: Глобальные события чата и уведомлений инициируют вызов `scheduleExamRefresh()`, который перезаписывает `examPaintBlocks()` во время активного заполнения блоков учащимся.
 - **Рекомендация по исправлению**:
-  Добавить проверку активного экрана: если открыт экран сдачи экзамена (`activeExamSession`), отложить перерисовку внешних блоков до выхода из сессии тестирования.
+  Добавить проверку активного ввода: если в блоках есть активный фокус ввода (`document.activeElement?.closest('#examblocks')`), отложить перерисовку DOM до потери фокуса.
 - **Критерий приемки**: Фоновые события не сбрасывают состояние активного экзамена.
 
 #### Задача 4.2 (`RACE-CLI-05`): Изоляция контекста аккаунта при смене пользователя
-- **Файл**: [`client/00-core.js#L230`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/00-core.js#L230)
-- **Причина дефекта**: Функция `initAccount` не очищает в памяти глобальные кэши предыдущей роли при авторизации под другой учетной записью.
+- **Файл**: [`client/47-account.js#L199-L208`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/47-account.js#L199-L208)
+- **Причина дефекта**: Асинхронные цепочки `loadAccountThemes` и `accountFetch('/api/me/state?summary=1')` применяют состояние без проверки поколения пользователя `viewGen`.
 - **Рекомендация по исправлению**:
-  При вызове `initAccount` производить полный сброс переменных `viewAccount`, `materialReviewStudent`, кэша комнат чата и локального состояния списков групп.
+  Проверять актуальность `viewGen` и `authUser` перед вызовом `fillEmptyFromAccount(state)`.
 - **Критерий приемки**: Переключение между профилями гарантирует отсутствие остаточных данных предыдущей сессии.
 
 #### Задача 4.3 (`RACE-CLI-06`): Разрешение версионных конфликтов 409 в очереди синхронизации
-- **Файл**: [`client/52-lessons.js#L1120`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1120)
-- **Причина дефекта**: При получении ответа 409 Conflict очередь повторных попыток зацикливается, блокируя сохранение последующих ответов.
+- **Файл**: [`client/54-exams.js#L332-L350`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/54-exams.js#L332-L350)
+- **Причина дефекта**: При получении ответа 409 Conflict очередь повторных попыток зацикливается, повторно отправляя устаревший `expectedRevision`.
 - **Рекомендация по исправлению**:
-  При ответе 409 запрашивать серверную ревизию документа, объединять локальные неотправленные ответы с серверным снимком и обновлять локальный номер ревизии.
+  При ответе 409 актуализировать серверную ревизию документа перед повторной отправкой.
 - **Критерий приемки**: Очередь успешно завершает синхронизацию после конфликта ревизий.
 
 ---

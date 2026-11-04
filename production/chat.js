@@ -843,6 +843,12 @@
       } else if (value.type === 'snapshot') {
         profileRequested.clear();
         Object.assign(profileViews, value.data.profiles || {});
+        if (value.data.profile) {
+          profileViews[value.data.profile.id] = {
+            ...profileViews[value.data.profile.id],
+            ...value.data.profile,
+          };
+        }
         const reconnect = ready;
         ready = true;
         reconnectCount = 0;
@@ -855,6 +861,7 @@
         status('');
         void writeChatCache(data);
         paintRooms();
+        paintProfiles();
         badge();
         const windowRoom = new URL(location.href).searchParams.get('chatWindow');
         if (!reconnect && windowRoom && data.rooms.some((r) => r.id === windowRoom)) {
@@ -6012,17 +6019,14 @@
               if (!response.ok) throw new Error(value.error || 'Profile unavailable.');
               return value;
             }),
-            (ready && socket?.readyState === WebSocket.OPEN
-              ? request('profiles', { ids: [profile.id] }).catch(() => ({ profiles: [profileViews[profile.id] || profile] }))
-              : Promise.resolve({ profiles: [profileViews[profile.id] || profile] })),
             domain('/profile'),
-          ]).then(([account, fresh, own]) => {
+          ]).then(([account, own]) => {
             if (gen !== generation) throw new Error('Account changed.');
-            for (const p of fresh.profiles) profileViews[p.id] = p;
+            if (own.profile) profileViews[own.profile.id] = { ...profileViews[own.profile.id], ...own.profile };
             const value = {
               details: account,
               privateDetails: own.details,
-              username: profileViews[profile.id]?.username || '',
+              username: own.profile?.username || profileViews[profile.id]?.username || '',
             };
             settingsProfileCache = { key, value };
             return value;
