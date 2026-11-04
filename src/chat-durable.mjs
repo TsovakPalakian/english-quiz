@@ -408,7 +408,7 @@ export class ChatInbox extends Store{
     const profile=this.get('profile'),rooms=this.rows('SELECT data FROM rooms').map(r=>JSON.parse(r.data)).filter(r=>r.active!==false).sort((a,b)=>(b.lastMessage?.createdMs||0)-(a.lastMessage?.createdMs||0));
     for(const room of rooms)if(room.muteUntil!==undefined)room.muted=room.muteUntil===-1||room.muteUntil>Date.now();
     const unread={personal:0,learning:0};for(const room of rooms){if(room.archived||room.access?.blockedByMe)continue;unread.personal+=room.unread.personal;unread.learning+=room.unread.learning;}
-    return {rooms,folders:this.get('folders',[]).sort((a,b)=>a.name.localeCompare(b.name)),groups:this.get('groups',[]),contacts:this.get('contacts',[]).map(u=>({id:u.id,name:publicName(u),role:publicRole(u)})),profile:profile?{id:profile.id,name:publicName(profile),login:profile.login,email:profile.email,role:publicRole(profile)}:null,profiles:Object.fromEntries(Object.entries(this.get('profileViews',{})).filter(([id])=>profileAllowed(this,id))),unread,total:unread.personal+unread.learning,catalogVersion:this.get('catalogVersion',0),seq:this.one('SELECT COALESCE(MAX(id),0) id FROM events').id};
+    return {rooms,folders:this.get('folders',[]).sort((a,b)=>a.name.localeCompare(b.name)),groups:this.get('groups',[]),contacts:this.get('contacts',[]).map(u=>({id:u.id,name:publicName(u),role:publicRole(u)})),profile:profile?{id:profile.id,name:publicName(profile),login:profile.login,email:profile.email,role:publicRole(profile),active:profile.active!==false,username:profile.username||'',avatarUrl:profile.avatarUrl||''}:null,profiles:Object.fromEntries(Object.entries(this.get('profileViews',{})).filter(([id])=>profileAllowed(this,id))),unread,total:unread.personal+unread.learning,catalogVersion:this.get('catalogVersion',0),seq:this.one('SELECT COALESCE(MAX(id),0) id FROM events').id};
   }
   event(body){
     const profile=this.get('profile');
@@ -603,7 +603,10 @@ export class ChatInbox extends Store{
       const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server);server.serializeAttachment({expires:Math.min(Date.now()+20*60*1000,sessionExpires>0?sessionExpires:Infinity),...(sessionId?{sessionId,sessionNamespace}:{})});
       const after=Number(new URL(request.url).searchParams.get('after')||0),min=this.one('SELECT COALESCE(MIN(id),0) id FROM events').id;
       if(after&&after>=min-1&&after<=this.snapshot().seq){for(const row of this.rows('SELECT id,data FROM events WHERE id>? ORDER BY id',after)){const event=JSON.parse(row.data);if(!event.profile||profileAllowed(this,event.profile.id))server.send(JSON.stringify({type:'event',seq:row.id,event}));}}
-      await this.presence();server.send(JSON.stringify({type:'snapshot',data:this.snapshot()}));await this.scheduleExpiry();return new Response(null,{status:101,webSocket:client});
+      server.send(JSON.stringify({type:'snapshot',data:this.snapshot()}));
+      this.ctx.waitUntil(this.presence().catch(()=>{}));
+      await this.scheduleExpiry();
+      return new Response(null,{status:101,webSocket:client});
     }catch(error){return json({error:error.status?error.message:'Chat unavailable.'},error.status||503);}
   }
 }

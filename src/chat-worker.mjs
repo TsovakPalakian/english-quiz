@@ -57,7 +57,7 @@ export class ChatBridge{
     if(this.get('policyDirtyAt')&&!release){
       const dirty=this.get('policy');
       if(dirty){this.ctx.waitUntil(this.policy(true,true).catch(()=>{}));return dirty;}
-      fail(503,'Permissions are being synchronized.');
+      return await this.policy(true,true);
     }
     const cached=this.get('policy');
     if(!force&&cached?.at>Date.now()-60000)return cached;
@@ -303,7 +303,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
     if(env.CHAT_V2_ENABLED!=='true')return application.fetch(request,env,ctx);
     const url=new URL(request.url),path=url.pathname,route=path==='/api/messages/socket',legacyChat=path==='/api/messages'||['/api/messages/history','/api/messages/send','/api/messages/open','/api/messages/read','/api/messages/mute'].includes(path);
     if(legacyChat)return json({error:'Reload the page to connect to the new chat.'},410);
-      const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||['/api/me/account','/api/me/revoke'].includes(path)),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
+      const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||path==='/api/me/revoke'),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
     try{
       if(path==='/api/me/notification-sounds'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');
@@ -377,7 +377,7 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         const identity=await sessionIdentity(env,request);
         await chatCall(env,'CHAT_BRIDGE','global','/bootstrap',{actor});
         const currentProfile=await chatCall(env,'CHAT_INBOX',actor.id,'/snapshot',{}).catch(()=>null);
-        if(!currentProfile?.profile){
+        if(!currentProfile?.profile||currentProfile.profile.active===false){
           await chatCall(env,'CHAT_INBOX',actor.id,'/configure',{profile:{id:actor.id,name:actor.name,login:actor.login,email:actor.email,groupId:actor.groupId,role:actor.role,active:true},contacts:[],groups:[]});
         }
         const target='https://chat.internal/connect?after='+Math.max(0,Number(url.searchParams.get('after'))||0);

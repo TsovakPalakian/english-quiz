@@ -600,3 +600,76 @@ test('ChatBridge reconciles legacy avatar, username, and profiles using legacy_a
   const prof = bridge.sql.exec("SELECT phone FROM profiles WHERE user_id='1'").toArray()[0];
   assert.equal(prof?.phone, '+37499123456');
 });
+
+test('POST /api/me/account does not trigger CHAT_BRIDGE /invalidate', async () => {
+  let invalidated = false;
+  const student = { id: 1, role: 'USER', name: 'Student', login: 'student' };
+  const bridge = {
+    idFromName: name => name,
+    get: () => ({
+      fetch: async (req) => {
+        if (new URL(req.url).pathname === '/invalidate') invalidated = true;
+        return Response.json({ ok: true });
+      }
+    })
+  };
+  const env = {
+    CHAT_V2_ENABLED: 'true',
+    STORAGE_MODE: 'production',
+    CONTENT_ALLOWED_HOST: 'lumiscia.org',
+    CHAT_BRIDGE: bridge,
+    CONTENT_SESSION_SECRET: 'fixture'
+  };
+  const app = {
+    fetch: async () => Response.json({ ok: true })
+  };
+  const worker = durableChatWorker(app, { authenticate: async () => student });
+  const response = await worker.fetch(new Request('https://lumiscia.org/api/me/account', {
+    method: 'POST',
+    headers: { Origin: 'https://lumiscia.org', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'New Name' })
+  }), env, { waitUntil: () => {} });
+  assert.equal(response.status, 200);
+  assert.equal(invalidated, false);
+});
+
+test('Socket reconnect automatically reactivates inactive profile via /configure', async () => {
+  let configuredProfile = null;
+  const user = { id: 1, role: 'USER', name: 'User', login: 'user' };
+  const inbox = {
+    idFromName: name => name,
+    get: () => ({
+      fetch: async (req) => {
+        const path = new URL(req.url).pathname;
+        if (path === '/snapshot') {
+          return Response.json({ profile: { id: 1, name: 'User', active: false } });
+        }
+        if (path === '/configure') {
+          const body = await req.json();
+          configuredProfile = body.profile;
+          return Response.json({ configured: true });
+        }
+        if (path === '/connect') {
+          return { status: 101, webSocket: {} };
+        }
+        return Response.json({});
+      }
+    })
+  };
+  const bridge = { idFromName: name => name, get: () => ({ fetch: async () => Response.json({ ready: true }) }) };
+  const env = {
+    CHAT_V2_ENABLED: 'true',
+    STORAGE_MODE: 'production',
+    CONTENT_ALLOWED_HOST: 'lumiscia.org',
+    CHAT_INBOX: inbox,
+    CHAT_BRIDGE: bridge,
+    CONTENT_SESSION_SECRET: 'fixture'
+  };
+  const worker = durableChatWorker({ fetch: () => Response.json({}) }, { authenticate: async () => user });
+  const response = await worker.fetch(new Request('https://lumiscia.org/api/messages/socket', {
+    headers: { Upgrade: 'websocket', Origin: 'https://lumiscia.org' }
+  }), env, { waitUntil: () => {} });
+  assert.equal(response.status, 101);
+  assert.ok(configuredProfile);
+  assert.equal(configuredProfile.active, true);
+});
