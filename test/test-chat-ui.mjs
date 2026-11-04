@@ -840,7 +840,7 @@ try{
     yield "214. [data-account-teacher-toggle] / checks";
     assert.equal(await page.locator('[data-account-teacher-toggle]').first().innerText(),'');assert.equal(await page.locator('[data-account-teacher-toggle] svg').count(),2);await page.locator('[data-account-teacher-toggle]').first().click();await page.waitForFunction(()=>document.querySelector('[data-account-teachers-status]')?.textContent==='Saved');assert.equal(teacherAssignments[0].teacherIds.length,1);
   yield "215. [data-group-lessons] summary / click";
-  await page.locator('[data-group-lessons] summary').click();await page.locator('[data-group-exams] summary').click();
+  await page.locator('[data-group-lessons] summary').click();await page.locator('[data-group-exams] > summary').click();
   assert.ok(await page.locator('#adminGroupDetail details[open]').evaluateAll(nodes=>nodes.every(n=>{const row=n.querySelector(':scope>.path,:scope>.day-row');if(!row)return true;return row.getBoundingClientRect().left-n.getBoundingClientRect().left>=8;})),'Expanded sections indent their records');
   for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#adminGroupDetail').evaluate(n=>n.scrollWidth<=n.clientWidth+1));assert.ok(await page.locator('[data-account-teacher-toggle]').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth+1&&n.getBoundingClientRect().width<=n.parentElement.getBoundingClientRect().width+1)));await Promise.resolve();}await page.setViewportSize({width:1664,height:1000});
   yield "216. [data-group-students] [data-account=\"user\"] / click";

@@ -166,6 +166,7 @@ await scenarioSubtests("functional-preservation", async function*() {
 
     await page.evaluate(() => window.enquizVisit('admin'));
     await page.locator('#admin.on').waitFor({state: 'visible'});
+    await page.locator('#adminAccountList').waitFor({state: 'visible'});
 
     assert.equal(await page.locator('#adminAccountList').count(), 1, "#adminAccountList exists");
     assert.equal(await page.locator('[data-admin-tab="accounts"]').count(), 1, "accounts tab exists");
