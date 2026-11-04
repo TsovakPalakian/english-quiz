@@ -19626,6 +19626,7 @@ const STUDIO_CONSTELLATIONS = [{
         }
         signedOutHello = false;
         authUser = data.user;
+        const currentUserId = data.user.id;
         const lastActivity = Number(localStorage.getItem('enquiz-last-activity:' + authUser.id));
         if (lastActivity && Date.now() - lastActivity >= idleLimit) { expireIdleAccount(); return; }
         paintHomeHello();
@@ -19635,6 +19636,7 @@ const STUDIO_CONSTELLATIONS = [{
         examPreload();
         groupPull();
         loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
+          if (!authUser || authUser.id !== currentUserId) return;
           fillEmptyFromAccount(state);
           accountReady = true;
           paintGuestAccess();
@@ -19645,6 +19647,7 @@ const STUDIO_CONSTELLATIONS = [{
           if (pendingId && data.user && (data.user.role === "DEVELOPER" || (data.user.role === "ADMIN" && pendingRole === "USER"))) openStudentPages({ id: pendingId, login: pendingLogin, role: pendingRole, email: pendingEmail, name: pendingName });
           else Promise.resolve(lessonsReady).then(() => finishPlace());
         }).catch(() => {
+          if (!authUser || authUser.id !== currentUserId) return;
           accountReady = !!(loadAdded().length || loadSongs().length);
           if (syncQueue.length) scheduleStateSave();
           finishPlace();
@@ -24835,7 +24838,17 @@ if(typeof window!=='undefined'){
         try { localStorage.setItem("enquiz-exams", JSON.stringify(exams)); } catch (e) {}
         examPaintList();
         const blocks = document.getElementById("examblocks");
-        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+        if (examCurrentId && blocks && blocks.classList.contains("on")) {
+          const activeInput = document.activeElement && blocks.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (activeInput) {
+            document.activeElement.addEventListener('blur', () => {
+              const currentBlocks = document.getElementById("examblocks");
+              if (examCurrentId && currentBlocks && currentBlocks.classList.contains("on")) examPaintBlocks();
+            }, { once: true });
+          } else {
+            examPaintBlocks();
+          }
+        }
         return saved;
       });
     }
@@ -24890,7 +24903,17 @@ if(typeof window!=='undefined'){
         try { localStorage.setItem("enquiz-exams", JSON.stringify(remote)); } catch (e) {}
         examPaintList();
         const blocks = document.getElementById("examblocks");
-        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+        if (examCurrentId && blocks && blocks.classList.contains("on")) {
+          const activeInput = document.activeElement && blocks.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (activeInput) {
+            document.activeElement.addEventListener('blur', () => {
+              const currentBlocks = document.getElementById("examblocks");
+              if (examCurrentId && currentBlocks && currentBlocks.classList.contains("on")) examPaintBlocks();
+            }, { once: true });
+          } else {
+            examPaintBlocks();
+          }
+        }
       }).catch((error) => {
         if (session === examSession && authUser && authUser.id === actorId) examPulling = false;
         window.LearningMain?.notice(error.message, true);
@@ -25059,7 +25082,19 @@ if(typeof window!=='undefined'){
         assessmentStatus(doc.assessmentMessage,doc); examPaintList(); if (examCurrentId) examPaintBlocks();
         if(doc.examOwned&&['submit','publish','amend'].includes(action))await examPull(true);
         return row;
-      }).catch(error => { doc.assessmentError = true; doc.assessmentMessage = error.message || 'Not saved. Retry.'; assessmentStatus(doc.assessmentMessage,doc); throw error; });
+      }).catch(async (error) => {
+        doc.assessmentError = true;
+        if (error.status === 409 || (typeof error.message === 'string' && error.message.includes('409'))) {
+          try {
+            await assessmentFetch(doc);
+            doc.assessmentMessage = 'Updated to latest revision. Please retry.';
+          } catch {}
+        } else {
+          doc.assessmentMessage = error.message || 'Not saved. Retry.';
+        }
+        assessmentStatus(doc.assessmentMessage, doc);
+        throw error;
+      });
       assessmentQueue = task; return task;
     }
     function assessmentAutosave(doc) {
@@ -25092,7 +25127,17 @@ if(typeof window!=='undefined'){
         examWorkPulling = false;
         examPaintList();
         const blocks = document.getElementById("examblocks");
-        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+        if (examCurrentId && blocks && blocks.classList.contains("on")) {
+          const activeInput = document.activeElement && blocks.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (activeInput) {
+            document.activeElement.addEventListener('blur', () => {
+              const currentBlocks = document.getElementById("examblocks");
+              if (examCurrentId && currentBlocks && currentBlocks.classList.contains("on")) examPaintBlocks();
+            }, { once: true });
+          } else {
+            examPaintBlocks();
+          }
+        }
       }).catch(() => {
         if (session !== examSession || workSession !== examWorkSession) return;
         examWorkPulling = false;

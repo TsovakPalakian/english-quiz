@@ -122,7 +122,17 @@
         try { localStorage.setItem("enquiz-exams", JSON.stringify(exams)); } catch (e) {}
         examPaintList();
         const blocks = document.getElementById("examblocks");
-        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+        if (examCurrentId && blocks && blocks.classList.contains("on")) {
+          const activeInput = document.activeElement && blocks.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (activeInput) {
+            document.activeElement.addEventListener('blur', () => {
+              const currentBlocks = document.getElementById("examblocks");
+              if (examCurrentId && currentBlocks && currentBlocks.classList.contains("on")) examPaintBlocks();
+            }, { once: true });
+          } else {
+            examPaintBlocks();
+          }
+        }
         return saved;
       });
     }
@@ -177,7 +187,17 @@
         try { localStorage.setItem("enquiz-exams", JSON.stringify(remote)); } catch (e) {}
         examPaintList();
         const blocks = document.getElementById("examblocks");
-        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+        if (examCurrentId && blocks && blocks.classList.contains("on")) {
+          const activeInput = document.activeElement && blocks.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (activeInput) {
+            document.activeElement.addEventListener('blur', () => {
+              const currentBlocks = document.getElementById("examblocks");
+              if (examCurrentId && currentBlocks && currentBlocks.classList.contains("on")) examPaintBlocks();
+            }, { once: true });
+          } else {
+            examPaintBlocks();
+          }
+        }
       }).catch((error) => {
         if (session === examSession && authUser && authUser.id === actorId) examPulling = false;
         window.LearningMain?.notice(error.message, true);
@@ -346,7 +366,19 @@
         assessmentStatus(doc.assessmentMessage,doc); examPaintList(); if (examCurrentId) examPaintBlocks();
         if(doc.examOwned&&['submit','publish','amend'].includes(action))await examPull(true);
         return row;
-      }).catch(error => { doc.assessmentError = true; doc.assessmentMessage = error.message || 'Not saved. Retry.'; assessmentStatus(doc.assessmentMessage,doc); throw error; });
+      }).catch(async (error) => {
+        doc.assessmentError = true;
+        if (error.status === 409 || (typeof error.message === 'string' && error.message.includes('409'))) {
+          try {
+            await assessmentFetch(doc);
+            doc.assessmentMessage = 'Updated to latest revision. Please retry.';
+          } catch {}
+        } else {
+          doc.assessmentMessage = error.message || 'Not saved. Retry.';
+        }
+        assessmentStatus(doc.assessmentMessage, doc);
+        throw error;
+      });
       assessmentQueue = task; return task;
     }
     function assessmentAutosave(doc) {
@@ -379,7 +411,17 @@
         examWorkPulling = false;
         examPaintList();
         const blocks = document.getElementById("examblocks");
-        if (examCurrentId && blocks && blocks.classList.contains("on")) examPaintBlocks();
+        if (examCurrentId && blocks && blocks.classList.contains("on")) {
+          const activeInput = document.activeElement && blocks.contains(document.activeElement) && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (activeInput) {
+            document.activeElement.addEventListener('blur', () => {
+              const currentBlocks = document.getElementById("examblocks");
+              if (examCurrentId && currentBlocks && currentBlocks.classList.contains("on")) examPaintBlocks();
+            }, { once: true });
+          } else {
+            examPaintBlocks();
+          }
+        }
       }).catch(() => {
         if (session !== examSession || workSession !== examWorkSession) return;
         examWorkPulling = false;

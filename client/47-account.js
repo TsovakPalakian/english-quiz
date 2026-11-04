@@ -188,6 +188,7 @@
         }
         signedOutHello = false;
         authUser = data.user;
+        const currentUserId = data.user.id;
         const lastActivity = Number(localStorage.getItem('enquiz-last-activity:' + authUser.id));
         if (lastActivity && Date.now() - lastActivity >= idleLimit) { expireIdleAccount(); return; }
         paintHomeHello();
@@ -197,6 +198,7 @@
         examPreload();
         groupPull();
         loadAccountThemes().then((pack) => applyAccountThemes(pack)).then(() => accountFetch("/api/me/state?summary=1")).then((state) => {
+          if (!authUser || authUser.id !== currentUserId) return;
           fillEmptyFromAccount(state);
           accountReady = true;
           paintGuestAccess();
@@ -207,6 +209,7 @@
           if (pendingId && data.user && (data.user.role === "DEVELOPER" || (data.user.role === "ADMIN" && pendingRole === "USER"))) openStudentPages({ id: pendingId, login: pendingLogin, role: pendingRole, email: pendingEmail, name: pendingName });
           else Promise.resolve(lessonsReady).then(() => finishPlace());
         }).catch(() => {
+          if (!authUser || authUser.id !== currentUserId) return;
           accountReady = !!(loadAdded().length || loadSongs().length);
           if (syncQueue.length) scheduleStateSave();
           finishPlace();
