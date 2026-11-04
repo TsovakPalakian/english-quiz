@@ -9,6 +9,7 @@ import {everydayCatalog,removeEssentialReference} from './essential-catalog.mjs'
 import {ensurePairedThemes} from './learning-paired-themes.mjs';
 import {VisibilityService} from './learning-visibility.mjs';
 import {GroupService} from './learning-groups.mjs';
+import {AttendanceService} from './learning-attendance.mjs';
 import {AccountGroupTeachers} from './account-group-teachers.mjs';
 import {teacherMayManageStudent,teachersVisibleTo} from './teacher-group-access.mjs';
 import {AccountInvites} from './account-invites.mjs';
@@ -586,6 +587,32 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const found=await authorizeManaged(accountEnv,actor,value.accountId);if(found.error)return found.error;
         if(found.row.role!=='USER')throw new StudyError(400,'Only students can be assigned to a group.');
         return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId));
+      }
+      if(path==='/api/groups/attendance'&&['GET','POST','DELETE'].includes(method)){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');
+        const service=new AttendanceService(studyDatabase(env));
+        if(method==='GET'){
+          const groupId=url.searchParams.get('groupId')||'';
+          if(!groupId)throw new StudyError(400,'groupId is required.');
+          const month=url.searchParams.get('month');
+          if(month){
+            return json(await service.getGroupAttendance(actor,groupId,month));
+          }
+          return json({months:await service.listGroupMonths(actor,groupId)});
+        }
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        if(method==='DELETE'){
+          const groupId=url.searchParams.get('groupId')||'';
+          const month=url.searchParams.get('month')||'';
+          if(!groupId||!month)throw new StudyError(400,'groupId and month are required.');
+          return json(await service.deleteGroupAttendance(actor,groupId,month));
+        }
+        let body;try{body=JSON.parse(await boundedText(request,65536,'Attendance payload too large.'));}catch{throw new StudyError(400,'Invalid attendance payload.');}
+        if(!body||typeof body!=='object'||Array.isArray(body))throw new StudyError(400,'Invalid attendance payload.');
+        if(!body.groupId||!body.month)throw new StudyError(400,'groupId and month are required.');
+        const payload=(body.payload&&typeof body.payload==='object')?body.payload:body;
+        return json(await service.saveGroupAttendance(actor,body.groupId,body.month,payload));
       }
       if(path==='/api/exams'&&method==='GET'&&!url.searchParams.has('for')){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

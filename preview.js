@@ -15926,13 +15926,226 @@ const STUDIO_CONSTELLATIONS = [{
         options[next]?.focus();
       }
     });
+    let currentAttendanceDoc = null;
+
+    function buildCalendarGridHTML(year, monthIndex, selectedDates) {
+      const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+      const firstDayDow = (new Date(year, monthIndex, 1).getDay() + 6) % 7;
+      const dayHeaders = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      let html = '<div class="attendance-cal-grid">';
+      for (const d of dayHeaders) {
+        html += '<div class="attendance-cal-hdr">' + d + '</div>';
+      }
+      for (let i = 0; i < firstDayDow; i++) {
+        html += '<div class="attendance-cal-pad"></div>';
+      }
+      for (let day = 1; day <= daysInMonth; day++) {
+        const mm = String(monthIndex + 1).padStart(2, '0');
+        const dd = String(day).padStart(2, '0');
+        const dateStr = year + '-' + mm + '-' + dd;
+        const isSelected = selectedDates.has(dateStr);
+        html += '<button type="button" class="attendance-day-btn' + (isSelected ? ' selected' : '') + '" data-attendance-day-select="' + dateStr + '" aria-pressed="' + isSelected + '">' + day + '</button>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderAttendancePlanner(groupId, existingDoc = null) {
+      const root = document.querySelector('#adminGroupDetail [data-group-attendance]');
+      if (!root) return;
+      const monthsList = root.querySelector('[data-attendance-months]');
+      const matrixSlot = root.querySelector('[data-attendance-matrix-view]');
+      const scheduleBtnRow = root.querySelector('[data-attendance-action="schedule-month"]')?.closest('.row');
+      if (monthsList) monthsList.hidden = true;
+      if (scheduleBtnRow) scheduleBtnRow.hidden = true;
+      if (!matrixSlot) return;
+      matrixSlot.hidden = false;
+
+      const now = new Date();
+      const defaultMonth = existingDoc?.monthKey || (now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0'));
+      const [initYearStr, initMonthStr] = defaultMonth.split('-');
+      let currentYear = Number(initYearStr);
+      let currentMonthIndex = Number(initMonthStr) - 1;
+      const selectedDates = new Set(existingDoc?.lessonDates || []);
+
+      function renderPlannerView() {
+        const monthKey = currentYear + '-' + String(currentMonthIndex + 1).padStart(2, '0');
+        const price = existingDoc ? existingDoc.pricePerLesson : 30;
+        const currency = existingDoc?.currency || 'BYN';
+        const deadline = existingDoc?.paymentDeadline || '';
+
+        matrixSlot.innerHTML = '<div class="attendance-card">' +
+          '<h3>' + (existingDoc ? 'Edit Schedule for ' + esc(monthKey) : 'Schedule Month') + '</h3>' +
+          '<div class="attendance-form-grid">' +
+            '<div class="attendance-field">' +
+              '<label for="attPlannerMonth">Month</label>' +
+              '<input type="month" id="attPlannerMonth" data-att-planner-month value="' + esc(monthKey) + '"' + (existingDoc ? ' disabled' : '') + '>' +
+            '</div>' +
+            '<div class="attendance-field">' +
+              '<label for="attPlannerPrice">Price per lesson</label>' +
+              '<input type="number" id="attPlannerPrice" data-att-planner-price min="0" step="1" value="' + esc(price) + '">' +
+            '</div>' +
+            '<div class="attendance-field">' +
+              '<label for="attPlannerCurrency">Currency</label>' +
+              '<select id="attPlannerCurrency" data-att-planner-currency>' +
+                ['BYN', 'USD', 'EUR', 'RUB'].map(c => '<option value="' + c + '"' + (c === currency ? ' selected' : '') + '>' + c + '</option>').join('') +
+              '</select>' +
+            '</div>' +
+            '<div class="attendance-field">' +
+              '<label for="attPlannerDeadline">Payment Deadline</label>' +
+              '<input type="date" id="attPlannerDeadline" data-att-planner-deadline value="' + esc(deadline) + '">' +
+            '</div>' +
+          '</div>' +
+          '<div class="attendance-calendar-box">' +
+            '<div class="attendance-presets">' +
+              '<button type="button" class="btn" data-att-preset="mwf">Mon / Wed / Fri</button>' +
+              '<button type="button" class="btn" data-att-preset="tt">Tue / Thu</button>' +
+              '<button type="button" class="btn" data-att-preset="clear">Clear selection</button>' +
+            '</div>' +
+            '<div data-att-cal-grid-slot>' + buildCalendarGridHTML(currentYear, currentMonthIndex, selectedDates) + '</div>' +
+            '<p class="hint" data-att-selected-summary>' + selectedDates.size + ' lesson dates selected</p>' +
+          '</div>' +
+          '<div class="row" style="margin-top:16px;">' +
+            '<button type="button" class="btn primary" data-att-save-schedule data-group-id="' + groupId + '" data-revision="' + (existingDoc ? existingDoc.revision : 0) + '">Save schedule</button>' +
+            '<button type="button" class="btn" data-att-cancel-schedule data-group-id="' + groupId + '">Cancel</button>' +
+            '<span class="hint" data-att-planner-status style="margin-left:8px;"></span>' +
+          '</div>' +
+        '</div>';
+      }
+
+      renderPlannerView();
+
+      const monthInput = matrixSlot.querySelector('[data-att-planner-month]');
+      if (monthInput && !existingDoc) {
+        monthInput.addEventListener('change', () => {
+          const val = monthInput.value;
+          if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(val)) {
+            const [y, m] = val.split('-');
+            currentYear = Number(y);
+            currentMonthIndex = Number(m) - 1;
+            selectedDates.clear();
+            const slot = matrixSlot.querySelector('[data-att-cal-grid-slot]');
+            if (slot) slot.innerHTML = buildCalendarGridHTML(currentYear, currentMonthIndex, selectedDates);
+            const sum = matrixSlot.querySelector('[data-att-selected-summary]');
+            if (sum) sum.textContent = '0 lesson dates selected';
+          }
+        });
+      }
+    }
+
+    async function renderAttendanceMatrix(groupId, monthKey) {
+      const root = document.querySelector('#adminGroupDetail [data-group-attendance]');
+      if (!root) return;
+      const monthsList = root.querySelector('[data-attendance-months]');
+      const matrixSlot = root.querySelector('[data-attendance-matrix-view]');
+      const scheduleBtnRow = root.querySelector('[data-attendance-action="schedule-month"]')?.closest('.row');
+      if (monthsList) monthsList.hidden = true;
+      if (scheduleBtnRow) scheduleBtnRow.hidden = true;
+      if (!matrixSlot) return;
+      matrixSlot.hidden = false;
+      matrixSlot.innerHTML = '<p class="hint">Loading attendance matrix…</p>';
+
+      try {
+        const doc = await accountFetch('/api/groups/attendance?groupId=' + groupId + '&month=' + encodeURIComponent(monthKey));
+        currentAttendanceDoc = doc;
+        const groupStudents = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === groupId));
+        const lessonDates = Array.isArray(doc.lessonDates) ? doc.lessonDates : [];
+        const attendance = doc.attendance && typeof doc.attendance === 'object' ? doc.attendance : {};
+        const price = Number(doc.pricePerLesson) || 0;
+        const currency = esc(doc.currency || 'BYN');
+        const deadline = esc(doc.paymentDeadline || 'Not set');
+
+        let html = '<div class="attendance-card">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">' +
+            '<div>' +
+              '<h3 style="margin:0 0 4px;">' + esc(monthKey) + ' · Attendance</h3>' +
+              '<span class="label">' + lessonDates.length + ' lessons · ' + price + ' ' + currency + ' · Due: ' + deadline + '</span>' +
+            '</div>' +
+            '<div style="display:flex; gap:8px; align-items:center;">' +
+              '<button type="button" class="btn" data-attendance-back data-attendance-group-id="' + groupId + '">← Back</button>' +
+              '<button type="button" class="btn" data-attendance-edit-schedule="' + esc(monthKey) + '" data-attendance-group-id="' + groupId + '">Edit schedule</button>' +
+              '<button type="button" class="btn primary" data-attendance-save-matrix data-attendance-group-id="' + groupId + '" data-month="' + esc(monthKey) + '">Save attendance</button>' +
+              '<span class="hint" data-attendance-matrix-status></span>' +
+            '</div>' +
+          '</div>';
+
+        if (!lessonDates.length) {
+          html += '<p class="hint">No lesson dates configured for this month. Click "Edit schedule" to add dates.</p>';
+        } else if (!groupStudents.length) {
+          html += '<p class="hint">No students assigned to this group yet.</p>';
+        } else {
+          const daysOfWeek = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+          html += '<div class="attendance-table-wrap"><table class="attendance-table"><thead><tr>' +
+            '<th class="attendance-student-col">Student</th>';
+          for (const d of lessonDates) {
+            const dateObj = new Date(d + 'T00:00:00');
+            const dayName = daysOfWeek[dateObj.getDay()];
+            const shortDate = d.slice(5).replace('-', '/');
+            html += '<th><div class="attendance-date-hdr"><span>' + dayName + '</span><b>' + shortDate + '</b></div></th>';
+          }
+          html += '<th class="attendance-num-col">Attended</th>' +
+            '<th class="attendance-num-col">Total</th>' +
+            '<th class="attendance-num-col">Due (' + currency + ')</th>' +
+          '</tr></thead><tbody>';
+
+          for (const s of groupStudents) {
+            const stId = String(s.id);
+            const stAttendance = attendance[stId] || {};
+            let presentCount = 0;
+            let cellsHtml = '';
+
+            for (const d of lessonDates) {
+              const status = stAttendance[d] || 'unmarked';
+              if (status === 'present') presentCount++;
+              const symbol = status === 'present' ? '✓' : status === 'absent' ? '✗' : '—';
+              cellsHtml += '<td><button type="button" class="attendance-cell-btn" data-attendance-toggle-cell data-student-id="' + esc(stId) + '" data-date="' + esc(d) + '" data-status="' + esc(status) + '" aria-label="' + esc(s.name || s.login) + ' ' + d + ': ' + esc(status) + '">' + symbol + '</button></td>';
+            }
+
+            const dueAmount = presentCount * price;
+            html += '<tr data-student-row="' + esc(stId) + '">' +
+              '<td class="attendance-student-col" title="' + esc(s.email || s.login) + '"><b>' + esc(s.name || s.login) + '</b></td>' +
+              cellsHtml +
+              '<td class="attendance-stat-cell" data-student-present="' + esc(stId) + '">' + presentCount + '</td>' +
+              '<td class="attendance-stat-cell">' + lessonDates.length + '</td>' +
+              '<td class="attendance-stat-cell" data-student-due="' + esc(stId) + '">' + dueAmount + '</td>' +
+            '</tr>';
+          }
+
+          html += '</tbody></table></div>';
+        }
+
+        html += '</div>';
+        matrixSlot.innerHTML = html;
+      } catch (err) {
+        matrixSlot.innerHTML = '<p class="hint error">' + esc(err.message) + '</p><button type="button" class="btn" data-attendance-back data-attendance-group-id="' + groupId + '">← Back</button>';
+      }
+    }
+
+    async function renderGroupAttendanceMonths(groupId) {
+      const container = document.querySelector('#adminGroupDetail [data-group-attendance] [data-attendance-months]');
+      if (!container) return;
+      try {
+        const res = await accountFetch('/api/groups/attendance?groupId=' + groupId);
+        if (!container.isConnected) return;
+        const months = res?.months || [];
+        if (!months.length) {
+          container.innerHTML = '<p class="hint">No scheduled months yet. Click "+ Schedule month" to create one.</p>';
+          return;
+        }
+        container.innerHTML = months.map(m => {
+          return '<div class="day-row accounts-exam-row" data-attendance-month-row="' + esc(m.monthKey) + '"><button class="path" type="button" data-attendance-open-month="' + esc(m.monthKey) + '" data-attendance-group-id="' + groupId + '"><span><b>' + esc(m.monthKey) + '</b><br><span class="label">' + esc(m.lessonCount) + ' lessons · ' + esc(m.pricePerLesson) + ' ' + esc(m.currency) + (m.paymentDeadline ? ' · Due ' + esc(m.paymentDeadline) : '') + '</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-attendance-delete-month="' + esc(m.monthKey) + '" data-attendance-group-id="' + groupId + '" aria-label="Delete month" title="Delete month"><svg class="lucide lucide-trash-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg></button></div></div>';
+        }).join('');
+      } catch (err) {
+        if (container.isConnected) container.innerHTML = '<p class="hint error">' + esc(err.message) + '</p>';
+      }
+    }
     function paintAdminGroup() {
       if (!isTeacher() || viewAccount) return;
       const selected = adminGroups.find(group => group.id === adminGroupId);
       if (!selected) { if (document.querySelector('section.on')?.id === 'admingroup') goBack('admin'); return; }
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
-      const folds=Object.fromEntries(['students','lessons','exams','exams-assign','teachers','teachers-list'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
+      const folds=Object.fromEntries(['students','lessons','exams','exams-assign','teachers','teachers-list','attendance'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
       const assignedExams = exams.filter(exam => (selected.examIds || []).includes(exam.id));
@@ -15948,14 +16161,279 @@ const STUDIO_CONSTELLATIONS = [{
         const icon = '<svg class="lucide lucide-circle-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>';
         return '<div class="day-row accounts-exam-row" data-group-exam="' + exam.id + '"><button class="path" type="button" data-exam-open="' + exam.id + '"><span><b>' + esc(exam.title) + '</b><br><span class="label">' + esc(owner?.title || 'Unassigned') + '</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-account-group="exam" data-exam-id="' + exam.id + '" aria-label="' + label + '" title="' + label + '">' + icon + '</button></div></div>';
       }).join('');
-      detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',assignedExams.length))+'</summary>' + (assignedRows || '<p class="hint">No exams yet.</p>') + '<details class="accounts-fold" data-group-exams-assign><summary>Assign exams</summary>' + (candidateRows || '<p class="hint">No available exams.</p>') + '</details></details>';
+      detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',assignedExams.length))+'</summary>' + (assignedRows || '<p class="hint">No exams yet.</p>') + '<details class="accounts-fold" data-group-exams-assign><summary>Assign exams</summary>' + (candidateRows || '<p class="hint">No available exams.</p>') + '</details></details><details class="accounts-fold" data-group-attendance data-group-id="' + selected.id + '"><summary>Attendance</summary><div class="attendance-root" data-attendance-group-id="' + selected.id + '"><div class="row" style="margin-bottom:8px;"><button class="btn" type="button" data-attendance-action="schedule-month" data-attendance-group-id="' + selected.id + '">+ Schedule month</button></div><div class="attendance-months-list" data-attendance-months><p class="hint">Loading attendance months…</p></div><div class="attendance-matrix-view" data-attendance-matrix-view hidden></div></div></details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
       detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds?.map(String).includes(String(user.id)),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds)){const fold=detail.querySelector('[data-group-'+name+']');if(fold)fold.open=open;}
+      if (folds.attendance) {
+        renderGroupAttendanceMonths(selected.id);
+      }
       paintPagePath('admingroup');
     }
+    document.addEventListener('toggle', event => {
+      const fold = event.target.closest('#adminGroupDetail [data-group-attendance]');
+      if (fold && fold.open) {
+        const groupId = Number(fold.dataset.groupId);
+        if (groupId) renderGroupAttendanceMonths(groupId);
+      }
+    }, true);
+    document.addEventListener('click', async event => {
+      // 1. Back to months list
+      const backBtn = event.target.closest('#adminGroupDetail [data-attendance-back]');
+      if (backBtn) {
+        const root = document.querySelector('#adminGroupDetail [data-group-attendance]');
+        if (root) {
+          const monthsList = root.querySelector('[data-attendance-months]');
+          const matrixSlot = root.querySelector('[data-attendance-matrix-view]');
+          const scheduleBtnRow = root.querySelector('[data-attendance-action="schedule-month"]')?.closest('.row');
+          if (monthsList) monthsList.hidden = false;
+          if (scheduleBtnRow) scheduleBtnRow.hidden = false;
+          if (matrixSlot) { matrixSlot.hidden = true; matrixSlot.innerHTML = ''; }
+          const groupId = Number(backBtn.dataset.attendanceGroupId);
+          if (groupId) renderGroupAttendanceMonths(groupId);
+        }
+        return;
+      }
+
+      // 2. Schedule month button (+ Schedule month)
+      const schedAction = event.target.closest('#adminGroupDetail [data-attendance-action="schedule-month"]');
+      if (schedAction) {
+        const groupId = Number(schedAction.dataset.attendanceGroupId);
+        if (groupId) renderAttendancePlanner(groupId, null);
+        return;
+      }
+
+      // 3. Open month row (view matrix)
+      const openMonthBtn = event.target.closest('#adminGroupDetail [data-attendance-open-month]');
+      if (openMonthBtn) {
+        const monthKey = openMonthBtn.dataset.attendanceOpenMonth;
+        const groupId = Number(openMonthBtn.dataset.attendanceGroupId);
+        if (monthKey && groupId) renderAttendanceMatrix(groupId, monthKey);
+        return;
+      }
+
+      // 4. Edit schedule button
+      const editSchedBtn = event.target.closest('#adminGroupDetail [data-attendance-edit-schedule]');
+      if (editSchedBtn) {
+        const groupId = Number(editSchedBtn.dataset.attendanceGroupId);
+        if (groupId && currentAttendanceDoc) renderAttendancePlanner(groupId, currentAttendanceDoc);
+        return;
+      }
+
+      // 5. Day button in planner calendar grid
+      const dayBtn = event.target.closest('#adminGroupDetail [data-attendance-day-select]');
+      if (dayBtn) {
+        const isSelected = dayBtn.classList.toggle('selected');
+        dayBtn.setAttribute('aria-pressed', String(isSelected));
+        const allSelected = document.querySelectorAll('#adminGroupDetail [data-attendance-day-select].selected');
+        const summary = document.querySelector('#adminGroupDetail [data-att-selected-summary]');
+        if (summary) summary.textContent = allSelected.length + ' lesson dates selected';
+        return;
+      }
+
+      // 6. Presets in planner
+      const presetBtn = event.target.closest('#adminGroupDetail [data-att-preset]');
+      if (presetBtn) {
+        const preset = presetBtn.dataset.attPreset;
+        const monthInput = document.querySelector('#adminGroupDetail [data-att-planner-month]');
+        const monthVal = monthInput?.value;
+        if (!monthVal) return;
+        const [yStr, mStr] = monthVal.split('-');
+        const y = Number(yStr), mIdx = Number(mStr) - 1;
+        const days = document.querySelectorAll('#adminGroupDetail [data-attendance-day-select]');
+
+        days.forEach(btn => {
+          const dStr = btn.dataset.attendanceDaySelect;
+          const dayNum = Number(dStr.split('-')[2]);
+          const dow = new Date(y, mIdx, dayNum).getDay();
+          let shouldSelect = false;
+          if (preset === 'mwf' && [1, 3, 5].includes(dow)) shouldSelect = true;
+          if (preset === 'tt' && [2, 4].includes(dow)) shouldSelect = true;
+          if (preset === 'clear') shouldSelect = false;
+          if (preset === 'mwf' || preset === 'tt') {
+            if (shouldSelect) {
+              btn.classList.add('selected');
+              btn.setAttribute('aria-pressed', 'true');
+            }
+          } else if (preset === 'clear') {
+            btn.classList.remove('selected');
+            btn.setAttribute('aria-pressed', 'false');
+          }
+        });
+        const allSelected = document.querySelectorAll('#adminGroupDetail [data-attendance-day-select].selected');
+        const summary = document.querySelector('#adminGroupDetail [data-att-selected-summary]');
+        if (summary) summary.textContent = allSelected.length + ' lesson dates selected';
+        return;
+      }
+
+      // 7. Cancel planner
+      const cancelSchedBtn = event.target.closest('#adminGroupDetail [data-att-cancel-schedule]');
+      if (cancelSchedBtn) {
+        const groupId = Number(cancelSchedBtn.dataset.groupId);
+        if (currentAttendanceDoc) {
+          renderAttendanceMatrix(groupId, currentAttendanceDoc.monthKey);
+        } else {
+          const root = document.querySelector('#adminGroupDetail [data-group-attendance]');
+          if (root) {
+            const monthsList = root.querySelector('[data-attendance-months]');
+            const matrixSlot = root.querySelector('[data-attendance-matrix-view]');
+            const scheduleBtnRow = root.querySelector('[data-attendance-action="schedule-month"]')?.closest('.row');
+            if (monthsList) monthsList.hidden = false;
+            if (scheduleBtnRow) scheduleBtnRow.hidden = false;
+            if (matrixSlot) { matrixSlot.hidden = true; matrixSlot.innerHTML = ''; }
+            if (groupId) renderGroupAttendanceMonths(groupId);
+          }
+        }
+        return;
+      }
+
+      // 8. Save schedule button
+      const saveSchedBtn = event.target.closest('#adminGroupDetail [data-att-save-schedule]');
+      if (saveSchedBtn && !saveSchedBtn.disabled) {
+        const groupId = Number(saveSchedBtn.dataset.groupId);
+        const revision = Number(saveSchedBtn.dataset.revision) || 0;
+        const monthInput = document.querySelector('#adminGroupDetail [data-att-planner-month]');
+        const priceInput = document.querySelector('#adminGroupDetail [data-att-planner-price]');
+        const currSelect = document.querySelector('#adminGroupDetail [data-att-planner-currency]');
+        const deadInput = document.querySelector('#adminGroupDetail [data-att-planner-deadline]');
+        const statusLbl = document.querySelector('#adminGroupDetail [data-att-planner-status]');
+        const monthKey = monthInput?.value;
+        if (!monthKey || !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(monthKey)) {
+          if (statusLbl) statusLbl.textContent = 'Invalid month selected.';
+          return;
+        }
+        const selectedButtons = document.querySelectorAll('#adminGroupDetail [data-attendance-day-select].selected');
+        const lessonDates = Array.from(selectedButtons).map(b => b.dataset.attendanceDaySelect).sort();
+        if (!lessonDates.length) {
+          if (statusLbl) statusLbl.textContent = 'Select at least one lesson date.';
+          return;
+        }
+        const pricePerLesson = Math.max(0, Number(priceInput?.value) || 0);
+        const currency = currSelect?.value || 'BYN';
+        const paymentDeadline = deadInput?.value || '';
+
+        saveSchedBtn.disabled = true;
+        if (statusLbl) statusLbl.textContent = 'Saving schedule…';
+        try {
+          const savedDoc = await accountFetch('/api/groups/attendance', {
+            method: 'POST',
+            body: JSON.stringify({
+              groupId,
+              month: monthKey,
+              payload: {
+                lessonDates,
+                pricePerLesson,
+                currency,
+                paymentDeadline,
+                attendance: currentAttendanceDoc?.attendance || {},
+                expectedRevision: revision
+              }
+            })
+          });
+          currentAttendanceDoc = savedDoc;
+          renderAttendanceMatrix(groupId, monthKey);
+        } catch (err) {
+          if (statusLbl) statusLbl.textContent = err.message;
+        } finally {
+          if (saveSchedBtn.isConnected) saveSchedBtn.disabled = false;
+        }
+        return;
+      }
+
+      // 9. Matrix status cell toggle
+      const cellBtn = event.target.closest('#adminGroupDetail [data-attendance-toggle-cell]');
+      if (cellBtn) {
+        const curStatus = cellBtn.dataset.status || 'unmarked';
+        const nextStatus = curStatus === 'unmarked' ? 'present' : curStatus === 'present' ? 'absent' : 'unmarked';
+        cellBtn.dataset.status = nextStatus;
+        cellBtn.textContent = nextStatus === 'present' ? '✓' : nextStatus === 'absent' ? '✗' : '—';
+        const row = cellBtn.closest('tr');
+        if (row) {
+          const studentId = cellBtn.dataset.studentId;
+          const presentCells = row.querySelectorAll('[data-attendance-toggle-cell][data-status="present"]');
+          const presentCell = row.querySelector('[data-student-present="' + studentId + '"]');
+          const dueCell = row.querySelector('[data-student-due="' + studentId + '"]');
+          const price = Number(currentAttendanceDoc?.pricePerLesson) || 0;
+          if (presentCell) presentCell.textContent = String(presentCells.length);
+          if (dueCell) dueCell.textContent = String(presentCells.length * price);
+        }
+        return;
+      }
+
+      // 10. Save matrix changes button
+      const saveMatrixBtn = event.target.closest('#adminGroupDetail [data-attendance-save-matrix]');
+      if (saveMatrixBtn && !saveMatrixBtn.disabled) {
+        const groupId = Number(saveMatrixBtn.dataset.attendanceGroupId);
+        const monthKey = saveMatrixBtn.dataset.month;
+        const statusLbl = document.querySelector('#adminGroupDetail [data-attendance-matrix-status]');
+        if (!groupId || !monthKey || !currentAttendanceDoc) return;
+
+        const cells = document.querySelectorAll('#adminGroupDetail [data-attendance-toggle-cell]');
+        const attendanceMap = {};
+        cells.forEach(c => {
+          const stId = c.dataset.studentId;
+          const date = c.dataset.date;
+          const status = c.dataset.status;
+          if (stId && date && ['present', 'absent'].includes(status)) {
+            if (!attendanceMap[stId]) attendanceMap[stId] = {};
+            attendanceMap[stId][date] = status;
+          }
+        });
+
+        saveMatrixBtn.disabled = true;
+        if (statusLbl) statusLbl.textContent = 'Saving…';
+        try {
+          const updated = await accountFetch('/api/groups/attendance', {
+            method: 'POST',
+            body: JSON.stringify({
+              groupId,
+              month: monthKey,
+              payload: {
+                lessonDates: currentAttendanceDoc.lessonDates,
+                pricePerLesson: currentAttendanceDoc.pricePerLesson,
+                currency: currentAttendanceDoc.currency,
+                paymentDeadline: currentAttendanceDoc.paymentDeadline,
+                attendance: attendanceMap,
+                expectedRevision: currentAttendanceDoc.revision
+              }
+            })
+          });
+          currentAttendanceDoc = updated;
+          if (statusLbl) {
+            statusLbl.textContent = 'Saved.';
+            setTimeout(() => { if (statusLbl.isConnected) statusLbl.textContent = ''; }, 2500);
+          }
+        } catch (err) {
+          if (statusLbl) statusLbl.textContent = err.message;
+        } finally {
+          if (saveMatrixBtn.isConnected) saveMatrixBtn.disabled = false;
+        }
+        return;
+      }
+
+      // 11. Delete month button
+      const delBtn = event.target.closest('#adminGroupDetail [data-attendance-delete-month]');
+      if (delBtn && !delBtn.disabled && isTeacher() && !viewAccount) {
+        const monthKey = delBtn.dataset.attendanceDeleteMonth;
+        const groupId = Number(delBtn.dataset.attendanceGroupId);
+        if (!monthKey || !groupId) return;
+        if (!confirm('Delete attendance schedule for ' + monthKey + '?')) return;
+        delBtn.disabled = true;
+        try {
+          await accountFetch('/api/groups/attendance?groupId=' + groupId + '&month=' + encodeURIComponent(monthKey), {
+            method: 'DELETE'
+          });
+          await renderGroupAttendanceMonths(groupId);
+        } catch (err) {
+          alert(err.message);
+        } finally {
+          if (delBtn.isConnected) delBtn.disabled = false;
+        }
+        return;
+      }
+    });
     document.addEventListener('click',async event=>{
       const button=event.target.closest('#adminGroupDetail [data-account-teacher-toggle]');if(!button||button.disabled||!isTeacher()||viewAccount)return;
       const form=button.closest('[data-group-teachers]'),status=form.querySelector('[data-account-teachers-status]'),actor=authUser?.id,generation=viewGen,groupId=Number(form.dataset.groupId),teacherId=String(button.dataset.accountTeacherToggle);
