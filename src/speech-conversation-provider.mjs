@@ -1,6 +1,11 @@
 import {LanguageProviderError} from './language-providers.mjs';
 import {exactFields,reviewText} from './quiz-review-content.mjs';
 import {validateSpeechOutput} from './speech-assessment.mjs';
+
+// Staged module: prepared for launch, temporarily deactivated awaiting dialogue worker integration.
+export const SPEECH_CONVERSATION_ENABLED = false;
+export const SPEECH_CONVERSATION_STAGED = true;
+
 // The host supplies a bounded, account-gated transport. No implicit fetch/model.
 export function createSpeechConversationAdapter({enabled=false,id='speech-conversation',provider,model,version,billing='unknown',complete}={}){
   if(typeof enabled!=='boolean')throw new LanguageProviderError('invalid_configuration');

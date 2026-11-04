@@ -16,6 +16,7 @@ import {StudyService} from '../src/learning-study.mjs';
 import {ExamService} from '../src/learning-exams.mjs';
 import {GroupService} from '../src/learning-groups.mjs';
 import {MessageService} from '../src/learning-messages.mjs';
+import {ArchiveService} from '../src/learning-archive.mjs';
 import {bindChatEncryption} from '../src/chat-encryption.mjs';
 
 const require=createRequire(import.meta.url);
@@ -193,6 +194,39 @@ test('exam save, generated IDs, archive schema and group seeding work unchanged 
   assert.equal((await curriculum.read('SELECT count(*) AS n FROM exam_materials WHERE exam_id=?',[exam.id]))[0].n,1);
   const groups=await new GroupService(curriculum).list({id:'dev',role:'DEVELOPER'});assert.ok(groups.length>=9);
   assert.deepEqual(await curriculum.read("SELECT name FROM sqlite_master WHERE name LIKE '_study_batch_%'"),[]);
+});
+test('content_archive_state schema, revision bump, and CHECK constraints work on D1',async()=>{
+  const archive=new ArchiveService(curriculum);
+  await archive.ensure();
+
+  const rev1=await archive.revision();
+  assert.equal(rev1,1);
+  const rows=await curriculum.read('SELECT id,revision FROM content_archive_state WHERE id=1');
+  assert.deepEqual(rows,[{id:1,revision:1}]);
+
+  await curriculum.atomic([archive.bump()]);
+  const rev2=await archive.revision();
+  assert.equal(rev2,2);
+
+  await curriculum.atomic([archive.bump(),archive.bump()]);
+  assert.equal(await archive.revision(),4);
+
+  const dev={id:'dev-archive-1',role:'DEVELOPER'};
+  const archiveResult=await archive.archive(dev,{type:'lesson',id:lesson.id});
+  assert.equal(archiveResult.archived,true);
+  assert.equal(archiveResult.revision,5);
+  assert.equal(await archive.revision(),5);
+
+  const restoreResult=await archive.restore(dev,{type:'lesson',id:lesson.id});
+  assert.equal(restoreResult.restored,true);
+  assert.equal(restoreResult.revision,6);
+  assert.equal(await archive.revision(),6);
+
+  await assert.rejects(curriculum.atomic([s('INSERT INTO content_archive_state(id,revision) VALUES(2,1)')]),e=>e.status===409);
+  await assert.rejects(curriculum.atomic([s('UPDATE content_archive_state SET revision=0 WHERE id=1')]),e=>e.status===409);
+  await assert.rejects(curriculum.atomic([s('UPDATE content_archive_state SET revision=-1 WHERE id=1')]),e=>e.status===409);
+
+  assert.equal(await archive.revision(),6);
 });
 test('existing learning-message outbox trigger and runtime schema upgrades work on D1',async()=>{
   await new MessageService(curriculum,async()=>[]).ensure();

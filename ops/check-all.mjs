@@ -9,7 +9,7 @@ let settings;
 try{settings=checkMode(process.argv.slice(2));}catch(error){console.error(error.message);process.exit(2);}
 const {mode,filters}=settings;
 const env={...process.env,CHECK_MODE:mode,...(mode==='ci'?{CI:'true'}:{})};
-const exclusions=new Map([['test-settings-production-ui.mjs','Requires a live account and manual sign-in; not an automatic test.']]);
+const exclusions=new Map();
 const all=readdirSync('test').filter(name=>/^test-.*\.mjs$/.test(name)).sort();
 const scripts=all.filter(name=>!exclusions.has(name)&&(!filters.length||filters.some(part=>name.includes(part))));
 if(filters.length&&!scripts.length){console.error('No automatic tests matched the supplied filters.');process.exit(2);}
