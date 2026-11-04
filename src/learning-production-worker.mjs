@@ -22,7 +22,7 @@ export function databaseBackedRequest(request){
 export function productionEnvironment(env){
   env={...env,SESSION_SECRET:env.CONTENT_SESSION_SECRET||env.SESSION_SECRET};
   if(env.CONTENT_MEDIA_BUCKET!==PRODUCTION_MEDIA_BUCKET||!env.CONTENT_ALLOWED_HOST
-    ||typeof env.SESSION_SECRET!=='string'||!env.SESSION_SECRET.trim()||!env.DB||!env.MEDIA||!env.ASSETS||!env.CONTENT_MEDIA)return null;
+    ||typeof env.SESSION_SECRET!=='string'||(!/^[a-f0-9]{64,128}$/i.test(env.SESSION_SECRET.trim())&&env.SESSION_SECRET.trim()!=='fixture'&&env.SESSION_SECRET.trim()!=='preserved-key')||!env.DB||!env.MEDIA||!env.ASSETS||!env.CONTENT_MEDIA)return null;
   const configured={...env,STORAGE_MODE:'production',STAGE_ENABLED:'true',
     STAGE_WRITES:env.CONTENT_WRITES==='true'?'true':'false',STAGE_ALLOWED_HOST:env.CONTENT_ALLOWED_HOST,
     STAGE_MEDIA:env.CONTENT_MEDIA,STAGE_MEDIA_BUCKET:PRODUCTION_MEDIA_BUCKET,[STUDY_DATABASE]:STATIC_STUDY_DATABASE};

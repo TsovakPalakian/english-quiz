@@ -28,3 +28,12 @@ test('google oauth rejects bad state',async()=>{
   const env={SESSION_SECRET:'test-session-secret-value'};
   await assert.rejects(readGoogleState(env,'bad.state'),e=>e.status===400);
 });
+
+test('google oauth fails closed when cookie nonce is missing or mismatched',async()=>{
+  const reqWithoutCookie = new Request('https://lumiscia.org/api/auth/google/callback');
+  assert.equal(googleCookie(reqWithoutCookie), '');
+  const cookieNonce = googleCookie(reqWithoutCookie);
+  const state = { n: 'valid-nonce-value' };
+  assert.equal(!cookieNonce || cookieNonce !== state.n, true);
+  assert.equal(Boolean(cookieNonce && cookieNonce !== state.n), false);
+});

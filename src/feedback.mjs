@@ -235,7 +235,9 @@ export async function saveFeedback(db, {
     totalAttachmentBytes += size;
     const fileId = String(item.id || item.key || crypto.randomUUID());
     const storageKey = String(item.storageKey || item.key || '');
-    const dataUrl = typeof item.dataUrl === 'string' && item.dataUrl.startsWith('data:') && item.dataUrl.length < 2_000_000
+    const dataUrl = typeof item.dataUrl === 'string' &&
+      item.dataUrl.length < 2_000_000 &&
+      /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(item.dataUrl)
       ? item.dataUrl
       : '';
     validatedAttachments.push({

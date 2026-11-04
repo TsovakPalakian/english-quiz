@@ -16768,7 +16768,7 @@ const STUDIO_CONSTELLATIONS = [{
                 <span>${fileTypeIcon(f.mime)}</span>
                 <span style="font-weight:500;">${esc(f.name)}</span>
                 <small style="opacity:0.7;">(${formatFileSize(f.size)})</small>
-                ${href ? `<a href="${href}" target="_blank" download="${esc(f.name)}" style="color:var(--accent,#0284c7);text-decoration:none;font-weight:600;margin-left:4px;" title="Download file">⬇</a>` : ''}
+                ${href ? `<a href="${href}" target="_blank" rel="noopener noreferrer" download="${esc(f.name)}" style="color:var(--accent,#0284c7);text-decoration:none;font-weight:600;margin-left:4px;" title="Download file">⬇</a>` : ''}
               </div>
             `;
           }).join('');

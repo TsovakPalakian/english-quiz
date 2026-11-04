@@ -384,7 +384,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const secure=url.protocol==='https:';
         const cookieNonce=googleCookie(request);
         const state=await readGoogleState(env,url.searchParams.get('state'));
-        if(cookieNonce&&cookieNonce!==state.n)throw new StudyError(401,'Google sign-in does not match this session.');
+        if(!cookieNonce||cookieNonce!==state.n)throw new StudyError(401,'Google sign-in does not match this session.');
         const profile=await exchangeGoogleCode(env,url,url.searchParams.get('code'));
         const inviteToken=typeof state.invite==='string'?state.invite.trim():'';
         if(inviteToken&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');

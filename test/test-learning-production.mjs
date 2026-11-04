@@ -23,6 +23,8 @@ test('Production environment maps only explicit content controls, keeps read-onl
   assert.equal(value.STORAGE_MODE,'production');assert.equal(value.STAGE_MEDIA,env.CONTENT_MEDIA);
   assert.equal(productionEnvironment({...env,SESSION_SECRET:undefined,CONTENT_SESSION_SECRET:'preserved-key'}).SESSION_SECRET,'preserved-key');
   assert.equal(productionEnvironment({...env,CONTENT_SESSION_SECRET:'preserved-key'}).SESSION_SECRET,'preserved-key');
+  assert.equal(productionEnvironment({...env,SESSION_SECRET:'weak'}),null);
+  assert.equal(productionEnvironment({...env,SESSION_SECRET:'a'.repeat(64)}).SESSION_SECRET,'a'.repeat(64));
   assert.equal(productionEnvironment({...env,CONTENT_MEDIA:undefined}),null);
 });
 test('Production wrapper preserves HTTPS/host/Origin/auth and write gates before querying either database',async()=>{
