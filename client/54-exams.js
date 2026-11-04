@@ -960,7 +960,7 @@
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (b.created || 0) - (a.created || 0);
       });
-      const groupFor=exam=>classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
+      const groupFor=exam=>classGroups.find(g=>(g.examIds||[]).includes(exam.id))||classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
       const groups=[...new Map(rows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})).values()];
       if(!examViewLevel){box.innerHTML=levelButtons(groups,'data-exam-level');return;}
       const back='<button class="btn ghost" type="button" data-exam-level="">Back</button><h2>'+esc(examViewLevel==='unassigned'?'Unassigned':examViewLevel)+'</h2>';

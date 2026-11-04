@@ -225,7 +225,7 @@ examPaintList=function(){
   materialListBefore();const box=document.getElementById('examList');if(!box)return;
   const allRows=examShown().filter(exam=>student?exam.studentId===authUser.id:canEditLessons()||canTuneStudentLessons()||!!exam.studentId).sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1);
   const rows=allRows.filter(exam=>examSection==='assigned'?exam.instanceStatus==='active':examSection==='ready'?examNeedsReview(exam):examSection==='completed'?exam.instanceStatus==='completed':!exam.instanceStatus);
-  const groupFor=exam=>classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
+  const groupFor=exam=>classGroups.find(g=>(g.examIds||[]).includes(exam.id))||classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
   const groups=[...new Map([...classGroups.filter(group=>canEditLessons()||canTuneStudentLessons()||!group.hidden).map(group=>[String(group.id),group]),...allRows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})]).values()];
   if(student){const own=classGroups[0]||groups[0];examViewGroup=own?.id??'unassigned';examViewLevel=own?accountGroupLevel(own):'unassigned';}
   const group=classGroups.find(group=>String(group.id)===String(examViewGroup))||groups.find(group=>String(group.id)===String(examViewGroup));

@@ -15932,21 +15932,28 @@ const STUDIO_CONSTELLATIONS = [{
       if (!selected) { if (document.querySelector('section.on')?.id === 'admingroup') goBack('admin'); return; }
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
-      const folds=Object.fromEntries(['students','lessons','exams','teachers','teachers-list'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
+      const folds=Object.fromEntries(['students','lessons','exams','exams-assign','teachers','teachers-list'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
       const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
       const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
-      const examRows = exams.map(exam => {
-        const assigned = (selected.examIds || []).includes(exam.id), owner = adminGroups.find(group => (group.examIds || []).includes(exam.id));
-        const label = assigned ? 'Unassign' : 'Assign';
-        const icon = '<svg class="lucide lucide-circle-' + (assigned ? 'minus' : 'plus') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>' + (assigned ? '' : '<path d="M12 8v8"/>') + '</svg>';
-        return '<div class="day-row accounts-exam-row" data-group-exam="' + exam.id + '"><button class="path" type="button" data-exam-open="' + exam.id + '"><span><b>' + esc(exam.title) + '</b><br><span class="label">' + esc(owner?.title || 'Unassigned') + (assigned ? ' · Assigned' : '') + '</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-account-group="' + (assigned ? 'unassign-exam' : 'exam') + '" data-exam-id="' + exam.id + '" aria-label="' + label + '" title="' + label + '">' + icon + '</button></div></div>';
+      const assignedExams = exams.filter(exam => (selected.examIds || []).includes(exam.id));
+      const candidateExams = exams.filter(exam => !(selected.examIds || []).includes(exam.id));
+      const assignedRows = assignedExams.map(exam => {
+        const label = 'Unassign';
+        const icon = '<svg class="lucide lucide-circle-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>';
+        return '<div class="day-row accounts-exam-row" data-group-exam="' + exam.id + '"><button class="path" type="button" data-exam-open="' + exam.id + '"><span><b>' + esc(exam.title) + '</b><br><span class="label">' + esc(selected.title) + ' · Assigned</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-account-group="unassign-exam" data-exam-id="' + exam.id + '" aria-label="' + label + '" title="' + label + '">' + icon + '</button></div></div>';
       }).join('');
-      detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',exams.length))+'</summary>' + (examRows || '<p class="hint">No exams yet.</p>') + '</details>';
+      const candidateRows = candidateExams.map(exam => {
+        const owner = adminGroups.find(group => (group.examIds || []).includes(exam.id));
+        const label = 'Assign';
+        const icon = '<svg class="lucide lucide-circle-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>';
+        return '<div class="day-row accounts-exam-row" data-group-exam="' + exam.id + '"><button class="path" type="button" data-exam-open="' + exam.id + '"><span><b>' + esc(exam.title) + '</b><br><span class="label">' + esc(owner?.title || 'Unassigned') + '</span></span></button><div class="day-tools"><button class="day-hide" type="button" data-account-group="exam" data-exam-id="' + exam.id + '" aria-label="' + label + '" title="' + label + '">' + icon + '</button></div></div>';
+      }).join('');
+      detail.innerHTML = '<h2>' + esc(selected.title) + '</h2><div class="row"><input id="accountGroupTitle" aria-label="Group name" maxlength="120" value="' + esc(selected.title) + '"><button class="btn" type="button" data-account-group="rename">Rename group</button><button class="btn stop" type="button" data-account-group="archive">Archive group</button></div><details class="accounts-fold" data-group-students><summary>'+esc(accountCount('Students',students.length))+'</summary>' + adminAccountRows(students) + '</details><details class="accounts-fold" data-group-lessons><summary>'+esc(accountCount('Lessons',selected.lessonIds.length))+'</summary>' + selected.lessonIds.map(id => '<button class="path" type="button" data-lm-open="' + id + '">' + esc(lessons.find(l => l.id === id)?.title || 'Lesson') + '</button>').join('') + '</details><details class="accounts-fold" data-group-exams><summary>'+esc(accountCount('Exams',assignedExams.length))+'</summary>' + (assignedRows || '<p class="hint">No exams yet.</p>') + '<details class="accounts-fold" data-group-exams-assign><summary>Assign exams</summary>' + (candidateRows || '<p class="hint">No available exams.</p>') + '</details></details>';
       const teachers=adminTeachers(selected.id),assignment=adminTeacherAssignments.find(row=>row.groupId===selected.id),candidates=adminAccounts.filter(user=>['ADMIN','DEVELOPER'].includes(user.role)&&user.active!==false&&user.active!==0);
       detail.querySelector('[data-group-students]').insertAdjacentHTML('beforebegin','<details class="accounts-fold" data-group-teachers-list><summary>'+esc(accountCount('Teachers',teachers.length))+'</summary>'+adminAccountRows(teachers,false)+'<details class="accounts-fold" data-group-teachers data-group-id="'+selected.id+'" data-revision="'+(assignment?.revision||0)+'"><summary>Assign teachers</summary>'+candidates.map(user=>{const assigned=assignment?.teacherIds?.map(String).includes(String(user.id)),label=assigned?'Unassign':'Assign';return '<div class="day-row accounts-teacher-row"><div class="path account-static-row"><span><b>'+esc(user.name||user.login)+'</b><br><span class="label">'+esc(user.email||user.login)+' · '+roleLabel(user.role)+accountMark(user)+'</span></span></div><div class="day-tools"><button class="day-hide" type="button" data-account-teacher-toggle="'+esc(user.id)+'" aria-pressed="'+!!assigned+'" aria-label="'+label+'" title="'+label+'"></button></div></div>';}).join('')+'<p class="hint" role="status" data-account-teachers-status></p></details></details>');
       detail.querySelectorAll('[data-account-teacher-toggle]').forEach(button=>{const glyph=window.lucide?.icons[button.getAttribute('aria-pressed')==='true'?'CircleMinus':'CirclePlus'];if(glyph)button.append(window.lucide.createElement(glyph));});
       detail.dataset.groupId = String(selected.id);
-      for(const [name,open] of Object.entries(folds))detail.querySelector('[data-group-'+name+']').open=open;
+      for(const [name,open] of Object.entries(folds)){const fold=detail.querySelector('[data-group-'+name+']');if(fold)fold.open=open;}
       paintPagePath('admingroup');
     }
     document.addEventListener('click',async event=>{
@@ -24588,7 +24595,7 @@ if(typeof window!=='undefined'){
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
-      const rows=examShown().filter(row=>String(row.groupId)===String(group.id)||group.examIds?.includes(row.id));
+      const rows=examShown().filter(row=>(group.examIds||[]).includes(row.id)||String(row.groupId)===String(group.id));
       return [['exam',rows.filter(row=>!row.studentId).length],['assigned works',rows.filter(row=>row.instanceStatus==='active').length],['ready for review',rows.filter(row=>typeof examNeedsReview==='function'?examNeedsReview(row):row.instanceStatus==='ready').length],['completed',rows.filter(row=>row.instanceStatus==='completed').length]];
     }
     function paintGroupDetail() {
@@ -25676,7 +25683,7 @@ if(typeof window!=='undefined'){
         if (a.date !== b.date) return a.date < b.date ? 1 : -1;
         return (b.created || 0) - (a.created || 0);
       });
-      const groupFor=exam=>classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
+      const groupFor=exam=>classGroups.find(g=>(g.examIds||[]).includes(exam.id))||classGroups.find(g=>g.id===exam.groupId)||{id:exam.groupId||'unassigned',title:exam.groupTitle||'Unassigned'};
       const groups=[...new Map(rows.map(exam=>{const group=groupFor(exam);return [String(group.id),group];})).values()];
       if(!examViewLevel){box.innerHTML=levelButtons(groups,'data-exam-level');return;}
       const back='<button class="btn ghost" type="button" data-exam-level="">Back</button><h2>'+esc(examViewLevel==='unassigned'?'Unassigned':examViewLevel)+'</h2>';

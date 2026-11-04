@@ -49,7 +49,7 @@
       }).join(''):'<p class="hint">None assigned.</p>';
     }
     function groupExamMetrics(group) {
-      const rows=examShown().filter(row=>String(row.groupId)===String(group.id)||group.examIds?.includes(row.id));
+      const rows=examShown().filter(row=>(group.examIds||[]).includes(row.id)||String(row.groupId)===String(group.id));
       return [['exam',rows.filter(row=>!row.studentId).length],['assigned works',rows.filter(row=>row.instanceStatus==='active').length],['ready for review',rows.filter(row=>typeof examNeedsReview==='function'?examNeedsReview(row):row.instanceStatus==='ready').length],['completed',rows.filter(row=>row.instanceStatus==='completed').length]];
     }
     function paintGroupDetail() {
