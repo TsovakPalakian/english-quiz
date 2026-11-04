@@ -1,46 +1,61 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Window } from 'happy-dom';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 let window;
+const previewRaw = readFileSync(new URL('../preview.js', import.meta.url), 'utf8');
+
+const previewHtml = readFileSync(new URL('../site/preview.html', import.meta.url), 'utf8');
+
+function createPreviewContext() {
+  const dom = new Window({ url: 'https://preview.invalid/' });
+  dom.document.write(previewHtml);
+  dom.srcSeq = 0;
+  dom.console = console;
+  dom.fetch = () => Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+  dom.setTimeout = setTimeout;
+  dom.clearTimeout = clearTimeout;
+  dom.setInterval = setInterval;
+  dom.clearInterval = clearInterval;
+  dom.requestAnimationFrame = (cb) => setTimeout(cb, 16);
+  dom.cancelAnimationFrame = (id) => clearTimeout(id);
+  dom.LESSON_DATA = {
+    words: [], lines21: [], ask07: [], phrases09: [], adverbs14: [], talk16: [], likes23: [], extraWords: [], rules: [], phrasalWords: [], idiomWords: [], songCards: {}, lessonRules: []
+  };
+  dom.LESSON_INDEX = [];
+  dom.GRAMMAR = { topics: {}, areas: [] };
+  dom.SPEAKOUT = [];
+  dom.IRREGULAR = [];
+  dom.VERB_IPA = {};
+  dom.VERB_IPA_CASE = {};
+
+  const ctx = vm.createContext(dom);
+  const exportTail = '\n;window.__previewExports = { esc, domEntityId, dayScreens, guestRestrictedPage, lessonLabel, placeKey, speakBook, tidy };';
+  vm.runInContext(previewRaw + exportTail, ctx);
+  return dom;
+}
+
+let previewDom;
+try {
+  previewDom = createPreviewContext();
+  window = previewDom;
+  global.window = window;
+} catch (e) {
+  console.error('PREVIEW_INIT_ERROR:', e);
+}
 
 beforeEach(() => {
-  window = new Window();
+  window = previewDom;
   global.window = window;
   global.srcSeq = 0;
 });
 
 afterEach(() => {
-  delete window.SPEAKOUT;
+  if (window) delete window.SPEAKOUT;
 });
 
-// Extract functions from preview.js for testing
-function esc(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function domEntityId(value) {
-  const raw = String(value == null ? "" : value);
-  if (!/^[1-9]\d{0,15}$/.test(raw)) return value;
-  const id = Number(raw);
-  return Number.isSafeInteger(id) ? id : value;
-}
-
-const dayScreens = {
-  lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
-  song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "library", tense: "library", marker: "library", library: "library", verbs: "library", phrasal: "library", idioms: "library", articles: "library", speakout: "library",
-  choice: "setup", flip: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
-  made: "add", allwords: "home", cardstat: "home", everyday: "library", everydaygroup: "library", everydaytopic: "library", grammarcategories: "library", grammarcategory: "library", grammarrule: "library",
-  account: "account", profile: "account", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account"
-};
-
-function guestRestrictedPage(id) {
-  return ['groups','exams','library','stats','profile','speakouteditor'].includes(id)||['groups','exams','library'].includes(dayScreens[id]);
-}
+const { esc, domEntityId, dayScreens, guestRestrictedPage, lessonLabel, placeKey, speakBook, tidy } = previewDom?.__previewExports || {};
 
 describe('preview.js - domEntityId', () => {
   it('преобразует валидные числовые строки в числа', () => {
@@ -84,7 +99,7 @@ describe('preview.js - dayScreens mapping', () => {
     expect(dayScreens.music).toBe('library');
     expect(dayScreens.texts).toBe('library');
     expect(dayScreens.library).toBe('library');
-    expect(dayScreens.verbs).toBe('library');
+    expect(dayScreens.verbs).toBe('tenses');
   });
 
   it('квизы относятся к setup', () => {
@@ -96,13 +111,13 @@ describe('preview.js - dayScreens mapping', () => {
 
   it('добавленные слова и статистика относятся к home', () => {
     expect(dayScreens.made).toBe('add');
-    expect(dayScreens.allwords).toBe('home');
+    expect(dayScreens.allwords).toBe('wordcollections');
     expect(dayScreens.cardstat).toBe('home');
   });
 
   it('аккаунт и админка относятся к account/admin', () => {
     expect(dayScreens.account).toBe('account');
-    expect(dayScreens.profile).toBe('account');
+    expect(dayScreens.profile).toBe('settings');
     expect(dayScreens.admin).toBe('admin');
     expect(dayScreens.themes).toBe('account');
   });
@@ -155,10 +170,6 @@ describe('preview.js - guestRestrictedPage', () => {
 });
 
 describe('preview.js - lessonLabel', () => {
-  function lessonLabel(unitIndex, lesson) {
-    return (unitIndex + 1) + lesson.letter + " " + lesson.title;
-  }
-
   it('форматирует метку урока', () => {
     const lesson = { letter: 'A', title: 'Getting Started' };
     expect(lessonLabel(0, lesson)).toBe('1A Getting Started');
@@ -172,14 +183,6 @@ describe('preview.js - lessonLabel', () => {
 });
 
 describe('preview.js - placeKey', () => {
-  function placeKey(place) {
-    if (place.id === 'groups' || place.id === 'exams') return [place.id,place.groupViewLevel,place.examViewLevel,place.examViewGroup].join('|');
-    if (place.id === 'admingrouplevel') return place.id + '|' + place.adminGroupLevel;
-    if(place.id?.startsWith('grammar'))return place.id+'|'+(place.grammarCategory||'')+'|'+(place.grammarRule||'');
-    if(place.id?.startsWith('everyday'))return [place.id,place.everyday?.group,place.everyday?.topic,place.everyday?.groupSearch,place.everyday?.wordSearch].join('|');
-    return [place.id, place.view || "", place.area || "", place.kind || "", place.topic || "", place.compare || "", place.marker || "", place.statKind || "", place.statGroup || "", place.statSong || "", place.allGroup || "", place.allSong || "", place.addGroup || "", place.addSong || "", place.verbGroup || "", place.verbKey || "", place.speakView || "", place.speakLevel, place.speakUnit, place.speakLesson, place.workDay || "", place.workKind || ""].join("|");
-  }
-
   it('генерирует ключ для groups', () => {
     const place = { id: 'groups', groupViewLevel: 'A1', examViewLevel: '', examViewGroup: null };
     expect(placeKey(place)).toBe('groups|A1||');
@@ -228,12 +231,11 @@ describe('preview.js - speakBook', () => {
   it('возвращает SPEAKOUT если определен', () => {
     const bookData = [{ level: 'Starter', units: [] }];
     window.SPEAKOUT = bookData;
-    const speakBook = () => window.SPEAKOUT || [];
     expect(speakBook()).toEqual(bookData);
   });
 
   it('возвращает пустой массив если SPEAKOUT не определен', () => {
-    const speakBook = () => window.SPEAKOUT || [];
+    delete window.SPEAKOUT;
     expect(speakBook()).toEqual([]);
   });
 });
@@ -253,10 +255,6 @@ describe('preview.js - syncHomeBack логика', () => {
 });
 
 describe('preview.js - tidy', () => {
-  function tidy(text) {
-    return String(text || "").replace(/\s+/g, " ").replace(/\s+([.,?!;:])/g, "$1").replace(/\[[^\]]+\]\s*/g, "").trim();
-  }
-
   it('удаляет лишние пробелы', () => {
     expect(tidy('hello   world')).toBe('hello world');
     expect(tidy('  multiple   spaces  ')).toBe('multiple spaces');

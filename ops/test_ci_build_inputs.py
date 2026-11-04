@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-spec = importlib.util.spec_from_file_location("build_inputs", Path(__file__).resolve().parent.parent / "ops/ci-build-inputs.py")
+spec = importlib.util.spec_from_file_location("build_inputs", Path(__file__).resolve().parent / "ci-build-inputs.py")
 inputs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(inputs)
 
