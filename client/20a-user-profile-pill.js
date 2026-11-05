@@ -211,11 +211,17 @@
           }
         }
         const act = btn.dataset.profileAction;
-        if (act === 'settings' || act === 'notifications') {
+        if (act === 'settings') {
           if (typeof show === 'function') {
             show('settings');
           } else if (typeof window.enquizVisit === 'function') {
             window.enquizVisit('settings');
+          }
+        } else if (act === 'notifications') {
+          if (typeof window.openLessonNotifications === 'function') {
+            window.openLessonNotifications();
+          } else if (typeof show === 'function') {
+            show('settings');
           }
         } else if (act === 'logout') {
           setUserStatus('offline');
