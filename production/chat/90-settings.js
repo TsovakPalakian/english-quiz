@@ -649,6 +649,7 @@
         performLogout();
       });
       pane.querySelector('[data-chat-blocked]')?.remove();
+      if (id === 'profile') scheduleProfiles();
       if (id === 'theme') {
         mountSection('themes', pane);
         paintThemeSegs();
@@ -931,6 +932,31 @@
     true,
   );
   window.openChatSettings = settings;
+  window.sendGroupChatMessage = async function(groupId, text) {
+    if (!signedIn()) return;
+    if (!ready) {
+      connect();
+      await new Promise((resolve) => {
+        let attempts = 0;
+        const check = () => {
+          if (ready || attempts > 20) return resolve();
+          attempts++;
+          setTimeout(check, 100);
+        };
+        check();
+      });
+    }
+    const numId = Number(groupId);
+    const openRes = await request('open', { kind: 'group', groupId: numId });
+    if (openRes && openRes.roomId) {
+      return request('send', {
+        roomId: openRes.roomId,
+        category: 'learning',
+        clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        text
+      });
+    }
+  };
   el('msgProfile').onclick = settings;
   el('msgSettings').onclick = settings;
   el('msgNew').onclick = newChat;

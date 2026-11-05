@@ -105,6 +105,16 @@
       const id = place && place.id;
       if (!id || id === "home" || guestRestrictedPage(id) || !document.getElementById(id)) return;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      const shellHeader = document.getElementById('shellHeader');
+      if (shellHeader) {
+        const isGuest = !authUser;
+        const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+        if (isGuest || hideOnScreens.includes(id)) {
+          shellHeader.hidden = true;
+        } else {
+          shellHeader.hidden = false;
+        }
+      }
       if (id === "settings") paintSettings();
       if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
@@ -207,6 +217,16 @@
       if (id === "texts") paintTexts();
       if (id === "library") paintTextCount();
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      const shellHeader = document.getElementById('shellHeader');
+      if (shellHeader) {
+        const isGuest = !authUser;
+        const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+        if (isGuest || hideOnScreens.includes(id)) {
+          shellHeader.hidden = true;
+        } else {
+          shellHeader.hidden = false;
+        }
+      }
       if (id === "settings") paintSettings();
       if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
@@ -323,6 +343,16 @@
       path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
         && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
         : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
+      const shellLeft = document.querySelector('.shell-header-left');
+      if (shellLeft) {
+        if (!authUser || id === 'home') {
+          shellLeft.innerHTML = '';
+        } else {
+          shellLeft.innerHTML = '<nav class="shell-crumbs" aria-label="Breadcrumb"><ol>' + items.map((item, index) => "<li>" + (index === items.length - 1
+            && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
+            : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol></nav>";
+        }
+      }
     }
     document.addEventListener("click", (event) => {
       const target = event.target.closest("[data-page-path]");

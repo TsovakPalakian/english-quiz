@@ -187,9 +187,9 @@
     const status=Number(entry.status)||0;
     const stack=String(entry.stack||'');
     if(/chrome-extension:|moz-extension:|safari-extension:|safari-web-extension:/.test(stack))return;
-    if(path.startsWith('/api/bugs')||status===401||(status===404&&path==='/api/lesson-file')||((status===404||status===410)&&path==='/api/accounts/invites')||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
+    if(path.startsWith('/api/bugs')||status===401||(status===404&&path==='/api/lesson-file')||((status===404||status===410)&&path==='/api/accounts/invites')||(status===410&&path.startsWith('/api/messages/'))||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||entry.error==='Sign in first.')return;
     if(status===400&&(entry.error==='Enter a lesson title before saving.'||path==='/api/lessons'&&entry.error?.includes?.('title')))return;
-    if((status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')))return;
+    if((status===502||status===503||status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')||entry.error?.includes?.('Could not analyse this PDF')))return;
     if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Wait for pending personal changes')||entry.error?.includes?.('Дождитесь сохранения личной очереди.')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
     if(status===0&&String(entry.method||'GET').toUpperCase()==='GET'&&(typeof document!=='undefined'&&document.visibilityState==='hidden'))return;
     // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.

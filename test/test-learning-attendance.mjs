@@ -152,6 +152,56 @@ test('AttendanceService CAS prevents lost updates with revision conflict', async
   }
 });
 
+test('Simulated client resolution on 409 conflict merges data and updates revision', async () => {
+  const f = fixture();
+  try {
+    // Initial state saved by Teacher A
+    await f.service.saveGroupAttendance(teacher1, 1, '2026-11', {
+      lessonDates: ['2026-11-05'],
+      attendance: {'s1': {'2026-11-05': 'present'}},
+      expectedRevision: 0
+    });
+
+    // Concurrent save by Teacher B succeeds (revision becomes 2)
+    await f.service.saveGroupAttendance(teacher1, 1, '2026-11', {
+      lessonDates: ['2026-11-05', '2026-11-12'],
+      attendance: {'s1': {'2026-11-05': 'present'}, 's2': {'2026-11-05': 'absent'}},
+      expectedRevision: 1
+    });
+
+    // Teacher A attempts save with stale expectedRevision: 1 -> 409 Conflict
+    await assert.rejects(
+      f.service.saveGroupAttendance(teacher1, 1, '2026-11', {
+        lessonDates: ['2026-11-05'],
+        attendance: {'s1': {'2026-11-05': 'absent'}},
+        expectedRevision: 1
+      }),
+      e => e.status === 409
+    );
+
+    // Conflict resolution: reload latest
+    const latest = await f.service.getGroupAttendance(teacher1, 1, '2026-11');
+    assert.equal(latest.revision, 2);
+
+    // Merge: keep latest server attendance for s2 ('absent'), overlay local update for s1 ('absent')
+    const mergedAttendance = {...latest.attendance, 's1': {'2026-11-05': 'absent'}};
+    const mergedDates = [...new Set([...latest.lessonDates, '2026-11-05'])].sort();
+
+    // Resubmit with expectedRevision: latest.revision (2)
+    const resolved = await f.service.saveGroupAttendance(teacher1, 1, '2026-11', {
+      lessonDates: mergedDates,
+      attendance: mergedAttendance,
+      expectedRevision: latest.revision
+    });
+
+    assert.equal(resolved.revision, 3);
+    assert.equal(resolved.attendance.s1['2026-11-05'], 'absent');
+    assert.equal(resolved.attendance.s2['2026-11-05'], 'absent');
+  } finally {
+    f.close();
+  }
+});
+
 test('AttendanceService lists months summaries and deletes month document', async () => {
   const f = fixture();
   try {
@@ -293,3 +343,42 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     f.close();
   }
 });
+
+test('Client contracts: group calendar month cache isolation, real student binding, and Title Case role labels', async () => {
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+
+  const calSrc = await fs.readFile(path.resolve('client/53a-group-calendar.js'), 'utf8');
+  const pillSrc = await fs.readFile(path.resolve('client/20a-user-profile-pill.js'), 'utf8');
+  const coreSrc = await fs.readFile(path.resolve('client/00-core.js'), 'utf8');
+  const cssSrc = await fs.readFile(path.resolve('site/preview.css'), 'utf8');
+
+  // 1. Month cache isolation in calendar
+  assert.ok(calSrc.includes('function getMonthData(state, monthKey)'), 'Calendar must use per-month data caching');
+  assert.ok(calSrc.includes('d.startsWith(monthKey + \'-\')'), 'Calendar must filter payload dates strictly by current monthKey');
+
+  // 2. No dummy sample students in calendar
+  assert.ok(!calSrc.includes('SAMPLE_STUDENT_NAMES'), 'Calendar must not contain SAMPLE_STUDENT_NAMES');
+  assert.ok(!calSrc.includes("'Denis', 'Igor', 'Olga'"), 'Calendar must not contain hardcoded Denis/Igor/Olga dummy students');
+
+  // 3. Middle dot footer badges
+  assert.ok(calSrc.includes('Lessons · <b>'), 'Calendar footer must format Lessons with middle dot');
+  assert.ok(calSrc.includes('Exams · <b>'), 'Calendar footer must format Exams with middle dot');
+  assert.ok(calSrc.includes('Students · <b>'), 'Calendar footer must format Students with middle dot');
+  assert.ok(calSrc.includes('Attendance · <b>'), 'Calendar footer must format Attendance with middle dot');
+
+  // 4. Activity selection dialog for multiple events
+  assert.ok(calSrc.includes('function showEventChoiceDialog'), 'Calendar must implement event choice dialog for multiple activities');
+  assert.ok(calSrc.includes('gcw-choice-dialog'), 'Calendar must use gcw-choice-dialog');
+
+  // 5. Role labels in Title Case
+  assert.ok(pillSrc.includes("label: 'Support'"), 'Profile pill must display Support in Title Case');
+  assert.ok(pillSrc.includes("label: 'Teacher'"), 'Profile pill must display Teacher in Title Case');
+  assert.ok(pillSrc.includes("label: 'Student'"), 'Profile pill must display Student in Title Case');
+  assert.ok(pillSrc.includes("label: 'Guest'"), 'Profile pill must display Guest in Title Case');
+  assert.ok(cssSrc.includes('text-transform: none;'), 'CSS must not uppercase role badge');
+
+  // 6. Header hide/show on guest and lesson/exam screens
+  assert.ok(coreSrc.includes("['material', 'examblocks', 'speaklesson', 'speakouteditor']"), 'Core must hide header on lesson and exam screens');
+});
+

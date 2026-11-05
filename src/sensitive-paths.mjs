@@ -1,5 +1,5 @@
 const privateDirectory=new Set(['.git','.svn','.hg','.ssh','.aws','actuator']);
-const privateFile=new Set(['.npmrc','.pypirc','.netrc','.htpasswd','.dev.vars','wrangler.toml','wrangler.json','wrangler.jsonc']);
+const privateFile=new Set(['.npmrc','.pypirc','.netrc','.htpasswd','.dev.vars','wrangler.toml','wrangler.json','wrangler.jsonc','auth.json','postman.json']);
 
 export function isSensitiveFileProbe(request){
   let path=new URL(request.url).pathname;

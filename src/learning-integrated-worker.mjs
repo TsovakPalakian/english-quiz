@@ -1318,7 +1318,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
       return await studyWorker.fetch(request,{...env,[ACCOUNT_AUTH]:{current:request=>identify(accountEnv,request)}},ctx);
     }catch(error){return json({error:error instanceof StudyError?error.message:'Integrated test service unavailable.'},error instanceof StudyError?error.status:503);}
     })();
-    if(bugProbe&&response&&(response.status<200||response.status>=300)&&request.headers.get('x-client-bug')!=='1'){
+    if(bugProbe&&response&&(response.status<200||response.status>=300)&&!(new URL(request.url).pathname==='/lookup'&&response.status===404)&&request.headers.get('x-client-bug')!=='1'){
       try{await recordHttpBug(studyDatabase(env),bugActor,bugProbe,response.clone(),deploymentContext(env));}catch{}
     }
     return response;
@@ -1333,7 +1333,7 @@ function bugWatch(request){
     if(/\.(?:php|asp|aspx|jsp|env)(?:$|\/)/i.test(path))return false;
     if(/^\/api\/v\d+\//i.test(path))return false;
     if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator)(?:\/|$|\.|\-)/i.test(path))return false;
-    if(['/api/graphql','/api/gql','/api/swagger','/api/openapi'].includes(path))return false;
+    if(/^\/api\/(?:graphql|gql|swagger|openapi|postman|auth)(?:\/|$|\.)/i.test(path))return false;
     return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/feedback')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');
   }
   catch{return false;}

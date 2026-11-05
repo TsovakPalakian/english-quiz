@@ -173,6 +173,10 @@ test('security scanners and administrative probe paths are completely ignored',a
     ['/api/system/status','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
     ['/api/backup','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
     ['/api/app.env','Mozilla/5.0'],
+    ['/api/auth.json','Mozilla/5.0'],
+    ['/api/postman.json','Mozilla/5.0'],
+    ['/api/swagger.json','Mozilla/5.0'],
+    ['/api/openapi.json','Mozilla/5.0'],
     ['/api/v2/anything','curl/7.68.0']
   ];
   for(const [path,ua] of probes){
@@ -228,4 +232,13 @@ test('aborted get requests on page unload or hidden state are ignored while muta
   });
   assert.notDeepEqual(mutatingPost,{ignored:true});
   assert.equal(db.rows.length,1);
+});
+test('normal lookup word misses returning 404 are ignored by recordHttpBug and saveBug',async()=>{
+  resetBugStoreForTests();
+  const db=memory();
+  await recordHttpBug(db,{id:'u1',login:'TsovakDev',role:'DEVELOPER'},new Request('https://learn-english.example/lookup?word=spektor&context=Regina%20Spektor'),new Response(JSON.stringify({error:'No such word or phrase.',found:false}),{status:404,headers:{'content-type':'application/json'}}));
+  assert.equal(db.rows.length,0);
+  const result=await saveBug(db,{method:'GET',path:'/lookup',status:404,error:'No such word or phrase.'});
+  assert.deepEqual(result,{ignored:true});
+  assert.equal(db.rows.length,0);
 });

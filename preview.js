@@ -2832,6 +2832,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const id = place && place.id;
       if (!id || id === "home" || guestRestrictedPage(id) || !document.getElementById(id)) return;
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      const shellHeader = document.getElementById('shellHeader');
+      if (shellHeader) {
+        const isGuest = !authUser;
+        const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+        if (isGuest || hideOnScreens.includes(id)) {
+          shellHeader.hidden = true;
+        } else {
+          shellHeader.hidden = false;
+        }
+      }
       if (id === "settings") paintSettings();
       if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
@@ -2934,6 +2944,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (id === "texts") paintTexts();
       if (id === "library") paintTextCount();
       sections.forEach((s) => s.classList.toggle("on", s.id === id));
+      const shellHeader = document.getElementById('shellHeader');
+      if (shellHeader) {
+        const isGuest = !authUser;
+        const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+        if (isGuest || hideOnScreens.includes(id)) {
+          shellHeader.hidden = true;
+        } else {
+          shellHeader.hidden = false;
+        }
+      }
       if (id === "settings") paintSettings();
       if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
@@ -3050,6 +3070,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
         && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
         : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
+      const shellLeft = document.querySelector('.shell-header-left');
+      if (shellLeft) {
+        if (!authUser || id === 'home') {
+          shellLeft.innerHTML = '';
+        } else {
+          shellLeft.innerHTML = '<nav class="shell-crumbs" aria-label="Breadcrumb"><ol>' + items.map((item, index) => "<li>" + (index === items.length - 1
+            && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
+            : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol></nav>";
+        }
+      }
     }
     document.addEventListener("click", (event) => {
       const target = event.target.closest("[data-page-path]");
@@ -16923,17 +16953,21 @@ const STUDIO_CONSTELLATIONS = [{
   }
 
   function getUserRoleInfo(user) {
-    if (!user) return { label: 'GUEST', roleName: 'Guest', emoji: '👤', class: 'role-guest' };
-    if ((typeof isDeveloper === 'function' && isDeveloper()) || user.role === 'ADMIN') {
-      return { label: 'ADMIN', roleName: 'Administrator', emoji: '👑', class: 'role-admin' };
+    if (!user) return { label: 'Guest', roleName: 'Guest', emoji: '👤', class: 'role-guest' };
+    if ((typeof isDeveloper === 'function' && isDeveloper()) || user.role === 'DEVELOPER') {
+      return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
     }
-    if (user.role === 'LEAD_INSTRUCTOR' || user.leadInstructor) {
-      return { label: 'LEAD', roleName: 'Lead Instructor', emoji: '🎓', class: 'role-lead' };
+    if (user.role === 'ADMIN') {
+      const login = String(user.login || '').toLowerCase();
+      if (login.startsWith('teacher') || user.leadInstructor) {
+        return { label: 'Teacher', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
+      }
+      return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
     }
-    if (typeof isTeacher === 'function' && isTeacher()) {
-      return { label: 'TEACHER', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
+    if (user.role === 'LEAD_INSTRUCTOR' || user.leadInstructor || (typeof isTeacher === 'function' && isTeacher()) || user.role === 'TEACHER') {
+      return { label: 'Teacher', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
     }
-    return { label: 'STUDENT', roleName: 'Student', emoji: '🎒', class: 'role-student' };
+    return { label: 'Student', roleName: 'Student', emoji: '🎒', class: 'role-student' };
   }
 
   function getUserInitials(name) {
@@ -16951,12 +16985,23 @@ const STUDIO_CONSTELLATIONS = [{
 
     const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
     const isGuest = !user;
+    if (isGuest) {
+      if (header) header.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
 
-    if (header) header.hidden = false;
+    const activeSection = document.querySelector('section.on');
+    const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+    if (activeSection && hideOnScreens.includes(activeSection.id)) {
+      if (header) header.hidden = true;
+    } else {
+      if (header) header.hidden = false;
+    }
 
-    const name = user ? (user.name || user.login || 'User') : 'Guest';
-    const email = user ? (user.email || (user.login ? (user.login + '@lumiscia.edu') : '')) : 'Not signed in';
-    const initials = user ? getUserInitials(name) : 'G';
+    const name = user.name || user.login || 'User';
+    const email = user.email || (user.login ? (user.login + '@lumiscia.edu') : '');
+    const initials = getUserInitials(name);
     const role = getUserRoleInfo(user);
     const status = getUserStatus();
     const statusInfo = STATUS_MAP[status] || STATUS_MAP.online;
@@ -16966,9 +17011,9 @@ const STUDIO_CONSTELLATIONS = [{
 
     host.innerHTML =
       '<div class="user-profile-pill-wrap" id="userProfilePillWrap">' +
-        '<button type="button" class="user-profile-pill' + (isGuest ? ' is-guest' : '') + '" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings">' +
+        '<button type="button" class="user-profile-pill" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings">' +
           '<div class="pill-avatar-wrap">' +
-            '<div class="pill-avatar-img">' + avatarContent + '</div>' +
+            '<div class="pill-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
             '<span class="pill-status-dot ' + statusInfo.dotClass + '" id="pillStatusDot"></span>' +
           '</div>' +
           '<span class="pill-user-name">' + esc(name) + '</span>' +
@@ -16979,7 +17024,7 @@ const STUDIO_CONSTELLATIONS = [{
           '<div class="popover-header">' +
             '<div class="popover-user-row">' +
               '<div class="popover-avatar-wrap">' +
-                '<div class="popover-avatar-img">' + avatarContent + '</div>' +
+                '<div class="popover-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
                 '<span class="popover-status-dot ' + statusInfo.dotClass + '" id="popoverStatusDot"></span>' +
               '</div>' +
               '<div class="popover-user-details">' +
@@ -17101,11 +17146,13 @@ const STUDIO_CONSTELLATIONS = [{
       tabbarSettingsBtn.setAttribute('data-chrome', 'settings,account,stats,themes');
       tabbarSettingsBtn.innerHTML =
         '<span class="tabbar-profile-icon" id="tabbarProfileIcon" aria-hidden="true">' +
-          '<span class="tabbar-avatar-circle" id="tabbarAvatarCircle">' + ((user && user.avatarUrl) ? '<img src="' + esc(user.avatarUrl) + '" alt="' + esc(name) + '">' : esc(initials)) + '</span>' +
+          '<span class="tabbar-avatar-circle chat-avatar" id="tabbarAvatarCircle" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</span>' +
           '<span class="tabbar-status-dot ' + (statusInfo.dotClass || '') + '" id="tabbarStatusDot"></span>' +
         '</span>' +
         '<span>Profile</span>';
     }
+    if (typeof scheduleProfiles === 'function') scheduleProfiles();
+    else if (typeof window.scheduleProfiles === 'function') window.scheduleProfiles();
   }
 
   // Global listener for closing popover on outside click and Escape, plus Cmd+, / Ctrl+, shortcut
@@ -24874,7 +24921,7 @@ async function lmImportPdfDraft(file) {
     if(!active())return;
     let data;
     if(isPdf){
-      data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal});
+      data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal,quietBug:true});
     } else {
       const text = await lmExtractTextFromFile(file);
       if(/\.json$/i.test(file.name)){
@@ -25792,27 +25839,42 @@ if(typeof window!=='undefined'){
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
   const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const SAMPLE_STUDENT_NAMES = ['Denis', 'Igor', 'Olga', 'Robert', 'Tatyana', 'Tsovak'];
 
   const groupWidgetStates = new Map();
+
+  function getMonthData(state, monthKey) {
+    if (!state.monthCache) state.monthCache = new Map();
+    if (!state.monthCache.has(monthKey)) {
+      state.monthCache.set(monthKey, {
+        lessonDates: new Set(),
+        attendance: {},
+        revision: 0,
+        loaded: false
+      });
+    }
+    return state.monthCache.get(monthKey);
+  }
 
   function getGroupState(groupId, groupTitle) {
     if (!groupWidgetStates.has(groupId)) {
       const year = 2026;
       const monthIndex = 10; // November (0-based)
       const selectedDate = '2026-11-05';
-      const defaultLessonDates = new Set();
-      const defaultAttendance = {};
+      const initialMonthKey = '2026-11';
+      const monthCache = new Map();
+      monthCache.set(initialMonthKey, {
+        lessonDates: new Set(),
+        attendance: {},
+        revision: 0,
+        loaded: false
+      });
       groupWidgetStates.set(groupId, {
         year,
         monthIndex,
         selectedDate,
         activeTab: 'calendar',
-        lessonDates: defaultLessonDates,
-        attendance: defaultAttendance,
-        revision: 0,
-        groupTitle: groupTitle || 'B1 Group',
-        loaded: false
+        monthCache,
+        groupTitle: groupTitle || 'B1 Group'
       });
     }
     const state = groupWidgetStates.get(groupId);
@@ -25824,36 +25886,25 @@ if(typeof window!=='undefined'){
 
   function getGroupStudents(groupId) {
     let list = [];
-    if (typeof adminAccounts !== 'undefined' && Array.isArray(adminAccounts) &&
+    let grp = null;
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    if (grp && typeof groupDirectoryPeople === 'function') {
+      const people = groupDirectoryPeople([grp], false);
+      if (Array.isArray(people) && people.length) {
+        list = people.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
+      }
+    }
+    if (!list.length && typeof adminAccounts !== 'undefined' && Array.isArray(adminAccounts) &&
         typeof adminMembers !== 'undefined' && Array.isArray(adminMembers)) {
-      const filtered = adminAccounts.filter(u => u.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(u.id) && m.groupId === groupId));
+      const filtered = adminAccounts.filter(u => u.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(u.id) && Number(m.groupId) === Number(groupId)));
       if (filtered.length) {
-        list = filtered.map((u, i) => ({ ...u, name: u.name || SAMPLE_STUDENT_NAMES[i] || u.login }));
+        list = filtered.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
       }
-    }
-    if (!list.length && typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      const grp = classGroups.find(g => g.id === groupId);
-      if (grp && typeof groupDirectoryPeople === 'function' && typeof groupDirectoryReady === 'function' && groupDirectoryReady()) {
-        const people = groupDirectoryPeople([grp], false);
-        if (people.length) {
-          list = people.map((u, i) => ({ ...u, name: u.name || SAMPLE_STUDENT_NAMES[i] || u.login }));
-        }
-      }
-      if (!list.length && grp && grp.studentCount) {
-        list = Array.from({ length: grp.studentCount }, (_, i) => ({
-          id: 's' + (i + 1),
-          name: SAMPLE_STUDENT_NAMES[i] || ('Student ' + (i + 1)),
-          login: 'student' + (i + 1)
-        }));
-      }
-    }
-    if (!list.length) {
-      // Fallback: 6 students as in the reference screenshot
-      list = Array.from({ length: 6 }, (_, i) => ({
-        id: 'u' + (i + 1),
-        name: SAMPLE_STUDENT_NAMES[i] || ('Student ' + (i + 1)),
-        login: 'student' + (i + 1)
-      }));
     }
     return list.slice().sort((a, b) => (a.name || a.login || '').localeCompare(b.name || b.login || '', undefined, { sensitivity: 'base' }));
   }
@@ -25875,39 +25926,147 @@ if(typeof window!=='undefined'){
     return Math.round((presents / marked) * 100);
   }
 
-  function getLessonForDate(groupId, dateStr) {
+  function getLessonsForDate(groupId, dateStr) {
     let grp = null;
     if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      grp = classGroups.find(g => String(g.id) === String(groupId));
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
     }
     if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
-      grp = adminGroups.find(g => String(g.id) === String(groupId));
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
     }
     const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+    const matches = [];
     if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
-      const match = lmLibrary.materials.find(m => (lessonIds.includes(String(m.id)) || String(m.groupId) === String(groupId)) && m.date === dateStr);
-      if (match) return { id: match.id, material: match };
+      for (const m of lmLibrary.materials) {
+        if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && m.date === dateStr) {
+          matches.push({ id: m.id, material: m, title: m.title || 'Lesson', time: m.time || '' });
+        }
+      }
     }
-    return null;
+    return matches;
   }
 
-  function getExamForDate(groupId, dateStr) {
+  function getExamsForDate(groupId, dateStr) {
     let grp = null;
     if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      grp = classGroups.find(g => String(g.id) === String(groupId));
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
     }
     if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
-      grp = adminGroups.find(g => String(g.id) === String(groupId));
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
     }
     const examIds = grp && Array.isArray(grp.examIds) ? grp.examIds.map(String) : [];
+    const matches = [];
     if (typeof examShown === 'function') {
       const exams = examShown();
       if (Array.isArray(exams)) {
-        const match = exams.find(e => (examIds.includes(String(e.id)) || String(e.groupId) === String(groupId)) && e.date === dateStr);
-        if (match) return match;
+        for (const e of exams) {
+          if ((examIds.includes(String(e.id)) || Number(e.groupId) === Number(groupId)) && e.date === dateStr) {
+            matches.push({ id: e.id, exam: e, title: e.title || 'Exam', time: e.time || '' });
+          }
+        }
       }
     }
-    return null;
+    return matches;
+  }
+
+  function showEventChoiceDialog(dateStr, lessons, exams) {
+    const existing = document.getElementById('gcwChoiceDialog');
+    if (existing) existing.remove();
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwChoiceDialog';
+    dialog.className = 'gcw-choice-dialog';
+
+    let itemsHtml = '';
+    lessons.forEach((l, idx) => {
+      const title = l.title || ('Lesson ' + (idx + 1));
+      const timeInfo = l.time ? '<small>' + esc(l.time) + '</small>' : '';
+      itemsHtml +=
+        '<button type="button" class="gcw-choice-item" data-action="open-lesson" data-id="' + esc(l.id) + '">' +
+          '<span class="gcw-choice-badge is-lesson">Lesson</span>' +
+          '<div class="gcw-choice-info"><b>' + esc(title) + '</b>' + timeInfo + '</div>' +
+          '<span class="gcw-choice-arrow">Open →</span>' +
+        '</button>';
+    });
+    exams.forEach((ex, idx) => {
+      const title = ex.title || ('Exam ' + (idx + 1));
+      const timeInfo = ex.time ? '<small>' + esc(ex.time) + '</small>' : '';
+      itemsHtml +=
+        '<button type="button" class="gcw-choice-item" data-action="open-exam" data-id="' + esc(ex.id) + '">' +
+          '<span class="gcw-choice-badge is-exam">Exam</span>' +
+          '<div class="gcw-choice-info"><b>' + esc(title) + '</b>' + timeInfo + '</div>' +
+          '<span class="gcw-choice-arrow">Open →</span>' +
+        '</button>';
+    });
+
+    dialog.innerHTML =
+      '<div class="gcw-choice-head">' +
+        '<h3>Activities on ' + esc(dateStr) + '</h3>' +
+        '<button type="button" class="gcw-choice-close-btn" aria-label="Close">✕</button>' +
+      '</div>' +
+      '<div class="gcw-choice-list">' + itemsHtml + '</div>';
+
+    document.body.appendChild(dialog);
+
+    const closeDialog = () => {
+      if (typeof dialog.close === 'function') dialog.close();
+      dialog.remove();
+    };
+
+    const closeBtn = dialog.querySelector('.gcw-choice-close-btn');
+    if (closeBtn) closeBtn.onclick = (e) => { e.stopPropagation(); closeDialog(); };
+
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) closeDialog();
+    });
+
+    dialog.querySelectorAll('.gcw-choice-item').forEach(btn => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        closeDialog();
+        if (action === 'open-lesson' && typeof window.lmOpenLesson === 'function') {
+          window.lmOpenLesson(id);
+        } else if (action === 'open-exam') {
+          if (typeof examOpenSelected === 'function') {
+            void examOpenSelected(id);
+          } else if (typeof window.examOpenSelected === 'function') {
+            void window.examOpenSelected(id);
+          }
+        }
+      };
+    });
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function handleDateItemClick(groupId, dateStr, isScheduled, anchorEl, canEdit, onCancelDate) {
+    const lessons = getLessonsForDate(groupId, dateStr);
+    const exams = getExamsForDate(groupId, dateStr);
+    const total = lessons.length + exams.length;
+
+    if (total > 1) {
+      showEventChoiceDialog(dateStr, lessons, exams);
+    } else if (total === 1) {
+      if (lessons.length === 1 && typeof window.lmOpenLesson === 'function') {
+        window.lmOpenLesson(lessons[0].id);
+      } else if (exams.length === 1) {
+        if (typeof examOpenSelected === 'function') {
+          void examOpenSelected(exams[0].id);
+        } else if (typeof window.examOpenSelected === 'function') {
+          void window.examOpenSelected(exams[0].id);
+        }
+      }
+    } else if (isScheduled) {
+      showGcwRedAlert(anchorEl, 'No lesson available for this date', canEdit ? onCancelDate : null);
+    } else if (!canEdit) {
+      showGcwRedAlert(anchorEl, 'No lesson scheduled for this date');
+    }
   }
 
   function showGcwRedAlert(anchorEl, message, onCancelDate) {
@@ -25956,52 +26115,147 @@ if(typeof window!=='undefined'){
 
   async function loadGroupAttendanceData(groupId, state) {
     const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
     try {
       const url = '/api/groups/attendance?groupId=' + groupId + '&month=' + encodeURIComponent(monthKey);
-      const res = await (typeof accountFetch === 'function' ? accountFetch(url) : fetch(url, { credentials: 'include' }).then(r => r.ok ? r.json() : null));
+      const res = await (typeof accountFetch === 'function' ? accountFetch(url, { quietBug: true }) : fetch(url, { credentials: 'include' }).then(r => r.ok ? r.json() : null));
       if (res && res.exists) {
-        if (Array.isArray(res.lessonDates) && res.lessonDates.length) {
-          state.lessonDates = new Set(res.lessonDates);
+        if (Array.isArray(res.lessonDates)) {
+          monthData.lessonDates = new Set(res.lessonDates.filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')));
         }
-        if (res.attendance && Object.keys(res.attendance).length) {
-          state.attendance = res.attendance;
+        if (res.attendance && typeof res.attendance === 'object') {
+          const cleanAtt = {};
+          for (const [stId, dates] of Object.entries(res.attendance)) {
+            if (dates && typeof dates === 'object') {
+              cleanAtt[stId] = {};
+              for (const [d, val] of Object.entries(dates)) {
+                if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+                  cleanAtt[stId][d] = val;
+                }
+              }
+            }
+          }
+          monthData.attendance = cleanAtt;
         }
-        state.revision = Number(res.revision) || 0;
+        monthData.revision = Number(res.revision) || 0;
       }
     } catch {
       // Retain existing state in offline / mock mode
     }
-    state.loaded = true;
+    monthData.loaded = true;
   }
 
   let saveAttendanceChain = Promise.resolve();
 
-  async function saveGroupAttendanceData(groupId, state) {
-    saveAttendanceChain = saveAttendanceChain.then(async () => {
+  async function saveGroupAttendanceData(groupId, state, container) {
+    saveAttendanceChain = saveAttendanceChain.catch(() => {}).then(async () => {
       const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+      const monthData = getMonthData(state, monthKey);
+      const filteredDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+      const filteredAttendance = {};
+      if (monthData.attendance && typeof monthData.attendance === 'object') {
+        for (const [stId, dates] of Object.entries(monthData.attendance)) {
+          if (dates && typeof dates === 'object') {
+            filteredAttendance[stId] = {};
+            for (const [d, mark] of Object.entries(dates)) {
+              if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+                filteredAttendance[stId][d] = mark;
+              }
+            }
+          }
+        }
+      }
       const payload = {
         groupId,
         month: monthKey,
         monthKey,
-        lessonDates: Array.from(state.lessonDates).sort(),
-        attendance: state.attendance,
+        lessonDates: filteredDates,
+        attendance: filteredAttendance,
         pricePerLesson: 30,
         currency: 'BYN',
         paymentDeadline: '',
-        expectedRevision: state.revision
+        expectedRevision: monthData.revision
       };
+      const url = '/api/groups/attendance';
       try {
-        const url = '/api/groups/attendance';
         const res = await (typeof accountFetch === 'function'
-          ? accountFetch(url, { method: 'POST', body: JSON.stringify(payload) })
+          ? accountFetch(url, { method: 'POST', body: JSON.stringify(payload), quietBug: true })
           : fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(payload) }).then(r => r.json()));
         if (res && res.revision) {
-          state.revision = res.revision;
-        } else if (res && res.status === 409) {
-          await loadGroupAttendanceData(groupId, state);
+          monthData.revision = res.revision;
         }
-      } catch {
-        // Soft fail in demo mode
+      } catch (err) {
+        if (err && err.status === 409) {
+          try {
+            const reloadUrl = '/api/groups/attendance?groupId=' + groupId + '&month=' + encodeURIComponent(monthKey);
+            const latest = await (typeof accountFetch === 'function'
+              ? accountFetch(reloadUrl, { quietBug: true })
+              : fetch(reloadUrl, { credentials: 'include' }).then(r => r.ok ? r.json() : null));
+            if (latest && latest.exists) {
+              if (Array.isArray(latest.lessonDates)) {
+                for (const d of latest.lessonDates) {
+                  if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+                    monthData.lessonDates.add(d);
+                  }
+                }
+              }
+              const mergedAttendance = {};
+              if (latest.attendance && typeof latest.attendance === 'object') {
+                for (const [stId, dates] of Object.entries(latest.attendance)) {
+                  if (dates && typeof dates === 'object') {
+                    mergedAttendance[stId] = {};
+                    for (const [d, mark] of Object.entries(dates)) {
+                      if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+                        mergedAttendance[stId][d] = mark;
+                      }
+                    }
+                  }
+                }
+              }
+              if (monthData.attendance && typeof monthData.attendance === 'object') {
+                for (const [stId, dates] of Object.entries(monthData.attendance)) {
+                  if (!mergedAttendance[stId]) mergedAttendance[stId] = {};
+                  if (dates && typeof dates === 'object') {
+                    for (const [d, mark] of Object.entries(dates)) {
+                      if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+                        if (mark === 'unmarked') {
+                          delete mergedAttendance[stId][d];
+                        } else {
+                          mergedAttendance[stId][d] = mark;
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              monthData.attendance = mergedAttendance;
+              monthData.revision = Number(latest.revision) || 0;
+              const retryDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+              const retryPayload = {
+                groupId,
+                month: monthKey,
+                monthKey,
+                lessonDates: retryDates,
+                attendance: monthData.attendance,
+                pricePerLesson: 30,
+                currency: 'BYN',
+                paymentDeadline: '',
+                expectedRevision: monthData.revision
+              };
+              const retryRes = await (typeof accountFetch === 'function'
+                ? accountFetch(url, { method: 'POST', body: JSON.stringify(retryPayload), quietBug: true })
+                : fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(retryPayload) }).then(r => r.json()));
+              if (retryRes && retryRes.revision) {
+                monthData.revision = retryRes.revision;
+              }
+              if (container && container.isConnected) {
+                paintGroupCalendarWidget(container, groupId, state);
+              }
+            }
+          } catch {
+            // Retain local state
+          }
+        }
       }
     });
     return saveAttendanceChain;
@@ -26013,10 +26267,22 @@ if(typeof window!=='undefined'){
     if (!Number.isSafeInteger(gId) || gId <= 0) return;
 
     const state = getGroupState(gId, groupTitle);
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
 
-    if (!state.loaded) {
+    if (typeof loadGroupDirectory === 'function' && typeof groupDirectoryReady === 'function' && !groupDirectoryReady()) {
+      loadGroupDirectory().then(() => {
+        if (container.isConnected) {
+          paintGroupCalendarWidget(container, gId, state);
+        }
+      });
+    }
+
+    if (!monthData.loaded) {
       loadGroupAttendanceData(gId, state).then(() => {
-        paintGroupCalendarWidget(container, gId, state);
+        if (container.isConnected) {
+          paintGroupCalendarWidget(container, gId, state);
+        }
       });
     }
 
@@ -26026,18 +26292,58 @@ if(typeof window!=='undefined'){
   function paintGroupCalendarWidget(container, groupId, state) {
     const canEdit = typeof isTeacher === 'function' && isTeacher() && (typeof viewAccount === 'undefined' || !viewAccount);
     const students = getGroupStudents(groupId);
-    const lessonCount = state.lessonDates.size;
     const studentCount = students.length;
-    const attendancePct = calculateAttendancePct(state.lessonDates, students, state.attendance);
 
     const monthName = MONTH_NAMES[state.monthIndex];
     const year = state.year;
     const monthKey = year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+
+    // Combine scheduled dates and lmLibrary lesson dates for current month
+    const monthLessonDates = new Set();
+    for (const d of monthData.lessonDates) {
+      if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+        monthLessonDates.add(d);
+      }
+    }
+    let grp = null;
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+    if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+      for (const m of lmLibrary.materials) {
+        if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
+          monthLessonDates.add(m.date);
+        }
+      }
+    }
+    const lessonCount = monthLessonDates.size;
+
+    // Calculate exams for this month
+    const monthExamDates = new Set();
+    const examIds = grp && Array.isArray(grp.examIds) ? grp.examIds.map(String) : [];
+    if (typeof examShown === 'function') {
+      const exams = examShown();
+      if (Array.isArray(exams)) {
+        for (const e of exams) {
+          if ((examIds.includes(String(e.id)) || Number(e.groupId) === Number(groupId)) && typeof e.date === 'string' && e.date.startsWith(monthKey + '-')) {
+            monthExamDates.add(e.id || e.date);
+          }
+        }
+      }
+    }
+    const examCount = monthExamDates.size;
+
+    const attendancePct = calculateAttendancePct(monthLessonDates, students, monthData.attendance);
 
     // Calendar Grid Days Calculation
     const daysInMonth = new Date(year, state.monthIndex + 1, 0).getDate();
     const firstDayDow = (new Date(year, state.monthIndex, 1).getDay() + 6) % 7; // Monday = 0
-    const sortedMonthLessons = Array.from(state.lessonDates).filter(d => d.startsWith(monthKey)).sort();
+    const sortedMonthLessons = Array.from(monthLessonDates).sort();
 
     let gridHtml = '';
     for (const wd of WEEKDAYS) {
@@ -26048,16 +26354,18 @@ if(typeof window!=='undefined'){
     }
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = monthKey + '-' + String(d).padStart(2, '0');
-      const isScheduled = state.lessonDates.has(dateStr);
+      const isScheduled = monthData.lessonDates.has(dateStr);
       const isSelected = state.selectedDate === dateStr;
       const roClass = canEdit ? '' : ' is-readonly';
-      const lessonObj = getLessonForDate(groupId, dateStr);
-      const examObj = getExamForDate(groupId, dateStr);
+      const lessons = getLessonsForDate(groupId, dateStr);
+      const exams = getExamsForDate(groupId, dateStr);
 
-      const isGreen = Boolean(lessonObj && isScheduled);
-      const isBlue = Boolean(lessonObj && !isScheduled);
-      const isRed = Boolean(!lessonObj && isScheduled);
-      const isOrange = Boolean(examObj);
+      const hasLesson = lessons.length > 0;
+      const hasExam = exams.length > 0;
+      const isGreen = Boolean(hasLesson && isScheduled);
+      const isBlue = Boolean(hasLesson && !isScheduled);
+      const isRed = Boolean(!hasLesson && isScheduled);
+      const isOrange = Boolean(hasExam);
 
       let dotsHtml = '';
       if (isGreen) dotsHtml += '<span class="gcw-dot is-green"></span>';
@@ -26066,14 +26374,18 @@ if(typeof window!=='undefined'){
       if (isOrange) dotsHtml += '<span class="gcw-dot is-orange"></span>';
 
       const tooltipParts = [];
-      if (lessonObj) {
-        const title = (lessonObj.material && lessonObj.material.title) || (isScheduled ? ('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1)) : 'Lesson');
-        tooltipParts.push(title.startsWith('Lesson') ? title : ('Lesson: ' + title));
+      if (lessons.length) {
+        lessons.forEach(l => {
+          const title = (l.material && l.material.title) || (isScheduled ? ('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1)) : 'Lesson');
+          tooltipParts.push(title.startsWith('Lesson') ? title : ('Lesson: ' + title));
+        });
       } else if (isScheduled) {
         tooltipParts.push('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1));
       }
-      if (examObj) {
-        tooltipParts.push(examObj.title ? ('Exam: ' + examObj.title) : 'Exam');
+      if (exams.length) {
+        exams.forEach(ex => {
+          tooltipParts.push(ex.title ? ('Exam: ' + ex.title) : 'Exam');
+        });
       }
 
       const tooltip = tooltipParts.join(' • ');
@@ -26081,7 +26393,7 @@ if(typeof window!=='undefined'){
       const ariaLabel = tooltip || dateStr;
 
       let dayClasses = 'gcw-day';
-      if (isScheduled) dayClasses += ' has-lesson';
+      if (isScheduled || hasLesson) dayClasses += ' has-lesson';
       if (isSelected) dayClasses += ' is-selected';
       if (roClass) dayClasses += roClass;
 
@@ -26093,13 +26405,13 @@ if(typeof window!=='undefined'){
       gridHtml += '</button>';
     }
 
-    // Attendance Journal View HTML (Matching media_1793832681923_023fab91.png)
+    // Attendance Journal View HTML
     let journalHtml = '<div class="gcw-journal-wrap" style="overflow-x:auto; margin-bottom:24px;">';
     const hintText = canEdit
-      ? 'Click date to open lesson; click to mark present (✓), double-click to mark absent (✕)'
-      : 'Click date to open lesson';
+      ? 'Click date to open activities; click to mark present (✓), double-click to mark absent (✕)'
+      : 'Click date to open activities';
     journalHtml += '<p class="gcw-hint">' + hintText + '</p>';
-    const sortedLessonDates = Array.from(state.lessonDates).sort();
+    const sortedLessonDates = Array.from(monthLessonDates).sort();
     if (!sortedLessonDates.length) {
       journalHtml += '<p class="hint" style="color:var(--saas-text-muted, var(--mute, #71717a)); padding:16px;">No lessons scheduled for ' + monthName + ' ' + year + '. Click calendar dates to schedule lessons.</p>';
     } else {
@@ -26107,13 +26419,13 @@ if(typeof window!=='undefined'){
       journalHtml += '<th class="gcw-th-student">Student</th>';
       for (const d of sortedLessonDates) {
         const shortDate = d.slice(8) + '.' + d.slice(5, 7);
-        journalHtml += '<th class="gcw-th-date"><button type="button" class="gcw-date-header-btn" data-gcw-open-date="' + esc(d) + '" title="Open lesson for ' + shortDate + '">' + shortDate + '</button></th>';
+        journalHtml += '<th class="gcw-th-date"><button type="button" class="gcw-date-header-btn" data-gcw-open-date="' + esc(d) + '" title="Open activity for ' + shortDate + '">' + shortDate + '</button></th>';
       }
       journalHtml += '</tr></thead><tbody>';
 
       for (const s of students) {
         const stId = String(s.id);
-        const stDates = state.attendance[stId] || state.attendance['u' + stId] || state.attendance['s' + stId] || {};
+        const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
         let cells = '';
         for (const d of sortedLessonDates) {
           const st = stDates[d] || 'unmarked';
@@ -26134,12 +26446,12 @@ if(typeof window!=='undefined'){
         let presents = 0;
         let marked = 0;
         for (const s of students) {
-          const stDates = state.attendance[s.id] || state.attendance['u' + s.id] || state.attendance['s' + s.id] || {};
+          const stDates = monthData.attendance[s.id] || monthData.attendance['u' + s.id] || monthData.attendance['s' + s.id] || {};
           const st = stDates[d];
           if (st === 'present') { presents++; marked++; }
           else if (st === 'absent') { marked++; }
         }
-        const pctStr = marked > 0 ? Math.round((presents / students.length) * 100) + '%' : '—';
+        const pctStr = marked > 0 ? (students.length ? Math.round((presents / students.length) * 100) + '%' : '—') : '—';
         journalHtml += '<td>' + pctStr + '</td>';
       }
       journalHtml += '</tr>';
@@ -26148,31 +26460,35 @@ if(typeof window!=='undefined'){
     }
     journalHtml += '</div>';
 
-    // Statistics View HTML (Matching media_1793832704018_02771c57.png)
+    // Statistics View HTML
     let statsHtml = '<div class="gcw-stats-list">';
     const statsStudents = [...students].sort((a, b) => (a.name || a.login || '').localeCompare(b.name || b.login || '', undefined, { sensitivity: 'base' }));
-    for (const s of statsStudents) {
-      const stId = String(s.id);
-      const stDates = state.attendance[stId] || state.attendance['u' + stId] || state.attendance['s' + stId] || {};
-      let stPresent = 0;
-      let stAbsent = 0;
-      for (const d of sortedLessonDates) {
-        const st = stDates[d];
-        if (st === 'present') stPresent++;
-        else if (st === 'absent') stAbsent++;
+    if (!statsStudents.length) {
+      statsHtml += '<p class="hint" style="padding:16px;">No students assigned to this group.</p>';
+    } else {
+      for (const s of statsStudents) {
+        const stId = String(s.id);
+        const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
+        let stPresent = 0;
+        let stAbsent = 0;
+        for (const d of sortedLessonDates) {
+          const st = stDates[d];
+          if (st === 'present') stPresent++;
+          else if (st === 'absent') stAbsent++;
+        }
+        const totalMarked = stPresent + stAbsent;
+        const pct = totalMarked > 0 ? Math.round((stPresent / totalMarked) * 100) : 0;
+        const missedHtml = stAbsent > 0 ? '<span class="gcw-stat-missed">' + (stAbsent === 1 ? '1 missed' : stAbsent + ' missed') + '</span>' : '';
+        statsHtml +=
+          '<div class="gcw-stat-row">' +
+            '<span class="gcw-stat-name">' + esc(s.name || s.login) + '</span>' +
+            '<div class="gcw-stat-track"><div class="gcw-stat-fill" style="width:' + pct + '%;"></div></div>' +
+            '<div class="gcw-stat-meta">' +
+              '<span class="gcw-stat-pct">' + pct + '%</span>' +
+              missedHtml +
+            '</div>' +
+          '</div>';
       }
-      const totalMarked = stPresent + stAbsent;
-      const pct = totalMarked > 0 ? Math.round((stPresent / totalMarked) * 100) : 0;
-      const missedHtml = stAbsent > 0 ? '<span class="gcw-stat-missed">' + (stAbsent === 1 ? '1 missed' : stAbsent + ' missed') + '</span>' : '';
-      statsHtml +=
-        '<div class="gcw-stat-row">' +
-          '<span class="gcw-stat-name">' + esc(s.name || s.login) + '</span>' +
-          '<div class="gcw-stat-track"><div class="gcw-stat-fill" style="width:' + pct + '%;"></div></div>' +
-          '<div class="gcw-stat-meta">' +
-            '<span class="gcw-stat-pct">' + pct + '%</span>' +
-            missedHtml +
-          '</div>' +
-        '</div>';
     }
     statsHtml += '</div>';
 
@@ -26207,9 +26523,10 @@ if(typeof window!=='undefined'){
       '</div>' +
       '<div class="gcw-footer">' +
         '<div class="gcw-stats">' +
-          '<span class="gcw-badge">Lessons: <b>' + lessonCount + '</b></span>' +
-          '<span class="gcw-badge">Students: <b>' + studentCount + '</b></span>' +
-          '<span class="gcw-badge">Attendance: <b>' + attendancePct + '%</b></span>' +
+          '<span class="gcw-badge">Lessons · <b>' + lessonCount + '</b></span>' +
+          '<span class="gcw-badge">Exams · <b>' + examCount + '</b></span>' +
+          '<span class="gcw-badge">Students · <b>' + studentCount + '</b></span>' +
+          '<span class="gcw-badge">Attendance · <b>' + attendancePct + '%</b></span>' +
         '</div>' +
         (canEdit ? '<button class="gcw-report-btn" type="button" data-gcw-action="report-chat">Report to chat</button>' : '') +
       '</div>' +
@@ -26234,7 +26551,6 @@ if(typeof window!=='undefined'){
         } else {
           state.monthIndex--;
         }
-        state.loaded = false;
         const res = window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
         if (res && typeof res.then === 'function') {
           res.then(() => {
@@ -26254,7 +26570,6 @@ if(typeof window!=='undefined'){
         } else {
           state.monthIndex++;
         }
-        state.loaded = false;
         const res = window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
         if (res && typeof res.then === 'function') {
           res.then(() => {
@@ -26269,16 +26584,11 @@ if(typeof window!=='undefined'){
     if (todayBtn) {
       todayBtn.onclick = () => {
         const now = new Date();
-        const prevYear = state.year;
-        const prevMonth = state.monthIndex;
         state.year = now.getFullYear();
         state.monthIndex = now.getMonth();
         const todayDateStr = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
         state.selectedDate = todayDateStr;
         state.activeTab = 'calendar';
-        if (prevYear !== state.year || prevMonth !== state.monthIndex) {
-          state.loaded = false;
-        }
         const res = window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
         const focusToday = () => {
           const todayEl = container.querySelector('.gcw-day[data-gcw-date="' + todayDateStr + '"]');
@@ -26322,11 +26632,12 @@ if(typeof window!=='undefined'){
       };
     });
 
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+
     container.querySelectorAll('.gcw-day[data-gcw-date]').forEach(dayBtn => {
       const dateStr = dayBtn.dataset.gcwDate;
-      const isScheduled = state.lessonDates.has(dateStr);
-      const lessonObj = getLessonForDate(groupId, dateStr);
-      const examObj = getExamForDate(groupId, dateStr);
+      const isScheduled = monthData.lessonDates.has(dateStr);
 
       let pressTimer = null;
       let longPressFired = false;
@@ -26351,8 +26662,8 @@ if(typeof window!=='undefined'){
           pressTimer = setTimeout(() => {
             longPressFired = true;
             dayBtn.classList.remove('is-pressing');
-            state.lessonDates.delete(dateStr);
-            saveGroupAttendanceData(groupId, state);
+            monthData.lessonDates.delete(dateStr);
+            saveGroupAttendanceData(groupId, state, container);
             paintGroupCalendarWidget(container, groupId, state);
           }, 500);
         });
@@ -26403,26 +26714,14 @@ if(typeof window!=='undefined'){
         }
 
         const executeClick = () => {
-          if (isScheduled && lessonObj && typeof window.lmOpenLesson === 'function') {
-            window.lmOpenLesson(lessonObj.id);
-          } else if (examObj) {
-            if (typeof examOpenSelected === 'function') {
-              void examOpenSelected(examObj.id);
-            } else if (typeof window.examOpenSelected === 'function') {
-              void window.examOpenSelected(examObj.id);
-            }
-          } else if (isScheduled) {
-            showGcwRedAlert(dayBtn, 'No lesson available for this date', canEdit ? () => {
-              state.lessonDates.delete(dateStr);
-              saveGroupAttendanceData(groupId, state);
-              paintGroupCalendarWidget(container, groupId, state);
-            } : null);
-          } else if (!canEdit) {
-            showGcwRedAlert(dayBtn, 'No lesson scheduled for this date');
-          }
+          handleDateItemClick(groupId, dateStr, isScheduled, dayBtn, canEdit, () => {
+            monthData.lessonDates.delete(dateStr);
+            saveGroupAttendanceData(groupId, state, container);
+            paintGroupCalendarWidget(container, groupId, state);
+          });
         };
 
-        if (canEdit && (isScheduled || examObj)) {
+        if (canEdit && isScheduled) {
           clickTimer = setTimeout(executeClick, 250);
         } else {
           executeClick();
@@ -26440,11 +26739,11 @@ if(typeof window!=='undefined'){
           }
           state.selectedDate = dateStr;
           if (isScheduled) {
-            state.lessonDates.delete(dateStr);
+            monthData.lessonDates.delete(dateStr);
           } else {
-            state.lessonDates.add(dateStr);
+            monthData.lessonDates.add(dateStr);
           }
-          saveGroupAttendanceData(groupId, state);
+          saveGroupAttendanceData(groupId, state, container);
           paintGroupCalendarWidget(container, groupId, state);
         };
       }
@@ -26452,25 +26751,14 @@ if(typeof window!=='undefined'){
 
     container.querySelectorAll('.gcw-date-header-btn[data-gcw-open-date]').forEach(dateBtn => {
       const dateStr = dateBtn.dataset.gcwOpenDate;
+      const isScheduled = monthData.lessonDates.has(dateStr);
       dateBtn.onclick = (e) => {
         e.stopPropagation();
-        const lesson = getLessonForDate(groupId, dateStr);
-        const exam = getExamForDate(groupId, dateStr);
-        if (lesson && typeof window.lmOpenLesson === 'function') {
-          window.lmOpenLesson(lesson.id);
-        } else if (exam) {
-          if (typeof examOpenSelected === 'function') {
-            void examOpenSelected(exam.id);
-          } else if (typeof window.examOpenSelected === 'function') {
-            void window.examOpenSelected(exam.id);
-          }
-        } else {
-          showGcwRedAlert(dateBtn, 'No lesson available for this date', canEdit ? () => {
-            state.lessonDates.delete(dateStr);
-            saveGroupAttendanceData(groupId, state);
-            paintGroupCalendarWidget(container, groupId, state);
-          } : null);
-        }
+        handleDateItemClick(groupId, dateStr, isScheduled, dateBtn, canEdit, () => {
+          monthData.lessonDates.delete(dateStr);
+          saveGroupAttendanceData(groupId, state, container);
+          paintGroupCalendarWidget(container, groupId, state);
+        });
       };
     });
 
@@ -26484,11 +26772,11 @@ if(typeof window!=='undefined'){
             clickTimer = setTimeout(() => {
               const stId = cellBtn.dataset.gcwStudent;
               const d = cellBtn.dataset.gcwDate;
-              if (!state.attendance[stId]) state.attendance[stId] = {};
-              const cur = state.attendance[stId][d] || 'unmarked';
+              if (!monthData.attendance[stId]) monthData.attendance[stId] = {};
+              const cur = monthData.attendance[stId][d] || 'unmarked';
               // Single click marks present, or toggles back to unmarked
-              state.attendance[stId][d] = cur === 'present' ? 'unmarked' : 'present';
-              saveGroupAttendanceData(groupId, state);
+              monthData.attendance[stId][d] = cur === 'present' ? 'unmarked' : 'present';
+              saveGroupAttendanceData(groupId, state, container);
               paintGroupCalendarWidget(container, groupId, state);
             }, 220);
           }
@@ -26503,11 +26791,11 @@ if(typeof window!=='undefined'){
           }
           const stId = cellBtn.dataset.gcwStudent;
           const d = cellBtn.dataset.gcwDate;
-          if (!state.attendance[stId]) state.attendance[stId] = {};
-          const cur = state.attendance[stId][d] || 'unmarked';
+          if (!monthData.attendance[stId]) monthData.attendance[stId] = {};
+          const cur = monthData.attendance[stId][d] || 'unmarked';
           // Double click marks absent (cross), or toggles back to unmarked
-          state.attendance[stId][d] = cur === 'absent' ? 'unmarked' : 'absent';
-          saveGroupAttendanceData(groupId, state);
+          monthData.attendance[stId][d] = cur === 'absent' ? 'unmarked' : 'absent';
+          saveGroupAttendanceData(groupId, state, container);
           paintGroupCalendarWidget(container, groupId, state);
         });
       });
@@ -26523,27 +26811,65 @@ if(typeof window!=='undefined'){
         }
         const monthName = MONTH_NAMES[state.monthIndex];
         const students = getGroupStudents(groupId);
-        const attendancePct = calculateAttendancePct(state.lessonDates, students, state.attendance);
+
+        const monthLessonDates = new Set();
+        for (const d of monthData.lessonDates) {
+          if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+            monthLessonDates.add(d);
+          }
+        }
+        let grp = null;
+        if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+          grp = classGroups.find(g => Number(g.id) === Number(groupId));
+        }
+        if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+          grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+        }
+        const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+        if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+          for (const m of lmLibrary.materials) {
+            if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
+              monthLessonDates.add(m.date);
+            }
+          }
+        }
+        const lessonCount = monthLessonDates.size;
+
+        const monthExamDates = new Set();
+        const examIds = grp && Array.isArray(grp.examIds) ? grp.examIds.map(String) : [];
+        if (typeof examShown === 'function') {
+          const exams = examShown();
+          if (Array.isArray(exams)) {
+            for (const ex of exams) {
+              if ((examIds.includes(String(ex.id)) || Number(ex.groupId) === Number(groupId)) && typeof ex.date === 'string' && ex.date.startsWith(monthKey + '-')) {
+                monthExamDates.add(ex.id || ex.date);
+              }
+            }
+          }
+        }
+        const examCount = monthExamDates.size;
+
+        const attendancePct = calculateAttendancePct(monthLessonDates, students, monthData.attendance);
 
         const reportLines = [
           'Attendance Report: ' + state.groupTitle + ' (' + monthName + ' ' + state.year + ')',
-          'Lessons: ' + state.lessonDates.size + ' | Students: ' + students.length + ' | Attendance: ' + attendancePct + '%',
+          'Lessons: ' + lessonCount + ' | Exams: ' + examCount + ' | Students: ' + students.length + ' | Attendance: ' + attendancePct + '%',
           '',
           'Students:'
         ];
 
         for (const s of students) {
           const stId = String(s.id);
-          const stDates = state.attendance[stId] || state.attendance['u' + stId] || state.attendance['s' + stId] || {};
+          const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
           let pres = 0;
           let abs = 0;
-          for (const d of state.lessonDates) {
+          for (const d of monthLessonDates) {
             if (stDates[d] === 'present') pres++;
             else if (stDates[d] === 'absent') abs++;
           }
           const totalMarked = pres + abs;
           const stPct = totalMarked > 0 ? Math.round((pres / totalMarked) * 100) : 0;
-          reportLines.push('• ' + s.name + ': ' + stPct + '% (' + pres + ' attended, ' + abs + ' missed)');
+          reportLines.push('• ' + (s.name || s.login) + ': ' + stPct + '% (' + pres + ' attended, ' + abs + ' missed)');
         }
 
         const msgText = reportLines.join('\n');
@@ -26555,25 +26881,31 @@ if(typeof window!=='undefined'){
         }
 
         try {
-          const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
-          await fetchFn('/api/messages/open', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ kind: 'group', groupId })
-          }).catch(() => {});
+          if (typeof window.sendGroupChatMessage === 'function') {
+            await window.sendGroupChatMessage(groupId, msgText);
+          } else {
+            const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
+            await fetchFn('/api/messages/open', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ kind: 'group', groupId }),
+              quietBug: true
+            }).catch(() => {});
 
-          await fetchFn('/api/messages/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-              roomId: 'group:' + groupId,
-              category: 'learning',
-              clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-              text: msgText
-            })
-          }).catch(() => {});
+            await fetchFn('/api/messages/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                roomId: 'group:' + groupId,
+                category: 'learning',
+                clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                text: msgText
+              }),
+              quietBug: true
+            }).catch(() => {});
+          }
         } catch {}
       };
     }

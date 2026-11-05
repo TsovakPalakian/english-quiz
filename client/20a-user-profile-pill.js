@@ -72,17 +72,21 @@
   }
 
   function getUserRoleInfo(user) {
-    if (!user) return { label: 'GUEST', roleName: 'Guest', emoji: '👤', class: 'role-guest' };
-    if ((typeof isDeveloper === 'function' && isDeveloper()) || user.role === 'ADMIN') {
-      return { label: 'ADMIN', roleName: 'Administrator', emoji: '👑', class: 'role-admin' };
+    if (!user) return { label: 'Guest', roleName: 'Guest', emoji: '👤', class: 'role-guest' };
+    if ((typeof isDeveloper === 'function' && isDeveloper()) || user.role === 'DEVELOPER') {
+      return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
     }
-    if (user.role === 'LEAD_INSTRUCTOR' || user.leadInstructor) {
-      return { label: 'LEAD', roleName: 'Lead Instructor', emoji: '🎓', class: 'role-lead' };
+    if (user.role === 'ADMIN') {
+      const login = String(user.login || '').toLowerCase();
+      if (login.startsWith('teacher') || user.leadInstructor) {
+        return { label: 'Teacher', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
+      }
+      return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
     }
-    if (typeof isTeacher === 'function' && isTeacher()) {
-      return { label: 'TEACHER', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
+    if (user.role === 'LEAD_INSTRUCTOR' || user.leadInstructor || (typeof isTeacher === 'function' && isTeacher()) || user.role === 'TEACHER') {
+      return { label: 'Teacher', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
     }
-    return { label: 'STUDENT', roleName: 'Student', emoji: '🎒', class: 'role-student' };
+    return { label: 'Student', roleName: 'Student', emoji: '🎒', class: 'role-student' };
   }
 
   function getUserInitials(name) {
@@ -100,12 +104,23 @@
 
     const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
     const isGuest = !user;
+    if (isGuest) {
+      if (header) header.hidden = true;
+      host.innerHTML = '';
+      return;
+    }
 
-    if (header) header.hidden = false;
+    const activeSection = document.querySelector('section.on');
+    const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+    if (activeSection && hideOnScreens.includes(activeSection.id)) {
+      if (header) header.hidden = true;
+    } else {
+      if (header) header.hidden = false;
+    }
 
-    const name = user ? (user.name || user.login || 'User') : 'Guest';
-    const email = user ? (user.email || (user.login ? (user.login + '@lumiscia.edu') : '')) : 'Not signed in';
-    const initials = user ? getUserInitials(name) : 'G';
+    const name = user.name || user.login || 'User';
+    const email = user.email || (user.login ? (user.login + '@lumiscia.edu') : '');
+    const initials = getUserInitials(name);
     const role = getUserRoleInfo(user);
     const status = getUserStatus();
     const statusInfo = STATUS_MAP[status] || STATUS_MAP.online;
@@ -115,9 +130,9 @@
 
     host.innerHTML =
       '<div class="user-profile-pill-wrap" id="userProfilePillWrap">' +
-        '<button type="button" class="user-profile-pill' + (isGuest ? ' is-guest' : '') + '" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings">' +
+        '<button type="button" class="user-profile-pill" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings">' +
           '<div class="pill-avatar-wrap">' +
-            '<div class="pill-avatar-img">' + avatarContent + '</div>' +
+            '<div class="pill-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
             '<span class="pill-status-dot ' + statusInfo.dotClass + '" id="pillStatusDot"></span>' +
           '</div>' +
           '<span class="pill-user-name">' + esc(name) + '</span>' +
@@ -128,7 +143,7 @@
           '<div class="popover-header">' +
             '<div class="popover-user-row">' +
               '<div class="popover-avatar-wrap">' +
-                '<div class="popover-avatar-img">' + avatarContent + '</div>' +
+                '<div class="popover-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
                 '<span class="popover-status-dot ' + statusInfo.dotClass + '" id="popoverStatusDot"></span>' +
               '</div>' +
               '<div class="popover-user-details">' +
@@ -250,11 +265,13 @@
       tabbarSettingsBtn.setAttribute('data-chrome', 'settings,account,stats,themes');
       tabbarSettingsBtn.innerHTML =
         '<span class="tabbar-profile-icon" id="tabbarProfileIcon" aria-hidden="true">' +
-          '<span class="tabbar-avatar-circle" id="tabbarAvatarCircle">' + ((user && user.avatarUrl) ? '<img src="' + esc(user.avatarUrl) + '" alt="' + esc(name) + '">' : esc(initials)) + '</span>' +
+          '<span class="tabbar-avatar-circle chat-avatar" id="tabbarAvatarCircle" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</span>' +
           '<span class="tabbar-status-dot ' + (statusInfo.dotClass || '') + '" id="tabbarStatusDot"></span>' +
         '</span>' +
         '<span>Profile</span>';
     }
+    if (typeof scheduleProfiles === 'function') scheduleProfiles();
+    else if (typeof window.scheduleProfiles === 'function') window.scheduleProfiles();
   }
 
   // Global listener for closing popover on outside click and Escape, plus Cmd+, / Ctrl+, shortcut

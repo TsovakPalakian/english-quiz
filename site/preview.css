@@ -6704,6 +6704,113 @@ details[data-review-key] > summary {
   display: none !important;
 }
 
+/* Event Choice Dialog */
+.gcw-choice-dialog {
+  border: 1px solid var(--saas-border, var(--line, #e2e8f0));
+  border-radius: 12px;
+  background: var(--card, #ffffff);
+  color: var(--ink, #0f172a);
+  padding: 0;
+  max-width: 420px;
+  width: 90vw;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+.gcw-choice-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
+}
+.gcw-choice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--saas-border, var(--line, #e2e8f0));
+}
+.gcw-choice-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+}
+.gcw-choice-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--mute, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.gcw-choice-close-btn:hover {
+  color: var(--ink, #0f172a);
+  background: var(--saas-card-muted, #f1f5f9);
+}
+.gcw-choice-list {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gcw-choice-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--saas-border, var(--line, #e2e8f0));
+  border-radius: 8px;
+  background: var(--saas-card, #ffffff);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+.gcw-choice-item:hover {
+  border-color: var(--acc, #4f46e5);
+  background: var(--saas-card-muted, #f8fafc);
+  transform: translateY(-1px);
+}
+.gcw-choice-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-transform: none;
+  flex-shrink: 0;
+}
+.gcw-choice-badge.is-lesson {
+  background: color-mix(in srgb, #3b82f6 16%, var(--card, #ffffff));
+  color: #1d4ed8;
+}
+.gcw-choice-badge.is-exam {
+  background: color-mix(in srgb, #f59e0b 16%, var(--card, #ffffff));
+  color: #b45309;
+}
+.gcw-choice-info {
+  flex: 1;
+  min-width: 0;
+}
+.gcw-choice-info b {
+  display: block;
+  font-size: 14px;
+  color: var(--ink, #0f172a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gcw-choice-info small {
+  display: block;
+  font-size: 12px;
+  color: var(--mute, #64748b);
+  margin-top: 2px;
+}
+.gcw-choice-arrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--acc, #4f46e5);
+  flex-shrink: 0;
+}
+
 /* Attendance Journal Table Classes */
 .gcw-hint {
   font-size: 13px;
@@ -6941,6 +7048,53 @@ details[data-review-key] > summary {
   margin-left: auto;
   position: relative;
 }
+.shell-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+}
+.shell-crumbs ol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.shell-crumbs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.shell-crumbs li:not(:last-child)::after {
+  content: '/';
+  color: var(--mute, #94a3b8);
+  font-weight: 400;
+}
+.shell-crumbs button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--mute, #64748b);
+  cursor: pointer;
+  text-decoration: none;
+}
+.shell-crumbs button:hover {
+  color: var(--acc, #4f46e5);
+}
+.shell-crumbs span[aria-current="page"] {
+  color: var(--ink, #0f172a);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+#settings .page-path {
+  display: none !important;
+}
 
 /* 1.1 Pill Badge */
 .user-profile-pill-wrap {
@@ -7035,7 +7189,7 @@ details[data-review-key] > summary {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 6px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.04em;
   border: 1px solid transparent;
 }

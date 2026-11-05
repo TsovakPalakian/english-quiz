@@ -476,7 +476,7 @@ async function lmImportPdfDraft(file) {
     if(!active())return;
     let data;
     if(isPdf){
-      data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal});
+      data=await accountFetch('/api/lessons/parse-pdf?scope=full',{method:'POST',headers:{'Content-Type':'application/pdf'},body:file,signal:controller.signal,quietBug:true});
     } else {
       const text = await lmExtractTextFromFile(file);
       if(/\.json$/i.test(file.name)){
