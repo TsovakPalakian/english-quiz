@@ -103,4 +103,5 @@
       refreshAccountsCount();
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
       const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
+      if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
     }

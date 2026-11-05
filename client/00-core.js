@@ -90,6 +90,7 @@
         if (examish) return "exams";
       }
       if (staff && (base === "groups" || base === "exams" || id === "days")) return "groups";
+      if (id === "settings" || id === "account" || id === "stats" || id === "themes") return "settings";
       return base;
     }
     function chromeMatches(button, mark) {
