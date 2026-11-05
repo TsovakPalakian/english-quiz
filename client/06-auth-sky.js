@@ -517,7 +517,7 @@
           return a&&b&&astro.segmentHitsBox(a,b,box);
         });
         if(hitsLine)s+=100000;
-        if(overlaps(box,r))s+=80000;
+        if(overlaps(box,r))s+=1000000;
         for(const u of uiRects){
           if(overlaps(box,u)){
             const xOv=Math.max(0,Math.min(box.right,u.right)-Math.max(box.left,u.left));

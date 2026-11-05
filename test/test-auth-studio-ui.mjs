@@ -68,7 +68,7 @@ try{
       await page.context().route('https://simbad.cds.unistra.fr/**',route=>route.fulfill({contentType:'text/html',body:'<title>Star reference fixture</title>'}));
       await page.context().route('https://www.go-astronomy.com/**',route=>route.fulfill({contentType:'text/html',body:'<title>Constellation reference fixture</title>'}));
       yield "06. waitForEvent" + " [" + JSON.stringify(viewport) + "]";
-      const [popup]=await Promise.all([page.waitForEvent('popup'),link.click()]);await popup.waitForLoadState();assert.equal(popup.url(),url);await popup.close();
+      const [popup]=await Promise.all([Promise.race([page.waitForEvent('popup'),page.context().waitForEvent('page')]),link.click()]);await popup.waitForLoadState();assert.equal(popup.url(),url);await popup.close();
       yield* clockSubtests(page.clock,8100,'Sky animation');
     yield "07. #authSky / checks" + " [" + JSON.stringify(viewport) + "]";
     assert.equal(await page.locator('#authSky').getAttribute('data-sky-phase'),'morph');
