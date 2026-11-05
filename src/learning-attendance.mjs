@@ -80,7 +80,11 @@ export class AttendanceService {
         pricePerLesson: 30,
         currency: 'BYN',
         paymentDeadline: '',
+        paymentRequisites: '',
+        studentPayments: {},
         attendance: {},
+        absenceReasons: {},
+        scheduleData: {},
         revision: 0,
         exists: false
       };
@@ -95,7 +99,11 @@ export class AttendanceService {
       pricePerLesson: Number(doc.pricePerLesson) || 0,
       currency: String(doc.currency || 'BYN'),
       paymentDeadline: String(doc.paymentDeadline || ''),
+      paymentRequisites: String(doc.paymentRequisites || ''),
+      studentPayments: doc.studentPayments && typeof doc.studentPayments === 'object' ? doc.studentPayments : {},
       attendance: doc.attendance && typeof doc.attendance === 'object' ? doc.attendance : {},
+      absenceReasons: doc.absenceReasons && typeof doc.absenceReasons === 'object' ? doc.absenceReasons : {},
+      scheduleData: doc.scheduleData && typeof doc.scheduleData === 'object' ? doc.scheduleData : {},
       revision: Number(doc.revision) || 1,
       updatedAt: Number(doc.updatedAt) || 0,
       updatedBy: String(doc.updatedBy || ''),
@@ -142,6 +150,10 @@ export class AttendanceService {
       }
     }
 
+    const scheduleData = (payload.scheduleData && typeof payload.scheduleData === 'object') ? payload.scheduleData : {};
+    const paymentRequisites = typeof payload.paymentRequisites === 'string' ? payload.paymentRequisites.slice(0, 1000) : '';
+    const studentPayments = (payload.studentPayments && typeof payload.studentPayments === 'object') ? payload.studentPayments : {};
+
     const key = id + ':' + monthKey;
     const [existing] = await this.db.read(
       "SELECT value_json FROM catalog_documents WHERE namespace = 'group-attendance' AND key = ?",
@@ -165,7 +177,10 @@ export class AttendanceService {
       pricePerLesson,
       currency,
       paymentDeadline,
+      paymentRequisites,
+      studentPayments,
       attendance,
+      scheduleData,
       revision: nextRevision,
       updatedAt: now,
       updatedBy: String(actor.id)

@@ -3072,13 +3072,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
       const shellLeft = document.querySelector('.shell-header-left');
       if (shellLeft) {
-        if (!authUser || id === 'home') {
-          shellLeft.innerHTML = '';
-        } else {
-          shellLeft.innerHTML = '<nav class="shell-crumbs" aria-label="Breadcrumb"><ol>' + items.map((item, index) => "<li>" + (index === items.length - 1
-            && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
-            : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol></nav>";
-        }
+        shellLeft.innerHTML = '';
       }
     }
     document.addEventListener("click", (event) => {
@@ -15814,8 +15808,17 @@ const STUDIO_CONSTELLATIONS = [{
     function accountGroupLevel(group) {
       return adminLevels.find(level => group.title === level || group.title.startsWith(level + ' ') || group.title.endsWith(' ' + level)) || 'unassigned';
     }
+    function examLevel(exam) {
+      if (exam?.level && adminLevels.includes(exam.level)) return exam.level;
+      const title = exam?.title || '';
+      const byTitle = adminLevels.find(level => title === level || title.startsWith(level + ' ') || title.endsWith(' ' + level));
+      if (byTitle) return byTitle;
+      const owner = adminGroups.find(g => (g.examIds || []).includes(exam?.id)) || adminGroups.find(g => g.id === exam?.groupId);
+      if (owner) return accountGroupLevel(owner);
+      return 'unassigned';
+    }
     function accountGroupMetrics(groups,extra={}) {
-      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>String(user.id)));
+      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER'&&!user.hidden).map(user=>String(user.id)));
       return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>String(user.id))),...(extra.teachers||[]).map(user=>String(user.id))]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(String(member.accountId))).map(member=>String(member.accountId)),...(extra.students||[]).map(user=>String(user.id))]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
     }
     function accountMetricsHTML(groups,extra={}) {
@@ -16084,7 +16087,7 @@ const STUDIO_CONSTELLATIONS = [{
       try {
         const doc = await accountFetch('/api/groups/attendance?groupId=' + groupId + '&month=' + encodeURIComponent(monthKey));
         currentAttendanceDoc = doc;
-        const groupStudents = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === groupId));
+        const groupStudents = adminAccounts.filter(user => user.role === 'USER' && !user.hidden && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === groupId));
         const lessonDates = Array.isArray(doc.lessonDates) ? doc.lessonDates : [];
         const attendance = doc.attendance && typeof doc.attendance === 'object' ? doc.attendance : {};
         const price = Number(doc.pricePerLesson) || 0;
@@ -16182,8 +16185,9 @@ const STUDIO_CONSTELLATIONS = [{
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
       const folds=Object.fromEntries(['students','lessons','exams','exams-assign','teachers','teachers-list','attendance'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
-      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
-      const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
+      const students = adminAccounts.filter(user => user.role === 'USER' && !user.hidden && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
+      const selectedLevel = accountGroupLevel(selected);
+      const exams = examLoad().filter(exam => !exam.instanceStatus && (examLevel(exam) === selectedLevel || (selected.examIds || []).includes(exam.id))), lessons = lmLibrary?.materials || [];
       const assignedExams = exams.filter(exam => (selected.examIds || []).includes(exam.id));
       const candidateExams = exams.filter(exam => !(selected.examIds || []).includes(exam.id));
       const assignedRows = assignedExams.map(exam => {
@@ -16669,7 +16673,7 @@ const STUDIO_CONSTELLATIONS = [{
 
         let html = '<div class="admin-user-header">';
         html += '<div class="admin-user-breadcrumbs">';
-        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home">🏠</button>';
+        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>';
         html += '<button type="button" class="btn icon-btn" data-nav-back data-fallback="admin" title="Back" aria-label="Back">←</button>';
         html += '<div class="admin-user-crumb-text"><a href="#settings" data-page-path="settings">Settings</a> / <a href="#admin" data-page-path="admin">Accounts</a> / <span class="current-crumb">Account · ' + esc(user.login) + '</span></div>';
         html += '</div>';
@@ -16898,6 +16902,9 @@ const STUDIO_CONSTELLATIONS = [{
       ];
       if (lessonScreens.includes(activeSection.id)) return true;
     }
+    if (typeof window.isCurrentTimeInScheduledLesson === 'function' && window.isCurrentTimeInScheduledLesson()) {
+      return true;
+    }
     try {
       const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
       if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
@@ -16913,13 +16920,15 @@ const STUDIO_CONSTELLATIONS = [{
   function getUserStatus() {
     const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
     if (!user) return 'offline';
-    if (isLessonActive()) return 'in_class';
     try {
       const saved = localStorage.getItem('lumiscia-user-status');
-      if (saved && Object.prototype.hasOwnProperty.call(STATUS_MAP, saved) && saved !== 'in_class') return saved;
+      if (saved && Object.prototype.hasOwnProperty.call(STATUS_MAP, saved)) return saved;
     } catch {}
+    if (isLessonActive()) return 'in_class';
     return 'online';
   }
+
+  window.getUserStatus = getUserStatus;
 
   function setUserStatus(newStatus) {
     if (!Object.prototype.hasOwnProperty.call(STATUS_MAP, newStatus)) return;
@@ -16928,6 +16937,8 @@ const STUDIO_CONSTELLATIONS = [{
     } catch {}
     syncStatusDots();
   }
+
+  window.setUserStatus = setUserStatus;
 
   function syncStatusDots() {
     const status = getUserStatus();
@@ -16943,6 +16954,10 @@ const STUDIO_CONSTELLATIONS = [{
     const tabbarDot = document.getElementById('tabbarStatusDot');
     if (tabbarDot) {
       tabbarDot.className = 'tabbar-status-dot ' + (statusInfo.dotClass || '');
+    }
+    const settingsDot = document.getElementById('settingsProfileStatusDot');
+    if (settingsDot) {
+      settingsDot.className = 'settings-profile-status-dot ' + (statusInfo.dotClass || '');
     }
     const host = document.getElementById('userProfilePillHost');
     if (host) {
@@ -17214,6 +17229,8 @@ const STUDIO_CONSTELLATIONS = [{
 
   window.paintUserProfilePill = paintUserProfilePill;
   window.setUserStatus = setUserStatus;
+  window.getUserStatus = getUserStatus;
+  window.syncStatusDots = syncStatusDots;
   window.getUserStatus = getUserStatus;
   window.syncStatusDots = syncStatusDots;
   window.isLessonActive = isLessonActive;
@@ -25673,7 +25690,7 @@ if(typeof window!=='undefined'){
       if(!groupDirectoryReady()||groupDirectory.error)return [];
       const ids=new Set(groups.map(group=>String(group.id)));
       const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>row.teacherIds||[]):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>row.accountId));
-      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):user.role==='USER')).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
+      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):(user.role==='USER'&&!user.hidden))).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
     }
     function groupLiveStudentCount(group){
       if(!authUser||viewAccount||!isTeacher())return undefined;
@@ -25840,6 +25857,10 @@ if(typeof window!=='undefined'){
   ];
   const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  function esc(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   const groupWidgetStates = new Map();
 
   function getMonthData(state, monthKey) {
@@ -25848,6 +25869,10 @@ if(typeof window!=='undefined'){
       state.monthCache.set(monthKey, {
         lessonDates: new Set(),
         attendance: {},
+        paymentDeadline: '',
+        paymentRequisites: '',
+        studentPayments: {},
+        scheduleData: {},
         revision: 0,
         loaded: false
       });
@@ -25865,6 +25890,10 @@ if(typeof window!=='undefined'){
       monthCache.set(initialMonthKey, {
         lessonDates: new Set(),
         attendance: {},
+        paymentDeadline: '',
+        paymentRequisites: '',
+        studentPayments: {},
+        scheduleData: {},
         revision: 0,
         loaded: false
       });
@@ -25901,7 +25930,7 @@ if(typeof window!=='undefined'){
     }
     if (!list.length && typeof adminAccounts !== 'undefined' && Array.isArray(adminAccounts) &&
         typeof adminMembers !== 'undefined' && Array.isArray(adminMembers)) {
-      const filtered = adminAccounts.filter(u => u.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(u.id) && Number(m.groupId) === Number(groupId)));
+      const filtered = adminAccounts.filter(u => u.role === 'USER' && !u.hidden && adminMembers.some(m => String(m.accountId) === String(u.id) && Number(m.groupId) === Number(groupId)));
       if (filtered.length) {
         list = filtered.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
       }
@@ -25969,9 +25998,12 @@ if(typeof window!=='undefined'){
     return matches;
   }
 
-  function showEventChoiceDialog(dateStr, lessons, exams) {
+  function showEventChoiceDialog(dateStr, lessons, exams, options) {
     const existing = document.getElementById('gcwChoiceDialog');
     if (existing) existing.remove();
+
+    const opts = options || {};
+    const canEdit = opts.canEdit !== undefined ? opts.canEdit : (typeof isTeacher === 'function' && isTeacher() && (typeof viewAccount === 'undefined' || !viewAccount));
 
     const dialog = document.createElement('dialog');
     dialog.id = 'gcwChoiceDialog';
@@ -25999,12 +26031,21 @@ if(typeof window!=='undefined'){
         '</button>';
     });
 
+    let footHtml = '';
+    if (!canEdit && opts.groupId) {
+      footHtml =
+        '<div style="margin-top:12px; border-top:1px solid var(--saas-border, #e2e8f0); padding-top:10px;">' +
+          '<button type="button" class="btn secondary" id="gcwChoiceAbsenceBtn" style="width:100%; color:#b91c1c; border-color:#fca5a5; font-size:13px;">⚠️ Report absence for this date</button>' +
+        '</div>';
+    }
+
     dialog.innerHTML =
       '<div class="gcw-choice-head">' +
         '<h3>Activities on ' + esc(dateStr) + '</h3>' +
         '<button type="button" class="gcw-choice-close-btn" aria-label="Close">✕</button>' +
       '</div>' +
-      '<div class="gcw-choice-list">' + itemsHtml + '</div>';
+      '<div class="gcw-choice-list">' + itemsHtml + '</div>' +
+      footHtml;
 
     document.body.appendChild(dialog);
 
@@ -26019,6 +26060,15 @@ if(typeof window!=='undefined'){
     dialog.addEventListener('click', (e) => {
       if (e.target === dialog) closeDialog();
     });
+
+    const choiceAbsenceBtn = dialog.querySelector('#gcwChoiceAbsenceBtn');
+    if (choiceAbsenceBtn) {
+      choiceAbsenceBtn.onclick = (e) => {
+        e.stopPropagation();
+        closeDialog();
+        showStudentLessonDialog(opts.groupId, dateStr, lessons[0] || null, exams[0] || null, opts.state, opts.container);
+      };
+    }
 
     dialog.querySelectorAll('.gcw-choice-item').forEach(btn => {
       btn.onclick = (e) => {
@@ -26045,13 +26095,31 @@ if(typeof window!=='undefined'){
     }
   }
 
-  function handleDateItemClick(groupId, dateStr, isScheduled, anchorEl, canEdit, onCancelDate) {
+  function handleDateItemClick(groupId, dateStr, isScheduled, anchorEl, canEdit, onCancelDate, state, container) {
+    const monthKey = state ? (state.year + '-' + String(state.monthIndex + 1).padStart(2, '0')) : dateStr.slice(0, 7);
+    const monthData = state ? getMonthData(state, monthKey) : null;
+    const isPaymentDeadline = monthData && monthData.paymentDeadline === dateStr;
+
     const lessons = getLessonsForDate(groupId, dateStr);
     const exams = getExamsForDate(groupId, dateStr);
     const total = lessons.length + exams.length;
 
+    if (!canEdit && isPaymentDeadline && total === 0) {
+      showStudentPaymentDialog(groupId, dateStr, state, container);
+      return;
+    }
+
+    if (!canEdit && (isScheduled || total > 0)) {
+      if (total > 1) {
+        showEventChoiceDialog(dateStr, lessons, exams, { canEdit: false, groupId, state, container });
+      } else {
+        showStudentLessonDialog(groupId, dateStr, lessons[0] || null, exams[0] || null, state, container);
+      }
+      return;
+    }
+
     if (total > 1) {
-      showEventChoiceDialog(dateStr, lessons, exams);
+      showEventChoiceDialog(dateStr, lessons, exams, { canEdit: true, groupId, state, container });
     } else if (total === 1) {
       if (lessons.length === 1 && typeof window.lmOpenLesson === 'function') {
         window.lmOpenLesson(lessons[0].id);
@@ -26064,6 +26132,12 @@ if(typeof window!=='undefined'){
       }
     } else if (isScheduled) {
       showGcwRedAlert(anchorEl, 'No lesson available for this date', canEdit ? onCancelDate : null);
+    } else if (isPaymentDeadline) {
+      if (canEdit) {
+        showPaymentDeadlineModal(groupId, dateStr, state, container);
+      } else {
+        showStudentPaymentDialog(groupId, dateStr, state, container);
+      }
     } else if (!canEdit) {
       showGcwRedAlert(anchorEl, 'No lesson scheduled for this date');
     }
@@ -26137,6 +26211,17 @@ if(typeof window!=='undefined'){
           }
           monthData.attendance = cleanAtt;
         }
+        monthData.paymentDeadline = String(res.paymentDeadline || '');
+        monthData.paymentRequisites = String(res.paymentRequisites || '');
+        monthData.studentPayments = (res.studentPayments && typeof res.studentPayments === 'object') ? res.studentPayments : {};
+        if (res.pricePerLesson) {
+          monthData.pricePerLesson = Number(res.pricePerLesson);
+        }
+        if (res.scheduleData && typeof res.scheduleData === 'object') {
+          monthData.scheduleData = res.scheduleData;
+        } else if (!monthData.scheduleData) {
+          monthData.scheduleData = {};
+        }
         monthData.revision = Number(res.revision) || 0;
       }
     } catch {
@@ -26171,9 +26256,12 @@ if(typeof window!=='undefined'){
         monthKey,
         lessonDates: filteredDates,
         attendance: filteredAttendance,
-        pricePerLesson: 30,
-        currency: 'BYN',
-        paymentDeadline: '',
+        pricePerLesson: Number(monthData.pricePerLesson) || 30,
+        currency: monthData.currency || 'BYN',
+        paymentDeadline: monthData.paymentDeadline || '',
+        paymentRequisites: monthData.paymentRequisites || '',
+        studentPayments: monthData.studentPayments || {},
+        scheduleData: monthData.scheduleData || {},
         expectedRevision: monthData.revision
       };
       const url = '/api/groups/attendance';
@@ -26260,6 +26348,30 @@ if(typeof window!=='undefined'){
     });
     return saveAttendanceChain;
   }
+
+  window.isCurrentTimeInScheduledLesson = function() {
+    try {
+      const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
+      const monthKey = today.slice(0, 7);
+      for (const state of groupWidgetStates.values()) {
+        if (!state || !state.monthCache) continue;
+        const monthData = state.monthCache.get(monthKey);
+        if (monthData && monthData.scheduleData && monthData.scheduleData[today]) {
+          const item = monthData.scheduleData[today];
+          if (item && item.startTime) {
+            const parts = item.startTime.split(':').map(Number);
+            const duration = Number(item.durationMinutes) || 60;
+            const now = new Date();
+            const start = new Date(now);
+            start.setHours(parts[0], parts[1], 0, 0);
+            const end = new Date(start.getTime() + duration * 60 * 1000);
+            if (now >= start && now <= end) return true;
+          }
+        }
+      }
+    } catch {}
+    return false;
+  };
 
   window.renderGroupCalendarWidget = function(container, groupId, groupTitle) {
     if (!container) return;
@@ -26367,30 +26479,46 @@ if(typeof window!=='undefined'){
       const isRed = Boolean(!hasLesson && isScheduled);
       const isOrange = Boolean(hasExam);
 
+      const isPaymentDeadline = monthData.paymentDeadline === dateStr;
+
       let dotsHtml = '';
       if (isGreen) dotsHtml += '<span class="gcw-dot is-green"></span>';
       if (isBlue) dotsHtml += '<span class="gcw-dot is-blue"></span>';
       if (isRed) dotsHtml += '<span class="gcw-dot is-red"></span>';
       if (isOrange) dotsHtml += '<span class="gcw-dot is-orange"></span>';
+      if (isPaymentDeadline) dotsHtml += '<span class="gcw-dot is-payment" title="Payment Due"></span>';
 
       const tooltipParts = [];
+      const totalEvents = lessons.length + exams.length;
       if (lessons.length) {
         lessons.forEach(l => {
           const title = (l.material && l.material.title) || (isScheduled ? ('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1)) : 'Lesson');
-          tooltipParts.push(title.startsWith('Lesson') ? title : ('Lesson: ' + title));
+          const cleanTitle = title.startsWith('Lesson') ? title : ('Lesson: ' + title);
+          tooltipParts.push((totalEvents > 1 ? (tooltipParts.length + 1) + '. ' : '') + cleanTitle);
         });
       } else if (isScheduled) {
         tooltipParts.push('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1));
       }
       if (exams.length) {
         exams.forEach(ex => {
-          tooltipParts.push(ex.title ? ('Exam: ' + ex.title) : 'Exam');
+          const cleanTitle = ex.title ? ('Exam: ' + ex.title) : 'Exam';
+          tooltipParts.push((totalEvents > 1 ? (tooltipParts.length + 1) + '. ' : '') + cleanTitle);
         });
       }
+      if (isPaymentDeadline) {
+        tooltipParts.push('💳 Payment Deadline');
+      }
+      if (monthData.scheduleData && monthData.scheduleData[dateStr]) {
+        const sched = monthData.scheduleData[dateStr];
+        if (sched && sched.startTime) {
+          const endT = formatEndTime(sched.startTime, sched.durationMinutes || 60);
+          tooltipParts.push('🕒 ' + sched.startTime + (endT ? ' – ' + endT : '') + (sched.durationMinutes ? ' (' + sched.durationMinutes + ' min)' : ''));
+        }
+      }
 
-      const tooltip = tooltipParts.join(' • ');
-      const tooltipAttr = tooltip ? (' data-gcw-tooltip="' + esc(tooltip) + '" title="' + esc(tooltip) + '"') : '';
-      const ariaLabel = tooltip || dateStr;
+      const tooltip = tooltipParts.join('\n');
+      const tooltipAttr = tooltip ? (' data-gcw-tooltip="' + esc(tooltip) + '"') : '';
+      const ariaLabel = tooltip ? tooltip.replace(/\n/g, ', ') : dateStr;
 
       let dayClasses = 'gcw-day';
       if (isScheduled || hasLesson) dayClasses += ' has-lesson';
@@ -26541,6 +26669,1010 @@ if(typeof window!=='undefined'){
     }
   }
 
+  function formatEndTime(startStr, durMin) {
+    if (!startStr || typeof startStr !== 'string' || !startStr.includes(':')) return '';
+    const [h, m] = startStr.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return '';
+    const totalMin = h * 60 + m + (Number(durMin) || 0);
+    const endH = Math.floor(totalMin / 60) % 24;
+    const endM = totalMin % 60;
+    return String(endH).padStart(2, '0') + ':' + String(endM).padStart(2, '0');
+  }
+
+  function getDatesForPeriod(baseDateStr, period, customStart, customEnd, currentMonthKey) {
+    const base = new Date(baseDateStr + 'T00:00:00');
+    const targetDay = base.getDay();
+    let startD = new Date(base);
+    let endD = new Date(base);
+
+    if (period === 'single') {
+      return [baseDateStr];
+    } else if (period === 'month') {
+      const [y, m] = currentMonthKey.split('-').map(Number);
+      startD = new Date(y, m - 1, 1);
+      endD = new Date(y, m, 0);
+    } else if (period === 'academic_year') {
+      const [y, m] = currentMonthKey.split('-').map(Number);
+      const startYear = m >= 9 ? y : y - 1;
+      startD = new Date(startYear, 8, 1);
+      endD = new Date(startYear + 1, 4, 31);
+    } else if (period === 'custom') {
+      if (customStart && customEnd) {
+        startD = new Date(customStart + 'T00:00:00');
+        endD = new Date(customEnd + 'T00:00:00');
+      }
+    }
+
+    const dates = [];
+    const cur = new Date(startD);
+    while (cur <= endD) {
+      if (cur.getDay() === targetDay) {
+        const yStr = cur.getFullYear();
+        const mStr = String(cur.getMonth() + 1).padStart(2, '0');
+        const dStr = String(cur.getDate()).padStart(2, '0');
+        dates.push(yStr + '-' + mStr + '-' + dStr);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return dates;
+  }
+
+  function calculateStudentTuition(groupId, state, studentId) {
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+    const pricePerLesson = Number(monthData.pricePerLesson) || 30;
+    const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+
+    const [y, m] = monthKey.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const lastDayOfMonth = monthKey + '-' + String(daysInMonth).padStart(2, '0');
+    const lastLessonDate = sortedLessonDates[sortedLessonDates.length - 1] || '';
+    const isEndMonth = Boolean(lastLessonDate && lastLessonDate === lastDayOfMonth);
+
+    const datesMap = (monthData.attendance && (monthData.attendance[studentId] || monthData.attendance['u' + studentId] || monthData.attendance['s' + studentId])) || {};
+    let attendedCount = 0;
+    sortedLessonDates.forEach(d => {
+      if (datesMap[d] === 'present') attendedCount++;
+    });
+
+    const autoAmount = attendedCount * pricePerLesson;
+    const sp = (monthData.studentPayments && monthData.studentPayments[studentId]) || {};
+    const hasManual = sp.manualAmount != null && sp.manualAmount !== '';
+    const finalAmount = hasManual ? Number(sp.manualAmount) : autoAmount;
+    const isPaid = Boolean(sp.paid);
+    const paidAt = sp.paidAt || '';
+
+    let nextMonthFirst = '';
+    if (isEndMonth) {
+      const nextM = m === 12 ? 1 : m + 1;
+      const nextY = m === 12 ? y + 1 : y;
+      nextMonthFirst = nextY + '-' + String(nextM).padStart(2, '0') + '-01';
+    }
+
+    return {
+      attendedCount,
+      totalLessons: sortedLessonDates.length,
+      pricePerLesson,
+      autoAmount,
+      finalAmount,
+      manualAmount: hasManual ? sp.manualAmount : '',
+      isPaid,
+      paidAt,
+      isEndMonth,
+      lastLessonDate,
+      lastDayOfMonth,
+      nextMonthFirst
+    };
+  }
+
+  async function postPaymentInvoiceToChat(groupId, groupTitle, state, deadlineDate, customRequisites) {
+    try {
+      if (typeof window.ensureMessages === 'function') {
+        await window.ensureMessages();
+      }
+
+      const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+      const monthData = getMonthData(state, monthKey);
+      const dObj = new Date(state.year, state.monthIndex, 1);
+      const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const currency = monthData.currency || 'BYN';
+      const students = getGroupStudents(groupId);
+      const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+      const lastLessonDate = sortedLessonDates[sortedLessonDates.length - 1] || '';
+      const [y, m] = monthKey.split('-').map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      const lastDayOfMonth = monthKey + '-' + String(daysInMonth).padStart(2, '0');
+      const isEndMonth = Boolean(lastLessonDate && lastLessonDate === lastDayOfMonth);
+
+      const effectiveDeadline = (isEndMonth && !deadlineDate) ? (m === 12 ? (y + 1) + '-01-01' : y + '-' + String(m + 1).padStart(2, '0') + '-01') : (deadlineDate || monthData.paymentDeadline || (monthKey + '-25'));
+
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+      const icsUrl = `${origin}/api/groups/payment-deadline.ics?groupId=${encodeURIComponent(groupId)}&date=${encodeURIComponent(effectiveDeadline)}&title=${encodeURIComponent('Tuition Payment Due · ' + groupTitle)}&isEndMonth=${isEndMonth}&requisites=${encodeURIComponent(customRequisites || monthData.paymentRequisites || '')}`;
+
+      const dtClean = effectiveDeadline.replace(/-/g, '');
+      const gCalUrl = new URL('https://calendar.google.com/calendar/render');
+      gCalUrl.searchParams.set('action', 'TEMPLATE');
+      gCalUrl.searchParams.set('text', `Tuition Payment Due · ${groupTitle}`);
+      gCalUrl.searchParams.set('dates', `${dtClean}T100000/${dtClean}T120000`);
+      gCalUrl.searchParams.set('details', `Payment due for ${monthName}.\nRequisites:\n${customRequisites || monthData.paymentRequisites || 'Bank transfer / Card / ERIP'}`);
+      gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
+
+      const lines = [
+        '💳 TUITION INVOICE & PAYMENT DETAILS',
+        'Group: ' + groupTitle,
+        'Billing Month: ' + monthName,
+        'Payment Deadline: ' + effectiveDeadline + (isEndMonth ? ' (Issued on 1st of next month)' : ''),
+        '',
+        'Student Breakdown (Attendance-based):'
+      ];
+
+      students.forEach(s => {
+        const tuition = calculateStudentTuition(groupId, state, s.id);
+        lines.push(`• ${s.name || s.login}: ${tuition.finalAmount} ${currency} (${tuition.attendedCount} / ${tuition.totalLessons} lessons attended${tuition.manualAmount !== '' ? ', custom amount' : ''})`);
+      });
+
+      lines.push('');
+      lines.push('Payment Requisites:');
+      lines.push(customRequisites || monthData.paymentRequisites || 'Bank transfer / Card / ERIP: BY00 ALFA 0000 0000 0000 0000 0000 0000 (Recipient: English Study)');
+      lines.push('');
+      lines.push('👉 Add payment deadline to your calendar:');
+      lines.push('• Google Calendar: ' + gCalUrl.toString());
+      lines.push('• Download .ics Reminder: ' + icsUrl);
+      lines.push('');
+      if (isEndMonth) {
+        lines.push('🔔 Note: Since the last lesson falls on the last day of the month, the bill is issued on the 1st of the next month with same-day notice.');
+      } else {
+        lines.push('🔔 Reminder alerts are preconfigured at 2 days, 1 day, and 1 hour before the payment deadline.');
+      }
+      lines.push('');
+      lines.push('👉 Students: After completing payment, please click «I have paid» in the Group Calendar widget to notify the teacher.');
+
+      const messageText = lines.join('\n');
+      if (typeof window.sendGroupChatMessage === 'function') {
+        await window.sendGroupChatMessage(groupId, messageText);
+      }
+    } catch {
+      // Non-blocking dispatch
+    }
+  }
+
+  function showPaymentDeadlineModal(groupId, dateStr, state, container) {
+    const existing = document.getElementById('gcwPaymentModal');
+    if (existing) existing.remove();
+
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+    const students = getGroupStudents(groupId);
+    const currency = monthData.currency || 'BYN';
+    const currentPrice = Number(monthData.pricePerLesson) || 30;
+    const currentRequisites = monthData.paymentRequisites || 'Bank transfer / Card / ERIP: BY00 ALFA 0000 0000 0000 0000 0000 0000 (Recipient: English Study)';
+    const currentDeadline = monthData.paymentDeadline || dateStr;
+
+    const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+    const lastLessonDate = sortedLessonDates[sortedLessonDates.length - 1] || '';
+    const [y, m] = monthKey.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const lastDayOfMonth = monthKey + '-' + String(daysInMonth).padStart(2, '0');
+    const isEndMonth = Boolean(lastLessonDate && lastLessonDate === lastDayOfMonth);
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwPaymentModal';
+    dialog.className = 'gcw-scheduler-dialog';
+
+    let studentRowsHtml = '';
+    students.forEach(s => {
+      const tuition = calculateStudentTuition(groupId, state, s.id);
+      const paidBadge = tuition.isPaid
+        ? '<span style="color:var(--ok, #16a34a); font-weight:700;">✅ Paid</span>'
+        : '<span style="color:var(--mute, #94a3b8);">⏳ Pending</span>';
+      studentRowsHtml += `
+        <tr style="border-bottom:1px solid var(--saas-border, #e2e8f0);">
+          <td style="padding:8px 6px;"><b>${esc(s.name || s.login)}</b></td>
+          <td style="padding:8px 6px; text-align:center;">${tuition.attendedCount} / ${tuition.totalLessons}</td>
+          <td style="padding:8px 6px; text-align:center;">${tuition.autoAmount} ${currency}</td>
+          <td style="padding:8px 6px;">
+            <input type="number" class="gcw-manual-amt-input" data-student-id="${esc(s.id)}" value="${esc(tuition.manualAmount)}" placeholder="${tuition.autoAmount}" style="width:80px; height:32px; padding:4px 8px; font-size:13px;">
+          </td>
+          <td style="padding:8px 6px; text-align:center;">${paidBadge}</td>
+        </tr>`;
+    });
+
+    let noticeHtml = '';
+    if (isEndMonth) {
+      noticeHtml = `<div style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:8px; font-size:12px;">
+        ℹ️ The final lesson of the month is on the last day (${lastLessonDate}). By rule, invoices are issued on the 1st of next month with notification strictly on that day (no 2-day or 1-day advance warnings).
+      </div>`;
+    } else {
+      noticeHtml = `<div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:10px 12px; border-radius:8px; font-size:12px;">
+        🔔 Standard deadline: advance reminders will be set for 2 days, 1 day, and 1 hour before the payment date.
+      </div>`;
+    }
+
+    let html = `
+      <div class="gcw-scheduler-head">
+        <h3>Tuition Invoicing & Payment Deadline</h3>
+        <button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>
+      </div>
+      <div class="gcw-scheduler-body" style="max-height:65vh; overflow-y:auto;">
+        ${noticeHtml}
+        <div class="gcw-field-group">
+          <label for="gcwModalDeadlineDate">Payment Deadline Date</label>
+          <input type="date" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}">
+        </div>
+        <div class="gcw-field-group">
+          <label for="gcwModalPricePerLesson">Price Per Lesson (${currency})</label>
+          <input type="number" id="gcwModalPricePerLesson" value="${currentPrice}" min="0" step="1">
+        </div>
+        <div class="gcw-field-group">
+          <label for="gcwModalRequisites">Payment Requisites</label>
+          <textarea id="gcwModalRequisites" rows="2" style="padding:8px 10px; font-size:13px; border-radius:8px; border:1px solid var(--saas-border, #cbd5e1);">${esc(currentRequisites)}</textarea>
+        </div>
+        <div class="gcw-field-group">
+          <label>Student Invoices & Attendance Calculation</label>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+              <thead>
+                <tr style="border-bottom:2px solid var(--saas-border, #e2e8f0); color:var(--mute, #64748b);">
+                  <th style="text-align:left; padding:6px;">Student</th>
+                  <th style="padding:6px;">Attended</th>
+                  <th style="padding:6px;">Auto Amount</th>
+                  <th style="padding:6px;">Manual Amount</th>
+                  <th style="padding:6px;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${studentRowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="gcw-scheduler-foot" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          ${monthData.paymentDeadline ? '<button type="button" class="btn ghost stop" data-action="clear-deadline" style="color:var(--bad, #dc2626);">Clear Deadline</button>' : ''}
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button type="button" class="btn ghost" data-action="close">Cancel</button>
+          <button type="button" class="btn primary" data-action="save">Save & Post Invoices to Chat</button>
+        </div>
+      </div>`;
+
+    dialog.innerHTML = html;
+    document.body.appendChild(dialog);
+
+    dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
+      btn.onclick = () => {
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+      };
+    });
+
+    const clearBtn = dialog.querySelector('[data-action="clear-deadline"]');
+    if (clearBtn) {
+      clearBtn.onclick = async () => {
+        monthData.paymentDeadline = '';
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+        await saveGroupAttendanceData(groupId, state, container);
+        paintGroupCalendarWidget(container, groupId, state);
+      };
+    }
+
+    const saveBtn = dialog.querySelector('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        saveBtn.disabled = true;
+        const newDeadline = dialog.querySelector('#gcwModalDeadlineDate')?.value || currentDeadline;
+        const newPrice = Number(dialog.querySelector('#gcwModalPricePerLesson')?.value) || currentPrice;
+        const newReq = dialog.querySelector('#gcwModalRequisites')?.value || currentRequisites;
+
+        monthData.paymentDeadline = newDeadline;
+        monthData.pricePerLesson = newPrice;
+        monthData.paymentRequisites = newReq;
+
+        if (!monthData.studentPayments) monthData.studentPayments = {};
+        dialog.querySelectorAll('.gcw-manual-amt-input').forEach(input => {
+          const stId = input.dataset.studentId;
+          const val = input.value.trim();
+          if (!monthData.studentPayments[stId]) monthData.studentPayments[stId] = {};
+          monthData.studentPayments[stId].manualAmount = val === '' ? null : Number(val);
+        });
+
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+
+        await saveGroupAttendanceData(groupId, state, container);
+        paintGroupCalendarWidget(container, groupId, state);
+
+        void postPaymentInvoiceToChat(groupId, state.groupTitle || 'Group', state, newDeadline, newReq);
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function showStudentLessonDialog(groupId, dateStr, lesson, exam, state, container) {
+    const existing = document.getElementById('gcwStudentLessonModal');
+    if (existing) existing.remove();
+
+    const monthKey = state ? (state.year + '-' + String(state.monthIndex + 1).padStart(2, '0')) : dateStr.slice(0, 7);
+    const monthData = state ? getMonthData(state, monthKey) : null;
+    const authId = (typeof authUser !== 'undefined' && authUser) ? String(authUser.id) : '';
+    const stDates = (monthData && monthData.attendance) ? (monthData.attendance[authId] || monthData.attendance['u' + authId] || monthData.attendance['s' + authId] || {}) : {};
+    const currentAtt = stDates[dateStr];
+
+    const title = lesson ? (lesson.title || 'Lesson') : (exam ? (exam.title || 'Exam') : 'Scheduled Group Lesson');
+    const sched = (monthData && monthData.scheduleData && monthData.scheduleData[dateStr]) || null;
+    const timeStr = sched ? `${sched.startTime} (${sched.durationMinutes || 60} min)` : '';
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwStudentLessonModal';
+    dialog.className = 'gcw-scheduler-dialog';
+
+    let statusBadge = '';
+    if (currentAtt === 'absent') {
+      statusBadge = '<div class="gcw-attendance-status-badge is-absent" style="margin-top:8px; padding:8px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#991b1b; font-size:13px; font-weight:600;">⚠️ You have reported absence for this lesson.</div>';
+    } else if (currentAtt === 'present') {
+      statusBadge = '<div class="gcw-attendance-status-badge is-present" style="margin-top:8px; padding:8px 12px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; color:#065f46; font-size:13px; font-weight:600;">✅ Attendance recorded: Present.</div>';
+    }
+
+    let openActionHtml = '';
+    if (lesson && typeof window.lmOpenLesson === 'function') {
+      openActionHtml = '<button type="button" class="btn primary" id="gcwStudentOpenLessonBtn" style="width:100%; margin-top:10px;">📖 Open Lesson Material</button>';
+    } else if (exam && (typeof examOpenSelected === 'function' || typeof window.examOpenSelected === 'function')) {
+      openActionHtml = '<button type="button" class="btn primary" id="gcwStudentOpenLessonBtn" style="width:100%; margin-top:10px;">📝 Open Exam</button>';
+    }
+
+    let html = `
+      <div class="gcw-scheduler-head">
+        <h3>Lesson details · ${esc(dateStr)}</h3>
+        <button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>
+      </div>
+      <div class="gcw-scheduler-body">
+        <div style="font-size:16px; font-weight:700; color:var(--ink);">${esc(title)}</div>
+        ${timeStr ? `<div style="font-size:13px; color:var(--mute, #64748b); margin-top:4px;">🕒 Time: ${esc(timeStr)}</div>` : ''}
+        ${statusBadge}
+        ${openActionHtml}
+
+        <div id="gcwStudentAbsenceSection" style="margin-top:16px; border-top:1px solid var(--saas-border, #e2e8f0); padding-top:12px;">
+          ${currentAtt === 'absent' ? `
+            <div style="font-size:13px; color:var(--mute, #64748b);">
+              If your plans changed and you can attend, please notify your teacher in the group chat.
+            </div>
+          ` : `
+            <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--ink);">Cannot attend this lesson?</div>
+            <p style="font-size:12px; color:var(--mute, #64748b); margin:0 0 8px 0;">
+              Notify your teacher directly so they can adjust the group plan.
+            </p>
+            <label style="display:block; font-size:12px; color:var(--mute, #64748b); margin-bottom:4px;">Reason for absence (optional):</label>
+            <textarea id="gcwAbsenceReason" class="input" rows="2" style="width:100%; font-size:13px; margin-bottom:10px; resize:vertical; box-sizing:border-box;" placeholder="Doctor appointment, illness, travel..."></textarea>
+            <button type="button" class="btn secondary" id="gcwReportAbsenceBtn" style="color:#b91c1c; border-color:#fca5a5;">⚠️ Report absence</button>
+            <div id="gcwAbsenceStatus" style="display:none; font-size:13px; margin-top:8px;"></div>
+          `}
+        </div>
+      </div>
+      <div class="gcw-scheduler-foot">
+        <button type="button" class="btn ghost" data-action="close">Close</button>
+      </div>`;
+
+    dialog.innerHTML = html;
+    document.body.appendChild(dialog);
+
+    const closeDialog = () => {
+      if (typeof dialog.close === 'function') dialog.close();
+      dialog.remove();
+    };
+
+    dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
+      btn.onclick = closeDialog;
+    });
+
+    const openBtn = dialog.querySelector('#gcwStudentOpenLessonBtn');
+    if (openBtn) {
+      openBtn.onclick = () => {
+        closeDialog();
+        if (lesson && typeof window.lmOpenLesson === 'function') {
+          window.lmOpenLesson(lesson.id);
+        } else if (exam) {
+          if (typeof examOpenSelected === 'function') examOpenSelected(exam.id);
+          else if (typeof window.examOpenSelected === 'function') window.examOpenSelected(exam.id);
+        }
+      };
+    }
+
+    const reportBtn = dialog.querySelector('#gcwReportAbsenceBtn');
+    if (reportBtn) {
+      reportBtn.onclick = async () => {
+        const reasonInput = dialog.querySelector('#gcwAbsenceReason');
+        const reason = reasonInput ? reasonInput.value.trim() : '';
+        const statusBox = dialog.querySelector('#gcwAbsenceStatus');
+
+        reportBtn.disabled = true;
+        reportBtn.textContent = 'Reporting...';
+
+        try {
+          const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
+          const res = await fetchFn('/api/groups/absence', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ groupId: Number(groupId), date: dateStr, reason }),
+            quietBug: true
+          });
+
+          if (!res || !res.ok) {
+            throw new Error('Failed to record absence');
+          }
+
+          if (monthData) {
+            if (!monthData.attendance) monthData.attendance = {};
+            if (!monthData.attendance[authId]) monthData.attendance[authId] = {};
+            monthData.attendance[authId][dateStr] = 'absent';
+          }
+
+          const studentName = (typeof authUser !== 'undefined' && authUser) ? (authUser.name || authUser.login || 'Student') : 'Student';
+          const msgLines = [
+            `📢 Absence Notice: ${studentName}`,
+            `Date: ${dateStr}`,
+            `Lesson: ${title}`
+          ];
+          if (timeStr) msgLines.push(`Time: ${timeStr}`);
+          msgLines.push(reason ? `Reason: ${reason}` : 'Reason: Not specified');
+          const chatMsg = msgLines.join('\n');
+
+          if (typeof window.sendGroupChatMessage === 'function') {
+            await window.sendGroupChatMessage(groupId, chatMsg, { category: 'personal' });
+          } else {
+            await fetchFn('/api/messages/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                roomId: 'group:' + groupId,
+                category: 'personal',
+                clientKey: 'gcw-absence-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                text: chatMsg
+              }),
+              quietBug: true
+            }).catch(() => {});
+          }
+
+          if (statusBox) {
+            statusBox.style.display = 'block';
+            statusBox.style.color = '#065f46';
+            statusBox.innerHTML = '<b>✅ Absence recorded.</b> Teacher notified in group chat.';
+          }
+          reportBtn.remove();
+          if (reasonInput) reasonInput.disabled = true;
+
+          if (container && state && typeof renderCalendar === 'function') {
+            renderCalendar(container, state);
+          }
+        } catch (err) {
+          reportBtn.disabled = false;
+          reportBtn.textContent = '⚠️ Report absence';
+          if (statusBox) {
+            statusBox.style.display = 'block';
+            statusBox.style.color = '#b91c1c';
+            statusBox.textContent = 'Failed to record absence. Please try again or message teacher.';
+          }
+        }
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function showStudentPaymentDialog(groupId, dateStr, state, container) {
+    const existing = document.getElementById('gcwStudentPaymentModal');
+    if (existing) existing.remove();
+
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+    const currency = monthData.currency || 'BYN';
+    const authId = (typeof authUser !== 'undefined' && authUser) ? String(authUser.id) : '';
+    const tuition = calculateStudentTuition(groupId, state, authId);
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwStudentPaymentModal';
+    dialog.className = 'gcw-scheduler-dialog';
+
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+    const icsUrl = `${origin}/api/groups/payment-deadline.ics?groupId=${encodeURIComponent(groupId)}&date=${encodeURIComponent(dateStr)}&title=${encodeURIComponent('Tuition Payment Due')}&isEndMonth=${tuition.isEndMonth}&requisites=${encodeURIComponent(monthData.paymentRequisites || '')}`;
+
+    const dtClean = dateStr.replace(/-/g, '');
+    const gCalUrl = new URL('https://calendar.google.com/calendar/render');
+    gCalUrl.searchParams.set('action', 'TEMPLATE');
+    gCalUrl.searchParams.set('text', `Tuition Payment Due · ${state.groupTitle || 'Group'}`);
+    gCalUrl.searchParams.set('dates', `${dtClean}T100000/${dtClean}T120000`);
+    gCalUrl.searchParams.set('details', `Payment due for ${monthKey}.\nAmount: ${tuition.finalAmount} ${currency}\nRequisites:\n${monthData.paymentRequisites || 'Bank transfer / Card / ERIP'}`);
+    gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
+
+    let html = `
+      <div class="gcw-scheduler-head">
+        <h3>Tuition Payment & Bill</h3>
+        <button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>
+      </div>
+      <div class="gcw-scheduler-body">
+        <div style="font-size:15px; font-weight:700; color:var(--ink);">
+          Payment Due: ${tuition.finalAmount} ${currency}
+        </div>
+        <div style="font-size:13px; color:var(--mute, #64748b);">
+          Attendance: ${tuition.attendedCount} / ${tuition.totalLessons} lessons attended (${tuition.pricePerLesson} ${currency} per lesson)
+        </div>
+        <div style="font-size:13px; color:var(--ink); margin-top:8px;">
+          <b>Deadline Date:</b> ${esc(dateStr)}
+        </div>
+        <div class="gcw-field-group" style="margin-top:8px;">
+          <label>Payment Requisites</label>
+          <div style="padding:10px 12px; background:var(--saas-card-muted, #f8fafc); border:1px solid var(--saas-border, #e2e8f0); border-radius:8px; font-size:13px; white-space:pre-wrap;">
+            ${esc(monthData.paymentRequisites || 'Bank transfer / Card / ERIP: BY00 ALFA 0000 0000 0000 0000 0000 (Recipient: English Study)')}
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px; font-size:13px; margin-top:6px;">
+          <a href="${gCalUrl.toString()}" target="_blank" rel="noopener noreferrer" style="color:var(--acc, #0d9488); font-weight:600;">📅 Add reminder to Google Calendar</a>
+          <a href="${icsUrl}" style="color:var(--acc, #0d9488); font-weight:600;">📥 Download .ics Calendar File</a>
+        </div>
+        <div id="gcwPaymentStatusBox" style="margin-top:12px; padding:10px 14px; border-radius:8px; background:${tuition.isPaid ? '#ecfdf5' : '#fffbeb'}; border:1px solid ${tuition.isPaid ? '#a7f3d0' : '#fde68a'}; font-size:13px;">
+          ${tuition.isPaid
+            ? '<b style="color:#065f46;">✅ Payment Confirmed!</b> Thank you for paying on time.'
+            : '<b style="color:#92400e;">⏳ Pending Payment.</b> Once transferred, click the button below.'}
+        </div>
+      </div>
+      <div class="gcw-scheduler-foot">
+        <button type="button" class="btn ghost" data-action="close">Close</button>
+        ${!tuition.isPaid ? '<button type="button" class="btn primary" id="gcwStudentPaidBtn">✅ I have paid</button>' : ''}
+      </div>`;
+
+    dialog.innerHTML = html;
+    document.body.appendChild(dialog);
+
+    dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
+      btn.onclick = () => {
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+      };
+    });
+
+    const paidBtn = dialog.querySelector('#gcwStudentPaidBtn');
+    if (paidBtn) {
+      paidBtn.onclick = async () => {
+        paidBtn.disabled = true;
+        if (!monthData.studentPayments) monthData.studentPayments = {};
+        if (!monthData.studentPayments[authId]) monthData.studentPayments[authId] = {};
+        monthData.studentPayments[authId].paid = true;
+        monthData.studentPayments[authId].paidAt = new Date().toISOString();
+
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+
+        await saveGroupAttendanceData(groupId, state, container);
+        paintGroupCalendarWidget(container, groupId, state);
+
+        try {
+          if (typeof window.ensureMessages === 'function') await window.ensureMessages();
+          const studentName = (typeof authUser !== 'undefined' && authUser) ? (authUser.name || authUser.login || 'Student') : 'Student';
+          const msg = `✅ PAYMENT CONFIRMATION: Student ${studentName} confirmed tuition payment of ${tuition.finalAmount} ${currency} for ${monthKey}.`;
+          if (typeof window.sendGroupChatMessage === 'function') {
+            await window.sendGroupChatMessage(groupId, msg);
+          }
+        } catch {}
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function closeCalendarContextMenu() {
+    const existing = document.getElementById('gcwContextMenu');
+    if (existing) existing.remove();
+  }
+
+  function openCalendarContextMenu(clientX, clientY, groupId, dateStr, isScheduled, dayBtn, state, container, canEdit) {
+    closeCalendarContextMenu();
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+    const lessons = getLessonsForDate(groupId, dateStr);
+    const exams = getExamsForDate(groupId, dateStr);
+    const isDeadline = monthData.paymentDeadline === dateStr;
+
+    const menu = document.createElement('div');
+    menu.id = 'gcwContextMenu';
+    menu.className = 'gcw-context-menu';
+    menu.setAttribute('role', 'menu');
+
+    let menuHtml = '';
+    if (!canEdit) {
+      if (lessons.length > 0) {
+        menuHtml += '<button type="button" class="gcw-menu-item" data-action="open-lesson">📖 Open lesson (' + esc(lessons[0].title) + ')</button>';
+      } else if (exams.length > 0) {
+        menuHtml += '<button type="button" class="gcw-menu-item" data-action="open-exam">📝 Open exam</button>';
+      }
+      menuHtml += '<button type="button" class="gcw-menu-item" data-action="report-absence" style="color:#b91c1c;">⚠️ Report absence</button>';
+      if (isDeadline) {
+        menuHtml += '<div class="gcw-menu-divider"></div>';
+        menuHtml += '<button type="button" class="gcw-menu-item" data-action="payment-dialog">💳 View tuition bill</button>';
+      }
+    } else {
+      menuHtml += '<button type="button" class="gcw-menu-item" data-action="schedule">📅 Plan & schedule lesson</button>';
+      if (lessons.length > 0) {
+        menuHtml += '<button type="button" class="gcw-menu-item" data-action="open-lesson">📖 Open lesson (' + esc(lessons[0].title) + ')</button>';
+      } else {
+        menuHtml += '<button type="button" class="gcw-menu-item" data-action="open-lesson" disabled>📖 Open lesson</button>';
+      }
+      menuHtml += '<button type="button" class="gcw-menu-item" data-action="toggle-scheduled">🔄 ' + (isScheduled ? 'Remove from schedule' : 'Mark as scheduled date') + '</button>';
+      menuHtml += '<div class="gcw-menu-divider"></div>';
+      menuHtml += '<button type="button" class="gcw-menu-item" data-action="payment-deadline">💳 ' + (isDeadline ? 'Clear payment deadline' : 'Set as payment deadline') + '</button>';
+    }
+
+    menu.innerHTML = menuHtml;
+    document.body.appendChild(menu);
+
+    const menuWidth = 220;
+    const menuHeight = 160;
+    let left = clientX;
+    let top = clientY;
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - menuWidth - 8);
+    }
+    if (top + menuHeight > window.innerHeight - 8) {
+      top = Math.max(8, window.innerHeight - menuHeight - 8);
+    }
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+
+    menu.addEventListener('click', (e) => {
+      const btn = e.target.closest('.gcw-menu-item');
+      if (!btn || btn.disabled) return;
+      const action = btn.dataset.action;
+      closeCalendarContextMenu();
+
+      if (action === 'schedule') {
+        showLessonSchedulerModal(groupId, dateStr, state, container);
+      } else if (action === 'open-lesson') {
+        if (lessons.length === 1 && typeof window.lmOpenLesson === 'function') {
+          window.lmOpenLesson(lessons[0].id);
+        } else if (lessons.length > 1) {
+          showEventChoiceDialog(dateStr, lessons, [], { canEdit, groupId, state, container });
+        }
+      } else if (action === 'open-exam') {
+        if (exams.length === 1) {
+          if (typeof examOpenSelected === 'function') examOpenSelected(exams[0].id);
+          else if (typeof window.examOpenSelected === 'function') window.examOpenSelected(exams[0].id);
+        } else if (exams.length > 1) {
+          showEventChoiceDialog(dateStr, [], exams, { canEdit, groupId, state, container });
+        }
+      } else if (action === 'report-absence') {
+        showStudentLessonDialog(groupId, dateStr, lessons[0] || null, exams[0] || null, state, container);
+      } else if (action === 'payment-dialog') {
+        showStudentPaymentDialog(groupId, dateStr, state, container);
+      } else if (action === 'toggle-scheduled') {
+        state.selectedDate = dateStr;
+        if (isScheduled) {
+          monthData.lessonDates.delete(dateStr);
+        } else {
+          monthData.lessonDates.add(dateStr);
+        }
+        saveGroupAttendanceData(groupId, state, container);
+        paintGroupCalendarWidget(container, groupId, state);
+      } else if (action === 'payment-deadline') {
+        state.selectedDate = dateStr;
+        showPaymentDeadlineModal(groupId, dateStr, state, container);
+      }
+    });
+
+    setTimeout(() => {
+      function onDocClick(ev) {
+        if (!menu.contains(ev.target)) {
+          closeCalendarContextMenu();
+          document.removeEventListener('click', onDocClick, true);
+          document.removeEventListener('keydown', onKey);
+        }
+      }
+      function onKey(ev) {
+        if (ev.key === 'Escape') {
+          closeCalendarContextMenu();
+          document.removeEventListener('click', onDocClick, true);
+          document.removeEventListener('keydown', onKey);
+        }
+      }
+      document.addEventListener('click', onDocClick, true);
+      document.addEventListener('keydown', onKey);
+    }, 10);
+  }
+
+  async function postLessonAlertToChat(groupId, groupTitle, dateStr, startTime, durationMinutes, period, materialTitle, isReschedule) {
+    try {
+      if (typeof window.ensureMessages === 'function') {
+        await window.ensureMessages();
+      }
+
+      const dObj = new Date(dateStr + 'T00:00:00');
+      const weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
+      const [sh, sm] = startTime.split(':').map(Number);
+      const totalMin = (isNaN(sh) ? 18 : sh) * 60 + (isNaN(sm) ? 30 : sm) + durationMinutes;
+      const eh = Math.floor(totalMin / 60) % 24;
+      const em = totalMin % 60;
+      const endTime = String(eh).padStart(2, '0') + ':' + String(em).padStart(2, '0');
+
+      const dtClean = dateStr.replace(/-/g, '');
+      const stClean = String(isNaN(sh) ? 18 : sh).padStart(2, '0') + String(isNaN(sm) ? 30 : sm).padStart(2, '0') + '00';
+      const etClean = String(eh).padStart(2, '0') + String(em).padStart(2, '0') + '00';
+      const googleDates = `${dtClean}T${stClean}/${dtClean}T${etClean}`;
+
+      const [y, m] = dateStr.split('-').map(Number);
+      const dayCode = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dObj.getDay()];
+      let gRecur = '';
+      if (period === 'month') {
+        const lastDay = new Date(y, m, 0).getDate();
+        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${dayCode};UNTIL=${y}${String(m).padStart(2, '0')}${String(lastDay).padStart(2, '0')}T235959Z`;
+      } else if (period === 'academic_year') {
+        const endYear = m >= 9 ? y + 1 : y;
+        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${dayCode};UNTIL=${endYear}0531T235959Z`;
+      }
+
+      const gCalUrl = new URL('https://calendar.google.com/calendar/render');
+      gCalUrl.searchParams.set('action', 'TEMPLATE');
+      gCalUrl.searchParams.set('text', `English Lesson · ${groupTitle}`);
+      gCalUrl.searchParams.set('dates', googleDates);
+      gCalUrl.searchParams.set('details', `English Lesson (${materialTitle || 'Group Lesson'}). Reminders preconfigured 1 hour and 15 minutes before class.`);
+      if (gRecur) gCalUrl.searchParams.set('recur', gRecur);
+      gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
+
+      const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+      const icsUrl = `${origin}/api/groups/calendar.ics?groupId=${encodeURIComponent(groupId)}&date=${encodeURIComponent(dateStr)}&time=${encodeURIComponent(startTime)}&duration=${durationMinutes}&period=${encodeURIComponent(period)}&title=${encodeURIComponent(groupTitle)}&material=${encodeURIComponent(materialTitle || '')}`;
+
+      const periodLabel = period === 'month'
+        ? 'Current Month (Weekly)'
+        : period === 'academic_year'
+          ? 'Academic Year (Weekly Sep – May)'
+          : period === 'custom'
+            ? 'Custom Period'
+            : 'Single Session';
+
+      const headerTitle = isReschedule
+        ? '⚠️ SCHEDULE UPDATE: Lesson Rescheduled'
+        : '📅 CLASS SCHEDULE ANNOUNCEMENT';
+
+      const lines = [
+        headerTitle,
+        'Group: ' + groupTitle,
+        'Date: ' + weekdayName + ', ' + dateStr,
+        'Time: ' + startTime + ' – ' + endTime + ' (' + durationMinutes + ' min)',
+        materialTitle ? ('Material: ' + materialTitle) : null,
+        'Period: ' + periodLabel,
+        '',
+        '👉 Students, please add this lesson to your calendar so you do not miss it:',
+        '• Add to Google Calendar: ' + gCalUrl.toString(),
+        '• Download .ics (Apple / Outlook / Mobile Calendar): ' + icsUrl,
+        '',
+        '🔔 Reminders are preconfigured to notify you 1 hour and 15 minutes before the lesson.'
+      ].filter(l => l !== null);
+
+      const messageText = lines.join('\n');
+
+      if (typeof window.sendGroupChatMessage === 'function') {
+        await window.sendGroupChatMessage(groupId, messageText);
+      }
+    } catch {
+      // Non-blocking notification dispatch
+    }
+  }
+
+  function showLessonSchedulerModal(groupId, dateStr, state, container) {
+    const existingModal = document.getElementById('gcwSchedulerDialog');
+    if (existingModal) existingModal.remove();
+
+    const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+    const monthData = getMonthData(state, monthKey);
+    if (!monthData.scheduleData) monthData.scheduleData = {};
+    const existing = monthData.scheduleData[dateStr] || {};
+
+    let currentStartTime = existing.startTime || '18:30';
+    let currentDuration = Number(existing.durationMinutes) || 60;
+    let currentPeriod = existing.period || 'single';
+    let currentMaterialId = existing.materialId || '';
+
+    const dObj = new Date(dateStr + 'T00:00:00');
+    const weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
+    const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwSchedulerDialog';
+    dialog.className = 'gcw-scheduler-dialog';
+
+    let materialsHtml = '<option value="">(None / Draft material)</option>';
+    if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+      for (const mat of lmLibrary.materials) {
+        if (!mat.hidden && (Number(mat.groupId) === Number(groupId) || !mat.groupId)) {
+          const isSel = String(mat.id) === String(currentMaterialId) ? ' selected' : '';
+          materialsHtml += '<option value="' + esc(mat.id) + '"' + isSel + '>' + esc(mat.title || 'Lesson ' + mat.id) + '</option>';
+        }
+      }
+    }
+
+    const students = getGroupStudents(groupId);
+    const studentsPreviewText = students.length > 0
+      ? students.map(s => s.name || s.login).join(', ')
+      : 'All group students';
+
+    let html = '';
+    html += '<div class="gcw-scheduler-head">';
+    html += '<h3>Plan & Schedule Lesson</h3>';
+    html += '<button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>';
+    html += '</div>';
+
+    html += '<div class="gcw-scheduler-body">';
+    html += '<div class="gcw-field-group">';
+    html += '<label>Lesson Date</label>';
+    html += '<div style="font-size:14px; font-weight:600; color:var(--ink);">' + esc(weekdayName) + ', ' + esc(dateStr) + '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label for="gcwSchedMaterial">Learning Material</label>';
+    html += '<select id="gcwSchedMaterial">' + materialsHtml + '</select>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label for="gcwSchedStartTime">Start Time</label>';
+    html += '<input type="time" id="gcwSchedStartTime" value="' + esc(currentStartTime) + '">';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Duration</label>';
+    html += '<div class="gcw-duration-group">';
+    [45, 60, 90, 120].forEach(dur => {
+      const activeClass = dur === currentDuration ? ' is-active' : '';
+      const durLabel = dur === 60 ? '60 min (1 h)' : dur === 90 ? '90 min (1.5 h)' : dur === 120 ? '120 min (2 h)' : (dur + ' min');
+      html += '<button type="button" class="gcw-duration-btn' + activeClass + '" data-dur="' + dur + '">' + durLabel + '</button>';
+    });
+    html += '</div>';
+    html += '</div>';
+
+    const initialEndTime = formatEndTime(currentStartTime, currentDuration);
+    html += '<div class="gcw-time-preview" id="gcwTimePreview">';
+    html += 'Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(initialEndTime) + '</strong> (' + currentDuration + ' min)';
+    html += '</div>';
+
+    html += '<div class="gcw-tz-preview-box">';
+    html += '<div class="gcw-tz-title">Student Timezone & Sync Preview</div>';
+    html += '<div>Synchronized with: <b>' + esc(studentsPreviewText) + '</b></div>';
+    html += '<div class="gcw-tz-hint">Mode: Automatic "In Class" status will activate during this scheduled window.</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Schedule Recurrence Period</label>';
+    html += '<div class="gcw-period-options">';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> This date only</label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> Current Month (every ' + esc(weekdayName) + ' in ' + esc(monthName) + ')</label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> Academic Year (every ' + esc(weekdayName) + ' Sep 1 – May 31)</label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> Custom Period</label>';
+    html += '</div>';
+    html += '<div id="gcwCustomBox" style="display:' + (currentPeriod === 'custom' ? 'flex' : 'none') + '; gap:10px; margin-top:8px;">';
+    html += '<label style="flex:1;">From <input type="date" id="gcwCustStart" value="' + esc(dateStr) + '"></label>';
+    html += '<label style="flex:1;">To <input type="date" id="gcwCustEnd" value="' + esc(dateStr) + '"></label>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+
+    html += '<div class="gcw-scheduler-foot">';
+    html += '<button type="button" class="btn ghost" data-action="close">Cancel</button>';
+    html += '<button type="button" class="btn primary" data-action="save">Save Schedule</button>';
+    html += '</div>';
+
+    dialog.innerHTML = html;
+    document.body.appendChild(dialog);
+
+    function updatePreview() {
+      const timeIn = dialog.querySelector('#gcwSchedStartTime');
+      currentStartTime = timeIn ? timeIn.value : currentStartTime;
+      const endT = formatEndTime(currentStartTime, currentDuration);
+      const prevEl = dialog.querySelector('#gcwTimePreview');
+      if (prevEl) {
+        prevEl.innerHTML = 'Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(endT) + '</strong> (' + currentDuration + ' min)';
+      }
+    }
+
+    dialog.querySelectorAll('.gcw-duration-btn').forEach(btn => {
+      btn.onclick = () => {
+        dialog.querySelectorAll('.gcw-duration-btn').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        currentDuration = Number(btn.dataset.dur) || 60;
+        updatePreview();
+      };
+    });
+
+    const timeInput = dialog.querySelector('#gcwSchedStartTime');
+    if (timeInput) {
+      timeInput.addEventListener('input', updatePreview);
+    }
+
+    dialog.querySelectorAll('input[name="gcwPeriod"]').forEach(radio => {
+      radio.onchange = () => {
+        const customBox = dialog.querySelector('#gcwCustomBox');
+        if (customBox) {
+          customBox.style.display = radio.value === 'custom' ? 'flex' : 'none';
+        }
+      };
+    });
+
+    dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
+      btn.onclick = () => {
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+      };
+    });
+
+    const saveBtn = dialog.querySelector('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        saveBtn.disabled = true;
+        const matSelect = dialog.querySelector('#gcwSchedMaterial');
+        const selectedMatId = matSelect ? matSelect.value : '';
+        const selectedPeriod = dialog.querySelector('input[name="gcwPeriod"]:checked')?.value || 'single';
+        const custStart = dialog.querySelector('#gcwCustStart')?.value || dateStr;
+        const custEnd = dialog.querySelector('#gcwCustEnd')?.value || dateStr;
+
+        const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey);
+
+        if (!monthData.scheduleData) monthData.scheduleData = {};
+
+        targetDates.forEach(d => {
+          if (d.startsWith(monthKey + '-')) {
+            monthData.lessonDates.add(d);
+            monthData.scheduleData[d] = {
+              startTime: currentStartTime,
+              durationMinutes: currentDuration,
+              materialId: selectedMatId || null,
+              period: selectedPeriod
+            };
+          }
+        });
+
+        const hadPreviousSchedule = Boolean(existing.startTime);
+        const isReschedule = hadPreviousSchedule && (existing.startTime !== currentStartTime || existing.durationMinutes !== currentDuration);
+
+        let selectedMaterialTitle = '';
+        if (selectedMatId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+          const mat = lmLibrary.materials.find(m => String(m.id) === String(selectedMatId));
+          if (mat) {
+            selectedMaterialTitle = mat.title || '';
+            mat.date = dateStr;
+            mat.time = currentStartTime;
+            if (!mat.groupId) mat.groupId = groupId;
+          }
+        }
+
+        if (typeof dialog.close === 'function') dialog.close();
+        dialog.remove();
+
+        await saveGroupAttendanceData(groupId, state, container);
+        paintGroupCalendarWidget(container, groupId, state);
+
+        void postLessonAlertToChat(groupId, state.groupTitle || 'Group', dateStr, currentStartTime, currentDuration, selectedPeriod, selectedMaterialTitle, isReschedule);
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
   function bindGroupCalendarEvents(container, groupId, state, canEdit) {
     const prevBtn = container.querySelector('[data-gcw-nav="prev"]');
     if (prevBtn) {
@@ -26652,7 +27784,10 @@ if(typeof window!=='undefined'){
         dayBtn.classList.remove('is-pressing');
       }
 
-      if (canEdit && isScheduled) {
+      const dateLessons = getLessonsForDate(groupId, dateStr);
+      const dateExams = getExamsForDate(groupId, dateStr);
+      const hasDateEvents = isScheduled || dateLessons.length > 0 || dateExams.length > 0 || (monthData.paymentDeadline === dateStr);
+      if (canEdit || hasDateEvents) {
         dayBtn.addEventListener('pointerdown', (e) => {
           if (e.button !== 0) return;
           startX = e.clientX;
@@ -26662,9 +27797,8 @@ if(typeof window!=='undefined'){
           pressTimer = setTimeout(() => {
             longPressFired = true;
             dayBtn.classList.remove('is-pressing');
-            monthData.lessonDates.delete(dateStr);
-            saveGroupAttendanceData(groupId, state, container);
-            paintGroupCalendarWidget(container, groupId, state);
+            const rect = dayBtn.getBoundingClientRect();
+            openCalendarContextMenu(rect.left + rect.width / 2, rect.bottom + 4, groupId, dateStr, isScheduled, dayBtn, state, container, canEdit);
           }, 500);
         });
 
@@ -26688,13 +27822,12 @@ if(typeof window!=='undefined'){
         });
 
         dayBtn.addEventListener('contextmenu', (e) => {
-          if (longPressFired) {
-            e.preventDefault();
-          }
+          e.preventDefault();
+          e.stopPropagation();
+          clearPress();
+          openCalendarContextMenu(e.clientX, e.clientY, groupId, dateStr, isScheduled, dayBtn, state, container, canEdit);
         });
       }
-
-      let clickTimer = null;
 
       dayBtn.onclick = (e) => {
         if (longPressFired) {
@@ -26708,24 +27841,11 @@ if(typeof window!=='undefined'){
         container.querySelectorAll('.gcw-day.is-selected').forEach(el => el.classList.remove('is-selected'));
         dayBtn.classList.add('is-selected');
 
-        if (clickTimer) {
-          clearTimeout(clickTimer);
-          clickTimer = null;
-        }
-
-        const executeClick = () => {
-          handleDateItemClick(groupId, dateStr, isScheduled, dayBtn, canEdit, () => {
-            monthData.lessonDates.delete(dateStr);
-            saveGroupAttendanceData(groupId, state, container);
-            paintGroupCalendarWidget(container, groupId, state);
-          });
-        };
-
-        if (canEdit && isScheduled) {
-          clickTimer = setTimeout(executeClick, 250);
-        } else {
-          executeClick();
-        }
+        handleDateItemClick(groupId, dateStr, isScheduled, dayBtn, canEdit, () => {
+          monthData.lessonDates.delete(dateStr);
+          saveGroupAttendanceData(groupId, state, container);
+          paintGroupCalendarWidget(container, groupId, state);
+        }, state, container);
       };
 
       if (canEdit) {
@@ -26733,10 +27853,6 @@ if(typeof window!=='undefined'){
           e.preventDefault();
           e.stopPropagation();
           clearPress();
-          if (clickTimer) {
-            clearTimeout(clickTimer);
-            clickTimer = null;
-          }
           state.selectedDate = dateStr;
           if (isScheduled) {
             monthData.lessonDates.delete(dateStr);
@@ -26758,7 +27874,7 @@ if(typeof window!=='undefined'){
           monthData.lessonDates.delete(dateStr);
           saveGroupAttendanceData(groupId, state, container);
           paintGroupCalendarWidget(container, groupId, state);
-        });
+        }, state, container);
       };
     });
 
@@ -26874,39 +27990,71 @@ if(typeof window!=='undefined'){
 
         const msgText = reportLines.join('\n');
 
+        reportBtn.disabled = true;
         if (statusNode) {
-          statusNode.textContent = 'Report dispatched to ' + state.groupTitle + ' chat.';
+          statusNode.textContent = 'Dispatching report to chat...';
           statusNode.style.display = 'block';
-          setTimeout(() => { if (statusNode) statusNode.style.display = 'none'; }, 4000);
+          statusNode.style.color = 'var(--mute, #64748b)';
         }
 
         try {
+          if (typeof window.ensureMessages === 'function') {
+            await window.ensureMessages();
+          }
+
+          let sent = false;
           if (typeof window.sendGroupChatMessage === 'function') {
-            await window.sendGroupChatMessage(groupId, msgText);
-          } else {
+            const res = await window.sendGroupChatMessage(groupId, msgText, { category: 'learning' });
+            sent = Boolean(res && (res.id || res.success || res.message || res.roomId));
+          }
+
+          if (!sent) {
             const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
-            await fetchFn('/api/messages/open', {
+            const openRes = await fetchFn('/api/messages/open', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ kind: 'group', groupId }),
+              body: JSON.stringify({ kind: 'group', groupId: Number(groupId) }),
               quietBug: true
-            }).catch(() => {});
+            }).then(r => r.ok ? r.json() : null).catch(() => null);
 
-            await fetchFn('/api/messages/send', {
+            const roomId = (openRes && openRes.roomId) ? openRes.roomId : ('group:' + groupId);
+            const sendRes = await fetchFn('/api/messages/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
               body: JSON.stringify({
-                roomId: 'group:' + groupId,
+                roomId,
                 category: 'learning',
                 clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
                 text: msgText
               }),
               quietBug: true
-            }).catch(() => {});
+            }).then(r => r.ok ? r.json() : null).catch(() => null);
+
+            sent = Boolean(sendRes && (sendRes.id || sendRes.success || sendRes.clientKey));
           }
-        } catch {}
+
+          if (sent) {
+            if (statusNode) {
+              statusNode.textContent = 'Report dispatched to ' + state.groupTitle + ' chat.';
+              statusNode.style.display = 'block';
+              statusNode.style.color = '#065f46';
+              setTimeout(() => { if (statusNode) statusNode.style.display = 'none'; }, 4000);
+            }
+          } else {
+            throw new Error('Message dispatch unconfirmed');
+          }
+        } catch (err) {
+          if (statusNode) {
+            statusNode.textContent = 'Failed to dispatch report. Please check chat connection.';
+            statusNode.style.display = 'block';
+            statusNode.style.color = '#b91c1c';
+            setTimeout(() => { if (statusNode) statusNode.style.display = 'none'; }, 5000);
+          }
+        } finally {
+          reportBtn.disabled = false;
+        }
       };
     }
   }

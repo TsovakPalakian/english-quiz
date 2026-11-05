@@ -449,6 +449,8 @@
     if (alertSeen.has(id)) return;
     alertSeen.add(id);
     if (alertSeen.size > 500) alertSeen.delete(alertSeen.values().next().value);
+    const userStatus = typeof getUserStatus === 'function' ? getUserStatus() : (typeof window.getUserStatus === 'function' ? window.getUserStatus() : null);
+    if (userStatus === 'in_class' && event.message?.category !== 'learning') return;
     if (
       !isNew ||
       mutedChat(event.room) ||

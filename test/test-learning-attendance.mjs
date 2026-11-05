@@ -339,6 +339,68 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     const afterDelResp = await get('?groupId=1&month=2026-11');
     const afterDelJson = await afterDelResp.json();
     assert.equal(afterDelJson.exists, false);
+
+    // 200 GET calendar.ics download endpoint with 60m and 15m reminders
+    const icsResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/calendar.ics?groupId=1&date=2026-11-05&time=18:30&duration=90&period=month&title=B1%20Group&material=Grammar%20Unit%201'),
+      env,
+      ctx
+    );
+    assert.equal(icsResp.status, 200);
+    assert.ok(icsResp.headers.get('Content-Type').includes('text/calendar'));
+    const icsText = await icsResp.text();
+    assert.ok(icsText.includes('TRIGGER:-PT60M'), 'Must contain 60 min alarm');
+    assert.ok(icsText.includes('TRIGGER:-PT15M'), 'Must contain 15 min alarm');
+    assert.ok(icsText.includes('RRULE:FREQ=WEEKLY'), 'Must contain recurrence rule');
+    assert.ok(icsText.includes('DTSTART;TZID=Europe/Minsk:20261105T183000'), 'Must contain start time in Minsk timezone');
+    assert.ok(icsText.includes('DTEND;TZID=Europe/Minsk:20261105T200000'), 'Must contain end time reflecting 90 min duration');
+
+    // 200 GET payment-deadline.ics standard: 2d, 1d, 1h reminders
+    const payIcsResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/payment-deadline.ics?groupId=1&date=2026-11-25&amount=240%20BYN&isEndMonth=false'),
+      env,
+      ctx
+    );
+    assert.equal(payIcsResp.status, 200);
+    const payIcsText = await payIcsResp.text();
+    assert.ok(payIcsText.includes('TRIGGER:-P2D'), 'Standard deadline must contain 2d reminder');
+    assert.ok(payIcsText.includes('TRIGGER:-P1D'), 'Standard deadline must contain 1d reminder');
+    assert.ok(payIcsText.includes('TRIGGER:-PT1H'), 'Standard deadline must contain 1h reminder');
+
+    // 200 GET payment-deadline.ics end of month: only same-day alert (no 2d or 1d)
+    const endMonthResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/payment-deadline.ics?groupId=1&date=2026-12-01&amount=240%20BYN&isEndMonth=true'),
+      env,
+      ctx
+    );
+    assert.equal(endMonthResp.status, 200);
+    const endMonthText = await endMonthResp.text();
+    assert.ok(!endMonthText.includes('TRIGGER:-P2D'), 'End of month deadline must NOT contain 2d reminder');
+    assert.ok(!endMonthText.includes('TRIGGER:-P1D'), 'End of month deadline must NOT contain 1d reminder');
+    assert.ok(endMonthText.includes('TRIGGER:-PT1H'), 'End of month deadline must contain same-day 1h reminder');
+
+    // 200 POST /api/groups/absence allows student to record absence and optional reason
+    identity = student;
+    const absResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/absence', {
+        method: 'POST',
+        headers: {Origin: 'https://quiz.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({groupId: 1, date: '2026-11-20', reason: 'Doctor appointment'})
+      }),
+      env,
+      ctx
+    );
+    assert.equal(absResp.status, 200);
+    const absJson = await absResp.json();
+    assert.equal(absJson.success, true);
+    assert.equal(absJson.date, '2026-11-20');
+
+    identity = teacher1;
+    const checkDoc = await get('?groupId=1&month=2026-11');
+    assert.equal(checkDoc.status, 200);
+    const checkJson = await checkDoc.json();
+    assert.equal(checkJson.attendance[String(student.id)]['2026-11-20'], 'absent');
+    assert.equal(checkJson.absenceReasons[String(student.id)]['2026-11-20'], 'Doctor appointment');
   } finally {
     f.close();
   }
@@ -380,5 +442,35 @@ test('Client contracts: group calendar month cache isolation, real student bindi
 
   // 6. Header hide/show on guest and lesson/exam screens
   assert.ok(coreSrc.includes("['material', 'examblocks', 'speaklesson', 'speakouteditor']"), 'Core must hide header on lesson and exam screens');
+
+  // 7. Context menu and lesson scheduler contracts
+  assert.ok(calSrc.includes('function openCalendarContextMenu'), 'Calendar must implement date context menu');
+  assert.ok(calSrc.includes('function showLessonSchedulerModal'), 'Calendar must implement lesson scheduler modal');
+  assert.ok(calSrc.includes('function postLessonAlertToChat'), 'Calendar must implement chat alert posting for scheduled lessons');
+  assert.ok(calSrc.includes('TRIGGER:-PT60M') || calSrc.includes('calendar.ics'), 'Calendar must reference .ics calendar triggers');
+
+  // 8. Payment deadline, tuition calculation, and student confirmation contracts
+  assert.ok(calSrc.includes('function calculateStudentTuition'), 'Calendar must implement attendance-based tuition calculation');
+  assert.ok(calSrc.includes('function postPaymentInvoiceToChat'), 'Calendar must implement invoice chat dispatch');
+  assert.ok(calSrc.includes('function showPaymentDeadlineModal'), 'Calendar must implement payment deadline modal');
+  assert.ok(calSrc.includes('function showStudentPaymentDialog'), 'Calendar must implement student payment dialog with I have paid');
+
+  // 9. Student absence reporting contracts
+  assert.ok(calSrc.includes('function showStudentLessonDialog'), 'Calendar must implement student lesson dialog');
+  assert.ok(calSrc.includes('/api/groups/absence'), 'Calendar must call absence endpoint');
+
+  // 10. Reliable report to chat contracts
+  assert.ok(calSrc.includes('await window.ensureMessages()'), 'Calendar must ensure messages before dispatching report');
+  assert.ok(calSrc.includes('Number(groupId)'), 'Calendar must normalize groupId as Number');
+
+  const durableSrc = await fs.readFile(path.resolve('src/chat-durable.mjs'), 'utf8');
+  assert.ok(durableSrc.includes('Number(g.id)===Number(body.groupId)'), 'Chat durable must use numeric comparison for groupId');
+
+  // 11. In-class mode and audio notification filtering contracts
+  assert.ok(pillSrc.includes('window.getUserStatus = getUserStatus'), 'Profile pill must export getUserStatus globally');
+  assert.ok(calSrc.includes('window.isCurrentTimeInScheduledLesson'), 'Calendar must expose scheduled lesson window helper');
+
+  const chatRoomsSrc = await fs.readFile(path.resolve('production/chat/30-rooms.js'), 'utf8');
+  assert.ok(chatRoomsSrc.includes("userStatus === 'in_class' && event.message?.category !== 'learning'"), 'Chat rooms must mute non-learning message sounds when in class');
 });
 

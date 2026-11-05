@@ -42,8 +42,17 @@
     function accountGroupLevel(group) {
       return adminLevels.find(level => group.title === level || group.title.startsWith(level + ' ') || group.title.endsWith(' ' + level)) || 'unassigned';
     }
+    function examLevel(exam) {
+      if (exam?.level && adminLevels.includes(exam.level)) return exam.level;
+      const title = exam?.title || '';
+      const byTitle = adminLevels.find(level => title === level || title.startsWith(level + ' ') || title.endsWith(' ' + level));
+      if (byTitle) return byTitle;
+      const owner = adminGroups.find(g => (g.examIds || []).includes(exam?.id)) || adminGroups.find(g => g.id === exam?.groupId);
+      if (owner) return accountGroupLevel(owner);
+      return 'unassigned';
+    }
     function accountGroupMetrics(groups,extra={}) {
-      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER').map(user=>String(user.id)));
+      const ids=new Set(groups.map(group=>group.id)),students=new Set(adminAccounts.filter(user=>user.role==='USER'&&!user.hidden).map(user=>String(user.id)));
       return {groups:ids.size,teachers:new Set([...groups.flatMap(group=>adminTeachers(group.id).map(user=>String(user.id))),...(extra.teachers||[]).map(user=>String(user.id))]).size,students:new Set([...adminMembers.filter(member=>ids.has(member.groupId)&&students.has(String(member.accountId))).map(member=>String(member.accountId)),...(extra.students||[]).map(user=>String(user.id))]).size,lessons:new Set(groups.flatMap(group=>group.lessonIds||[])).size,exams:new Set(groups.flatMap(group=>group.examIds||[])).size};
     }
     function accountMetricsHTML(groups,extra={}) {
@@ -312,7 +321,7 @@
       try {
         const doc = await accountFetch('/api/groups/attendance?groupId=' + groupId + '&month=' + encodeURIComponent(monthKey));
         currentAttendanceDoc = doc;
-        const groupStudents = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === groupId));
+        const groupStudents = adminAccounts.filter(user => user.role === 'USER' && !user.hidden && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === groupId));
         const lessonDates = Array.isArray(doc.lessonDates) ? doc.lessonDates : [];
         const attendance = doc.attendance && typeof doc.attendance === 'object' ? doc.attendance : {};
         const price = Number(doc.pricePerLesson) || 0;
@@ -410,8 +419,9 @@
       document.getElementById('adminGroupTitle').textContent = selected.title;
       const detail = document.getElementById('adminGroupDetail');
       const folds=Object.fromEntries(['students','lessons','exams','exams-assign','teachers','teachers-list','attendance'].map(name=>[name,detail.dataset.groupId===String(selected.id)&&!!detail.querySelector('[data-group-'+name+']')?.open]));
-      const students = adminAccounts.filter(user => user.role === 'USER' && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
-      const exams = examLoad().filter(exam=>!exam.instanceStatus), lessons = lmLibrary?.materials || [];
+      const students = adminAccounts.filter(user => user.role === 'USER' && !user.hidden && adminMembers.some(m => String(m.accountId) === String(user.id) && m.groupId === selected.id));
+      const selectedLevel = accountGroupLevel(selected);
+      const exams = examLoad().filter(exam => !exam.instanceStatus && (examLevel(exam) === selectedLevel || (selected.examIds || []).includes(exam.id))), lessons = lmLibrary?.materials || [];
       const assignedExams = exams.filter(exam => (selected.examIds || []).includes(exam.id));
       const candidateExams = exams.filter(exam => !(selected.examIds || []).includes(exam.id));
       const assignedRows = assignedExams.map(exam => {
@@ -897,7 +907,7 @@
 
         let html = '<div class="admin-user-header">';
         html += '<div class="admin-user-breadcrumbs">';
-        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home">🏠</button>';
+        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>';
         html += '<button type="button" class="btn icon-btn" data-nav-back data-fallback="admin" title="Back" aria-label="Back">←</button>';
         html += '<div class="admin-user-crumb-text"><a href="#settings" data-page-path="settings">Settings</a> / <a href="#admin" data-page-path="admin">Accounts</a> / <span class="current-crumb">Account · ' + esc(user.login) + '</span></div>';
         html += '</div>';

@@ -103,7 +103,17 @@ export class GroupService{
       ORDER BY x.position,x.lesson_id`,[teacher?1:0,actor.id,actor.id]);
     const hidden=await materialVisibility(this.db,actor.id);
     await ensureAccountArchive(this.db);
-    const studentCounts=await this.db.read('SELECT group_id,COUNT(*) AS total FROM class_group_students WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id=class_group_students.account_id) GROUP BY group_id');
+    const hasUsers = (await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).length > 0;
+    const studentCounts = await this.db.read(
+      hasUsers
+        ? `SELECT group_id, COUNT(*) AS total FROM class_group_students
+           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
+           AND EXISTS(SELECT 1 FROM users u WHERE u.id = class_group_students.account_id AND u.role = 'USER' AND COALESCE(u.active, 1) = 1 AND COALESCE(u.is_personal_data_revoked, 0) = 0 AND COALESCE(u.hidden, 0) = 0)
+           GROUP BY group_id`
+        : `SELECT group_id, COUNT(*) AS total FROM class_group_students
+           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
+           GROUP BY group_id`
+    );
     const exams=await this.db.read('SELECT group_id,exam_id FROM class_group_exams');
     if((!teacher||actor.managedStudent)&&(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length){
       const columns=await this.db.read('PRAGMA table_info(exam_instances)');
@@ -131,7 +141,15 @@ export class GroupService{
   async members(actor){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
     await ensureAccountArchive(this.db);
-    const rows=await this.db.read('SELECT account_id AS accountId,group_id AS groupId FROM class_group_students WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id=class_group_students.account_id)');
+    const hasUsers = (await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).length > 0;
+    const rows = await this.db.read(
+      hasUsers
+        ? `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
+           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
+           AND EXISTS(SELECT 1 FROM users u WHERE u.id = class_group_students.account_id AND u.role = 'USER' AND COALESCE(u.active, 1) = 1 AND COALESCE(u.is_personal_data_revoked, 0) = 0 AND COALESCE(u.hidden, 0) = 0)`
+        : `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
+           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)`
+    );
     if(actor.role==='DEVELOPER')return rows;
     const allowed=new Set(await teacherGroupIds(this.db,actor));
     return rows.filter(row=>allowed.has(Number(row.groupId)));

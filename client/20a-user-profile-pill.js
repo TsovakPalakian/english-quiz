@@ -17,6 +17,9 @@
       ];
       if (lessonScreens.includes(activeSection.id)) return true;
     }
+    if (typeof window.isCurrentTimeInScheduledLesson === 'function' && window.isCurrentTimeInScheduledLesson()) {
+      return true;
+    }
     try {
       const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
       if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
@@ -32,13 +35,15 @@
   function getUserStatus() {
     const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
     if (!user) return 'offline';
-    if (isLessonActive()) return 'in_class';
     try {
       const saved = localStorage.getItem('lumiscia-user-status');
-      if (saved && Object.prototype.hasOwnProperty.call(STATUS_MAP, saved) && saved !== 'in_class') return saved;
+      if (saved && Object.prototype.hasOwnProperty.call(STATUS_MAP, saved)) return saved;
     } catch {}
+    if (isLessonActive()) return 'in_class';
     return 'online';
   }
+
+  window.getUserStatus = getUserStatus;
 
   function setUserStatus(newStatus) {
     if (!Object.prototype.hasOwnProperty.call(STATUS_MAP, newStatus)) return;
@@ -47,6 +52,8 @@
     } catch {}
     syncStatusDots();
   }
+
+  window.setUserStatus = setUserStatus;
 
   function syncStatusDots() {
     const status = getUserStatus();
@@ -62,6 +69,10 @@
     const tabbarDot = document.getElementById('tabbarStatusDot');
     if (tabbarDot) {
       tabbarDot.className = 'tabbar-status-dot ' + (statusInfo.dotClass || '');
+    }
+    const settingsDot = document.getElementById('settingsProfileStatusDot');
+    if (settingsDot) {
+      settingsDot.className = 'settings-profile-status-dot ' + (statusInfo.dotClass || '');
     }
     const host = document.getElementById('userProfilePillHost');
     if (host) {
@@ -333,6 +344,8 @@
 
   window.paintUserProfilePill = paintUserProfilePill;
   window.setUserStatus = setUserStatus;
+  window.getUserStatus = getUserStatus;
+  window.syncStatusDots = syncStatusDots;
   window.getUserStatus = getUserStatus;
   window.syncStatusDots = syncStatusDots;
   window.isLessonActive = isLessonActive;

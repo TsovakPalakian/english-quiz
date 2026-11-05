@@ -566,6 +566,7 @@
           escape(profile.id) +
           '" title="Change photo" aria-label="Change photo">' +
           avatar(profile.name, false, profile.id) +
+          '<span id="settingsProfileStatusDot" class="settings-profile-status-dot"></span>' +
           '<span class="chat-photo-camera">' +
           icon('camera') +
           '</span></button><div><label>First name<input name="firstName" maxlength="80" value="' +
@@ -649,7 +650,10 @@
         performLogout();
       });
       pane.querySelector('[data-chat-blocked]')?.remove();
-      if (id === 'profile') scheduleProfiles();
+      if (id === 'profile') {
+        scheduleProfiles();
+        if (typeof window.syncStatusDots === 'function') window.syncStatusDots();
+      }
       if (id === 'theme') {
         mountSection('themes', pane);
         paintThemeSegs();
@@ -932,7 +936,7 @@
     true,
   );
   window.openChatSettings = settings;
-  window.sendGroupChatMessage = async function(groupId, text) {
+  window.sendGroupChatMessage = async function(groupId, text, options) {
     if (!signedIn()) return;
     if (!ready) {
       connect();
@@ -949,9 +953,12 @@
     const numId = Number(groupId);
     const openRes = await request('open', { kind: 'group', groupId: numId });
     if (openRes && openRes.roomId) {
+      const u = signedIn();
+      const isStaff = u && (u.role === 'TEACHER' || u.role === 'LEAD_INSTRUCTOR' || u.leadInstructor || (typeof isTeacher === 'function' && isTeacher()));
+      const category = (options && options.category) || (isStaff ? 'learning' : 'personal');
       return request('send', {
         roomId: openRes.roomId,
-        category: 'learning',
+        category,
         clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
         text
       });

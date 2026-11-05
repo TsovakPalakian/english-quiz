@@ -59,8 +59,7 @@ try{
     assert.equal(await page.locator('.side .brand-account').count(),0,'No account circle below Settings');
     if(role!=='USER')assert.equal(await page.locator('#'+home+' .meta .crumb').isVisible(),false,'Role home has no navigation buttons');
     yield "02. .shell-progress / checks" + " [" + String(role) + "]";
-    assert.equal(await page.locator('.shell-progress').isVisible(),role==='USER');
-    if(role==='USER')assert.ok(await page.locator('.shell-progress').evaluate(n=>n.getBoundingClientRect().top>=document.querySelector('.side nav').getBoundingClientRect().bottom));
+    assert.equal(await page.locator('.shell-progress').isVisible(),false);
     await page.locator('.side nav [data-jump="wordcollections"]').click();
     await page.locator('#wordcollections.on').waitFor();
     assert.equal(await page.locator('#wordcollections .file-card').count(),5);

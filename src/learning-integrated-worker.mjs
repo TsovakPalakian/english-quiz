@@ -588,6 +588,188 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(found.row.role!=='USER')throw new StudyError(400,'Only students can be assigned to a group.');
         return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId));
       }
+      if(path==='/api/groups/absence'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
+        let body;try{body=JSON.parse(await boundedText(request,4096,'Absence payload too large.'));}catch{throw new StudyError(400,'Invalid absence payload.');}
+        if(!body||typeof body!=='object'||Array.isArray(body))throw new StudyError(400,'Invalid absence payload.');
+        const groupId=Number(body.groupId);
+        const dateStr=String(body.date||'');
+        if(!groupId||!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))throw new StudyError(400,'groupId and date are required.');
+
+        const db=studyDatabase(env);
+        const monthKey=dateStr.slice(0,7);
+        const docKey=groupId+':'+monthKey;
+
+        const [row]=await db.read(
+          "SELECT value_json FROM catalog_documents WHERE namespace = 'group-attendance' AND key = ?",
+          [docKey]
+        );
+
+        let doc=row?(JSON.parse(row.value_json)||{}):{
+          groupId,
+          monthKey,
+          lessonDates:[dateStr],
+          attendance:{},
+          revision:1
+        };
+
+        if(!doc.attendance)doc.attendance={};
+        const stKey=String(actor.id);
+        if(!doc.attendance[stKey])doc.attendance[stKey]={};
+        doc.attendance[stKey][dateStr]='absent';
+        if(body.reason&&typeof body.reason==='string'){
+          if(!doc.absenceReasons)doc.absenceReasons={};
+          if(!doc.absenceReasons[stKey])doc.absenceReasons[stKey]={};
+          doc.absenceReasons[stKey][dateStr]=body.reason.slice(0,500);
+        }
+        doc.revision=(Number(doc.revision)||0)+1;
+        doc.updatedAt=Math.floor(Date.now()/1000);
+        doc.updatedBy=String(actor.id);
+
+        await db.atomic([
+          s(
+            "INSERT INTO catalog_documents(namespace, key, value_json) VALUES('group-attendance', ?, ?) ON CONFLICT(namespace, key) DO UPDATE SET value_json = excluded.value_json",
+            [docKey,JSON.stringify(doc)]
+          )
+        ]);
+
+        return json({success:true,date:dateStr,studentId:actor.id,revision:doc.revision});
+      }
+      if(path==='/api/groups/calendar.ics'&&method==='GET'){
+        const title=url.searchParams.get('title')||'English Lesson';
+        const dateStr=url.searchParams.get('date')||'';
+        const startTime=url.searchParams.get('time')||'18:30';
+        const durationMinutes=Number(url.searchParams.get('duration'))||60;
+        const period=url.searchParams.get('period')||'single';
+        const materialTitle=url.searchParams.get('material')||'';
+
+        const dtClean=dateStr.replace(/-/g,'');
+        const [sh,sm]=startTime.split(':').map(Number);
+        const endTotal=(isNaN(sh)?18:sh)*60+(isNaN(sm)?30:sm)+durationMinutes;
+        const eh=Math.floor(endTotal/60)%24;
+        const em=endTotal%60;
+        const stStr=String(isNaN(sh)?18:sh).padStart(2,'0')+String(isNaN(sm)?30:sm).padStart(2,'0')+'00';
+        const etStr=String(eh).padStart(2,'0')+String(em).padStart(2,'0')+'00';
+
+        let rruleLine='';
+        if(dateStr&&(period==='month'||period==='academic_year')){
+          const dObj=new Date(dateStr+'T00:00:00');
+          const dayCode=['SU','MO','TU','WE','TH','FR','SA'][dObj.getDay()];
+          const [y,m]=dateStr.split('-').map(Number);
+          let untilStr='';
+          if(period==='month'){
+            const lastDay=new Date(y,m,0).getDate();
+            untilStr=`${y}${String(m).padStart(2,'0')}${String(lastDay).padStart(2,'0')}T235959Z`;
+          }else{
+            const endYear=m>=9?y+1:y;
+            untilStr=`${endYear}0531T235959Z`;
+          }
+          rruleLine=`RRULE:FREQ=WEEKLY;BYDAY=${dayCode};UNTIL=${untilStr}`;
+        }
+
+        const now=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+        const uid=`lesson-${dateStr}-${stStr}-${Math.random().toString(36).slice(2)}@englishquiz`;
+
+        const lines=[
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//EnglishQuiz//LessonScheduler//EN',
+          'CALSCALE:GREGORIAN',
+          'METHOD:PUBLISH',
+          'BEGIN:VEVENT',
+          `UID:${uid}`,
+          `DTSTAMP:${now}`,
+          `DTSTART;TZID=Europe/Minsk:${dtClean}T${stStr}`,
+          `DTEND;TZID=Europe/Minsk:${dtClean}T${etStr}`,
+          `SUMMARY:${title}`,
+          `DESCRIPTION:English Lesson: ${materialTitle||title}\\nReminders set for 1 hour and 15 minutes before the lesson.`,
+          rruleLine,
+          'BEGIN:VALARM',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:Reminder: Lesson in 1 hour',
+          'TRIGGER:-PT60M',
+          'END:VALARM',
+          'BEGIN:VALARM',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:Reminder: Lesson in 15 minutes',
+          'TRIGGER:-PT15M',
+          'END:VALARM',
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ].filter(Boolean);
+
+        return new Response(lines.join('\r\n'),{
+          headers:{
+            'Content-Type':'text/calendar; charset=utf-8',
+            'Content-Disposition':'inline; filename="lesson.ics"',
+            'Cache-Control':'no-cache'
+          }
+        });
+      }
+      if(path==='/api/groups/payment-deadline.ics'&&method==='GET'){
+        const title=url.searchParams.get('title')||'Tuition Payment Due';
+        const dateStr=url.searchParams.get('date')||'';
+        const amount=url.searchParams.get('amount')||'';
+        const requisites=url.searchParams.get('requisites')||'';
+        const isEndMonth=url.searchParams.get('isEndMonth')==='true';
+
+        const dtClean=dateStr.replace(/-/g,'');
+        const now=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+        const uid=`payment-${dateStr}-${Math.random().toString(36).slice(2)}@englishquiz`;
+
+        const alarms = isEndMonth
+          ? [
+              'BEGIN:VALARM',
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Reminder: Tuition payment due today',
+              'TRIGGER:-PT1H',
+              'END:VALARM'
+            ]
+          : [
+              'BEGIN:VALARM',
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Reminder: Tuition payment due in 2 days',
+              'TRIGGER:-P2D',
+              'END:VALARM',
+              'BEGIN:VALARM',
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Reminder: Tuition payment due tomorrow',
+              'TRIGGER:-P1D',
+              'END:VALARM',
+              'BEGIN:VALARM',
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Reminder: Tuition payment due in 1 hour',
+              'TRIGGER:-PT1H',
+              'END:VALARM'
+            ];
+
+        const lines=[
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//EnglishQuiz//PaymentDeadline//EN',
+          'CALSCALE:GREGORIAN',
+          'METHOD:PUBLISH',
+          'BEGIN:VEVENT',
+          `UID:${uid}`,
+          `DTSTAMP:${now}`,
+          `DTSTART;VALUE=DATE:${dtClean}`,
+          `DTEND;VALUE=DATE:${dtClean}`,
+          `SUMMARY:${title}${amount?' · '+amount:''}`,
+          `DESCRIPTION:Tuition Payment Due.\\nAmount: ${amount}\\nRequisites: ${requisites}\\nPlease pay on or before ${dateStr}.`,
+          ...alarms,
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ];
+
+        return new Response(lines.join('\r\n'),{
+          headers:{
+            'Content-Type':'text/calendar; charset=utf-8',
+            'Content-Disposition':'inline; filename="payment-deadline.ics"',
+            'Cache-Control':'no-cache'
+          }
+        });
+      }
       if(path==='/api/groups/attendance'&&['GET','POST','DELETE'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');

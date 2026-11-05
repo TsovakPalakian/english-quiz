@@ -539,7 +539,7 @@ export class ChatInbox extends Store{
         if(!status.migrated)await chatCall(this.env,'CHAT_ROOM',id,'/import',{messages:[],complete:true});
         await chatCall(this.env,'CHAT_BRIDGE','global','/register-room',{room:{id,kind:'direct'}}).catch(()=>{});
       }else if(body.kind==='group'){
-        const group=this.get('groups',[]).find(g=>g.id===body.groupId);if(!group)fail(403,'This group is unavailable.');id='group:'+group.id;
+        const group=this.get('groups',[]).find(g=>Number(g.id)===Number(body.groupId));if(!group)fail(403,'This group is unavailable.');id='group:'+group.id;
         await chatCall(this.env,'CHAT_BRIDGE','global','/register-room',{room:{id,kind:'group',groupId:group.id}}).catch(()=>{});
       }else if(body.kind==='circle'){
         id=ref(body.roomId);if(!id.startsWith('circle:'))fail(400,'Choose a conversation type.');
