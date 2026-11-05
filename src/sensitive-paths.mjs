@@ -1,4 +1,4 @@
-const privateDirectory=new Set(['.git','.svn','.hg','.ssh','.aws']);
+const privateDirectory=new Set(['.git','.svn','.hg','.ssh','.aws','actuator']);
 const privateFile=new Set(['.npmrc','.pypirc','.netrc','.htpasswd','.dev.vars','wrangler.toml','wrangler.json','wrangler.jsonc']);
 
 export function isSensitiveFileProbe(request){

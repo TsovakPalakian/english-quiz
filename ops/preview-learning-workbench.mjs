@@ -50,28 +50,7 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
     {accountId:'u5',account_id:'u5',groupId:3,group_id:3},
     {accountId:'u6',account_id:'u6',groupId:3,group_id:3}
   ];
-  try {
-    const seedPayload = (gid) => ({
-      groupId: gid,
-      monthKey: '2026-11',
-      lessonDates: ['2026-11-02', '2026-11-04', '2026-11-09', '2026-11-11', '2026-11-16', '2026-11-18', '2026-11-23', '2026-11-25', '2026-11-30'],
-      attendance: {
-        u1: { '2026-11-02': 'present' },
-        u2: { '2026-11-02': 'absent' },
-        u3: { '2026-11-02': 'absent' },
-        u4: { '2026-11-02': 'absent' },
-        u5: { '2026-11-02': 'present' },
-        u6: { '2026-11-02': 'absent' }
-      },
-      pricePerLesson: 30,
-      currency: 'BYN',
-      paymentDeadline: '',
-      expectedRevision: 0
-    });
-    const teacherUser = users.find(u => u.id === 'teacher');
-    await attendanceService.saveGroupAttendance(teacherUser, 1, '2026-11', seedPayload(1));
-    await attendanceService.saveGroupAttendance(teacherUser, 3, '2026-11', seedPayload(3));
-  } catch {}
+  // Default attendance starts clean by user request
   function actorFor(req){const key=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('local-workbench-role='))?.split('=')[1];return users.find(row=>row.id===key)||users.find(row=>row.id==='teacher');}
   const track=promise=>{pending.add(promise);promise.finally(()=>pending.delete(promise)).catch(()=>{});};
   const server=createServer(async(req,res)=>{
@@ -125,14 +104,17 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
         response=json({ok:true});response.headers.set('Set-Cookie','local-workbench-role='+id+'; HttpOnly; SameSite=Strict; Path=/');
       }else if(path==='/api/groups/attendance'){
         if(method==='GET'){
-          const m=url.searchParams.get('month');
+          const m=url.searchParams.get('month')||url.searchParams.get('monthKey');
           if(m) response=json(await attendanceService.getGroupAttendance(actor, Number(url.searchParams.get('groupId')), m));
           else response=json({months: await attendanceService.listGroupMonths(actor, Number(url.searchParams.get('groupId')))});
         }else if(method==='POST'){
-          const payload=JSON.parse((await bytes(req)).toString());
-          response=json(await attendanceService.saveGroupAttendance(actor, payload.groupId, payload.monthKey, payload));
+          const body=JSON.parse((await bytes(req)).toString());
+          const m=body.month||body.monthKey;
+          const payload=(body.payload&&typeof body.payload==='object')?body.payload:body;
+          response=json(await attendanceService.saveGroupAttendance(actor, body.groupId, m, payload));
         }else if(method==='DELETE'){
-          response=json(await attendanceService.deleteGroupAttendance(actor, Number(url.searchParams.get('groupId')), url.searchParams.get('month')));
+          const m=url.searchParams.get('month')||url.searchParams.get('monthKey');
+          response=json(await attendanceService.deleteGroupAttendance(actor, Number(url.searchParams.get('groupId')), m));
         }else response=json({error:'Method not allowed.'},405);
       }else if(path==='/api/messages/open'){
         const payload=JSON.parse((await bytes(req)).toString());
@@ -142,6 +124,11 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
         response=json({ok:true,id:Date.now(),sent:true,payload});
       }else if(path==='/api/me/activity'){
         response=json({ok:true});
+      }else if(path==='/api/exams'&&method==='POST'){
+        const payload=JSON.parse((await bytes(req)).toString());
+        response=json({id:payload.exam?.id||Date.now(),...(payload.exam||{})});
+      }else if(path==='/api/bugs'&&method==='POST'){
+        response=json({ok:true,id:Date.now()});
       }else if(path.startsWith('/api/')){
         if(method!=='GET')throw Object.assign(Error('This legacy action is not connected in the isolated preview. Workbench edits use its own API.'),{status:409});
         const empty={cards:[],groups:[],songs:[],texts:[],quizzes:[],progress:[],documents:{},next:null};

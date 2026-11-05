@@ -604,15 +604,16 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         if(method==='DELETE'){
           const groupId=url.searchParams.get('groupId')||'';
-          const month=url.searchParams.get('month')||'';
+          const month=url.searchParams.get('month')||url.searchParams.get('monthKey')||'';
           if(!groupId||!month)throw new StudyError(400,'groupId and month are required.');
           return json(await service.deleteGroupAttendance(actor,groupId,month));
         }
         let body;try{body=JSON.parse(await boundedText(request,65536,'Attendance payload too large.'));}catch{throw new StudyError(400,'Invalid attendance payload.');}
         if(!body||typeof body!=='object'||Array.isArray(body))throw new StudyError(400,'Invalid attendance payload.');
-        if(!body.groupId||!body.month)throw new StudyError(400,'groupId and month are required.');
+        const month=body.month||body.monthKey;
+        if(!body.groupId||!month)throw new StudyError(400,'groupId and month are required.');
         const payload=(body.payload&&typeof body.payload==='object')?body.payload:body;
-        return json(await service.saveGroupAttendance(actor,body.groupId,body.month,payload));
+        return json(await service.saveGroupAttendance(actor,body.groupId,month,payload));
       }
       if(path==='/api/exams'&&method==='GET'&&!url.searchParams.has('for')){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -1331,7 +1332,7 @@ function bugWatch(request){
     const path=new URL(request.url).pathname;
     if(/\.(?:php|asp|aspx|jsp|env)(?:$|\/)/i.test(path))return false;
     if(/^\/api\/v\d+\//i.test(path))return false;
-    if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping)(?:\/|$|\.|\-)/i.test(path))return false;
+    if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator)(?:\/|$|\.|\-)/i.test(path))return false;
     if(['/api/graphql','/api/gql','/api/swagger','/api/openapi'].includes(path))return false;
     return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/feedback')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');
   }

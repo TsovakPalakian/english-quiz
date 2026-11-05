@@ -25230,24 +25230,8 @@ if(typeof window!=='undefined'){
       const year = 2026;
       const monthIndex = 10; // November (0-based)
       const selectedDate = '2026-11-05';
-      const defaultLessonDates = new Set([
-        '2026-11-02', '2026-11-04', '2026-11-09', '2026-11-11',
-        '2026-11-16', '2026-11-18', '2026-11-23', '2026-11-25', '2026-11-30'
-      ]);
-      const defaultAttendance = {
-        u1: { '2026-11-02': 'present' },
-        u2: { '2026-11-02': 'absent' },
-        u3: { '2026-11-02': 'absent' },
-        u4: { '2026-11-02': 'absent' },
-        u5: { '2026-11-02': 'present' },
-        u6: { '2026-11-02': 'absent' },
-        s1: { '2026-11-02': 'present' },
-        s2: { '2026-11-02': 'absent' },
-        s3: { '2026-11-02': 'absent' },
-        s4: { '2026-11-02': 'absent' },
-        s5: { '2026-11-02': 'present' },
-        s6: { '2026-11-02': 'absent' }
-      };
+      const defaultLessonDates = new Set();
+      const defaultAttendance = {};
       groupWidgetStates.set(groupId, {
         year,
         monthIndex,
@@ -25320,29 +25304,37 @@ if(typeof window!=='undefined'){
     return Math.round((presents / marked) * 100);
   }
 
-  function getLessonForDate(groupId, dateStr, state) {
-    if (!state || !state.lessonDates || !state.lessonDates.has(dateStr)) return null;
-    const monthKey = dateStr.slice(0, 7);
-    const sortedMonthLessons = Array.from(state.lessonDates).filter(d => d.startsWith(monthKey)).sort();
-    const lessonIdx = sortedMonthLessons.indexOf(dateStr);
-    if (lessonIdx < 0) return null;
-
-    let lessonId = null;
+  function getLessonForDate(groupId, dateStr) {
+    let grp = null;
     if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      const grp = classGroups.find(g => g.id === groupId);
-      if (grp && Array.isArray(grp.lessonIds) && grp.lessonIds.length > lessonIdx) {
-        lessonId = grp.lessonIds[lessonIdx];
-      }
+      grp = classGroups.find(g => String(g.id) === String(groupId));
     }
-    if (!lessonId && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
-      const grp = adminGroups.find(g => g.id === groupId);
-      if (grp && Array.isArray(grp.lessonIds) && grp.lessonIds.length > lessonIdx) {
-        lessonId = grp.lessonIds[lessonIdx];
-      }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => String(g.id) === String(groupId));
     }
-    if (lessonId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
-      const mat = lmLibrary.materials.find(m => m.id === lessonId);
-      if (mat) return { id: lessonId, material: mat };
+    const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+    if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+      const match = lmLibrary.materials.find(m => (lessonIds.includes(String(m.id)) || String(m.groupId) === String(groupId)) && m.date === dateStr);
+      if (match) return { id: match.id, material: match };
+    }
+    return null;
+  }
+
+  function getExamForDate(groupId, dateStr) {
+    let grp = null;
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      grp = classGroups.find(g => String(g.id) === String(groupId));
+    }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => String(g.id) === String(groupId));
+    }
+    const examIds = grp && Array.isArray(grp.examIds) ? grp.examIds.map(String) : [];
+    if (typeof examShown === 'function') {
+      const exams = examShown();
+      if (Array.isArray(exams)) {
+        const match = exams.find(e => (examIds.includes(String(e.id)) || String(e.groupId) === String(groupId)) && e.date === dateStr);
+        if (match) return match;
+      }
     }
     return null;
   }
@@ -25418,6 +25410,7 @@ if(typeof window!=='undefined'){
       const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
       const payload = {
         groupId,
+        month: monthKey,
         monthKey,
         lessonDates: Array.from(state.lessonDates).sort(),
         attendance: state.attendance,
@@ -25484,16 +25477,47 @@ if(typeof window!=='undefined'){
     }
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = monthKey + '-' + String(d).padStart(2, '0');
-      const hasLesson = state.lessonDates.has(dateStr);
+      const isScheduled = state.lessonDates.has(dateStr);
       const isSelected = state.selectedDate === dateStr;
       const roClass = canEdit ? '' : ' is-readonly';
-      const lessonIdx = hasLesson ? (sortedMonthLessons.indexOf(dateStr) + 1) : 0;
-      const tooltip = hasLesson ? ('Lesson ' + lessonIdx) : '';
-      const tooltipAttr = hasLesson ? (' data-gcw-tooltip="' + tooltip + '" title="' + tooltip + '"') : '';
-      gridHtml += '<button type="button" class="gcw-day' + (hasLesson ? ' has-lesson' : '') + (isSelected ? ' is-selected' : '') + roClass + '" data-gcw-date="' + dateStr + '"' + tooltipAttr + ' aria-label="' + (hasLesson ? tooltip : dateStr) + '">';
+      const lessonObj = getLessonForDate(groupId, dateStr);
+      const examObj = getExamForDate(groupId, dateStr);
+
+      const isGreen = Boolean(lessonObj && isScheduled);
+      const isBlue = Boolean(lessonObj && !isScheduled);
+      const isRed = Boolean(!lessonObj && isScheduled);
+      const isOrange = Boolean(examObj);
+
+      let dotsHtml = '';
+      if (isGreen) dotsHtml += '<span class="gcw-dot is-green"></span>';
+      if (isBlue) dotsHtml += '<span class="gcw-dot is-blue"></span>';
+      if (isRed) dotsHtml += '<span class="gcw-dot is-red"></span>';
+      if (isOrange) dotsHtml += '<span class="gcw-dot is-orange"></span>';
+
+      const tooltipParts = [];
+      if (lessonObj) {
+        const title = (lessonObj.material && lessonObj.material.title) || (isScheduled ? ('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1)) : 'Lesson');
+        tooltipParts.push(title.startsWith('Lesson') ? title : ('Lesson: ' + title));
+      } else if (isScheduled) {
+        tooltipParts.push('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1));
+      }
+      if (examObj) {
+        tooltipParts.push(examObj.title ? ('Exam: ' + examObj.title) : 'Exam');
+      }
+
+      const tooltip = tooltipParts.join(' • ');
+      const tooltipAttr = tooltip ? (' data-gcw-tooltip="' + esc(tooltip) + '" title="' + esc(tooltip) + '"') : '';
+      const ariaLabel = tooltip || dateStr;
+
+      let dayClasses = 'gcw-day';
+      if (isScheduled) dayClasses += ' has-lesson';
+      if (isSelected) dayClasses += ' is-selected';
+      if (roClass) dayClasses += roClass;
+
+      gridHtml += '<button type="button" class="' + dayClasses + '" data-gcw-date="' + dateStr + '"' + tooltipAttr + ' aria-label="' + esc(ariaLabel) + '">';
       gridHtml += '<span class="gcw-day-num">' + d + '</span>';
-      if (hasLesson) {
-        gridHtml += '<span class="gcw-dot"></span>';
+      if (dotsHtml) {
+        gridHtml += '<div class="gcw-dots">' + dotsHtml + '</div>';
       }
       gridHtml += '</button>';
     }
@@ -25729,56 +25753,129 @@ if(typeof window!=='undefined'){
 
     container.querySelectorAll('.gcw-day[data-gcw-date]').forEach(dayBtn => {
       const dateStr = dayBtn.dataset.gcwDate;
-      const hasLesson = state.lessonDates.has(dateStr);
+      const isScheduled = state.lessonDates.has(dateStr);
+      const lessonObj = getLessonForDate(groupId, dateStr);
+      const examObj = getExamForDate(groupId, dateStr);
 
-      if (hasLesson) {
-        dayBtn.onclick = (e) => {
+      let pressTimer = null;
+      let longPressFired = false;
+      let startX = 0;
+      let startY = 0;
+
+      function clearPress() {
+        if (pressTimer) {
+          clearTimeout(pressTimer);
+          pressTimer = null;
+        }
+        dayBtn.classList.remove('is-pressing');
+      }
+
+      if (canEdit && isScheduled) {
+        dayBtn.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
+          startX = e.clientX;
+          startY = e.clientY;
+          longPressFired = false;
+          dayBtn.classList.add('is-pressing');
+          pressTimer = setTimeout(() => {
+            longPressFired = true;
+            dayBtn.classList.remove('is-pressing');
+            state.lessonDates.delete(dateStr);
+            saveGroupAttendanceData(groupId, state);
+            paintGroupCalendarWidget(container, groupId, state);
+          }, 500);
+        });
+
+        dayBtn.addEventListener('pointermove', (e) => {
+          if (!pressTimer) return;
+          if (Math.hypot(e.clientX - startX, e.clientY - startY) > 8) {
+            clearPress();
+          }
+        });
+
+        dayBtn.addEventListener('pointerup', () => {
+          clearPress();
+        });
+
+        dayBtn.addEventListener('pointercancel', () => {
+          clearPress();
+        });
+
+        dayBtn.addEventListener('mouseleave', () => {
+          clearPress();
+        });
+
+        dayBtn.addEventListener('contextmenu', (e) => {
+          if (longPressFired) {
+            e.preventDefault();
+          }
+        });
+      }
+
+      let clickTimer = null;
+
+      dayBtn.onclick = (e) => {
+        if (longPressFired) {
+          e.preventDefault();
           e.stopPropagation();
-          state.selectedDate = dateStr;
-          container.querySelectorAll('.gcw-day.is-selected').forEach(el => el.classList.remove('is-selected'));
-          dayBtn.classList.add('is-selected');
-          const lesson = getLessonForDate(groupId, dateStr, state);
-          if (lesson && typeof window.lmOpenLesson === 'function') {
-            window.lmOpenLesson(lesson.id);
-          } else {
+          longPressFired = false;
+          return;
+        }
+        e.stopPropagation();
+        state.selectedDate = dateStr;
+        container.querySelectorAll('.gcw-day.is-selected').forEach(el => el.classList.remove('is-selected'));
+        dayBtn.classList.add('is-selected');
+
+        if (clickTimer) {
+          clearTimeout(clickTimer);
+          clickTimer = null;
+        }
+
+        const executeClick = () => {
+          if (isScheduled && lessonObj && typeof window.lmOpenLesson === 'function') {
+            window.lmOpenLesson(lessonObj.id);
+          } else if (examObj) {
+            if (typeof examOpenSelected === 'function') {
+              void examOpenSelected(examObj.id);
+            } else if (typeof window.examOpenSelected === 'function') {
+              void window.examOpenSelected(examObj.id);
+            }
+          } else if (isScheduled) {
             showGcwRedAlert(dayBtn, 'No lesson available for this date', canEdit ? () => {
               state.lessonDates.delete(dateStr);
               saveGroupAttendanceData(groupId, state);
               paintGroupCalendarWidget(container, groupId, state);
             } : null);
-          }
-        };
-
-        if (canEdit) {
-          dayBtn.ondblclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            state.lessonDates.delete(dateStr);
-            saveGroupAttendanceData(groupId, state);
-            paintGroupCalendarWidget(container, groupId, state);
-          };
-        }
-      } else {
-        dayBtn.onclick = (e) => {
-          e.stopPropagation();
-          state.selectedDate = dateStr;
-          container.querySelectorAll('.gcw-day.is-selected').forEach(el => el.classList.remove('is-selected'));
-          dayBtn.classList.add('is-selected');
-          if (!canEdit) {
+          } else if (!canEdit) {
             showGcwRedAlert(dayBtn, 'No lesson scheduled for this date');
           }
         };
 
-        if (canEdit) {
-          dayBtn.ondblclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            state.selectedDate = dateStr;
-            state.lessonDates.add(dateStr);
-            saveGroupAttendanceData(groupId, state);
-            paintGroupCalendarWidget(container, groupId, state);
-          };
+        if (canEdit && (isScheduled || examObj)) {
+          clickTimer = setTimeout(executeClick, 250);
+        } else {
+          executeClick();
         }
+      };
+
+      if (canEdit) {
+        dayBtn.ondblclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          clearPress();
+          if (clickTimer) {
+            clearTimeout(clickTimer);
+            clickTimer = null;
+          }
+          state.selectedDate = dateStr;
+          if (isScheduled) {
+            state.lessonDates.delete(dateStr);
+          } else {
+            state.lessonDates.add(dateStr);
+          }
+          saveGroupAttendanceData(groupId, state);
+          paintGroupCalendarWidget(container, groupId, state);
+        };
       }
     });
 
@@ -25786,9 +25883,16 @@ if(typeof window!=='undefined'){
       const dateStr = dateBtn.dataset.gcwOpenDate;
       dateBtn.onclick = (e) => {
         e.stopPropagation();
-        const lesson = getLessonForDate(groupId, dateStr, state);
+        const lesson = getLessonForDate(groupId, dateStr);
+        const exam = getExamForDate(groupId, dateStr);
         if (lesson && typeof window.lmOpenLesson === 'function') {
           window.lmOpenLesson(lesson.id);
+        } else if (exam) {
+          if (typeof examOpenSelected === 'function') {
+            void examOpenSelected(exam.id);
+          } else if (typeof window.examOpenSelected === 'function') {
+            void window.examOpenSelected(exam.id);
+          }
         } else {
           showGcwRedAlert(dateBtn, 'No lesson available for this date', canEdit ? () => {
             state.lessonDates.delete(dateStr);

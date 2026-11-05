@@ -6518,12 +6518,36 @@ details[data-review-key] > summary {
 .gcw-day-num {
   line-height: 1;
 }
+.gcw-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  margin-top: 5px;
+}
 .gcw-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
+  background: var(--ok, #16a34a);
+  flex-shrink: 0;
+}
+.gcw-dot.is-green {
+  background: var(--ok, #16a34a);
+}
+.gcw-dot.is-blue {
   background: var(--acc, #3b82f6);
-  margin-top: 5px;
+}
+.gcw-dot.is-red {
+  background: var(--bad, #dc2626);
+}
+.gcw-dot.is-orange {
+  background: #f97316;
+}
+.gcw-day.is-pressing {
+  transform: scale(0.92);
+  box-shadow: 0 0 0 2px var(--bad, #dc2626);
+  transition: transform 0.5s ease, box-shadow 0.5s ease;
 }
 .gcw-day[data-gcw-tooltip] {
   position: relative;
@@ -6790,10 +6814,13 @@ details[data-review-key] > summary {
   font-size: 15px;
 }
 .gcw-stat-name {
+  flex: 0 0 170px;
+  width: 170px;
   color: var(--saas-text, var(--ink, #0f172a));
   font-weight: 500;
-  min-width: 100px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gcw-stat-track {
   flex: 1;
@@ -6865,7 +6892,8 @@ details[data-review-key] > summary {
     font-size: 14px;
   }
   .gcw-stat-name {
-    min-width: 75px;
+    flex: 0 0 120px;
+    width: 120px;
     font-size: 14px;
   }
   .gcw-stat-meta {

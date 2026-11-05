@@ -6,7 +6,7 @@ import {integratedWorker} from '../src/learning-integrated-worker.mjs';
 
 const request=(path,method='GET')=>new Request('https://fixture.invalid'+path,{method});
 test('matches only private filenames and directories, including encoded probes',()=>{
-  for(const path of ['/api/staging/.env','/.env','/.env.local','/.env.production.bak','/.env~','/.git/config','/api/.svn/entries','/.hg/store','/.ssh/id_rsa','/.aws/credentials','/.npmrc','/.dev.vars','/.dev.vars.production','/wrangler.toml','/wrangler.jsonc','/api/%2eenv','/api/%252eenv','/api/.ENV','/api%5c.git%5cconfig'])assert.equal(isSensitiveFileProbe(request(path)),true,path);
+  for(const path of ['/api/staging/.env','/.env','/.env.local','/.env.production.bak','/.env~','/.git/config','/api/.svn/entries','/.hg/store','/.ssh/id_rsa','/.aws/credentials','/.npmrc','/.dev.vars','/.dev.vars.production','/wrangler.toml','/wrangler.jsonc','/api/%2eenv','/api/%252eenv','/api/.ENV','/api%5c.git%5cconfig','/api/actuator/env','/actuator'])assert.equal(isSensitiveFileProbe(request(path)),true,path);
   for(const path of ['/','/preview.js','/api/me','/api/environment','/api/.environment','/.well-known/security.txt','/api/files/notes.env','/api/unknown','/api/lessons?file=.env','/api/search?q=/.git/config'])assert.equal(isSensitiveFileProbe(request(path)),false,path);
 });
 test('production returns 404 for private files before configuration, auth, database or assets',async()=>{
