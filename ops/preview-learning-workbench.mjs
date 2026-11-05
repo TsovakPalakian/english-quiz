@@ -29,7 +29,11 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
   const local=await createLocalWorkbench({inspect,gemini,azure}),root=realpathSync(assets),pending=new Set(),live=!!(gemini||azure);let closing=false;
   const video=createLocalVideoJobs(local);
   const attendanceService=new AttendanceService(local.db);
-  const groups=[{id:1,title:'B1 Group',date:'2026-10-23',revision:1,lessonIds:[1],examIds:[],studentCount:6},{id:2,title:'A2 Friday',date:'2026-10-23',revision:1,lessonIds:[2],examIds:[],studentCount:1}];
+  const groups=[
+    {id:1,title:'A1 Monday',date:'2026-10-23',revision:1,lessonIds:[1],examIds:[],studentCount:6},
+    {id:2,title:'A2 Friday',date:'2026-10-23',revision:1,lessonIds:[2],examIds:[],studentCount:1},
+    {id:3,title:'B1 Group',date:'2026-10-23',revision:1,lessonIds:[1],examIds:[],studentCount:6}
+  ];
   const lessons=[{id:1,title:'Weather',stageRevision:1,date:'2026-10-23',published:true,blocks:[{id:1,type:'wordcard',tab:'words',stageId:1,word:'drizzle',translation:'изморось'}]},{id:2,title:'Money',stageRevision:1,date:'2026-10-23',published:true,blocks:[{id:2,type:'wordcard',tab:'words',stageId:2,word:'bank',translation:'банк'}]}];
   const members=[
     {accountId:'u1',account_id:'u1',groupId:1,group_id:1},
@@ -38,11 +42,17 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
     {accountId:'u4',account_id:'u4',groupId:1,group_id:1},
     {accountId:'u5',account_id:'u5',groupId:1,group_id:1},
     {accountId:'u6',account_id:'u6',groupId:1,group_id:1},
-    {accountId:'u2',account_id:'u2',groupId:2,group_id:2}
+    {accountId:'u2',account_id:'u2',groupId:2,group_id:2},
+    {accountId:'u1',account_id:'u1',groupId:3,group_id:3},
+    {accountId:'u2',account_id:'u2',groupId:3,group_id:3},
+    {accountId:'u3',account_id:'u3',groupId:3,group_id:3},
+    {accountId:'u4',account_id:'u4',groupId:3,group_id:3},
+    {accountId:'u5',account_id:'u5',groupId:3,group_id:3},
+    {accountId:'u6',account_id:'u6',groupId:3,group_id:3}
   ];
   try {
-    await attendanceService.saveGroupAttendance(users.find(u => u.id === 'teacher'), 1, '2026-11', {
-      groupId: 1,
+    const seedPayload = (gid) => ({
+      groupId: gid,
       monthKey: '2026-11',
       lessonDates: ['2026-11-02', '2026-11-04', '2026-11-09', '2026-11-11', '2026-11-16', '2026-11-18', '2026-11-23', '2026-11-25', '2026-11-30'],
       attendance: {
@@ -58,6 +68,9 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
       paymentDeadline: '',
       expectedRevision: 0
     });
+    const teacherUser = users.find(u => u.id === 'teacher');
+    await attendanceService.saveGroupAttendance(teacherUser, 1, '2026-11', seedPayload(1));
+    await attendanceService.saveGroupAttendance(teacherUser, 3, '2026-11', seedPayload(3));
   } catch {}
   function actorFor(req){const key=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('local-workbench-role='))?.split('=')[1];return users.find(row=>row.id===key)||users.find(row=>row.id==='teacher');}
   const track=promise=>{pending.add(promise);promise.finally(()=>pending.delete(promise)).catch(()=>{});};
