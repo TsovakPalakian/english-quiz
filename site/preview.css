@@ -6955,7 +6955,7 @@ details[data-review-key] > summary {
   gap: 10px;
   background: var(--card, #ffffff);
   border: 1px solid var(--line, #e2e8f0);
-  border-radius: 9999px;
+  border-radius: var(--saas-radius-md, 10px);
   padding: 5px 12px 5px 6px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -7058,6 +7058,11 @@ details[data-review-key] > summary {
   background: color-mix(in srgb, #10b981 16%, var(--card, #ffffff));
   color: color-mix(in srgb, #047857 85%, var(--ink, #0f172a));
   border-color: color-mix(in srgb, #10b981 35%, var(--line, #e2e8f0));
+}
+.pill-role-badge.role-guest {
+  background: color-mix(in srgb, #64748b 16%, var(--card, #ffffff));
+  color: color-mix(in srgb, #475569 85%, var(--ink, #0f172a));
+  border-color: color-mix(in srgb, #64748b 35%, var(--line, #e2e8f0));
 }
 .pill-chevron {
   width: 14px;
