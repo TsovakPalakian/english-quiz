@@ -589,6 +589,7 @@
         sideTheme.innerHTML = '<span class="theme-side"><span class="theme-kicker">Theme</span><span class="theme-title">' + esc(parts[0] || "") + '</span><span class="theme-sub">' + esc(parts[1] || "") + "</span></span>";
       }
       paintQuizContrast();
+      if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
     }
     function paintThemeSegs() {
       const mine = visibleCustomThemes().map((row) => {

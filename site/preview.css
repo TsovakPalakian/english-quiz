@@ -6953,25 +6953,25 @@ details[data-review-key] > summary {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--saas-card, var(--card, #ffffff));
-  border: 1px solid var(--saas-border, var(--line, #e2e8f0));
+  background: var(--card, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
   border-radius: 9999px;
   padding: 5px 12px 5px 6px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   transition: all 0.2s ease;
-  color: var(--saas-text, var(--ink, #0f172a));
+  color: var(--ink, #0f172a);
 }
 .user-profile-pill:hover {
-  border-color: #cbd5e1;
-  background: var(--saas-card-muted, #f8fafc);
+  border-color: var(--acc, #cbd5e1);
+  background: var(--acc-s, #f8fafc);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
   transform: translateY(-1px);
 }
 .user-profile-pill.is-open {
-  border-color: #818cf8;
+  border-color: var(--acc, #818cf8);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-  background: #f5f3ff;
+  background: var(--acc-s, #f5f3ff);
 }
 .pill-avatar-wrap {
   position: relative;
@@ -7020,7 +7020,7 @@ details[data-review-key] > summary {
 .pill-user-name {
   font-size: 13px;
   font-weight: 700;
-  color: var(--saas-text, var(--ink, #0f172a));
+  color: var(--ink, #0f172a);
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7028,7 +7028,7 @@ details[data-review-key] > summary {
   letter-spacing: -0.01em;
 }
 .user-profile-pill:hover .pill-user-name {
-  color: #4f46e5;
+  color: var(--acc, #4f46e5);
 }
 .pill-role-badge {
   font-size: 10px;
@@ -7040,35 +7040,35 @@ details[data-review-key] > summary {
   border: 1px solid transparent;
 }
 .pill-role-badge.role-admin {
-  background: #eef2ff;
-  color: #4338ca;
-  border-color: #c7d2fe;
+  background: color-mix(in srgb, #6366f1 16%, var(--card, #ffffff));
+  color: color-mix(in srgb, #4338ca 85%, var(--ink, #0f172a));
+  border-color: color-mix(in srgb, #6366f1 35%, var(--line, #e2e8f0));
 }
 .pill-role-badge.role-lead {
-  background: #f5f3ff;
-  color: #6d28d9;
-  border-color: #ddd6fe;
+  background: color-mix(in srgb, #8b5cf6 16%, var(--card, #ffffff));
+  color: color-mix(in srgb, #6d28d9 85%, var(--ink, #0f172a));
+  border-color: color-mix(in srgb, #8b5cf6 35%, var(--line, #e2e8f0));
 }
 .pill-role-badge.role-teacher {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
+  background: color-mix(in srgb, #3b82f6 16%, var(--card, #ffffff));
+  color: color-mix(in srgb, #1d4ed8 85%, var(--ink, #0f172a));
+  border-color: color-mix(in srgb, #3b82f6 35%, var(--line, #e2e8f0));
 }
 .pill-role-badge.role-student {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
+  background: color-mix(in srgb, #10b981 16%, var(--card, #ffffff));
+  color: color-mix(in srgb, #047857 85%, var(--ink, #0f172a));
+  border-color: color-mix(in srgb, #10b981 35%, var(--line, #e2e8f0));
 }
 .pill-chevron {
   width: 14px;
   height: 14px;
-  color: #94a3b8;
+  color: var(--mute, #94a3b8);
   transition: transform 0.2s ease, color 0.2s ease;
   flex-shrink: 0;
 }
 .user-profile-pill.is-open .pill-chevron {
   transform: rotate(180deg);
-  color: #4f46e5;
+  color: var(--acc, #4f46e5);
 }
 
 /* 1.2 Popover Dropdown */
@@ -7077,10 +7077,10 @@ details[data-review-key] > summary {
   right: 0;
   top: calc(100% + 8px);
   width: 320px;
-  background: var(--saas-card, var(--card, #ffffff));
-  border: 1px solid var(--saas-border, var(--line, #e2e8f0));
+  background: var(--card, #ffffff);
+  border: 1px solid var(--line, #e2e8f0);
   border-radius: 16px;
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.08);
   z-index: 100;
   overflow: hidden;
   animation: popoverFadeIn 0.15s ease-out;
@@ -7095,8 +7095,8 @@ details[data-review-key] > summary {
 
 .popover-header {
   padding: 16px;
-  background: linear-gradient(to bottom, var(--saas-card-muted, #f8fafc), var(--saas-card, #ffffff));
-  border-bottom: 1px solid var(--saas-border, #f1f5f9);
+  background: var(--card, #ffffff);
+  border-bottom: 1px solid var(--line, #f1f5f9);
 }
 .popover-user-row {
   display: flex;
@@ -7149,14 +7149,14 @@ details[data-review-key] > summary {
 .popover-name {
   font-size: 14px;
   font-weight: 700;
-  color: var(--saas-text, var(--ink, #0f172a));
+  color: var(--ink, #0f172a);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .popover-email {
   font-size: 12px;
-  color: var(--saas-text-muted, var(--mute, #64748b));
+  color: var(--mute, #64748b);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7171,15 +7171,15 @@ details[data-review-key] > summary {
   font-weight: 600;
   padding: 2px 7px;
   border-radius: 6px;
-  background: #eef2ff;
-  color: #4338ca;
-  border: 1px solid #e0e7ff;
+  background: color-mix(in srgb, var(--acc, #6366f1) 15%, var(--card, #ffffff));
+  color: var(--acc, #4338ca);
+  border: 1px solid color-mix(in srgb, var(--acc, #6366f1) 30%, var(--line, #e0e7ff));
 }
 
 .popover-status-bar {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--saas-border, #f1f5f9);
+  border-top: 1px solid var(--line, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7189,7 +7189,7 @@ details[data-review-key] > summary {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--saas-text-muted, #94a3b8);
+  color: var(--mute, #94a3b8);
 }
 .popover-status-buttons {
   display: flex;
@@ -7201,16 +7201,16 @@ details[data-review-key] > summary {
   border-radius: 6px;
   font-size: 11px;
   font-weight: 500;
-  background: var(--saas-card-muted, #f1f5f9);
-  color: var(--saas-text, #475569);
+  background: var(--acc-s, #f1f5f9);
+  color: var(--ink, #475569);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .popover-status-btn:hover {
-  background: #e2e8f0;
+  background: var(--line, #e2e8f0);
 }
 .popover-status-btn.is-active {
-  background: #4f46e5;
+  background: var(--acc, #4f46e5);
   color: #ffffff;
   font-weight: 600;
 }
@@ -7231,13 +7231,13 @@ details[data-review-key] > summary {
   border: 0;
   background: transparent;
   font-size: 13px;
-  color: var(--saas-text, #334155);
+  color: var(--ink, #334155);
   cursor: pointer;
   transition: all 0.15s ease;
   text-align: left;
 }
 .popover-item:hover {
-  background: var(--saas-card-muted, #f8fafc);
+  background: var(--acc-s, #f8fafc);
   color: var(--ink, #0f172a);
 }
 .popover-item-main {
@@ -7246,24 +7246,25 @@ details[data-review-key] > summary {
   gap: 10px;
 }
 .popover-item svg {
-  color: #94a3b8;
+  color: var(--mute, #94a3b8);
   flex-shrink: 0;
 }
 .popover-item:hover svg {
-  color: #64748b;
+  color: var(--ink, #64748b);
 }
 
 .popover-item.is-highlight {
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--acc-s, #eef2ff);
+  color: var(--acc, #4338ca);
   font-weight: 600;
 }
 .popover-item.is-highlight:hover {
-  background: #e0e7ff;
-  color: #3730a3;
+  background: var(--acc-s, #e0e7ff);
+  filter: brightness(0.96);
+  color: var(--acc, #3730a3);
 }
 .popover-item.is-highlight svg {
-  color: #6366f1;
+  color: var(--acc, #6366f1);
 }
 .popover-kbd {
   font-size: 10px;
@@ -7272,19 +7273,19 @@ details[data-review-key] > summary {
   padding: 2px 5px;
   border-radius: 4px;
   background: rgba(99, 102, 241, 0.15);
-  color: #3730a3;
+  color: var(--acc, #3730a3);
 }
 .popover-notify-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #6366f1;
+  background: var(--acc, #6366f1);
 }
 
 .popover-footer {
   padding: 8px 12px;
-  background: var(--saas-card-muted, #f8fafc);
-  border-top: 1px solid var(--saas-border, #f1f5f9);
+  background: var(--card, #f8fafc);
+  border-top: 1px solid var(--line, #f1f5f9);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7304,12 +7305,12 @@ details[data-review-key] > summary {
   transition: background 0.15s ease;
 }
 .popover-logout-btn:hover {
-  background: #ffe4e6;
+  background: color-mix(in srgb, #e11d48 12%, var(--card, #ffffff));
 }
 .popover-version {
   font-size: 10px;
   font-weight: 500;
-  color: var(--saas-text-muted, #94a3b8);
+  color: var(--mute, #94a3b8);
 }
 
 @media (max-width: 600px) {
