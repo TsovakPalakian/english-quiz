@@ -432,7 +432,12 @@
       detail.dataset.groupId = String(selected.id);
       for(const [name,open] of Object.entries(folds)){const fold=detail.querySelector('[data-group-'+name+']');if(fold)fold.open=open;}
       if (folds.attendance) {
-        renderGroupAttendanceMonths(selected.id);
+        const root = detail.querySelector('[data-group-attendance] .attendance-root');
+        if (root && typeof renderGroupCalendarWidget === 'function') {
+          renderGroupCalendarWidget(root, selected.id, selected.title);
+        } else {
+          renderGroupAttendanceMonths(selected.id);
+        }
       }
       paintPagePath('admingroup');
     }
@@ -440,7 +445,13 @@
       const fold = event.target.closest('#adminGroupDetail [data-group-attendance]');
       if (fold && fold.open) {
         const groupId = Number(fold.dataset.groupId);
-        if (groupId) renderGroupAttendanceMonths(groupId);
+        const root = fold.querySelector('.attendance-root');
+        const selected = adminGroups.find(g => g.id === groupId);
+        if (root && typeof renderGroupCalendarWidget === 'function') {
+          renderGroupCalendarWidget(root, groupId, selected?.title);
+        } else if (groupId) {
+          renderGroupAttendanceMonths(groupId);
+        }
       }
     }, true);
     document.addEventListener('click', async event => {

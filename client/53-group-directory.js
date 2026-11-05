@@ -71,6 +71,10 @@
       document.getElementById('groupDetailExamCount').textContent='Exams · '+metrics[0][1];
       document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
       paintGroupDiagnostic(group.id);
+      const calWidget = document.getElementById('groupCalendarWidget');
+      if (calWidget && typeof renderGroupCalendarWidget === 'function') {
+        renderGroupCalendarWidget(calWidget, group.id, group.title);
+      }
       paintPagePath('groupdetail');
     }
     let currentDiagGroupId = null;
