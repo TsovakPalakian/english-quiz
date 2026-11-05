@@ -87,7 +87,7 @@ try{
 
   // Click on Deneb Algedi -> pins inspector
   await page.mouse.click(starPos.x,starPos.y);
-  await page.waitForFunction(()=>document.querySelector('.auth-sky-star-inspector.active'));
+  await page.waitForFunction(()=>document.getElementById('authSky')?.dataset?.skyPinned==='true'&&document.querySelector('.auth-sky-star-inspector.active'));
   assert.equal(await inspector.isVisible(),true,'Inspector appears and pins on click');
 
   // Move away while pinned -> stays open
@@ -99,7 +99,7 @@ try{
 
   // Click outside -> unpins and dismisses
   await page.mouse.click(10,10);
-  await page.waitForFunction(()=>!document.querySelector('.auth-sky-star-inspector.active'));
+  await page.waitForFunction(()=>!document.querySelector('.auth-sky-star-inspector.active')&&document.getElementById('authSky')?.dataset?.skyPinned!=='true');
   assert.equal(await inspector.isVisible(),false,'Inspector dismisses on click outside');
 
   // Test hovering another star in Capricornus without a curated entry (e.g. hip_102485 - Psi Cap)

@@ -365,6 +365,7 @@
     function hideInspector(){
       const wasInspected=!!inspected;
       inspected=null;pinned=false;
+      delete canvas.dataset.skyPinned;
       inspector.classList.remove('active');
       inspector.hidden=true;
       if(wasInspected&&phase==='hold'){
@@ -375,7 +376,10 @@
     function showInspector(star,slot,isPinned=false){
       pauseReturn();
       inspected={star,slot};
-      if(isPinned)pinned=true;
+      if(isPinned){
+        pinned=true;
+        canvas.dataset.skyPinned='true';
+      }
       const bayer=star.bayer||'';
       inspBayer.textContent=bayer;
       inspBayer.hidden=!bayer;
