@@ -191,7 +191,7 @@
     if(status===400&&(entry.error==='Enter a lesson title before saving.'||path==='/api/lessons'&&entry.error?.includes?.('title')))return;
     if((status===502||status===503||status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')||entry.error?.includes?.('Could not analyse this PDF')))return;
     if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Wait for pending personal changes')||entry.error?.includes?.('Дождитесь сохранения личной очереди.')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
-    if(status===0&&String(entry.method||'GET').toUpperCase()==='GET'&&(typeof document!=='undefined'&&document.visibilityState==='hidden'))return;
+    if(status===0&&['GET','HEAD'].includes(String(entry.method||'GET').toUpperCase()))return;
     // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.
     if(status===409&&(path==='/api/groups'||/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path)))return;
     try{
@@ -234,12 +234,28 @@
     const requestBody=typeof options.body==='string'?options.body:options.body==null?'':'[binary]';
     const requestHeaders={'Content-Type':'application/json','X-Client-Bug':'1',...options.headers};
     bugRemember('request',{method,path:String(path).slice(0,300)});
-    let response;
-    try{response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:requestHeaders});}
-    catch(cause){
-      const error=Object.assign(new Error('Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.'),{status:0,reported:!quietBug,quietBug});
-      bugRemember('network-error',{method,path:String(path).slice(0,300),name:cause?.name||'Error',durationMs:Date.now()-started});
-      if(!quietBug)reportClientBug({method,path,status:0,error:error.message,errorName:cause?.name,requestBody,requestHeaders,durationMs:Date.now()-started,stack:error.stack});
+    const isIdempotent=method==='GET'||method==='HEAD';
+    let response,lastCause;
+    const maxAttempts=isIdempotent?2:1;
+    for(let attempt=1;attempt<=maxAttempts;attempt++){
+      try{
+        response=await fetch(path,{credentials:'same-origin',cache:'no-store',keepalive:!!keepAlive,...fetchOptions,headers:requestHeaders});
+        lastCause=null;
+        break;
+      }catch(cause){
+        lastCause=cause;
+        if(attempt<maxAttempts){
+          await new Promise(r=>setTimeout(r,300));
+        }
+      }
+    }
+    if(lastCause){
+      const message=isIdempotent
+        ?'Связь прервалась. Не удалось загрузить данные; повторите попытку.'
+        :'Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.';
+      const error=Object.assign(new Error(message),{status:0,reported:!quietBug,quietBug});
+      bugRemember('network-error',{method,path:String(path).slice(0,300),name:lastCause?.name||'Error',durationMs:Date.now()-started});
+      if(!quietBug&&!isIdempotent)reportClientBug({method,path,status:0,error:error.message,errorName:lastCause?.name,requestBody,requestHeaders,durationMs:Date.now()-started,stack:error.stack});
       throw error;
     }
     let value={},parsed=true,raw='';

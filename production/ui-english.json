@@ -4,6 +4,7 @@
   "автономной SQLite": "offline SQLite",
   "автономную SQLite": "offline SQLite",
   "Связь прервалась. Сохранение не подтверждено; повторите ту же операцию.": "Connection interrupted. Saving is not confirmed; retry the same operation.",
+  "Связь прервалась. Не удалось загрузить данные; повторите попытку.": "Connection interrupted. Unable to load data; retry the operation.",
   "Ошибка тестового сервера": "Server error",
   "Произошла ошибка, она находится на исправлении.": "An error occurred and is being resolved.",
   "Есть несохранённые изменения. Повторите запись или явно отмените её через «Проверить сервер» перед выходом.": "Unsaved changes remain. Retry saving or explicitly discard them using Reload server before signing out.",

@@ -25,7 +25,7 @@ try{
       await route.fulfill({response,body:body.replace('let current=frozen?.constellation||next(),previous=null',"let current=frozen?.constellation||catalogue.find(c=>c.abbr==='Cru'),previous=null")});
     });
     yield "01. goto" + " [" + String(reducedMotion) + "]";
-    await page.goto(preview.url);await page.waitForSelector('body.guest-home');
+    await page.goto(preview.url,{waitUntil:'domcontentloaded'});await page.waitForSelector('body.guest-home');
     if(reducedMotion==='no-preference')yield* clockSubtests(page.clock,16500,'Sky animation');
     await page.locator('.auth-sky-title:visible').waitFor();
     // Keep the real click handler, without opening any external page.

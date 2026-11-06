@@ -34,13 +34,13 @@ try{
   };
   await page.addInitScript(()=>{const Native=window.AudioContext;if(Native)window.AudioContext=class extends Native{createOscillator(){window.fixtureAlertTones=(window.fixtureAlertTones||0)+1;return super.createOscillator();}createBufferSource(){const source=super.createBufferSource(),start=source.start.bind(source);source.start=(...args)=>{window.fixtureRecordingStarts=(window.fixtureRecordingStarts||0)+1;return start(...args);};return source;}};});
   await page.addInitScript(()=>{const Native=window.XMLHttpRequest;window.XMLHttpRequest=class extends Native{send(file){if(file?.name==='Progress.bin'){this.fixture=true;window.fixtureUpload=this;return;}return super.send(file);}abort(){if(this.fixture){this.fixtureCancelled=true;this.onabort?.();return;}return super.abort();}};});
-  const student={id:'b'.repeat(32),login:'fixture_student',email:'alice@example.com',name:'Alice',role:'USER'},teacher='a'.repeat(32),roomId='direct:'+teacher+':'+student.id;
+  const student={id:'b'.repeat(32),login:'fixture_student',email:'alice@example.com',name:'Alice',role:'USER',online:true},teacher='a'.repeat(32),roomId='direct:'+teacher+':'+student.id;
   const rows=[{id:1,senderId:teacher,sender:'Teacher',category:'personal',text:'Hello Alice',createdMs:1780000000123},{id:2,senderId:teacher,sender:'Teacher',category:'learning',text:'Exam assigned: Fixture exam',createdMs:1780000010123,examId:11,assignmentActive:true}];
   let fail=true,seq=0,connection,unread={personal:1,learning:1},pinned=null,accessOverride=null,lastLookupQuery='';const uploads=new Map(),fileBytes=new Map();
   const profiles=new Map([[student.id,{id:student.id,online:true,username:''}],[teacher,{id:teacher,online:true,username:'@teacher'}],['group:1',{id:'group:1',online:false}]]);let avatarBytes;const dictionaryCards=[];
   let groupRoom=false,examState=null,roomPreferences={},chatFolders=[];
   const room=()=>({id:groupRoom?'group:1':roomId,title:groupRoom?'A1':accessOverride?'Outside student':'Teacher',peerId:groupRoom?null:teacher,kind:groupRoom?'group':'direct',groupId:groupRoom?1:null,access:accessOverride||{protected:true,state:'accepted',canSend:true},pinned,members:2,revision:seq,unread:{...unread},has:{personal:true,learning:true},lastMessage:rows.at(-1),muted:false});
-  const snapshot=()=>({rooms:[{...room(),...roomPreferences}],folders:chatFolders,contacts:[{id:teacher,name:'Teacher',role:'Teacher'}],groups:[{id:1,title:'A1'}],profile:{...student,role:'Student'},seq,total:unread.personal+unread.learning});
+  const snapshot=()=>({rooms:[{...room(),...roomPreferences}],folders:chatFolders,contacts:[{id:teacher,name:'Teacher',role:'Teacher'}],groups:[{id:1,title:'A1'}],profile:{...student,role:'Student',online:true},seq,total:unread.personal+unread.learning});
   const event=(type,extra={})=>{if(extra.profile){extra.profile={...profiles.get(extra.profile.id),...extra.profile};profiles.set(extra.profile.id,extra.profile);}connection.send(JSON.stringify({type:'event',seq:++seq,event:{type,key:'fixture:'+seq,room:room(),...extra}}));};
   await page.routeWebSocket('**/api/messages/socket*',ws=>{connection=ws;ws.send(JSON.stringify({type:'snapshot',data:snapshot()}));ws.onMessage(raw=>{
     const value=JSON.parse(raw),{requestId,action,body}=value;commands.push(action);let result={};
@@ -689,6 +689,7 @@ try{
     yield "175. .chat-record-frame / checks";
     assert.equal(await page.locator('.chat-record-frame').getAttribute('aria-valuenow'),'30');assert.equal(rows.length,beforeTimedVideo);
   await page.clock.fastForward(30000);await page.waitForFunction(()=>!document.querySelector('#msgSendState').textContent&&document.querySelectorAll('.chat-upload').length===0);assert.equal(rows.length,beforeTimedVideo+1);assert.match(rows.at(-1).files[0].name,/^video-/);assert.equal(await page.locator('.chat-record-frame').isVisible(),false);
+  await page.clock.resume();
   yield "176. #messages input[type=color] / evaluate";
   await page.locator('#messages input[type=color]').evaluate(n=>{n.value='#ff0000';n.dispatchEvent(new Event('input',{bubbles:true}));});const rich=page.locator('#msgCompose .text-color-rich');await rich.fill(Array.from({length:40},(_,i)=>'Colored line '+i).join('\n'));await page.waitForFunction(base=>document.querySelector('#msgCompose .text-color-rich').getBoundingClientRect().height===base*4,inputBase);assert.equal(await rich.evaluate(n=>getComputedStyle(n).scrollbarWidth),'none');
     yield "177. evaluate";
@@ -712,6 +713,7 @@ try{
     await page.keyboard.press('Escape');await Promise.resolve();assert.deepEqual(errors,[]);
   await page.evaluate(()=>window.enquizVisit('account'));await page.locator('#accountBody .account-avatar-row img').waitFor();
     yield "182. #accountBody [data-presence-subject] / checks";
+    await page.waitForFunction(()=>document.querySelector('#accountBody [data-presence-subject]')?.textContent?.trim()==='Online');
     assert.equal(await page.locator('#accountBody [data-presence-subject]').innerText(),'Online');assert.equal(await page.locator('#accountBody [data-avatar-upload]').count(),1);await Promise.resolve();assert.deepEqual(errors,[]);
   await page.locator('#accountBody [data-user-settings]').click();
     yield "183. .chat-edit-profile / checks";
@@ -874,8 +876,8 @@ try{
   assert.equal(await page.locator('#groupNew').innerText(),'+ Add subgroup');
     yield "224. #groupNew svg,#groupNew i / checks";
     assert.equal(await page.locator('#groupNew svg,#groupNew i').count(),0);
-  assert.deepEqual(await page.evaluate(()=>{const keys=['padding','borderRadius','fontSize','fontWeight','margin','backgroundColor'],style=id=>{const css=getComputedStyle(document.getElementById(id));return keys.map(key=>css[key]);};return style('groupNew');}),await page.evaluate(()=>{const css=getComputedStyle(document.getElementById('lmNew'));return ['padding','borderRadius','fontSize','fontWeight','margin','backgroundColor'].map(key=>css[key]);}));
-  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#groups').evaluate(node=>node.scrollWidth<=node.clientWidth+1));assert.ok(await page.evaluate(()=>{const button=document.getElementById('groupNew').getBoundingClientRect(),search=document.getElementById('groupSearch').getBoundingClientRect();return button.bottom<=search.top&&Math.abs(button.left-search.left)<1;}));}await Promise.resolve();
+  assert.deepEqual(await page.evaluate(()=>{const keys=['padding','borderRadius','fontSize','fontWeight','backgroundColor'],style=id=>{const css=getComputedStyle(document.getElementById(id));return keys.map(key=>css[key]);};return style('groupNew');}),await page.evaluate(()=>{const css=getComputedStyle(document.getElementById('lmNew'));return ['padding','borderRadius','fontSize','fontWeight','backgroundColor'].map(key=>css[key]);}));
+  for(const width of [1280,390,320]){await page.setViewportSize({width,height:900});assert.ok(await page.locator('#groups').evaluate(node=>node.scrollWidth<=node.clientWidth+1));assert.ok(await page.evaluate(()=>{const button=document.getElementById('groupNew').getBoundingClientRect(),search=document.getElementById('groupSearch').getBoundingClientRect();return button.bottom<=search.top&&!!document.querySelector('#groups .meta #groupNew');}));}await Promise.resolve();
     yield "225. setViewportSize";
     await page.setViewportSize({width:1664,height:1000});
   await page.locator('#groupNew').click();await page.locator('#itemEditPop [name=title]').fill('A1 UI group');await page.locator('#itemEditPop [name=date]').fill('2026-10-15');

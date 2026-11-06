@@ -140,7 +140,7 @@
     function paintGroups() {
       const box = document.getElementById("groupList");
       const newer = document.getElementById("groupNew");
-      if (newer) newer.hidden = !canEditLessons();
+      if (newer) newer.hidden = !canEditLessons() || !groupViewLevel;
       if (!box) return;
       if (authUser && !classGroupsReady && !classGroupsPulling) groupPull();
       groupNormalize();
