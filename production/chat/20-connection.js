@@ -144,8 +144,13 @@
     }
     requests.clear();
   }
-  function connect() {
-    if (!signedIn() || socket || !account) return;
+  function connect(force = false) {
+    if (!signedIn() || (!force && socket) || !account) return;
+    if (force && socket) {
+      try { socket.close(); } catch {}
+      socket = null;
+    }
+    reconnectCount = 0;
     clearTimeout(reconnectTimer);
     const gen = generation;
     status('Connecting...');

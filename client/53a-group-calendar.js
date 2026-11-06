@@ -66,10 +66,10 @@
     let list = [];
     let grp = null;
     if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+      grp = classGroups.find(g => String(g.id) === String(groupId));
     }
     if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
-      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+      grp = adminGroups.find(g => String(g.id) === String(groupId));
     }
     if (grp && typeof groupDirectoryPeople === 'function') {
       const people = groupDirectoryPeople([grp], false);
@@ -77,9 +77,16 @@
         list = people.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
       }
     }
+    if (!list.length && typeof groupDirectory !== 'undefined' && groupDirectory && Array.isArray(groupDirectory.members) && Array.isArray(groupDirectory.users)) {
+      const memberIds = new Set(groupDirectory.members.filter(m => String(m.groupId) === String(groupId)).map(m => String(m.accountId)));
+      const filtered = groupDirectory.users.filter(u => memberIds.has(String(u.id)) && u.role === 'USER' && !u.hidden);
+      if (filtered.length) {
+        list = filtered.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
+      }
+    }
     if (!list.length && typeof adminAccounts !== 'undefined' && Array.isArray(adminAccounts) &&
         typeof adminMembers !== 'undefined' && Array.isArray(adminMembers)) {
-      const filtered = adminAccounts.filter(u => u.role === 'USER' && !u.hidden && adminMembers.some(m => String(m.accountId) === String(u.id) && Number(m.groupId) === Number(groupId)));
+      const filtered = adminAccounts.filter(u => u.role === 'USER' && !u.hidden && adminMembers.some(m => String(m.accountId) === String(u.id) && String(m.groupId) === String(groupId)));
       if (filtered.length) {
         list = filtered.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
       }
@@ -781,7 +788,19 @@
 
     // Main Component Structure with Centered Month Navigation
     const hadFocus = container.contains(document.activeElement) || document.activeElement === container;
-    const focusSelector = hadFocus && document.activeElement && document.activeElement.className ? '.' + document.activeElement.className.split(' ')[0] : null;
+    let focusSelector = null;
+    if (hadFocus && document.activeElement) {
+      if (document.activeElement.dataset?.gcwTab) {
+        focusSelector = '[data-gcw-tab="' + document.activeElement.dataset.gcwTab + '"]';
+      } else if (document.activeElement.dataset?.gcwNav) {
+        focusSelector = '[data-gcw-nav="' + document.activeElement.dataset.gcwNav + '"]';
+      } else if (document.activeElement.dataset?.gcwAction) {
+        focusSelector = '[data-gcw-action="' + document.activeElement.dataset.gcwAction + '"]';
+      } else if (document.activeElement.className) {
+        const primaryClass = document.activeElement.className.split(' ').find(c => c && !['gcw-tab', 'is-active'].includes(c));
+        if (primaryClass) focusSelector = '.' + primaryClass;
+      }
+    }
 
     container.innerHTML =
       '<div class="gcw-header">' +
@@ -2271,29 +2290,37 @@
 
           if (!sent) {
             const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
-            const openRes = await fetchFn('/api/messages/open', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ kind: 'group', groupId: Number(groupId) }),
-              quietBug: true
-            }).then(r => r.ok ? r.json() : null).catch(() => null);
+            let openRes = null;
+            try {
+              const res = await fetchFn('/api/messages/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ kind: 'group', groupId: Number(groupId) }),
+                quietBug: true
+              });
+              openRes = res && typeof res.json === 'function' ? await res.json() : res;
+            } catch {}
 
             const roomId = (openRes && openRes.roomId) ? openRes.roomId : ('group:' + groupId);
-            const sendRes = await fetchFn('/api/messages/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                roomId,
-                category: 'learning',
-                clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-                text: msgText
-              }),
-              quietBug: true
-            }).then(r => r.ok ? r.json() : null).catch(() => null);
+            let sendRes = null;
+            try {
+              const res = await fetchFn('/api/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  roomId,
+                  category: 'learning',
+                  clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                  text: msgText
+                }),
+                quietBug: true
+              });
+              sendRes = res && typeof res.json === 'function' ? await res.json() : res;
+            } catch {}
 
-            sent = Boolean(sendRes && (sendRes.id || sendRes.success || sendRes.clientKey));
+            sent = Boolean(sendRes && (sendRes.id || sendRes.sent || sendRes.success || sendRes.clientKey));
           }
 
           if (sent) {

@@ -23,6 +23,9 @@
           for (const profile of result.profiles || []) {
             changed ||= (profileViews[profile.id]?.username || '') !== (profile.username || '');
             profileViews[profile.id] = profile;
+            if (profile.avatarUrl) {
+              try { localStorage.setItem('enquiz-user-avatar:' + profile.id, profile.avatarUrl); } catch {}
+            }
           }
           paintProfiles();
           if (changed) paintRooms();
@@ -81,10 +84,12 @@
   }
   function paintProfiles() {
     document.querySelectorAll('[data-avatar-subject]').forEach((node) => {
-      const id = node.dataset.avatarSubject,
-        p = profileViews[id],
+      const id = node.dataset.avatarSubject;
+      let cachedUrl = '';
+      try { cachedUrl = localStorage.getItem('enquiz-user-avatar:' + id) || ''; } catch {}
+      const p = profileViews[id],
         group = id.startsWith('group:'),
-        url = p?.avatarUrl?.startsWith('/api/messages/avatar?') ? p.avatarUrl : '',
+        url = (p?.avatarUrl?.startsWith('/api/messages/avatar?') ? p.avatarUrl : '') || (cachedUrl?.startsWith('/api/messages/avatar?') ? cachedUrl : ''),
         state = url + '|' + (p ? (p.online ? 'online' : 'offline') : 'unknown') + '|' + node.dataset.avatarName;
       if (
         node.dataset.avatarState === state &&
@@ -92,6 +97,7 @@
         (!url || node.querySelector('img'))
       )
         return;
+      if (!url && !p && node.querySelector('img')) return;
       node.dataset.avatarState = state;
       node.innerHTML =
         (url

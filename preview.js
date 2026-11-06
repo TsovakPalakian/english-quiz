@@ -16809,11 +16809,11 @@ const STUDIO_CONSTELLATIONS = [{
         html += '<div class="admin-danger-head saas-card-header"><div class="saas-card-title-group"><h4 class="saas-card-title">Account Status & Lifecycle</h4><p class="admin-danger-subtitle saas-card-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div></div>';
         html += '<div class="admin-danger-actions saas-card-actions">';
         if (isDeveloper()) {
-          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
-          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show" : "Hide") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>';
         }
         if (user.role === 'USER' || isDeveloper()) {
-          html += '<button class="btn stop saas-btn saas-btn-danger" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
+          html += '<button class="btn stop saas-btn saas-btn-danger" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive</button>';
         }
         html += '</div>';
         html += '</div>'; // end Card 2
@@ -17077,20 +17077,29 @@ const STUDIO_CONSTELLATIONS = [{
     const role = getUserRoleInfo(user);
     const status = getUserStatus();
     const statusInfo = STATUS_MAP[status] || STATUS_MAP.online;
-    const avatarContent = (user && user.avatarUrl)
-      ? '<img src="' + esc(user.avatarUrl) + '" alt="' + esc(name) + '">'
+    let cachedAvatar = '';
+    try {
+      cachedAvatar = (typeof profileViews !== 'undefined' && profileViews && profileViews[user.id]?.avatarUrl) ||
+                     localStorage.getItem('enquiz-user-avatar:' + user.id) || '';
+    } catch {}
+    const effectiveAvatar = user.avatarUrl || cachedAvatar;
+    if (effectiveAvatar) {
+      try { localStorage.setItem('enquiz-user-avatar:' + user.id, effectiveAvatar); } catch {}
+    }
+    const avatarContent = effectiveAvatar
+      ? '<img src="' + esc(effectiveAvatar) + '" alt="' + esc(name) + '">'
       : '<span>' + esc(initials) + '</span>';
 
     host.innerHTML =
       '<div class="user-profile-pill-wrap" id="userProfilePillWrap">' +
-        '<button type="button" class="user-profile-pill" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings">' +
+        '<button type="button" class="user-profile-pill is-circle" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
           '<div class="pill-avatar-wrap">' +
-            '<div class="pill-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
+            '<div class="pill-avatar-img chat-avatar' + (effectiveAvatar ? ' has-avatar-photo' : '') + '" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
             '<span class="pill-status-dot ' + statusInfo.dotClass + '" id="pillStatusDot"></span>' +
           '</div>' +
-          '<span class="pill-user-name">' + esc(name) + '</span>' +
-          '<span class="pill-role-badge ' + role.class + '">' + esc(role.label) + '</span>' +
-          '<svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>' +
+          '<span class="pill-user-name" hidden>' + esc(name) + '</span>' +
+          '<span class="pill-role-badge ' + role.class + '" hidden>' + esc(role.label) + '</span>' +
+          '<svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" hidden><path d="M6 9l6 6 6-6"/></svg>' +
         '</button>' +
         '<div class="user-profile-popover" id="userProfilePopover" role="menu" hidden>' +
           '<div class="popover-header">' +
@@ -26138,8 +26147,9 @@ if(typeof window!=='undefined'){
     function groupDirectoryPeople(groups,teachers=true) {
       if(!groupDirectoryReady()||groupDirectory.error)return [];
       const ids=new Set(groups.map(group=>String(group.id)));
-      const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>row.teacherIds||[]):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>row.accountId));
-      return groupDirectory.users.filter(user=>accounts.has(user.id)&&(teachers?['ADMIN','DEVELOPER'].includes(user.role):(user.role==='USER'&&!user.hidden))).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
+      const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>(row.teacherIds||[]).map(String)):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>String(row.accountId)));
+      const allowedTeacherRoles=['ADMIN','DEVELOPER','TEACHER','LEAD_INSTRUCTOR'];
+      return groupDirectory.users.filter(user=>accounts.has(String(user.id))&&(teachers?allowedTeacherRoles.includes(user.role):(user.role==='USER'&&!user.hidden))).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
     }
     function groupLiveStudentCount(group){
       if(!authUser||viewAccount||!isTeacher())return undefined;
@@ -26366,10 +26376,10 @@ if(typeof window!=='undefined'){
     let list = [];
     let grp = null;
     if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+      grp = classGroups.find(g => String(g.id) === String(groupId));
     }
     if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
-      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+      grp = adminGroups.find(g => String(g.id) === String(groupId));
     }
     if (grp && typeof groupDirectoryPeople === 'function') {
       const people = groupDirectoryPeople([grp], false);
@@ -26377,9 +26387,16 @@ if(typeof window!=='undefined'){
         list = people.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
       }
     }
+    if (!list.length && typeof groupDirectory !== 'undefined' && groupDirectory && Array.isArray(groupDirectory.members) && Array.isArray(groupDirectory.users)) {
+      const memberIds = new Set(groupDirectory.members.filter(m => String(m.groupId) === String(groupId)).map(m => String(m.accountId)));
+      const filtered = groupDirectory.users.filter(u => memberIds.has(String(u.id)) && u.role === 'USER' && !u.hidden);
+      if (filtered.length) {
+        list = filtered.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
+      }
+    }
     if (!list.length && typeof adminAccounts !== 'undefined' && Array.isArray(adminAccounts) &&
         typeof adminMembers !== 'undefined' && Array.isArray(adminMembers)) {
-      const filtered = adminAccounts.filter(u => u.role === 'USER' && !u.hidden && adminMembers.some(m => String(m.accountId) === String(u.id) && Number(m.groupId) === Number(groupId)));
+      const filtered = adminAccounts.filter(u => u.role === 'USER' && !u.hidden && adminMembers.some(m => String(m.accountId) === String(u.id) && String(m.groupId) === String(groupId)));
       if (filtered.length) {
         list = filtered.map(u => ({ id: u.id, name: u.name || u.login || 'Student', login: u.login || '' }));
       }
@@ -27081,7 +27098,19 @@ if(typeof window!=='undefined'){
 
     // Main Component Structure with Centered Month Navigation
     const hadFocus = container.contains(document.activeElement) || document.activeElement === container;
-    const focusSelector = hadFocus && document.activeElement && document.activeElement.className ? '.' + document.activeElement.className.split(' ')[0] : null;
+    let focusSelector = null;
+    if (hadFocus && document.activeElement) {
+      if (document.activeElement.dataset?.gcwTab) {
+        focusSelector = '[data-gcw-tab="' + document.activeElement.dataset.gcwTab + '"]';
+      } else if (document.activeElement.dataset?.gcwNav) {
+        focusSelector = '[data-gcw-nav="' + document.activeElement.dataset.gcwNav + '"]';
+      } else if (document.activeElement.dataset?.gcwAction) {
+        focusSelector = '[data-gcw-action="' + document.activeElement.dataset.gcwAction + '"]';
+      } else if (document.activeElement.className) {
+        const primaryClass = document.activeElement.className.split(' ').find(c => c && !['gcw-tab', 'is-active'].includes(c));
+        if (primaryClass) focusSelector = '.' + primaryClass;
+      }
+    }
 
     container.innerHTML =
       '<div class="gcw-header">' +
@@ -28571,29 +28600,37 @@ if(typeof window!=='undefined'){
 
           if (!sent) {
             const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
-            const openRes = await fetchFn('/api/messages/open', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({ kind: 'group', groupId: Number(groupId) }),
-              quietBug: true
-            }).then(r => r.ok ? r.json() : null).catch(() => null);
+            let openRes = null;
+            try {
+              const res = await fetchFn('/api/messages/open', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ kind: 'group', groupId: Number(groupId) }),
+                quietBug: true
+              });
+              openRes = res && typeof res.json === 'function' ? await res.json() : res;
+            } catch {}
 
             const roomId = (openRes && openRes.roomId) ? openRes.roomId : ('group:' + groupId);
-            const sendRes = await fetchFn('/api/messages/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                roomId,
-                category: 'learning',
-                clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-                text: msgText
-              }),
-              quietBug: true
-            }).then(r => r.ok ? r.json() : null).catch(() => null);
+            let sendRes = null;
+            try {
+              const res = await fetchFn('/api/messages/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  roomId,
+                  category: 'learning',
+                  clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+                  text: msgText
+                }),
+                quietBug: true
+              });
+              sendRes = res && typeof res.json === 'function' ? await res.json() : res;
+            } catch {}
 
-            sent = Boolean(sendRes && (sendRes.id || sendRes.success || sendRes.clientKey));
+            sent = Boolean(sendRes && (sendRes.id || sendRes.sent || sendRes.success || sendRes.clientKey));
           }
 
           if (sent) {

@@ -209,7 +209,7 @@
       folders: snapshot.folders || [],
       unread: snapshot.unread || { personal: 0, learning: 0 },
       total: snapshot.total || 0,
-      profiles: snapshot.profiles || {},
+      profiles: { ...(typeof profileViews !== 'undefined' ? profileViews : {}), ...(snapshot.profiles || {}) },
     };
     try {
       const db = await chatCacheDb();

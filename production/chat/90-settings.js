@@ -973,13 +973,19 @@
   el('msgContacts').onclick = showContacts;
   el('msgContactsTab').onclick = showContacts;
   el('msgChats').onclick = () => {
-    if (!ready) connect();
+    if (!ready) connect(true);
     listMode = 'chats';
     el('msgRoomSearch').value = '';
     badge();
     paintRooms();
     panel('left', true);
   };
+  const statusEl = el('msgStatus');
+  if (statusEl) {
+    statusEl.onclick = () => {
+      if (!ready) connect(true);
+    };
+  }
   el('msgExit').onclick = () => window.enquizVisit('home');
   el('msgHideList').onclick = () => {
     panel('left', false);
@@ -1023,7 +1029,7 @@
         if (!current()) return;
         window.enquizVisit('messages');
         checkAuth();
-        if (!ready) connect();
+        if (!ready) connect(true);
       } else if (target.dataset.msgRoom) await openRoom(target.dataset.msgRoom);
       else if (target.dataset.msgOriginal) {
         const gen = generation,

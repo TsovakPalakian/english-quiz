@@ -135,20 +135,29 @@
     const role = getUserRoleInfo(user);
     const status = getUserStatus();
     const statusInfo = STATUS_MAP[status] || STATUS_MAP.online;
-    const avatarContent = (user && user.avatarUrl)
-      ? '<img src="' + esc(user.avatarUrl) + '" alt="' + esc(name) + '">'
+    let cachedAvatar = '';
+    try {
+      cachedAvatar = (typeof profileViews !== 'undefined' && profileViews && profileViews[user.id]?.avatarUrl) ||
+                     localStorage.getItem('enquiz-user-avatar:' + user.id) || '';
+    } catch {}
+    const effectiveAvatar = user.avatarUrl || cachedAvatar;
+    if (effectiveAvatar) {
+      try { localStorage.setItem('enquiz-user-avatar:' + user.id, effectiveAvatar); } catch {}
+    }
+    const avatarContent = effectiveAvatar
+      ? '<img src="' + esc(effectiveAvatar) + '" alt="' + esc(name) + '">'
       : '<span>' + esc(initials) + '</span>';
 
     host.innerHTML =
       '<div class="user-profile-pill-wrap" id="userProfilePillWrap">' +
-        '<button type="button" class="user-profile-pill" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings">' +
+        '<button type="button" class="user-profile-pill is-circle" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
           '<div class="pill-avatar-wrap">' +
-            '<div class="pill-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
+            '<div class="pill-avatar-img chat-avatar' + (effectiveAvatar ? ' has-avatar-photo' : '') + '" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
             '<span class="pill-status-dot ' + statusInfo.dotClass + '" id="pillStatusDot"></span>' +
           '</div>' +
-          '<span class="pill-user-name">' + esc(name) + '</span>' +
-          '<span class="pill-role-badge ' + role.class + '">' + esc(role.label) + '</span>' +
-          '<svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>' +
+          '<span class="pill-user-name" hidden>' + esc(name) + '</span>' +
+          '<span class="pill-role-badge ' + role.class + '" hidden>' + esc(role.label) + '</span>' +
+          '<svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" hidden><path d="M6 9l6 6 6-6"/></svg>' +
         '</button>' +
         '<div class="user-profile-popover" id="userProfilePopover" role="menu" hidden>' +
           '<div class="popover-header">' +

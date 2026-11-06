@@ -1003,11 +1003,11 @@
         html += '<div class="admin-danger-head saas-card-header"><div class="saas-card-title-group"><h4 class="saas-card-title">Account Status & Lifecycle</h4><p class="admin-danger-subtitle saas-card-subtitle">Hiding or deactivating limits student access instantly without deleting data.</p></div></div>';
         html += '<div class="admin-danger-actions saas-card-actions">';
         if (isDeveloper()) {
-          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show account" : "Hide account") + '</button>';
-          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate access" : "Deactivate access") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="hide-user" data-id="' + esc(user.id) + '" data-hidden="' + (user.hidden ? "1" : "") + '">' + (user.hidden ? "Show" : "Hide") + '</button>';
+          html += '<button class="btn saas-btn saas-btn-secondary" type="button" data-account="active-user" data-id="' + esc(user.id) + '" data-active="' + (user.active === false ? "" : "1") + '">' + (user.active === false ? "Activate" : "Deactivate") + '</button>';
         }
         if (user.role === 'USER' || isDeveloper()) {
-          html += '<button class="btn stop saas-btn saas-btn-danger" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive account</button>';
+          html += '<button class="btn stop saas-btn saas-btn-danger" type="button" data-account="archive-user" data-id="' + esc(user.id) + '">Archive</button>';
         }
         html += '</div>';
         html += '</div>'; // end Card 2

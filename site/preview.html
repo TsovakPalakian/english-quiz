@@ -183,9 +183,22 @@
     </section>
 
     <section id="texts">
-      <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="library">Back</button><h1>Text</h1></div>
-      <p class="sub">Save a text, then look for expressions worth studying.</p>
-      <div class="row" style="margin-bottom:10px"><button class="btn" type="button" data-jump="textedit">Add a text</button></div>
+      <div class="page-title-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:16px;">
+        <div class="page-title-group">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="library">Back</button>
+            <h1 style="font-size:28px; font-weight:700; line-height:1.1; margin:0;">Text</h1>
+            <span id="textCount" hidden></span>
+          </div>
+          <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Save a text, then look for expressions worth studying.</p>
+        </div>
+        <div class="page-actions" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="textedit" style="display:inline-flex; align-items:center; gap:6px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add a text
+          </button>
+        </div>
+      </div>
       <div id="textList"></div>
     </section>
 
@@ -973,8 +986,7 @@
         <div class="page-title-group">
           <div style="display:flex; align-items:center; gap:10px;">
             <button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="home">Back</button>
-            <h1 style="font-size:20px; font-weight:800; margin:0;">Song lyrics</h1>
-            <span class="badge badge-purple" style="font-size:11px; font-weight:700;" id="lyricCountBadge">Library</span>
+            <h1 style="font-size:28px; font-weight:700; line-height:1.1; margin:0;">Song lyrics</h1>
             <span id="lyricCount" hidden></span>
           </div>
           <p class="sub" style="margin:4px 0 0 0; color:var(--saas-text-muted, #64748b); font-size:13px;">Archive hides a song from this list and renumbers the rest. Its word cards stay in All words.</p>

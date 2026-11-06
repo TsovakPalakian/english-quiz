@@ -209,7 +209,7 @@
       folders: snapshot.folders || [],
       unread: snapshot.unread || { personal: 0, learning: 0 },
       total: snapshot.total || 0,
-      profiles: snapshot.profiles || {},
+      profiles: { ...(typeof profileViews !== 'undefined' ? profileViews : {}), ...(snapshot.profiles || {}) },
     };
     try {
       const db = await chatCacheDb();
@@ -294,6 +294,9 @@
           for (const profile of result.profiles || []) {
             changed ||= (profileViews[profile.id]?.username || '') !== (profile.username || '');
             profileViews[profile.id] = profile;
+            if (profile.avatarUrl) {
+              try { localStorage.setItem('enquiz-user-avatar:' + profile.id, profile.avatarUrl); } catch {}
+            }
           }
           paintProfiles();
           if (changed) paintRooms();
@@ -352,10 +355,12 @@
   }
   function paintProfiles() {
     document.querySelectorAll('[data-avatar-subject]').forEach((node) => {
-      const id = node.dataset.avatarSubject,
-        p = profileViews[id],
+      const id = node.dataset.avatarSubject;
+      let cachedUrl = '';
+      try { cachedUrl = localStorage.getItem('enquiz-user-avatar:' + id) || ''; } catch {}
+      const p = profileViews[id],
         group = id.startsWith('group:'),
-        url = p?.avatarUrl?.startsWith('/api/messages/avatar?') ? p.avatarUrl : '',
+        url = (p?.avatarUrl?.startsWith('/api/messages/avatar?') ? p.avatarUrl : '') || (cachedUrl?.startsWith('/api/messages/avatar?') ? cachedUrl : ''),
         state = url + '|' + (p ? (p.online ? 'online' : 'offline') : 'unknown') + '|' + node.dataset.avatarName;
       if (
         node.dataset.avatarState === state &&
@@ -363,6 +368,7 @@
         (!url || node.querySelector('img'))
       )
         return;
+      if (!url && !p && node.querySelector('img')) return;
       node.dataset.avatarState = state;
       node.innerHTML =
         (url
@@ -809,8 +815,13 @@
     }
     requests.clear();
   }
-  function connect() {
-    if (!signedIn() || socket || !account) return;
+  function connect(force = false) {
+    if (!signedIn() || (!force && socket) || !account) return;
+    if (force && socket) {
+      try { socket.close(); } catch {}
+      socket = null;
+    }
+    reconnectCount = 0;
     clearTimeout(reconnectTimer);
     const gen = generation;
     status('Connecting...');
@@ -6467,13 +6478,19 @@
   el('msgContacts').onclick = showContacts;
   el('msgContactsTab').onclick = showContacts;
   el('msgChats').onclick = () => {
-    if (!ready) connect();
+    if (!ready) connect(true);
     listMode = 'chats';
     el('msgRoomSearch').value = '';
     badge();
     paintRooms();
     panel('left', true);
   };
+  const statusEl = el('msgStatus');
+  if (statusEl) {
+    statusEl.onclick = () => {
+      if (!ready) connect(true);
+    };
+  }
   el('msgExit').onclick = () => window.enquizVisit('home');
   el('msgHideList').onclick = () => {
     panel('left', false);
@@ -6517,7 +6534,7 @@
         if (!current()) return;
         window.enquizVisit('messages');
         checkAuth();
-        if (!ready) connect();
+        if (!ready) connect(true);
       } else if (target.dataset.msgRoom) await openRoom(target.dataset.msgRoom);
       else if (target.dataset.msgOriginal) {
         const gen = generation,
