@@ -28,7 +28,7 @@
         }
       });
   };
-  const signedIn = () => (typeof authUser !== 'undefined' ? authUser : null);
+  const signedIn = () => (typeof window !== 'undefined' && window.authUser ? window.authUser : (typeof authUser !== 'undefined' ? authUser : null));
   let databaseResetting = false;
   const current = () =>
     !databaseResetting && signedIn() && !(typeof viewAccount !== 'undefined' && viewAccount) ? signedIn() : null;

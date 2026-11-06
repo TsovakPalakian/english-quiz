@@ -160,6 +160,12 @@
         if (['workbenchqueue','workbenchmine','workbenchproviders'].includes(previous.id)) {
           window.LearningWorkbench?.close();
         }
+        if (previous.id === 'setup' || previous.id === 'daysetup') {
+          if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips(previous.id);
+        }
+      }
+      if (id === 'setup' || id === 'daysetup') {
+        if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips(id);
       }
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.

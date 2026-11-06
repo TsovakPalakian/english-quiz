@@ -266,7 +266,10 @@
             '</div>' +
             '<div class="attendance-field">' +
               '<label for="attPlannerDeadline">Payment Deadline</label>' +
-              '<input type="date" id="attPlannerDeadline" data-att-planner-deadline value="' + esc(deadline) + '">' +
+              '<div style="display:flex; align-items:center; gap:6px;">' +
+                '<input type="text" id="attPlannerDeadline" data-att-planner-deadline value="' + esc(deadline) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+                '<button type="button" class="btn icon-btn" id="attPlannerDeadlineBtn" title="Choose date" aria-label="Choose date" style="min-width:38px; height:38px; padding:0 8px;">📅</button>' +
+              '</div>' +
             '</div>' +
           '</div>' +
           '<div class="attendance-calendar-box">' +
@@ -287,6 +290,20 @@
       }
 
       renderPlannerView();
+
+      const dlInput = matrixSlot.querySelector('#attPlannerDeadline');
+      const dlBtn = matrixSlot.querySelector('#attPlannerDeadlineBtn');
+      if (dlBtn && dlInput) {
+        const openDlPicker = () => {
+          if (window.openUniversalDatePicker) {
+            window.openUniversalDatePicker(dlBtn, dlInput.value, (newDate) => {
+              dlInput.value = newDate;
+            });
+          }
+        };
+        dlBtn.onclick = openDlPicker;
+        dlInput.onclick = openDlPicker;
+      }
 
       const monthInput = matrixSlot.querySelector('[data-att-planner-month]');
       if (monthInput && !existingDoc) {

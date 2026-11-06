@@ -2887,6 +2887,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (['workbenchqueue','workbenchmine','workbenchproviders'].includes(previous.id)) {
           window.LearningWorkbench?.close();
         }
+        if (previous.id === 'setup' || previous.id === 'daysetup') {
+          if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips(previous.id);
+        }
+      }
+      if (id === 'setup' || id === 'daysetup') {
+        if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips(id);
       }
       if (hideStudentSongs() && ["music", "song", "lyricadd", "musicword", "texts", "textread", "textedit", "themes", "setup", "daysetup", "dayq", "daychoice", "dayflip", "dayjudge"].includes(id)) id = "library";
       // Accounts is teacher-only chrome; never open it while viewing another account.
@@ -11585,6 +11591,40 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         inp.value = String(v);
       });
     }
+    function resetQuizTypeChips(targetId) {
+      const targets = targetId ? [targetId] : ['setup', 'daysetup'];
+      targets.forEach(id => {
+        const isDay = id === 'daysetup';
+        const modesBox = document.getElementById(isDay ? 'dayModes' : 'modes');
+        const moreBox = document.getElementById(isDay ? 'dayModesMore' : 'modesMore');
+
+        if (modesBox) {
+          modesBox.querySelectorAll('.chip').forEach(btn => {
+            const text = btn.textContent.trim();
+            if (text === 'Flip') {
+              btn.classList.add('on');
+            } else {
+              btn.classList.remove('on');
+            }
+          });
+        }
+
+        if (moreBox) {
+          moreBox.hidden = true;
+          moreBox.querySelectorAll('.chip').forEach(btn => {
+            btn.classList.remove('on');
+          });
+        }
+
+        const sec = document.getElementById(id);
+        if (sec) {
+          sec.querySelectorAll('[data-memory-size]').forEach(inp => {
+            inp.value = '4';
+          });
+        }
+      });
+    }
+    window.resetQuizTypeChips = resetQuizTypeChips;
     function examTimeUp() {
       return examMode && Date.now() - examStarted >= sessionMs;
     }
@@ -16032,7 +16072,10 @@ const STUDIO_CONSTELLATIONS = [{
             '</div>' +
             '<div class="attendance-field">' +
               '<label for="attPlannerDeadline">Payment Deadline</label>' +
-              '<input type="date" id="attPlannerDeadline" data-att-planner-deadline value="' + esc(deadline) + '">' +
+              '<div style="display:flex; align-items:center; gap:6px;">' +
+                '<input type="text" id="attPlannerDeadline" data-att-planner-deadline value="' + esc(deadline) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+                '<button type="button" class="btn icon-btn" id="attPlannerDeadlineBtn" title="Choose date" aria-label="Choose date" style="min-width:38px; height:38px; padding:0 8px;">📅</button>' +
+              '</div>' +
             '</div>' +
           '</div>' +
           '<div class="attendance-calendar-box">' +
@@ -16053,6 +16096,20 @@ const STUDIO_CONSTELLATIONS = [{
       }
 
       renderPlannerView();
+
+      const dlInput = matrixSlot.querySelector('#attPlannerDeadline');
+      const dlBtn = matrixSlot.querySelector('#attPlannerDeadlineBtn');
+      if (dlBtn && dlInput) {
+        const openDlPicker = () => {
+          if (window.openUniversalDatePicker) {
+            window.openUniversalDatePicker(dlBtn, dlInput.value, (newDate) => {
+              dlInput.value = newDate;
+            });
+          }
+        };
+        dlBtn.onclick = openDlPicker;
+        dlInput.onclick = openDlPicker;
+      }
 
       const monthInput = matrixSlot.querySelector('[data-att-planner-month]');
       if (monthInput && !existingDoc) {
@@ -22926,6 +22983,7 @@ const STUDIO_CONSTELLATIONS = [{
       document.getElementById("dayqBack").dataset.fallback = "material";
       const label = lmState.title || lmLongDate(lmState.date) || "Lesson";
       paintDaySetupNote(label, cards, label + " · no cards yet. Add words or phrases first.");
+      if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips('daysetup');
       visit("daysetup");
     }
     function lmPaintChrome() {
@@ -23142,7 +23200,7 @@ const STUDIO_CONSTELLATIONS = [{
         copy.dataset.contentCopy = (lmState.examOwned ? "exam-block" : "lesson") + ":" + lmState.id;
       }
       const heading = document.querySelector("#material .lm-meta h1");
-      if (heading) heading.textContent = editing ? "Learning material" : (lmLongDate(lmState.date) || lmState.title || "Lesson");
+      if (heading) heading.textContent = editing ? "Learning material" : (lmState.title || lmLongDate(lmState.date) || "Lesson");
       lmPaintChrome();
       lmBindEditor();
       if (editing) lmRenderEditor();
@@ -24598,6 +24656,15 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle)
   }
   let added=0;
   for(const [tab,blocks] of Object.entries(groups))if(selected.has(tab)){
+    if(tab === 'overview' && draft.blocks.some(b => b.tab === 'overview')){
+      const existing = draft.blocks.find(b => b.tab === 'overview');
+      const newOverview = blocks[0];
+      if (existing && newOverview && newOverview.html && !existing.html.includes(newOverview.html)) {
+        existing.html = (existing.html || '') + '<hr style="margin:16px 0; border:none; border-top:1px dashed var(--line);">' + newOverview.html;
+        added++;
+      }
+      continue;
+    }
     for(const block of blocks){
       const key=block.pdfImport.key;
       if(known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
@@ -24612,6 +24679,7 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle)
 }
 async function lmPdfDraftBlocks(data, hash) {
   const groups = {overview:[],words:[],phrases:[],rules:[],classwork:[]};
+  if (Array.isArray(data.homework) && data.homework.length) groups.homework = [];
   const add=(tab,type,content,source,index)=>{
     groups[tab].push({...lmBlank(type),...content,tab,pdfImport:{source:hash,section:tab,pages:source.pages||[],generated:!!source.generated,...(source.stage?{stage:source.stage}:{})}});
   };
@@ -24619,11 +24687,29 @@ async function lmPdfDraftBlocks(data, hash) {
   data.words.forEach((r,i)=>add('words','vocab',{title:r.word,items:[{word:r.word,meaning:r.meaning,translation:r.translation||'',ipa:'',sourceExample:r.example,example:r.meaning+(r.example?' — '+r.example:'')}]},r,i));
   data.phrases.forEach((r,i)=>add('phrases','phrase',{items:[{phrase:r.phrase,meaning:r.meaning,translation:r.translation||'',example:r.example}]},r,i));
   data.rules.forEach((r,i)=>add('rules','text',{html:'<h3>'+esc(r.title)+'</h3><p>'+esc(r.explanation).replace(/\n/g,'<br>')+'</p>'+r.examples.map(e=>'<p>'+esc(e)+'</p>').join('')},r,i));
-  data.classwork.forEach((r,i)=>{
-    if(r.kind==='explanation')add('classwork','text',{html:'<h3>'+esc(r.title)+'</h3><p>'+esc(r.text).replace(/\n/g,'<br>')+'</p>'},r,i);
-    else if(r.kind==='choice')add('classwork','exercise',{items:[{prompt:r.title+'\n'+r.text,kind:'choice',options:r.options,answer:r.answer,write:''}],pdfTeacherNotes:r.feedback},r,i);
-    else add('classwork','task',{title:r.title,text:r.text,criteria:r.criteria,maxPoints:r.criteria.split('\n').reduce((sum,line)=>sum+Number(line.split('|').pop()),0),pdfTeacherNotes:r.teacherAnswer},r,i);
-  });
+
+  const addTasks = (tab, list) => {
+    (list || []).forEach((r, i) => {
+      if (r.kind === 'explanation') {
+        add(tab, 'text', { html: '<h3>' + esc(r.title) + '</h3><p>' + esc(r.text).replace(/\n/g, '<br>') + '</p>' }, r, i);
+      } else if (r.kind === 'choice') {
+        add(tab, 'exercise', { items: [{ prompt: (r.title ? r.title + '\n' : '') + r.text, kind: 'choice', options: r.options, answer: r.answer, write: '' }], pdfTeacherNotes: r.feedback }, r, i);
+      } else if (r.quizType && r.quizType !== 'Choice') {
+        add(tab, 'quiz', {
+          title: r.title || r.quizType,
+          quizType: r.quizType,
+          items: r.items || (r.quizType === 'Match' ? r.items : (r.quizType === 'Gap' ? [{ shown: r.shown, answer: r.answer, hint: r.hint }] : (r.quizType === 'Build' ? [{ parts: r.parts, answer: r.answer }] : (r.quizType === 'True / false' ? [{ prompt: r.prompt, answer: r.answer }] : (r.quizType === 'Select all' ? [{ prompt: r.prompt, options: r.options, answers: r.answers }] : (r.quizType === 'Odd one out' ? [{ options: r.options, answer: r.answer }] : [{ prompt: r.prompt, answer: r.answer }])))))),
+          pdfTeacherNotes: r.feedback
+        }, r, i);
+      } else {
+        add(tab, 'task', { title: r.title, text: r.text, criteria: r.criteria || 'Grammar and accuracy | 3\nVocabulary usage | 2', maxPoints: (r.criteria || '').split('\n').reduce((sum, line) => sum + (Number(line.split('|').pop()) || 0), 0) || 5, pdfTeacherNotes: r.teacherAnswer }, r, i);
+      }
+    });
+  };
+
+  addTasks('classwork', data.classwork);
+  if (Array.isArray(data.homework) && data.homework.length) addTasks('homework', data.homework);
+
   await Promise.all(Object.values(groups).flat().map(async block=>{
     block.pdfImport.key=await lmPdfContentKey(block);
   }));
@@ -24634,7 +24720,255 @@ async function lmPdfDraftBlocks(data, hash) {
   });
   return groups;
 }
-function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
+
+function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCount = null, targetHwCount = null) {
+  function lmGenerateExercisesList(targetCount, words, phrases, rules, title, isHw = false) {
+    const pool = words.map(w => ({ word: w.word, meaning: w.translation || w.meaning || w.word, example: w.example || ('Example with ' + w.word) }));
+    phrases.forEach(p => pool.push({ word: p.phrase, meaning: p.translation || p.meaning || p.phrase, example: p.example || ('Example with ' + p.phrase) }));
+    if (!pool.length) {
+      const fallbackWords = ['structure', 'expression', 'context', 'accuracy', 'communication', 'objective', 'practice', 'fluency'];
+      fallbackWords.forEach(w => pool.push({ word: w, meaning: w, example: 'Practice with ' + w }));
+    }
+    const items = [];
+    const types = ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Task'];
+    const coverageCount = Math.min(types.length, targetCount);
+
+    for (let i = 0; i < coverageCount; i++) {
+      const t = types[i];
+      const targetObj = pool[i % pool.length];
+      const target = targetObj.word;
+      const targetMeaning = targetObj.meaning;
+      const d1 = pool[(i + 1) % pool.length].word;
+      const d2 = pool[(i + 2) % pool.length].word;
+
+      if (t === 'Choice') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Choice: ' : 'CW Choice: ') + target,
+          text: 'Select the statement or definition that matches "' + target + '":',
+          kind: 'choice',
+          options: [targetMeaning, 'Alternative: ' + d1, 'Opposite of ' + d2],
+          answer: 0,
+          feedback: '"' + target + '" matches: ' + targetMeaning + '.',
+          criteria: '',
+          teacherAnswer: '',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Gap') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Gap: ' : 'CW Gap: ') + target,
+          text: 'Complete the sentence with the appropriate target word.',
+          quizType: 'Gap',
+          shown: 'Learners need to understand the role of ___ in this lesson.',
+          answer: target,
+          hint: 'First letter: ' + target[0],
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Match') {
+        const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Match: ' : 'CW Match: ') + title,
+          text: 'Match each term with its corresponding definition or translation.',
+          quizType: 'Match',
+          items: [
+            { left: p1.word, right: p1.meaning },
+            { left: p2.word, right: p2.meaning },
+            { left: p3.word, right: p3.meaning }
+          ],
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Build') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Build: ' : 'CW Build: ') + target,
+          text: 'Reconstruct the sentence in the correct word order.',
+          quizType: 'Build',
+          parts: 'regularly / we / ' + target + ' / practice / in / class',
+          answer: 'we regularly practice ' + target + ' in class',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'True / false') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW True/False: ' : 'CW True/False: ') + target,
+          text: 'Evaluate whether the following statement is accurate.',
+          quizType: 'True / false',
+          prompt: 'The term "' + target + '" is appropriate in formal context: ' + targetMeaning + '.',
+          answer: 'true',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Type') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Type: ' : 'CW Type: ') + target,
+          text: 'Type the target vocabulary word matching the description.',
+          quizType: 'Type',
+          prompt: 'Type the term meaning "' + targetMeaning + '":',
+          answer: target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Select all') {
+        items.push({
+          stage: 'independent',
+          title: (isHw ? 'HW Select All: ' : 'CW Select All: ') + title,
+          text: 'Select all correct statements that apply.',
+          quizType: 'Select all',
+          prompt: 'Which statements apply to "' + target + '"?',
+          options: [
+            'It means ' + targetMeaning,
+            'It cannot be used in conversation',
+            'It connects to ' + title,
+            'It is completely unrelated'
+          ],
+          answers: [0, 2],
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Odd one out') {
+        items.push({
+          stage: 'independent',
+          title: (isHw ? 'HW Odd One Out: ' : 'CW Odd One Out: ') + title,
+          text: 'Choose the item that does not belong with the others.',
+          quizType: 'Odd one out',
+          options: [pool[0].word, pool[1 % pool.length].word, pool[2 % pool.length].word, 'banana'],
+          answer: 3,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Task') {
+        items.push({
+          stage: 'final',
+          title: (isHw ? 'Homework Production: ' : 'Classwork Production: ') + title,
+          text: 'Write 3-4 sentences applying "' + target + '" in a realistic dialogue or short description.',
+          kind: 'task',
+          criteria: 'Grammar and accuracy | 3\nVocabulary usage | 2',
+          teacherAnswer: 'Sample production: In our discussion, ' + target + ' played a central role.',
+          pages: [1],
+          generated: true
+        });
+      }
+    }
+
+    const rapidKinds = [
+      { type: 'Choice', weight: 35 },
+      { type: 'Match', weight: 20 },
+      { type: 'True / false', weight: 15 },
+      { type: 'Select all', weight: 10 },
+      { type: 'Odd one out', weight: 10 },
+      { type: 'Gap', weight: 10 }
+    ];
+
+    let seq = coverageCount + 1;
+    const remainder = [];
+    while (items.length + remainder.length < targetCount) {
+      const roll = Math.random() * 100;
+      let acc = 0, picked = 'Choice';
+      for (const rk of rapidKinds) {
+        acc += rk.weight;
+        if (roll <= acc) { picked = rk.type; break; }
+      }
+      const targetObj = pool[seq % pool.length];
+      const target = targetObj.word;
+      const targetMeaning = targetObj.meaning;
+      const d1 = pool[(seq + 1) % pool.length].word;
+      const d2 = pool[(seq + 2) % pool.length].word;
+
+      if (picked === 'Choice') {
+        remainder.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Choice ' : 'CW Choice ') + seq + ': ' + target,
+          text: 'Identify the most suitable usage of "' + target + '":',
+          kind: 'choice',
+          options: ['Proper use in context of ' + targetMeaning, 'Distractor context: ' + d1, 'Incorrect form: ' + d2],
+          answer: 0,
+          feedback: 'Accurate usage matches ' + targetMeaning + '.',
+          criteria: '',
+          teacherAnswer: '',
+          pages: [1],
+          generated: true
+        });
+      } else if (picked === 'Match') {
+        const pA = pool[seq % pool.length], pB = pool[(seq + 1) % pool.length];
+        remainder.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Match ' : 'CW Match ') + seq,
+          text: 'Match words with definitions.',
+          quizType: 'Match',
+          items: [
+            { left: pA.word, right: pA.meaning },
+            { left: pB.word, right: pB.meaning }
+          ],
+          pages: [1],
+          generated: true
+        });
+      } else if (picked === 'True / false') {
+        const isTrue = seq % 2 === 0;
+        remainder.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW True/False ' : 'CW True/False ') + seq,
+          text: 'Check if this statement is true or false.',
+          quizType: 'True / false',
+          prompt: isTrue ? ('"' + target + '" is related to ' + targetMeaning + '.') : ('"' + target + '" means the exact opposite of ' + targetMeaning + '.'),
+          answer: isTrue ? 'true' : 'false',
+          pages: [1],
+          generated: true
+        });
+      } else if (picked === 'Select all') {
+        remainder.push({
+          stage: 'independent',
+          title: (isHw ? 'HW Select All ' : 'CW Select All ') + seq,
+          text: 'Select all accurate applications.',
+          quizType: 'Select all',
+          prompt: 'Which options apply to "' + target + '"?',
+          options: ['Valid: ' + targetMeaning, 'Distractor ' + d1, 'Lesson target: ' + target, 'Unrelated: ' + d2],
+          answers: [0, 2],
+          pages: [1],
+          generated: true
+        });
+      } else if (picked === 'Odd one out') {
+        remainder.push({
+          stage: 'independent',
+          title: (isHw ? 'HW Odd One Out ' : 'CW Odd One Out ') + seq,
+          text: 'Identify the odd term out of four.',
+          quizType: 'Odd one out',
+          options: [pool[seq % pool.length].word, pool[(seq + 1) % pool.length].word, pool[(seq + 2) % pool.length].word, 'airplane ' + seq],
+          answer: 3,
+          pages: [1],
+          generated: true
+        });
+      } else {
+        remainder.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Gap ' : 'CW Gap ') + seq + ': ' + target,
+          text: 'Fill in the blank with the appropriate word.',
+          quizType: 'Gap',
+          shown: 'The team must consider ___ to achieve the goal.',
+          answer: target,
+          hint: 'Starts with ' + target[0],
+          pages: [1],
+          generated: true
+        });
+      }
+      seq++;
+    }
+
+    for (let idx = remainder.length - 1; idx > 0; idx--) {
+      const swap = Math.floor(Math.random() * (idx + 1));
+      const temp = remainder[idx];
+      remainder[idx] = remainder[swap];
+      remainder[swap] = temp;
+    }
+
+    return items.concat(remainder);
+  }
   const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
   let title = '', description = '', unit = '', lesson = '', className = '';
   const words = [], phrases = [], rules = [], classwork = [];
@@ -24899,6 +25233,12 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
     });
   }
 
+  let finalCw = classwork;
+  if (targetCwCount && targetCwCount > classwork.length) {
+    finalCw = classwork.concat(lmGenerateExercisesList(targetCwCount - classwork.length, words, phrases, rules, title, false));
+  }
+  const homework = (targetHwCount && targetHwCount > 0) ? lmGenerateExercisesList(targetHwCount, words, phrases, rules, title, true) : [];
+
   return {
     title,
     description,
@@ -24909,13 +25249,17 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson') {
     words,
     phrases,
     rules,
-    classwork,
+    classwork: finalCw,
+    homework,
     warnings: []
   };
 }
 async function lmImportPdfDraft(file) {
   if(!file||!canEditLessons())return;
-  if(!lmState){
+  const appendTasks = typeof document !== 'undefined' && document.getElementById('lmAppendTasks')?.checked;
+  const targetCwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmClassworkCount')?.value, 10) || 48);
+  const targetHwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmHomeworkCount')?.value, 10) || 72);
+  if(!appendTasks || !lmState){
     const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
     if(typeof create === 'function') create();
   }
@@ -24945,10 +25289,10 @@ async function lmImportPdfDraft(file) {
         try{
           const parsed = JSON.parse(text);
           if(parsed && Array.isArray(parsed.words) && Array.isArray(parsed.classwork)) data = parsed;
-          else data = lmParseScriptToLessonData(text, file.name);
-        } catch{ data = lmParseScriptToLessonData(text, file.name); }
+          else data = lmParseScriptToLessonData(text, file.name, targetCwCount, targetHwCount);
+        } catch{ data = lmParseScriptToLessonData(text, file.name, targetCwCount, targetHwCount); }
       } else {
-        data = lmParseScriptToLessonData(text || file.name, file.name);
+        data = lmParseScriptToLessonData(text || file.name, file.name, targetCwCount, targetHwCount);
       }
     }
     if(!active())return;
@@ -24965,6 +25309,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     data.phrases = Array.isArray(data.phrases) ? data.phrases : [];
     data.rules = Array.isArray(data.rules) ? data.rules : [];
     data.classwork = Array.isArray(data.classwork) ? data.classwork : [];
+    data.homework = Array.isArray(data.homework) ? data.homework : [];
     if(typeof stageEnsureStatic==='function')await stageEnsureStatic('GRAMMAR');
     if(!active())return;
     let groups=await lmPdfDraftBlocks(data,hash);
@@ -25123,13 +25468,14 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         card.dataset.kind=r.kind||'choice';
         card.dataset.stage=r.stage||'comprehension';
         card.dataset.generated=r.generated?'true':'false';
+        if(r.quizType)card.dataset.quizType=r.quizType;
         const isChoice=r.kind==='choice',isExpl=r.kind==='explanation';
         const optionsText=Array.isArray(r.options)?r.options.join('\n'):'';
         card.innerHTML=
           '<div class="lm-pdf-word-header">'+
             '<label class="lm-pdf-word-check"><input type="checkbox" data-classwork-select '+(selected?'checked':'')+'> <b data-classwork-title>'+esc(r.title||'New task')+'</b></label>'+
             '<div class="lm-pdf-word-actions">'+
-              '<span class="saas-badge" style="font-size:11px;text-transform:capitalize">'+esc(r.stage||'task')+'</span>'+
+              '<span class="saas-badge" style="font-size:11px;text-transform:capitalize">'+esc(r.quizType||r.stage||'task')+'</span>'+
               (r.pages?.length?'<span class="saas-badge saas-badge-muted" style="font-size:11px">Pages: '+esc(r.pages.join(', '))+'</span>':'')+
               '<button type="button" class="btn ghost saas-btn-sm saas-btn-danger" data-action="remove-classwork" title="Remove" style="padding:0 8px;min-height:28px">✕</button>'+
             '</div>'+
@@ -25170,6 +25516,73 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       };
       wrap.append(list);container.append(wrap);
     },true);
+    if (Array.isArray(data.homework) && data.homework.length) {
+      section('homework','Homework · '+data.homework.length,(container,titleSpan)=>{
+        const wrap=document.createElement('div');wrap.className='lm-pdf-homework-container';
+        const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
+        toolbar.innerHTML='<span class="saas-text-muted" style="font-size:12.5px">Select exercises and tasks for homework.</span>';
+        const addBtn=document.createElement('button');addBtn.type='button';addBtn.className='btn primary saas-btn saas-btn-sm';addBtn.textContent='+ Add task';
+        toolbar.append(addBtn);wrap.append(toolbar);
+        const list=document.createElement('div');list.className='lm-pdf-homework-list';
+        const updateCount=()=>{
+          const rows=list.querySelectorAll('.lm-pdf-homework-card');
+          titleSpan.textContent=' Homework · '+rows.length;
+        };
+        const renderHomeworkCard=(r,selected=true)=>{
+          const card=document.createElement('div');card.className='lm-pdf-word-card lm-pdf-homework-card saas-card'+(selected?'':' is-unselected');card.dataset.pdfHomeworkCard='';
+          if(r.pages?.length)card.dataset.pages=JSON.stringify(r.pages);
+          card.dataset.kind=r.kind||'choice';
+          card.dataset.stage=r.stage||'independent';
+          card.dataset.generated=r.generated?'true':'false';
+          if(r.quizType)card.dataset.quizType=r.quizType;
+          const isChoice=r.kind==='choice',isExpl=r.kind==='explanation';
+          const optionsText=Array.isArray(r.options)?r.options.join('\n'):'';
+          card.innerHTML=
+            '<div class="lm-pdf-word-header">'+
+              '<label class="lm-pdf-word-check"><input type="checkbox" data-homework-select '+(selected?'checked':'')+'> <b data-homework-title>'+esc(r.title||'New task')+'</b></label>'+
+              '<div class="lm-pdf-word-actions">'+
+                '<span class="saas-badge" style="font-size:11px;text-transform:capitalize">'+esc(r.quizType||r.stage||'task')+'</span>'+
+                (r.pages?.length?'<span class="saas-badge saas-badge-muted" style="font-size:11px">Pages: '+esc(r.pages.join(', '))+'</span>':'')+
+                '<button type="button" class="btn ghost saas-btn-sm saas-btn-danger" data-action="remove-homework" title="Remove" style="padding:0 8px;min-height:28px">✕</button>'+
+              '</div>'+
+            '</div>'+
+            '<div class="saas-form-grid" style="margin-top:8px">'+
+              '<div class="saas-form-group"><label class="saas-label">Task title</label><input class="saas-input" data-homework-key="title" value="'+esc(r.title||'')+'" placeholder="Task title"></div>'+
+              '<div class="saas-form-group"><label class="saas-label">Stage</label><select class="saas-input" data-homework-key="stage">'+
+                ['explanation','comprehension','guided','independent','final'].map(s=>'<option value="'+s+'"'+(s===(r.stage||'independent')?' selected':'')+'>'+s+'</option>').join('')+
+              '</select></div>'+
+            '</div>'+
+            '<div class="saas-form-group" style="margin-top:8px">'+
+              '<label class="saas-label">Instructions / prompt text</label><textarea class="saas-textarea" data-homework-key="text" style="min-height:56px" placeholder="Task prompt">'+esc(r.text||'')+'</textarea>'+
+            '</div>'+
+            (isChoice?
+              '<div class="saas-form-grid" style="margin-top:8px">'+
+                '<div class="saas-form-group"><label class="saas-label">Options (one per line)</label><textarea class="saas-textarea" data-homework-key="options" style="min-height:60px" placeholder="Option 1&#10;Option 2">'+esc(optionsText)+'</textarea></div>'+
+                '<div class="saas-form-group">'+
+                  '<label class="saas-label">Correct answer index (0, 1, ...)</label><input type="number" min="0" class="saas-input" data-homework-key="answer" value="'+esc(Number.isFinite(r.answer)?r.answer:0)+'">'+
+                  '<label class="saas-label" style="margin-top:8px">Teacher feedback / notes</label><input class="saas-input" data-homework-key="feedback" value="'+esc(r.feedback||'')+'" placeholder="Feedback">'+
+                '</div>'+
+              '</div>':
+              (!isExpl?
+                '<div class="saas-form-grid" style="margin-top:8px">'+
+                  '<div class="saas-form-group"><label class="saas-label">Criteria (Category | Points)</label><textarea class="saas-textarea" data-homework-key="criteria" style="min-height:60px" placeholder="Content | 3&#10;Accuracy | 2">'+esc(r.criteria||'')+'</textarea></div>'+
+                  '<div class="saas-form-group"><label class="saas-label">Teacher sample answer</label><textarea class="saas-textarea" data-homework-key="teacherAnswer" style="min-height:60px" placeholder="Sample answer">'+esc(r.teacherAnswer||'')+'</textarea></div>'+
+                '</div>':'')
+            );
+          const titleInput=card.querySelector('[data-homework-key="title"]'),titleEl=card.querySelector('[data-homework-title]'),checkEl=card.querySelector('[data-homework-select]');
+          titleInput.oninput=()=>{titleEl.textContent=titleInput.value.trim()||'New task';};
+          checkEl.onchange=()=>{card.classList.toggle('is-unselected',!checkEl.checked);};
+          card.querySelector('[data-action="remove-homework"]').onclick=()=>{card.remove();updateCount();};
+          return card;
+        };
+        data.homework.forEach(r=>list.append(renderHomeworkCard(r,true)));
+        addBtn.onclick=()=>{
+          const newCard=renderHomeworkCard({title:'',text:'',kind:'choice',stage:'independent',options:['',''],answer:0,feedback:'',pages:[]},true);
+          list.prepend(newCard);updateCount();newCard.querySelector('[data-homework-key="title"]')?.focus();
+        };
+        wrap.append(list);container.append(wrap);
+      },true);
+    }
     section('rules','Rules · '+data.rules.length,(container,titleSpan)=>{
       const wrap=document.createElement('div');wrap.className='lm-pdf-rules-container';
       const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
@@ -25324,9 +25737,10 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
               const text=card.querySelector('[data-classwork-key="text"]')?.value.trim()||'';
               const stage=card.querySelector('[data-classwork-key="stage"]')?.value.trim()||card.dataset.stage||'comprehension';
               const kind=card.dataset.kind||'choice';
+              const quizType=card.dataset.quizType||'';
               const generated=card.dataset.generated==='true';
               const pages=card.dataset.pages?JSON.parse(card.dataset.pages):[];
-              const item={stage,title,text,kind,pages,generated};
+              const item={stage,title,text,kind,pages,generated,...(quizType?{quizType}:{})};
               if(kind==='choice'){
                 const options=(card.querySelector('[data-classwork-key="options"]')?.value||'').split('\n').map(o=>o.trim()).filter(Boolean);
                 const answer=Number(card.querySelector('[data-classwork-key="answer"]')?.value||0);
@@ -25342,6 +25756,36 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
               updatedClasswork.push(item);
             }
             data.classwork=updatedClasswork;
+          }
+          const homeworkCards=dialog.querySelectorAll('[data-pdf-homework-card]');
+          if(homeworkCards.length){
+            const updatedHomework=[];
+            for(const card of homeworkCards){
+              if(!card.querySelector('[data-homework-select]')?.checked)continue;
+              const title=card.querySelector('[data-homework-key="title"]')?.value.trim()||'';
+              if(!title)continue;
+              const text=card.querySelector('[data-homework-key="text"]')?.value.trim()||'';
+              const stage=card.querySelector('[data-homework-key="stage"]')?.value.trim()||card.dataset.stage||'independent';
+              const kind=card.dataset.kind||'choice';
+              const quizType=card.dataset.quizType||'';
+              const generated=card.dataset.generated==='true';
+              const pages=card.dataset.pages?JSON.parse(card.dataset.pages):[];
+              const item={stage,title,text,kind,pages,generated,...(quizType?{quizType}:{})};
+              if(kind==='choice'){
+                const options=(card.querySelector('[data-homework-key="options"]')?.value||'').split('\n').map(o=>o.trim()).filter(Boolean);
+                const answer=Number(card.querySelector('[data-homework-key="answer"]')?.value||0);
+                const feedback=card.querySelector('[data-homework-key="feedback"]')?.value.trim()||'';
+                Object.assign(item,{options,answer:Number.isFinite(answer)?answer:0,feedback,criteria:'',teacherAnswer:''});
+              } else if(kind==='explanation'){
+                Object.assign(item,{options:[],answer:-1,feedback:'',criteria:'',teacherAnswer:''});
+              } else {
+                const criteria=card.querySelector('[data-homework-key="criteria"]')?.value.trim()||'';
+                const teacherAnswer=card.querySelector('[data-homework-key="teacherAnswer"]')?.value.trim()||'';
+                Object.assign(item,{options:[],answer:-1,feedback:'',criteria,teacherAnswer});
+              }
+              updatedHomework.push(item);
+            }
+            data.homework=updatedHomework;
           }
           const ruleCards=dialog.querySelectorAll('[data-pdf-rule-card]');
           if(ruleCards.length){
@@ -25430,7 +25874,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
           if(selected.has('rules')&&draft.blocks.some(b=>b.pdfImport?.source===hash&&b.pdfGrammarMissing)){
             try{await window.LearningMain.pdfGrammarAlerts(draft.id,hash);}catch{alertWarning=' Missing Grammar alert could not be delivered. Apply Rules again to retry.';}
           }
-          if(active()){lmRenderEditor();lmPdfProgress('Draft ready',[...['words','phrases','rules','classwork'].filter(key=>selected.has(key)).map(key=>key[0].toUpperCase()+key.slice(1)+' saved'),...(selected.has('pdf')?['Lesson PDF attached']:[])],1,1);lmPdfImportStatus('Draft saved: '+added+' new blocks. Review before publishing.'+alertWarning,false);}
+          if(active()){lmRenderEditor();lmPdfProgress('Draft ready',[...['words','phrases','rules','classwork','homework'].filter(key=>selected.has(key)).map(key=>key[0].toUpperCase()+key.slice(1)+' saved'),...(selected.has('pdf')?['Lesson PDF attached']:[])],1,1);lmPdfImportStatus('Draft saved: '+added+' new blocks. Review before publishing.'+alertWarning,false);}
           dialog.remove();
           window.scrollTo({top:0,behavior:'smooth'});
         },status);
@@ -25450,8 +25894,13 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
 async function lmGenerateLessonFromScript(text, defaultTitle) {
   if(!text||!canEditLessons())return;
   const scriptInputVal = typeof document !== 'undefined' ? document.getElementById('lmScriptInput')?.value : '';
-  const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
-  if(typeof create === 'function') create();
+  const appendTasks = typeof document !== 'undefined' && document.getElementById('lmAppendTasks')?.checked;
+  const targetCwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmClassworkCount')?.value, 10) || 48);
+  const targetHwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmHomeworkCount')?.value, 10) || 72);
+  if(!appendTasks || !lmState){
+    const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+    if(typeof create === 'function') create();
+  }
   if(!lmState)return;
   if(typeof document !== 'undefined') {
     const input = document.getElementById('lmScriptInput');
@@ -25465,7 +25914,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
   lmPdfProgress('Generating lesson');
   try{
     const fallbackTitle = defaultTitle || 'Lesson Script';
-    const data = lmParseScriptToLessonData(text, fallbackTitle);
+    const data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -26525,8 +26974,18 @@ if(typeof window!=='undefined'){
       if (isSelected) dayClasses += ' is-selected';
       if (roClass) dayClasses += roClass;
 
+      const numColorClass = (isRed || isPaymentDeadline)
+        ? ' is-color-red'
+        : (isOrange
+          ? ' is-color-orange'
+          : (isBlue
+            ? ' is-color-blue'
+            : (isGreen
+              ? ' is-color-green'
+              : '')));
+
       gridHtml += '<button type="button" class="' + dayClasses + '" data-gcw-date="' + dateStr + '"' + tooltipAttr + ' aria-label="' + esc(ariaLabel) + '">';
-      gridHtml += '<span class="gcw-day-num">' + d + '</span>';
+      gridHtml += '<span class="gcw-day-num' + numColorClass + '">' + d + '</span>';
       if (dotsHtml) {
         gridHtml += '<div class="gcw-dots">' + dotsHtml + '</div>';
       }
@@ -26679,9 +27138,12 @@ if(typeof window!=='undefined'){
     return String(endH).padStart(2, '0') + ':' + String(endM).padStart(2, '0');
   }
 
-  function getDatesForPeriod(baseDateStr, period, customStart, customEnd, currentMonthKey) {
+  function getDatesForPeriod(baseDateStr, period, customStart, customEnd, currentMonthKey, selectedDays) {
     const base = new Date(baseDateStr + 'T00:00:00');
     const targetDay = base.getDay();
+    const daysSet = (selectedDays && (selectedDays instanceof Set ? selectedDays.size : selectedDays.length))
+      ? (selectedDays instanceof Set ? selectedDays : new Set(selectedDays))
+      : new Set([targetDay]);
     let startD = new Date(base);
     let endD = new Date(base);
 
@@ -26706,7 +27168,7 @@ if(typeof window!=='undefined'){
     const dates = [];
     const cur = new Date(startD);
     while (cur <= endD) {
-      if (cur.getDay() === targetDay) {
+      if (daysSet.has(cur.getDay())) {
         const yStr = cur.getFullYear();
         const mStr = String(cur.getMonth() + 1).padStart(2, '0');
         const dStr = String(cur.getDate()).padStart(2, '0');
@@ -26897,7 +27359,10 @@ if(typeof window!=='undefined'){
         ${noticeHtml}
         <div class="gcw-field-group">
           <label for="gcwModalDeadlineDate">Payment Deadline Date</label>
-          <input type="date" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}">
+          <div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:8px;">
+            <input type="text" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}" placeholder="YYYY-MM-DD" style="flex:1;" readonly>
+            <button type="button" class="btn icon-btn gcw-cal-btn" id="gcwModalDeadlineDateBtn" title="Choose date" aria-label="Choose date" style="min-width:38px; height:38px; padding:0 8px;">📅</button>
+          </div>
         </div>
         <div class="gcw-field-group">
           <label for="gcwModalPricePerLesson">Price Per Lesson (${currency})</label>
@@ -26939,6 +27404,20 @@ if(typeof window!=='undefined'){
 
     dialog.innerHTML = html;
     document.body.appendChild(dialog);
+
+    const deadlineInput = dialog.querySelector('#gcwModalDeadlineDate');
+    const deadlineBtn = dialog.querySelector('#gcwModalDeadlineDateBtn');
+    if (deadlineBtn && deadlineInput) {
+      const openPicker = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(deadlineBtn, deadlineInput.value, (newDate) => {
+            deadlineInput.value = newDate;
+          });
+        }
+      };
+      deadlineBtn.onclick = openPicker;
+      deadlineInput.onclick = openPicker;
+    }
 
     dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
       btn.onclick = () => {
@@ -27482,12 +27961,30 @@ if(typeof window!=='undefined'){
 
     let currentStartTime = existing.startTime || '18:30';
     let currentDuration = Number(existing.durationMinutes) || 60;
-    let currentPeriod = existing.period || 'single';
+    let currentPeriod = existing.period || 'month';
     let currentMaterialId = existing.materialId || '';
 
     const dObj = new Date(dateStr + 'T00:00:00');
     const weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
     const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const weekdaysDef = [
+      { day: 1, label: 'Mo', name: 'Monday' },
+      { day: 2, label: 'Tu', name: 'Tuesday' },
+      { day: 3, label: 'We', name: 'Wednesday' },
+      { day: 4, label: 'Th', name: 'Thursday' },
+      { day: 5, label: 'Fr', name: 'Friday' },
+      { day: 6, label: 'Sa', name: 'Saturday' },
+      { day: 0, label: 'Su', name: 'Sunday' }
+    ];
+    const initialDay = dObj.getDay();
+    const selectedDays = new Set([initialDay]);
+    function getDaysText() {
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      const active = order.filter(d => selectedDays.has(d));
+      if (!active.length) return weekdayName;
+      return active.map(d => weekdaysDef.find(w => w.day === d)?.label || '').join(', ');
+    }
 
     const dialog = document.createElement('dialog');
     dialog.id = 'gcwSchedulerDialog';
@@ -27553,16 +28050,36 @@ if(typeof window!=='undefined'){
     html += '</div>';
 
     html += '<div class="gcw-field-group">';
+    html += '<label>Repeat on Days of the Week</label>';
+    html += '<div class="gcw-weekday-chips-row">';
+    weekdaysDef.forEach(w => {
+      const isAct = selectedDays.has(w.day) ? ' is-active' : '';
+      html += '<button type="button" class="gcw-day-chip' + isAct + '" data-day="' + w.day + '" title="' + esc(w.name) + '">' + esc(w.label) + '</button>';
+    });
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
     html += '<label>Schedule Recurrence Period</label>';
     html += '<div class="gcw-period-options">';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> This date only</label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> Current Month (every ' + esc(weekdayName) + ' in ' + esc(monthName) + ')</label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> Academic Year (every ' + esc(weekdayName) + ' Sep 1 – May 31)</label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> Custom Period</label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> <span>This date only</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> <span id="gcwRadioMonthLabel">Current Month (every ' + esc(getDaysText()) + ' in ' + esc(monthName) + ')</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> <span id="gcwRadioYearLabel">Academic Year (every ' + esc(getDaysText()) + ' Sep 1 – May 31)</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> <span>Custom Period</span></label>';
     html += '</div>';
     html += '<div id="gcwCustomBox" style="display:' + (currentPeriod === 'custom' ? 'flex' : 'none') + '; gap:10px; margin-top:8px;">';
-    html += '<label style="flex:1;">From <input type="date" id="gcwCustStart" value="' + esc(dateStr) + '"></label>';
-    html += '<label style="flex:1;">To <input type="date" id="gcwCustEnd" value="' + esc(dateStr) + '"></label>';
+    html += '<label style="flex:1;">From' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwCustStart" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwCustStartBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
+    html += '<label style="flex:1;">To' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwCustEnd" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwCustEndBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
     html += '</div>';
     html += '</div>';
 
@@ -27595,6 +28112,50 @@ if(typeof window!=='undefined'){
       };
     });
 
+    dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
+      chip.onclick = () => {
+        const day = Number(chip.dataset.day);
+        if (selectedDays.has(day)) {
+          if (selectedDays.size > 1) {
+            selectedDays.delete(day);
+            chip.classList.remove('is-active');
+          }
+        } else {
+          selectedDays.add(day);
+          chip.classList.add('is-active');
+        }
+        const text = getDaysText();
+        const mLabel = dialog.querySelector('#gcwRadioMonthLabel');
+        if (mLabel) mLabel.textContent = 'Current Month (every ' + text + ' in ' + monthName + ')';
+        const yLabel = dialog.querySelector('#gcwRadioYearLabel');
+        if (yLabel) yLabel.textContent = 'Academic Year (every ' + text + ' Sep 1 – May 31)';
+      };
+    });
+
+    const cStartIn = dialog.querySelector('#gcwCustStart');
+    const cStartBtn = dialog.querySelector('#gcwCustStartBtn');
+    if (cStartBtn && cStartIn) {
+      const openCustStart = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(cStartBtn, cStartIn.value, (newDate) => { cStartIn.value = newDate; });
+        }
+      };
+      cStartBtn.onclick = openCustStart;
+      cStartIn.onclick = openCustStart;
+    }
+
+    const cEndIn = dialog.querySelector('#gcwCustEnd');
+    const cEndBtn = dialog.querySelector('#gcwCustEndBtn');
+    if (cEndBtn && cEndIn) {
+      const openCustEnd = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(cEndBtn, cEndIn.value, (newDate) => { cEndIn.value = newDate; });
+        }
+      };
+      cEndBtn.onclick = openCustEnd;
+      cEndIn.onclick = openCustEnd;
+    }
+
     const timeInput = dialog.querySelector('#gcwSchedStartTime');
     if (timeInput) {
       timeInput.addEventListener('input', updatePreview);
@@ -27626,7 +28187,7 @@ if(typeof window!=='undefined'){
         const custStart = dialog.querySelector('#gcwCustStart')?.value || dateStr;
         const custEnd = dialog.querySelector('#gcwCustEnd')?.value || dateStr;
 
-        const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey);
+        const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey, selectedDays);
 
         if (!monthData.scheduleData) monthData.scheduleData = {};
 
@@ -29257,6 +29818,8 @@ if(typeof window!=='undefined'){
       examCalView = { y: parts[0], m: parts[1], selected: picked };
       examRenderCalendar();
     }
+    window.openUniversalDatePicker = examOpenCalendar;
+    window.closeUniversalDatePicker = examCloseCalendar;
     function closeItemEditor() {
       const pop = document.getElementById("itemEditPop");
       if (pop) pop.remove();

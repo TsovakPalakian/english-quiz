@@ -3,6 +3,9 @@
 - Communication language with the user is Russian; all application UI, controls, and user-facing copy must be in English unless explicitly requested otherwise.
 - Before editing code, briefly state your understanding in Russian.
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
+- Always attach visual screenshots or mockups demonstrating your understanding of any proposed UI changes or feature designs.
+- Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
+- Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.
 - Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; "do"/"делай" approves only the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
 - Mandatory: every task in summary or remediation documents must include an explicit warning block forbidding touching or breaking functionality unrelated to the current scoped edit; if adjacent functionality must be affected, explicitly state this to the user in Russian before making changes and wait for confirmation.

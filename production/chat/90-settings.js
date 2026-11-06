@@ -937,6 +937,9 @@
   );
   window.openChatSettings = settings;
   window.sendGroupChatMessage = async function(groupId, text, options) {
+    if (!signedIn() && typeof checkAuth === 'function') {
+      try { await checkAuth(); } catch {}
+    }
     if (!signedIn()) return;
     if (!ready) {
       connect();

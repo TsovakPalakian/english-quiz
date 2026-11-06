@@ -674,8 +674,18 @@
       if (isSelected) dayClasses += ' is-selected';
       if (roClass) dayClasses += roClass;
 
+      const numColorClass = (isRed || isPaymentDeadline)
+        ? ' is-color-red'
+        : (isOrange
+          ? ' is-color-orange'
+          : (isBlue
+            ? ' is-color-blue'
+            : (isGreen
+              ? ' is-color-green'
+              : '')));
+
       gridHtml += '<button type="button" class="' + dayClasses + '" data-gcw-date="' + dateStr + '"' + tooltipAttr + ' aria-label="' + esc(ariaLabel) + '">';
-      gridHtml += '<span class="gcw-day-num">' + d + '</span>';
+      gridHtml += '<span class="gcw-day-num' + numColorClass + '">' + d + '</span>';
       if (dotsHtml) {
         gridHtml += '<div class="gcw-dots">' + dotsHtml + '</div>';
       }
@@ -828,9 +838,12 @@
     return String(endH).padStart(2, '0') + ':' + String(endM).padStart(2, '0');
   }
 
-  function getDatesForPeriod(baseDateStr, period, customStart, customEnd, currentMonthKey) {
+  function getDatesForPeriod(baseDateStr, period, customStart, customEnd, currentMonthKey, selectedDays) {
     const base = new Date(baseDateStr + 'T00:00:00');
     const targetDay = base.getDay();
+    const daysSet = (selectedDays && (selectedDays instanceof Set ? selectedDays.size : selectedDays.length))
+      ? (selectedDays instanceof Set ? selectedDays : new Set(selectedDays))
+      : new Set([targetDay]);
     let startD = new Date(base);
     let endD = new Date(base);
 
@@ -855,7 +868,7 @@
     const dates = [];
     const cur = new Date(startD);
     while (cur <= endD) {
-      if (cur.getDay() === targetDay) {
+      if (daysSet.has(cur.getDay())) {
         const yStr = cur.getFullYear();
         const mStr = String(cur.getMonth() + 1).padStart(2, '0');
         const dStr = String(cur.getDate()).padStart(2, '0');
@@ -1046,7 +1059,10 @@
         ${noticeHtml}
         <div class="gcw-field-group">
           <label for="gcwModalDeadlineDate">Payment Deadline Date</label>
-          <input type="date" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}">
+          <div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:8px;">
+            <input type="text" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}" placeholder="YYYY-MM-DD" style="flex:1;" readonly>
+            <button type="button" class="btn icon-btn gcw-cal-btn" id="gcwModalDeadlineDateBtn" title="Choose date" aria-label="Choose date" style="min-width:38px; height:38px; padding:0 8px;">📅</button>
+          </div>
         </div>
         <div class="gcw-field-group">
           <label for="gcwModalPricePerLesson">Price Per Lesson (${currency})</label>
@@ -1088,6 +1104,20 @@
 
     dialog.innerHTML = html;
     document.body.appendChild(dialog);
+
+    const deadlineInput = dialog.querySelector('#gcwModalDeadlineDate');
+    const deadlineBtn = dialog.querySelector('#gcwModalDeadlineDateBtn');
+    if (deadlineBtn && deadlineInput) {
+      const openPicker = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(deadlineBtn, deadlineInput.value, (newDate) => {
+            deadlineInput.value = newDate;
+          });
+        }
+      };
+      deadlineBtn.onclick = openPicker;
+      deadlineInput.onclick = openPicker;
+    }
 
     dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
       btn.onclick = () => {
@@ -1631,12 +1661,30 @@
 
     let currentStartTime = existing.startTime || '18:30';
     let currentDuration = Number(existing.durationMinutes) || 60;
-    let currentPeriod = existing.period || 'single';
+    let currentPeriod = existing.period || 'month';
     let currentMaterialId = existing.materialId || '';
 
     const dObj = new Date(dateStr + 'T00:00:00');
     const weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
     const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const weekdaysDef = [
+      { day: 1, label: 'Mo', name: 'Monday' },
+      { day: 2, label: 'Tu', name: 'Tuesday' },
+      { day: 3, label: 'We', name: 'Wednesday' },
+      { day: 4, label: 'Th', name: 'Thursday' },
+      { day: 5, label: 'Fr', name: 'Friday' },
+      { day: 6, label: 'Sa', name: 'Saturday' },
+      { day: 0, label: 'Su', name: 'Sunday' }
+    ];
+    const initialDay = dObj.getDay();
+    const selectedDays = new Set([initialDay]);
+    function getDaysText() {
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      const active = order.filter(d => selectedDays.has(d));
+      if (!active.length) return weekdayName;
+      return active.map(d => weekdaysDef.find(w => w.day === d)?.label || '').join(', ');
+    }
 
     const dialog = document.createElement('dialog');
     dialog.id = 'gcwSchedulerDialog';
@@ -1702,16 +1750,36 @@
     html += '</div>';
 
     html += '<div class="gcw-field-group">';
+    html += '<label>Repeat on Days of the Week</label>';
+    html += '<div class="gcw-weekday-chips-row">';
+    weekdaysDef.forEach(w => {
+      const isAct = selectedDays.has(w.day) ? ' is-active' : '';
+      html += '<button type="button" class="gcw-day-chip' + isAct + '" data-day="' + w.day + '" title="' + esc(w.name) + '">' + esc(w.label) + '</button>';
+    });
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
     html += '<label>Schedule Recurrence Period</label>';
     html += '<div class="gcw-period-options">';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> This date only</label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> Current Month (every ' + esc(weekdayName) + ' in ' + esc(monthName) + ')</label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> Academic Year (every ' + esc(weekdayName) + ' Sep 1 – May 31)</label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> Custom Period</label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> <span>This date only</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> <span id="gcwRadioMonthLabel">Current Month (every ' + esc(getDaysText()) + ' in ' + esc(monthName) + ')</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> <span id="gcwRadioYearLabel">Academic Year (every ' + esc(getDaysText()) + ' Sep 1 – May 31)</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> <span>Custom Period</span></label>';
     html += '</div>';
     html += '<div id="gcwCustomBox" style="display:' + (currentPeriod === 'custom' ? 'flex' : 'none') + '; gap:10px; margin-top:8px;">';
-    html += '<label style="flex:1;">From <input type="date" id="gcwCustStart" value="' + esc(dateStr) + '"></label>';
-    html += '<label style="flex:1;">To <input type="date" id="gcwCustEnd" value="' + esc(dateStr) + '"></label>';
+    html += '<label style="flex:1;">From' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwCustStart" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwCustStartBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
+    html += '<label style="flex:1;">To' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwCustEnd" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwCustEndBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
     html += '</div>';
     html += '</div>';
 
@@ -1744,6 +1812,50 @@
       };
     });
 
+    dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
+      chip.onclick = () => {
+        const day = Number(chip.dataset.day);
+        if (selectedDays.has(day)) {
+          if (selectedDays.size > 1) {
+            selectedDays.delete(day);
+            chip.classList.remove('is-active');
+          }
+        } else {
+          selectedDays.add(day);
+          chip.classList.add('is-active');
+        }
+        const text = getDaysText();
+        const mLabel = dialog.querySelector('#gcwRadioMonthLabel');
+        if (mLabel) mLabel.textContent = 'Current Month (every ' + text + ' in ' + monthName + ')';
+        const yLabel = dialog.querySelector('#gcwRadioYearLabel');
+        if (yLabel) yLabel.textContent = 'Academic Year (every ' + text + ' Sep 1 – May 31)';
+      };
+    });
+
+    const cStartIn = dialog.querySelector('#gcwCustStart');
+    const cStartBtn = dialog.querySelector('#gcwCustStartBtn');
+    if (cStartBtn && cStartIn) {
+      const openCustStart = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(cStartBtn, cStartIn.value, (newDate) => { cStartIn.value = newDate; });
+        }
+      };
+      cStartBtn.onclick = openCustStart;
+      cStartIn.onclick = openCustStart;
+    }
+
+    const cEndIn = dialog.querySelector('#gcwCustEnd');
+    const cEndBtn = dialog.querySelector('#gcwCustEndBtn');
+    if (cEndBtn && cEndIn) {
+      const openCustEnd = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(cEndBtn, cEndIn.value, (newDate) => { cEndIn.value = newDate; });
+        }
+      };
+      cEndBtn.onclick = openCustEnd;
+      cEndIn.onclick = openCustEnd;
+    }
+
     const timeInput = dialog.querySelector('#gcwSchedStartTime');
     if (timeInput) {
       timeInput.addEventListener('input', updatePreview);
@@ -1775,7 +1887,7 @@
         const custStart = dialog.querySelector('#gcwCustStart')?.value || dateStr;
         const custEnd = dialog.querySelector('#gcwCustEnd')?.value || dateStr;
 
-        const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey);
+        const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey, selectedDays);
 
         if (!monthData.scheduleData) monthData.scheduleData = {};
 

@@ -1196,6 +1196,8 @@
       examCalView = { y: parts[0], m: parts[1], selected: picked };
       examRenderCalendar();
     }
+    window.openUniversalDatePicker = examOpenCalendar;
+    window.closeUniversalDatePicker = examCloseCalendar;
     function closeItemEditor() {
       const pop = document.getElementById("itemEditPop");
       if (pop) pop.remove();

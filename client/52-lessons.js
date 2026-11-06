@@ -1298,6 +1298,7 @@
       document.getElementById("dayqBack").dataset.fallback = "material";
       const label = lmState.title || lmLongDate(lmState.date) || "Lesson";
       paintDaySetupNote(label, cards, label + " · no cards yet. Add words or phrases first.");
+      if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips('daysetup');
       visit("daysetup");
     }
     function lmPaintChrome() {
@@ -1514,7 +1515,7 @@
         copy.dataset.contentCopy = (lmState.examOwned ? "exam-block" : "lesson") + ":" + lmState.id;
       }
       const heading = document.querySelector("#material .lm-meta h1");
-      if (heading) heading.textContent = editing ? "Learning material" : (lmLongDate(lmState.date) || lmState.title || "Lesson");
+      if (heading) heading.textContent = editing ? "Learning material" : (lmState.title || lmLongDate(lmState.date) || "Lesson");
       lmPaintChrome();
       lmBindEditor();
       if (editing) lmRenderEditor();

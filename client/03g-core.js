@@ -915,6 +915,40 @@
         inp.value = String(v);
       });
     }
+    function resetQuizTypeChips(targetId) {
+      const targets = targetId ? [targetId] : ['setup', 'daysetup'];
+      targets.forEach(id => {
+        const isDay = id === 'daysetup';
+        const modesBox = document.getElementById(isDay ? 'dayModes' : 'modes');
+        const moreBox = document.getElementById(isDay ? 'dayModesMore' : 'modesMore');
+
+        if (modesBox) {
+          modesBox.querySelectorAll('.chip').forEach(btn => {
+            const text = btn.textContent.trim();
+            if (text === 'Flip') {
+              btn.classList.add('on');
+            } else {
+              btn.classList.remove('on');
+            }
+          });
+        }
+
+        if (moreBox) {
+          moreBox.hidden = true;
+          moreBox.querySelectorAll('.chip').forEach(btn => {
+            btn.classList.remove('on');
+          });
+        }
+
+        const sec = document.getElementById(id);
+        if (sec) {
+          sec.querySelectorAll('[data-memory-size]').forEach(inp => {
+            inp.value = '4';
+          });
+        }
+      });
+    }
+    window.resetQuizTypeChips = resetQuizTypeChips;
     function examTimeUp() {
       return examMode && Date.now() - examStarted >= sessionMs;
     }
