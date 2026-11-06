@@ -1,21 +1,29 @@
 import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
-import test from 'node:test';
+import test, {after} from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
+let sharedBrowser;
 async function preview(work,options={}){
-  const {server,url}=await createQuizReviewPreview(options);let browser;
-  try{browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});const page=await browser.newPage({viewport:{width:1280,height:960}});await work(page,url);}
-  finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
+  const {server,url}=await createQuizReviewPreview(options);
+  if(!sharedBrowser)sharedBrowser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+  const page=await sharedBrowser.newPage({viewport:{width:1280,height:960}});
+  try{await work(page,url);}
+  finally{
+    await page.close();
+    server.closeAllConnections?.();
+    await new Promise(resolve=>server.close(resolve));
+  }
 }
+after(async()=>{await sharedBrowser?.close();sharedBrowser=null;});
 const expand=async node=>node.evaluate(element=>{for(let n=element;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
 test('queue UI runs configured synthetic reviews, preserves collapsed history and hides teacher tools from students',async()=>preview(async(page,url)=>scenarioSubtests("queue UI runs configured synthetic reviews, preserves collapsed history and hides teacher tools from students phases",async function*(){
 yield "00. Fixture and browser setup";
 
   const errors=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
-  await page.goto(url);await page.locator('#account:not([disabled])').waitFor();
+  await page.goto(url,{waitUntil:'domcontentloaded'});await page.locator('#account:not([disabled])').waitFor();
   assert.equal(requests.some(path=>path.includes('/independent?')),false);
   await page.selectOption('#account','dev');await page.locator('#account:not([disabled])').waitFor();
   yield "01. [data-view=\"providers\"] / click";
@@ -81,7 +89,7 @@ yield "00. Fixture and browser setup";
     const more=new URL(route.request().url()).searchParams.has('before');
     await route.fulfill({contentType:'application/json',body:JSON.stringify({attempts:[row],next:more?null:row.sequence})});
   });
-  await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
+  await page.goto(url,{waitUntil:'domcontentloaded'});await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
   const panel=page.locator('[data-independent="'+q.id+'"]');
     yield "02. checks";
     await expand(panel);
@@ -116,7 +124,7 @@ yield "00. Fixture and browser setup";
     const row={...saved,...(phase==='pending'?{state:'pending',error:null,finishedAt:null,canRetry:false}:{error:'interrupted',canRetry:true})};
     await route.fulfill({contentType:'application/json',body:JSON.stringify({attempts:[row],next:null})});
   });
-  await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
+  await page.goto(url,{waitUntil:'domcontentloaded'});await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
   const panel=page.locator('[data-independent="'+q.id+'"]');
     yield "02. checks";
     await expand(panel);
@@ -157,7 +165,7 @@ yield "00. Fixture and browser setup";
   let unavailable=true;const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('**/local/review-quota',route=>unavailable?route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Request quota is unavailable.'})}):route.continue());
   yield "01. goto";
-  await page.goto(url);await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
+  await page.goto(url,{waitUntil:'domcontentloaded'});await page.locator('#account:not([disabled])').waitFor();await page.locator('[data-view="queue"]').click();
   const panel=page.locator('[data-independent="'+q.id+'"]');await expand(panel);
     yield "02. alert / checks";
     await panel.getByRole('alert').waitFor();

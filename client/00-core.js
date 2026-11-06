@@ -377,6 +377,8 @@
     function mountCrumbs(scope = document) {
       const house = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>';
       scope.querySelectorAll("[data-nav-back]").forEach((btn) => {
+        if (btn.closest(".crumb") || btn.dataset.crumbMounted) return;
+        btn.dataset.crumbMounted = "true";
         btn.classList.add("icon");
         btn.setAttribute("aria-label", "Back");
         btn.innerHTML = backArrow;

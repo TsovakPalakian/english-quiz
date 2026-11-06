@@ -108,7 +108,8 @@
   function paintUserProfilePill() {
     const hosts = [
       document.getElementById('userProfilePillHost'),
-      document.getElementById('lmProfilePillHost')
+      document.getElementById('lmProfilePillHost'),
+      document.getElementById('seProfilePillHost')
     ].filter(Boolean);
     const header = document.getElementById('shellHeader');
     if (!hosts.length) return;
@@ -122,7 +123,7 @@
     }
 
     const activeSection = document.querySelector('section.on');
-    const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+    const hideOnScreens = ['material', 'speaklesson', 'speakouteditor'];
     if (activeSection && hideOnScreens.includes(activeSection.id)) {
       if (header) header.hidden = true;
     } else {

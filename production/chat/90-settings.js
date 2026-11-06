@@ -559,7 +559,7 @@
         const saved = details.change || details.user,
           name = String(saved.name ?? profile.name ?? ''),
           names = name.split(/\s+/),
-          username = profileViews[profile.id]?.username || '';
+          username = shown.username || profileViews[profile.id]?.username || '';
         initialUsername = username;
         html =
           '<form class="chat-edit-profile"><div class="chat-edit-identity"><button type="button" class="chat-photo-select" data-avatar-upload="' +
@@ -844,6 +844,7 @@
               profileViews[result.profile.id] = result.profile;
               initialUsername = result.profile.username;
               profileSaved = true;
+              settingsProfileCache = null;
               scheduleProfiles();
             }
             if (Object.keys(extras).some((key) => extras[key] !== privateDetails[key])) {
@@ -851,6 +852,7 @@
               privateDetails = result.details;
               profileViews[result.profile.id] = result.profile;
               profileSaved = true;
+              settingsProfileCache = null;
               scheduleProfiles();
             }
             const login = form.elements.login.value,
@@ -867,6 +869,7 @@
                 result = await response.json();
               if (!response.ok) throw new Error(result.error || 'Profile changes could not be submitted.');
               if (typeof ownAccountData !== 'undefined') ownAccountData = null;
+              settingsProfileCache = null;
             }
             if (gen !== generation) return;
             notice.textContent = changed ? 'Account changes sent for approval.' : 'Saved';

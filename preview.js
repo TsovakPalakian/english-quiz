@@ -3104,6 +3104,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function mountCrumbs(scope = document) {
       const house = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>';
       scope.querySelectorAll("[data-nav-back]").forEach((btn) => {
+        if (btn.closest(".crumb") || btn.dataset.crumbMounted) return;
+        btn.dataset.crumbMounted = "true";
         btn.classList.add("icon");
         btn.setAttribute("aria-label", "Back");
         btn.innerHTML = backArrow;
@@ -17061,7 +17063,8 @@ const STUDIO_CONSTELLATIONS = [{
   function paintUserProfilePill() {
     const hosts = [
       document.getElementById('userProfilePillHost'),
-      document.getElementById('lmProfilePillHost')
+      document.getElementById('lmProfilePillHost'),
+      document.getElementById('seProfilePillHost')
     ].filter(Boolean);
     const header = document.getElementById('shellHeader');
     if (!hosts.length) return;
@@ -17075,7 +17078,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
 
     const activeSection = document.querySelector('section.on');
-    const hideOnScreens = ['material', 'examblocks', 'speaklesson', 'speakouteditor'];
+    const hideOnScreens = ['material', 'speaklesson', 'speakouteditor'];
     if (activeSection && hideOnScreens.includes(activeSection.id)) {
       if (header) header.hidden = true;
     } else {

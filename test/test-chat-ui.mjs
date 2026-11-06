@@ -97,7 +97,7 @@ try{
       else{await route.fulfill({contentType:'image/jpeg',body:avatarBytes});return;}
     }
     if(path==='/api/messages/username'){const {username}=JSON.parse(route.request().postData());if(username==='@taken'){await route.fulfill({status:409,contentType:'application/json',body:JSON.stringify({error:'That username is already in use.'})});return;}const profile={...profiles.get(student.id),username};profiles.set(student.id,profile);data={profile};}
-    if(path==='/api/messages/profile')data={details:{phone:'',phoneVisible:false,birthday:'1990-04-25',birthdayVisible:false}};
+    if(path==='/api/messages/profile')data={details:{phone:'',phoneVisible:false,birthday:'1990-04-25',birthdayVisible:false},profile:profiles.get(student.id)};
     if(path==='/api/messages/upload'){const id='upload-'+uploads.size,name=url.searchParams.get('name'),bytes=route.request().postDataBuffer(),file={id,name,mime:name.endsWith('.wav')?'audio/wav':name.endsWith('.webm')?'video/webm':name.endsWith('.png')?'image/png':'application/octet-stream',size:bytes.length,url:'/api/messages/file?id='+id+'&roomId='+roomId};uploads.set(file.id,file);fileBytes.set(file.id,bytes);data={file};}
     if(path==='/api/messages/file'){const file=uploads.get(url.searchParams.get('id'));await route.fulfill({contentType:file.mime,headers:{'Content-Disposition':(url.searchParams.get('download')?'attachment':'inline')+'; filename="'+file.name+'"','Accept-Ranges':'bytes'},body:fileBytes.get(file.id)});return;}
     await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
@@ -717,7 +717,7 @@ try{
     assert.equal(await page.locator('#accountBody [data-presence-subject]').innerText(),'Online');assert.equal(await page.locator('#accountBody [data-avatar-upload]').count(),1);await Promise.resolve();assert.deepEqual(errors,[]);
   await page.locator('#accountBody [data-user-settings]').click();
     yield "183. .chat-edit-profile / checks";
-    await page.locator('.chat-edit-profile').waitFor();assert.equal(await page.locator('.chat-edit-profile input[name=username]').inputValue(),'@alice');await Promise.resolve();await (page.locator('dialog[open] [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();
+    await page.locator('.chat-edit-profile').waitFor();await page.waitForFunction(()=>document.querySelector('.chat-edit-profile input[name=username]')?.value==='@alice');assert.equal(await page.locator('.chat-edit-profile input[name=username]').inputValue(),'@alice');await Promise.resolve();await (page.locator('dialog[open] [data-msg-close]:visible, #settings [data-nav-back]:visible')).first().click();
   yield "184. setViewportSize";
   await page.setViewportSize({width:390,height:844});const smallChooser=page.waitForEvent('filechooser');await page.locator('#accountBody [data-avatar-upload]').click();await(await smallChooser).setFiles({name:'Small.png',mimeType:'image/png',buffer:avatar});
     yield "185. .chat-photo-editor / checks";
