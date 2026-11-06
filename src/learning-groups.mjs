@@ -251,17 +251,17 @@ export class GroupService{
       const found=await this.db.read(`SELECT id FROM lessons WHERE deleted_at IS NULL AND id IN (${[...lessonIds].map(()=>'?').join(',')})`,[...lessonIds]);
       if(found.length!==lessonIds.size)fail(409,'A lesson changed. Reload groups.');
     }
-    const enrolled=await this.db.read('SELECT DISTINCT group_id FROM class_group_students UNION SELECT DISTINCT group_id FROM class_group_exams');
-    if(enrolled.some(row=>!groupIds.has(row.group_id)))fail(409,'Reassign students and exams before removing their group.');
+    let owned=null;
     if(actor.role==='ADMIN'){
-      const owned=new Set(await teacherGroupIds(this.db,actor));
-      const live=await this.db.read('SELECT id FROM class_groups WHERE deleted_at IS NULL');
+      owned=new Set(await teacherGroupIds(this.db,actor));
       for(const group of groups){
         const groupId=optionalId(group.id);
         if(groupId!=null&&!owned.has(groupId))fail(403,'You cannot change another teacher\'s group.');
       }
-      for(const row of live)if(!groupIds.has(row.id)&&!owned.has(Number(row.id)))fail(403,'You cannot change another teacher\'s group.');
     }
+    const enrolled=await this.db.read('SELECT DISTINCT group_id FROM class_group_students UNION SELECT DISTINCT group_id FROM class_group_exams');
+    const enrolledToCheck=actor.role==='ADMIN'?enrolled.filter(row=>owned.has(Number(row.group_id))):enrolled;
+    if(enrolledToCheck.some(row=>!groupIds.has(row.group_id)))fail(409,'Reassign students and exams before removing their group.');
     const commands=[stmt('DROP TABLE IF EXISTS temp.saved_ids'),stmt('CREATE TEMP TABLE saved_ids(seq INTEGER PRIMARY KEY, id INTEGER NOT NULL)')];
     groups.forEach((group,position)=>{
       const groupId=optionalId(group.id);
@@ -273,9 +273,17 @@ export class GroupService{
           [normalizedGroupTitle(group.title),group.date,group.hidden?1:0,position,groupId]),
         stmt('INSERT INTO saved_ids(id) SELECT id FROM class_groups WHERE id=? AND changes()=1',[groupId]));
     });
-    commands.push(stmt(`UPDATE class_groups SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch()
-      WHERE deleted_at IS NULL AND id NOT IN (SELECT id FROM saved_ids)`));
-    commands.push(stmt('DELETE FROM class_group_lessons'));
+    if(actor.role==='ADMIN'){
+      const ownedList=[...owned];
+      if(ownedList.length){
+        commands.push(stmt(`UPDATE class_groups SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch()
+          WHERE deleted_at IS NULL AND id IN (${ownedList.map(()=>'?').join(',')}) AND id NOT IN (SELECT id FROM saved_ids)`,ownedList));
+      }
+    }else{
+      commands.push(stmt(`UPDATE class_groups SET deleted_at=unixepoch(),revision=revision+1,updated_at=unixepoch()
+        WHERE deleted_at IS NULL AND id NOT IN (SELECT id FROM saved_ids)`));
+    }
+    commands.push(stmt('DELETE FROM class_group_lessons WHERE group_id IN (SELECT id FROM saved_ids)'));
     groups.forEach((group,index)=>group.lessonIds.forEach((lessonId,position)=>
       commands.push(stmt('INSERT INTO class_group_lessons(group_id,lesson_id,position) SELECT id,?,? FROM saved_ids WHERE seq=?',[lessonId,position,index+1]))));
     for(const group of groups)if(group.id)commands.push(...await this.examNameCommands(group.id,normalizedGroupTitle(group.title)));

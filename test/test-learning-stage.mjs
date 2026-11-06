@@ -52,6 +52,12 @@ test('Groups seed existing lessons, persist membership and keep student visibili
   assert.equal(learner.length,1);
   assert.deepEqual(learner[0].lessonIds,[1]);
   await rejects(groups.save(student,{groups:saved}),403);
+  sqlite.prepare("INSERT INTO catalog_documents(namespace,key,value_json) VALUES('accounts-group-teachers',?,?)").run(String(saved[1].id),JSON.stringify({teacherIds:[teacher.id]}));
+  await groups.save(teacher,{groups:[{id:saved[1].id,title:'First group',date:'2026-10-08',hidden:true,lessonIds:[2]}]});
+  const teacherSaved=await groups.list(teacher);
+  assert.equal(teacherSaved.length,1);
+  assert.deepEqual(teacherSaved[0].lessonIds,[2]);
+  await rejects(groups.save(teacher,{groups:[{id:saved[0].id,title:'Stolen',date:'2026-10-09',hidden:false,lessonIds:[1]}]}),403);
 });
 test('Managed unlink removes one target/place only, preserves definition/progress and supports receipt replay',async()=>{
   const {service,personas,sqlite}=fixture(),[teacher,,student]=personas;
