@@ -16741,7 +16741,7 @@ const STUDIO_CONSTELLATIONS = [{
 
         let html = '<div class="admin-user-header">';
         html += '<div class="admin-user-breadcrumbs">';
-        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>';
+        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg></button>';
         html += '<button type="button" class="btn icon-btn" data-nav-back data-fallback="admin" title="Back" aria-label="Back">←</button>';
         html += '<div class="admin-user-crumb-text"><a href="#settings" data-page-path="settings">Settings</a> / <a href="#admin" data-page-path="admin">Accounts</a> / <span class="current-crumb">Account · ' + esc(user.login) + '</span></div>';
         html += '</div>';
@@ -17011,14 +17011,12 @@ const STUDIO_CONSTELLATIONS = [{
   function syncStatusDots() {
     const status = getUserStatus();
     const statusInfo = STATUS_MAP[status] || STATUS_MAP.online;
-    const pillDot = document.getElementById('pillStatusDot');
-    if (pillDot) {
+    document.querySelectorAll('.pill-status-dot').forEach(pillDot => {
       pillDot.className = 'pill-status-dot ' + (statusInfo.dotClass || '');
-    }
-    const popoverDot = document.getElementById('popoverStatusDot');
-    if (popoverDot) {
+    });
+    document.querySelectorAll('.popover-status-dot').forEach(popoverDot => {
       popoverDot.className = 'popover-status-dot ' + (statusInfo.dotClass || '');
-    }
+    });
     const tabbarDot = document.getElementById('tabbarStatusDot');
     if (tabbarDot) {
       tabbarDot.className = 'tabbar-status-dot ' + (statusInfo.dotClass || '');
@@ -17027,12 +17025,11 @@ const STUDIO_CONSTELLATIONS = [{
     if (settingsDot) {
       settingsDot.className = 'settings-profile-status-dot ' + (statusInfo.dotClass || '');
     }
-    const host = document.getElementById('userProfilePillHost');
-    if (host) {
-      host.querySelectorAll('[data-status-val]').forEach(btn => {
+    document.querySelectorAll('.user-profile-pill-wrap').forEach(wrap => {
+      wrap.querySelectorAll('[data-status-val]').forEach(btn => {
         btn.classList.toggle('is-active', btn.dataset.statusVal === status);
       });
-    }
+    });
   }
 
   function getUserRoleInfo(user) {
@@ -17062,15 +17059,18 @@ const STUDIO_CONSTELLATIONS = [{
   }
 
   function paintUserProfilePill() {
-    const host = document.getElementById('userProfilePillHost');
+    const hosts = [
+      document.getElementById('userProfilePillHost'),
+      document.getElementById('lmProfilePillHost')
+    ].filter(Boolean);
     const header = document.getElementById('shellHeader');
-    if (!host) return;
+    if (!hosts.length) return;
 
     const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
     const isGuest = !user;
     if (isGuest) {
       if (header) header.hidden = true;
-      host.innerHTML = '';
+      hosts.forEach(h => { h.innerHTML = ''; });
       return;
     }
 
@@ -17101,142 +17101,161 @@ const STUDIO_CONSTELLATIONS = [{
       ? '<img src="' + esc(effectiveAvatar) + '" alt="' + esc(name) + '">'
       : '<span>' + esc(initials) + '</span>';
 
-    host.innerHTML =
-      '<div class="user-profile-pill-wrap" id="userProfilePillWrap">' +
-        '<button type="button" class="user-profile-pill is-circle" id="userProfilePill" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
-          '<div class="pill-avatar-wrap">' +
-            '<div class="pill-avatar-img chat-avatar' + (effectiveAvatar ? ' has-avatar-photo' : '') + '" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
-            '<span class="pill-status-dot ' + statusInfo.dotClass + '" id="pillStatusDot"></span>' +
-          '</div>' +
-          '<span class="pill-user-name" hidden>' + esc(name) + '</span>' +
-          '<span class="pill-role-badge ' + role.class + '" hidden>' + esc(role.label) + '</span>' +
-          '<svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" hidden><path d="M6 9l6 6 6-6"/></svg>' +
-        '</button>' +
-        '<div class="user-profile-popover" id="userProfilePopover" role="menu" hidden>' +
-          '<div class="popover-header">' +
-            '<div class="popover-user-row" data-profile-action="settings" style="cursor:pointer;" title="Open profile settings">' +
-              '<div class="popover-avatar-wrap">' +
-                '<div class="popover-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
-                '<span class="popover-status-dot ' + statusInfo.dotClass + '" id="popoverStatusDot"></span>' +
+    hosts.forEach(host => {
+      const isMain = host.id === 'userProfilePillHost';
+      const wrapId = isMain ? 'userProfilePillWrap' : 'lmUserProfilePillWrap';
+      const pillId = isMain ? 'userProfilePill' : 'lmUserProfilePill';
+      const popoverId = isMain ? 'userProfilePopover' : 'lmUserProfilePopover';
+      const dotId = isMain ? 'pillStatusDot' : 'lmPillStatusDot';
+      const popoverDotId = isMain ? 'popoverStatusDot' : 'lmPopoverStatusDot';
+
+      host.innerHTML =
+        '<div class="user-profile-pill-wrap" id="' + wrapId + '">' +
+          '<button type="button" class="user-profile-pill is-circle" id="' + pillId + '" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
+            '<div class="pill-avatar-wrap">' +
+              '<div class="pill-avatar-img chat-avatar' + (effectiveAvatar ? ' has-avatar-photo' : '') + '" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
+              '<span class="pill-status-dot ' + statusInfo.dotClass + '" id="' + dotId + '"></span>' +
+            '</div>' +
+            '<span class="pill-user-name" hidden>' + esc(name) + '</span>' +
+            '<span class="pill-role-badge ' + role.class + '" hidden>' + esc(role.label) + '</span>' +
+            '<svg class="pill-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" hidden><path d="M6 9l6 6 6-6"/></svg>' +
+          '</button>' +
+          '<div class="user-profile-popover" id="' + popoverId + '" role="menu" hidden>' +
+            '<div class="popover-header">' +
+              '<div class="popover-user-row" data-profile-action="settings" style="cursor:pointer;" title="Open profile settings">' +
+                '<div class="popover-avatar-wrap">' +
+                  '<div class="popover-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
+                  '<span class="popover-status-dot ' + statusInfo.dotClass + '" id="' + popoverDotId + '"></span>' +
+                '</div>' +
+                '<div class="popover-user-details">' +
+                  '<div class="popover-name">' + esc(name) + '</div>' +
+                  '<div class="popover-email">' + esc(email) + '</div>' +
+                  '<div class="popover-role-chip">' +
+                    '<span>' + role.emoji + '</span>' +
+                    '<span>' + esc(role.roleName) + '</span>' +
+                  '</div>' +
+                '</div>' +
               '</div>' +
-              '<div class="popover-user-details">' +
-                '<div class="popover-name">' + esc(name) + '</div>' +
-                '<div class="popover-email">' + esc(email) + '</div>' +
-                '<div class="popover-role-chip">' +
-                  '<span>' + role.emoji + '</span>' +
-                  '<span>' + esc(role.roleName) + '</span>' +
+              '<div class="popover-status-bar">' +
+                '<span class="popover-status-label">Status:</span>' +
+                '<div class="popover-status-buttons">' +
+                  '<button type="button" class="popover-status-btn' + (status === 'online' ? ' is-active' : '') + '" data-status-val="online">Online</button>' +
+                  '<button type="button" class="popover-status-btn' + (status === 'in_class' ? ' is-active' : '') + '" data-status-val="in_class">In Class</button>' +
+                  '<button type="button" class="popover-status-btn' + (status === 'away' ? ' is-active' : '') + '" data-status-val="away">Away</button>' +
                 '</div>' +
               '</div>' +
             '</div>' +
-            '<div class="popover-status-bar">' +
-              '<span class="popover-status-label">Status:</span>' +
-              '<div class="popover-status-buttons">' +
-                '<button type="button" class="popover-status-btn' + (status === 'online' ? ' is-active' : '') + '" data-status-val="online">Online</button>' +
-                '<button type="button" class="popover-status-btn' + (status === 'in_class' ? ' is-active' : '') + '" data-status-val="in_class">In Class</button>' +
-                '<button type="button" class="popover-status-btn' + (status === 'away' ? ' is-active' : '') + '" data-status-val="away">Away</button>' +
-              '</div>' +
+            '<div class="popover-menu-items">' +
+              '<button type="button" class="popover-item is-highlight" data-profile-action="settings">' +
+                '<div class="popover-item-main">' +
+                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
+                  '<span>Settings</span>' +
+                '</div>' +
+                '<span class="popover-kbd">⌘,</span>' +
+              '</button>' +
+              '<button type="button" class="popover-item" data-profile-action="notifications">' +
+                '<div class="popover-item-main">' +
+                  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
+                  '<span>Lesson notifications</span>' +
+                '</div>' +
+                '<span class="popover-notify-dot"></span>' +
+              '</button>' +
+            '</div>' +
+            '<div class="popover-footer">' +
+              (isGuest
+                ? '<button type="button" class="popover-logout-btn" data-profile-action="login">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>' +
+                    '<span>Log in</span>' +
+                  '</button>'
+                : '<button type="button" class="popover-logout-btn" data-profile-action="logout">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' +
+                    '<span>Log out</span>' +
+                  '</button>') +
+              '<span class="popover-version">v2.4.0 Lumiscia</span>' +
             '</div>' +
           '</div>' +
-          '<div class="popover-menu-items">' +
-            '<button type="button" class="popover-item is-highlight" data-profile-action="settings">' +
-              '<div class="popover-item-main">' +
-                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>' +
-                '<span>Settings</span>' +
-              '</div>' +
-              '<span class="popover-kbd">⌘,</span>' +
-            '</button>' +
-            '<button type="button" class="popover-item" data-profile-action="notifications">' +
-              '<div class="popover-item-main">' +
-                '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
-                '<span>Lesson notifications</span>' +
-              '</div>' +
-              '<span class="popover-notify-dot"></span>' +
-            '</button>' +
-          '</div>' +
-          '<div class="popover-footer">' +
-            (isGuest
-              ? '<button type="button" class="popover-logout-btn" data-profile-action="login">' +
-                  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>' +
-                  '<span>Log in</span>' +
-                '</button>'
-              : '<button type="button" class="popover-logout-btn" data-profile-action="logout">' +
-                  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>' +
-                  '<span>Log out</span>' +
-                '</button>') +
-            '<span class="popover-version">v2.4.0 Lumiscia</span>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
+        '</div>';
 
-    const pillBtn = host.querySelector('#userProfilePill');
-    const popover = host.querySelector('#userProfilePopover');
+      const pillBtn = host.querySelector('.user-profile-pill');
+      const popover = host.querySelector('.user-profile-popover');
 
-    if (pillBtn && popover) {
-      pillBtn.onclick = (e) => {
-        e.stopPropagation();
-        const willOpen = popover.hidden;
-        popover.hidden = !willOpen;
-        pillBtn.classList.toggle('is-open', willOpen);
-        pillBtn.setAttribute('aria-expanded', String(willOpen));
-      };
-    }
+      if (pillBtn && popover) {
+        pillBtn.onclick = (e) => {
+          e.stopPropagation();
+          const willOpen = popover.hidden;
+          document.querySelectorAll('.user-profile-popover').forEach(p => {
+            if (p !== popover) {
+              p.hidden = true;
+              const otherBtn = p.closest('.user-profile-pill-wrap')?.querySelector('.user-profile-pill');
+              if (otherBtn) {
+                otherBtn.classList.remove('is-open');
+                otherBtn.setAttribute('aria-expanded', 'false');
+              }
+            }
+          });
+          popover.hidden = !willOpen;
+          pillBtn.classList.toggle('is-open', willOpen);
+          pillBtn.setAttribute('aria-expanded', String(willOpen));
+        };
+      }
 
-    host.querySelectorAll('[data-status-val]').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        setUserStatus(btn.dataset.statusVal);
-      };
-    });
+      host.querySelectorAll('[data-status-val]').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          setUserStatus(btn.dataset.statusVal);
+        };
+      });
 
-    host.querySelectorAll('[data-profile-action]').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        if (popover) {
-          popover.hidden = true;
-          if (pillBtn) {
-            pillBtn.classList.remove('is-open');
-            pillBtn.setAttribute('aria-expanded', 'false');
+      host.querySelectorAll('[data-profile-action]').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          if (popover) {
+            popover.hidden = true;
+            if (pillBtn) {
+              pillBtn.classList.remove('is-open');
+              pillBtn.setAttribute('aria-expanded', 'false');
+            }
           }
-        }
-        const act = btn.dataset.profileAction;
-        if (act === 'settings') {
-          const openSettings = () => {
-            if (typeof window.openChatSettings === 'function') {
-              window.openChatSettings('profile', 'settings');
-            } else if (typeof window.enquizVisit === 'function') {
-              window.enquizVisit('settings');
+          const act = btn.dataset.profileAction;
+          if (act === 'settings') {
+            const openSettings = () => {
+              if (typeof window.openChatSettings === 'function') {
+                window.openChatSettings('profile', 'settings');
+              } else if (typeof window.enquizVisit === 'function') {
+                window.enquizVisit('settings');
+              } else if (typeof show === 'function') {
+                show('settings');
+              }
+            };
+            if (typeof window.ensureMessages === 'function' && !window.MessagesReady) {
+              window.ensureMessages().then(openSettings).catch(openSettings);
+            } else {
+              openSettings();
+            }
+          } else if (act === 'notifications') {
+            if (typeof window.openLessonNotifications === 'function') {
+              window.openLessonNotifications();
             } else if (typeof show === 'function') {
               show('settings');
             }
-          };
-          if (typeof window.ensureMessages === 'function' && !window.MessagesReady) {
-            window.ensureMessages().then(openSettings).catch(openSettings);
-          } else {
-            openSettings();
+          } else if (act === 'logout') {
+            setUserStatus('offline');
+            if (typeof performLogout === 'function') {
+              performLogout();
+            } else {
+              const logoutTrigger = document.querySelector('[data-account="logout"]');
+              if (logoutTrigger) logoutTrigger.click();
+              else if (typeof leaveAccount === 'function') leaveAccount({ signedOut: true });
+            }
+          } else if (act === 'login') {
+            if (typeof show === 'function') {
+              show('account');
+            }
+            const loginTrigger = document.querySelector('[data-account="show-login"]');
+            if (loginTrigger) loginTrigger.click();
           }
-        } else if (act === 'notifications') {
-          if (typeof window.openLessonNotifications === 'function') {
-            window.openLessonNotifications();
-          } else if (typeof show === 'function') {
-            show('settings');
-          }
-        } else if (act === 'logout') {
-          setUserStatus('offline');
-          if (typeof performLogout === 'function') {
-            performLogout();
-          } else {
-            const logoutTrigger = document.querySelector('[data-account="logout"]');
-            if (logoutTrigger) logoutTrigger.click();
-            else if (typeof leaveAccount === 'function') leaveAccount({ signedOut: true });
-          }
-        } else if (act === 'login') {
-          if (typeof show === 'function') {
-            show('account');
-          }
-          const loginTrigger = document.querySelector('[data-account="show-login"]');
-          if (loginTrigger) loginTrigger.click();
-        }
-      };
+        };
+      });
     });
 
     // Enhance mobile tabbar Profile / Settings button
@@ -17259,17 +17278,17 @@ const STUDIO_CONSTELLATIONS = [{
   // Global listener for closing popover on outside click and Escape, plus Cmd+, / Ctrl+, shortcut
   (function initUserProfilePillEvents() {
     document.addEventListener('click', (e) => {
-      const wrap = document.getElementById('userProfilePillWrap');
-      if (!wrap || wrap.contains(e.target)) return;
-      const popover = document.getElementById('userProfilePopover');
-      const pillBtn = document.getElementById('userProfilePill');
-      if (popover && !popover.hidden) {
-        popover.hidden = true;
-        if (pillBtn) {
-          pillBtn.classList.remove('is-open');
-          pillBtn.setAttribute('aria-expanded', 'false');
+      if (e.target.closest('.user-profile-pill-wrap')) return;
+      document.querySelectorAll('.user-profile-popover').forEach(popover => {
+        if (!popover.hidden) {
+          popover.hidden = true;
+          const pillBtn = popover.closest('.user-profile-pill-wrap')?.querySelector('.user-profile-pill');
+          if (pillBtn) {
+            pillBtn.classList.remove('is-open');
+            pillBtn.setAttribute('aria-expanded', 'false');
+          }
         }
-      }
+      });
     });
 
     // Automatically synchronize status dots on navigation or screen clicks
@@ -17281,27 +17300,29 @@ const STUDIO_CONSTELLATIONS = [{
 
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        const popover = document.getElementById('userProfilePopover');
-        const pillBtn = document.getElementById('userProfilePill');
-        if (popover && !popover.hidden) {
-          popover.hidden = true;
-          if (pillBtn) {
-            pillBtn.classList.remove('is-open');
-            pillBtn.setAttribute('aria-expanded', 'false');
+        document.querySelectorAll('.user-profile-popover').forEach(popover => {
+          if (!popover.hidden) {
+            popover.hidden = true;
+            const pillBtn = popover.closest('.user-profile-pill-wrap')?.querySelector('.user-profile-pill');
+            if (pillBtn) {
+              pillBtn.classList.remove('is-open');
+              pillBtn.setAttribute('aria-expanded', 'false');
+            }
           }
-        }
+        });
       }
       if ((e.metaKey || e.ctrlKey) && e.key === ',') {
         e.preventDefault();
-        const popover = document.getElementById('userProfilePopover');
-        const pillBtn = document.getElementById('userProfilePill');
-        if (popover && !popover.hidden) {
-          popover.hidden = true;
-          if (pillBtn) {
-            pillBtn.classList.remove('is-open');
-            pillBtn.setAttribute('aria-expanded', 'false');
+        document.querySelectorAll('.user-profile-popover').forEach(popover => {
+          if (!popover.hidden) {
+            popover.hidden = true;
+            const pillBtn = popover.closest('.user-profile-pill-wrap')?.querySelector('.user-profile-pill');
+            if (pillBtn) {
+              pillBtn.classList.remove('is-open');
+              pillBtn.setAttribute('aria-expanded', 'false');
+            }
           }
-        }
+        });
         if (typeof authUser !== 'undefined' && authUser) {
           const openSettings = () => {
             if (typeof window.openChatSettings === 'function') {
@@ -23232,11 +23253,6 @@ const STUDIO_CONSTELLATIONS = [{
       document.getElementById("lmEditBack").hidden = editing || !canEditLessons() || !!viewAccount && assessmentActive(lmState);
       document.getElementById("lmSave").hidden = !editing;
       document.getElementById("lmPublish").hidden = !editing;
-      const copy = document.getElementById("lmCopy");
-      if (copy) {
-        copy.hidden = !canEditLessons() || !Number.isSafeInteger(lmState.id) || lmState.id < 1;
-        copy.dataset.contentCopy = (lmState.examOwned ? "exam-block" : "lesson") + ":" + lmState.id;
-      }
       const heading = document.querySelector("#material .lm-meta h1");
       if (heading) heading.textContent = editing ? "Learning material" : (lmState.title || lmLongDate(lmState.date) || "Lesson");
       lmPaintChrome();
@@ -23244,6 +23260,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (editing) lmRenderEditor();
       else lmRenderPreview();
       examDress();
+      if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
       if (assessmentActive(lmState) && !editing && (!canEditLessons() || canTuneStudentLessons()) && !lmState.assessmentReady) assessmentRead(lmState);
       const top = document.getElementById("material");
       if (top) top.scrollIntoView({ block: "start" });

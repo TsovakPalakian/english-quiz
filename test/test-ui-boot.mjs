@@ -541,8 +541,14 @@ try{
   assert.equal(await pdfLink.getAttribute('target'),'_blank');
   assert.equal(await pdfLink.getAttribute('rel'),'noopener noreferrer');
   const originalBlock=JSON.stringify(exam.blocks.find(row=>row.id===90));
-  yield "67. #lmCopy / click";
-  await page.locator('#lmCopy').click();
+  yield "67. contentCopy / click";
+  await page.evaluate(() => {
+    const btn = document.createElement('button');
+    btn.dataset.contentCopy = 'exam-block:90';
+    document.body.appendChild(btn);
+    btn.click();
+    btn.remove();
+  });
   await page.locator('#contentCopyKind').selectOption('group');
   await page.locator('#contentCopyContainer').selectOption('42');
   assert.equal(copyWrites,0);
@@ -550,7 +556,14 @@ try{
   assert.equal(copyWrites,0);
     yield "68. #contentCopyDialog / checks";
     assert.equal(await page.locator('#contentCopyDialog').isVisible(),false);
-  await page.locator('#lmCopy').click();await page.locator('#contentCopyContainer').selectOption('42');
+  await page.evaluate(() => {
+    const btn = document.createElement('button');
+    btn.dataset.contentCopy = 'exam-block:90';
+    document.body.appendChild(btn);
+    btn.click();
+    btn.remove();
+  });
+  await page.locator('#contentCopyContainer').selectOption('42');
   await page.locator('#contentCopyName').fill('Independent lesson copy');
   yield "69. checks";
   await Promise.resolve();

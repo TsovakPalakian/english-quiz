@@ -1509,11 +1509,6 @@
       document.getElementById("lmEditBack").hidden = editing || !canEditLessons() || !!viewAccount && assessmentActive(lmState);
       document.getElementById("lmSave").hidden = !editing;
       document.getElementById("lmPublish").hidden = !editing;
-      const copy = document.getElementById("lmCopy");
-      if (copy) {
-        copy.hidden = !canEditLessons() || !Number.isSafeInteger(lmState.id) || lmState.id < 1;
-        copy.dataset.contentCopy = (lmState.examOwned ? "exam-block" : "lesson") + ":" + lmState.id;
-      }
       const heading = document.querySelector("#material .lm-meta h1");
       if (heading) heading.textContent = editing ? "Learning material" : (lmState.title || lmLongDate(lmState.date) || "Lesson");
       lmPaintChrome();
@@ -1521,6 +1516,7 @@
       if (editing) lmRenderEditor();
       else lmRenderPreview();
       examDress();
+      if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
       if (assessmentActive(lmState) && !editing && (!canEditLessons() || canTuneStudentLessons()) && !lmState.assessmentReady) assessmentRead(lmState);
       const top = document.getElementById("material");
       if (top) top.scrollIntoView({ block: "start" });

@@ -924,7 +924,7 @@
 
         let html = '<div class="admin-user-header">';
         html += '<div class="admin-user-breadcrumbs">';
-        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></button>';
+        html += '<button type="button" class="btn icon-btn" data-jump="home" title="Home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg></button>';
         html += '<button type="button" class="btn icon-btn" data-nav-back data-fallback="admin" title="Back" aria-label="Back">←</button>';
         html += '<div class="admin-user-crumb-text"><a href="#settings" data-page-path="settings">Settings</a> / <a href="#admin" data-page-path="admin">Accounts</a> / <span class="current-crumb">Account · ' + esc(user.login) + '</span></div>';
         html += '</div>';
