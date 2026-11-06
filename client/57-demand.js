@@ -17,7 +17,7 @@
     }
     document.addEventListener('click', event => {
       if (!authUser || window.MessagesReady || !window.ensureMessages) return;
-      const target = event.target.closest('.brand-account,[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"]');
+      const target = event.target.closest('.brand-account,[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"],[data-jump="settings"],[data-profile-action="settings"],[data-user-settings],[data-shell-settings-open]');
       if (!target || target.closest('.user-settings')) return;
       event.preventDefault();
       event.stopImmediatePropagation();

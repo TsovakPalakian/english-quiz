@@ -161,7 +161,7 @@
         '</button>' +
         '<div class="user-profile-popover" id="userProfilePopover" role="menu" hidden>' +
           '<div class="popover-header">' +
-            '<div class="popover-user-row">' +
+            '<div class="popover-user-row" data-profile-action="settings" style="cursor:pointer;" title="Open profile settings">' +
               '<div class="popover-avatar-wrap">' +
                 '<div class="popover-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
                 '<span class="popover-status-dot ' + statusInfo.dotClass + '" id="popoverStatusDot"></span>' +
@@ -247,10 +247,19 @@
         }
         const act = btn.dataset.profileAction;
         if (act === 'settings') {
-          if (typeof show === 'function') {
-            show('settings');
-          } else if (typeof window.enquizVisit === 'function') {
-            window.enquizVisit('settings');
+          const openSettings = () => {
+            if (typeof window.openChatSettings === 'function') {
+              window.openChatSettings('profile', 'settings');
+            } else if (typeof window.enquizVisit === 'function') {
+              window.enquizVisit('settings');
+            } else if (typeof show === 'function') {
+              show('settings');
+            }
+          };
+          if (typeof window.ensureMessages === 'function' && !window.MessagesReady) {
+            window.ensureMessages().then(openSettings).catch(openSettings);
+          } else {
+            openSettings();
           }
         } else if (act === 'notifications') {
           if (typeof window.openLessonNotifications === 'function') {
@@ -341,10 +350,19 @@
           }
         }
         if (typeof authUser !== 'undefined' && authUser) {
-          if (typeof show === 'function') {
-            show('settings');
-          } else if (typeof window.enquizVisit === 'function') {
-            window.enquizVisit('settings');
+          const openSettings = () => {
+            if (typeof window.openChatSettings === 'function') {
+              window.openChatSettings('profile', 'settings');
+            } else if (typeof window.enquizVisit === 'function') {
+              window.enquizVisit('settings');
+            } else if (typeof show === 'function') {
+              show('settings');
+            }
+          };
+          if (typeof window.ensureMessages === 'function' && !window.MessagesReady) {
+            window.ensureMessages().then(openSettings).catch(openSettings);
+          } else {
+            openSettings();
           }
         }
       }

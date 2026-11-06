@@ -3130,7 +3130,18 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         return;
       }
       if (typeof window.openChatSettings === 'function') {
-        window.openChatSettings(tab);
+        window.openChatSettings(tab, 'settings');
+        return;
+      }
+      if (typeof window.ensureMessages === 'function') {
+        host.innerHTML = '<div class="card saas-card" style="padding:24px; text-align:center;"><p class="hint" style="margin:0;">Loading settings...</p></div>';
+        window.ensureMessages().then(() => {
+          if (typeof window.openChatSettings === 'function') {
+            window.openChatSettings(tab, 'settings');
+          }
+        }).catch(() => {
+          host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
+        });
         return;
       }
       host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
@@ -17103,7 +17114,7 @@ const STUDIO_CONSTELLATIONS = [{
         '</button>' +
         '<div class="user-profile-popover" id="userProfilePopover" role="menu" hidden>' +
           '<div class="popover-header">' +
-            '<div class="popover-user-row">' +
+            '<div class="popover-user-row" data-profile-action="settings" style="cursor:pointer;" title="Open profile settings">' +
               '<div class="popover-avatar-wrap">' +
                 '<div class="popover-avatar-img chat-avatar" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
                 '<span class="popover-status-dot ' + statusInfo.dotClass + '" id="popoverStatusDot"></span>' +
@@ -17189,10 +17200,19 @@ const STUDIO_CONSTELLATIONS = [{
         }
         const act = btn.dataset.profileAction;
         if (act === 'settings') {
-          if (typeof show === 'function') {
-            show('settings');
-          } else if (typeof window.enquizVisit === 'function') {
-            window.enquizVisit('settings');
+          const openSettings = () => {
+            if (typeof window.openChatSettings === 'function') {
+              window.openChatSettings('profile', 'settings');
+            } else if (typeof window.enquizVisit === 'function') {
+              window.enquizVisit('settings');
+            } else if (typeof show === 'function') {
+              show('settings');
+            }
+          };
+          if (typeof window.ensureMessages === 'function' && !window.MessagesReady) {
+            window.ensureMessages().then(openSettings).catch(openSettings);
+          } else {
+            openSettings();
           }
         } else if (act === 'notifications') {
           if (typeof window.openLessonNotifications === 'function') {
@@ -17283,10 +17303,19 @@ const STUDIO_CONSTELLATIONS = [{
           }
         }
         if (typeof authUser !== 'undefined' && authUser) {
-          if (typeof show === 'function') {
-            show('settings');
-          } else if (typeof window.enquizVisit === 'function') {
-            window.enquizVisit('settings');
+          const openSettings = () => {
+            if (typeof window.openChatSettings === 'function') {
+              window.openChatSettings('profile', 'settings');
+            } else if (typeof window.enquizVisit === 'function') {
+              window.enquizVisit('settings');
+            } else if (typeof show === 'function') {
+              show('settings');
+            }
+          };
+          if (typeof window.ensureMessages === 'function' && !window.MessagesReady) {
+            window.ensureMessages().then(openSettings).catch(openSettings);
+          } else {
+            openSettings();
           }
         }
       }
@@ -30229,7 +30258,7 @@ if(typeof window!=='undefined'){
     }
     document.addEventListener('click', event => {
       if (!authUser || window.MessagesReady || !window.ensureMessages) return;
-      const target = event.target.closest('.brand-account,[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"]');
+      const target = event.target.closest('.brand-account,[data-jump="account"],[data-jump="profile"],[data-jump="stats"],[data-jump="guide"],[data-jump="themes"],[data-jump="settings"],[data-profile-action="settings"],[data-user-settings],[data-shell-settings-open]');
       if (!target || target.closest('.user-settings')) return;
       event.preventDefault();
       event.stopImmediatePropagation();

@@ -403,7 +403,18 @@
         return;
       }
       if (typeof window.openChatSettings === 'function') {
-        window.openChatSettings(tab);
+        window.openChatSettings(tab, 'settings');
+        return;
+      }
+      if (typeof window.ensureMessages === 'function') {
+        host.innerHTML = '<div class="card saas-card" style="padding:24px; text-align:center;"><p class="hint" style="margin:0;">Loading settings...</p></div>';
+        window.ensureMessages().then(() => {
+          if (typeof window.openChatSettings === 'function') {
+            window.openChatSettings(tab, 'settings');
+          }
+        }).catch(() => {
+          host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
+        });
         return;
       }
       host.innerHTML = '<div class="card saas-card"><h3>Settings</h3><div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap"><button class="btn ghost saas-btn display-open" type="button" data-display-open aria-label="Display settings">Aa <span>Display</span></button><button class="btn ghost saas-btn" type="button" data-jump="themes">Theme</button><button class="btn ghost saas-btn" type="button" data-jump="stats">Statistics</button><button class="btn ghost saas-btn" type="button" data-jump="guide">Navigate</button></div></div>';
