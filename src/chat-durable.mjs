@@ -15,6 +15,9 @@ const ref=value=>{const str=String(value??'');if(!/^[A-Za-z0-9:_-]{1,180}$/.test
 const integer=value=>{if(!Number.isSafeInteger(value)||value<0)fail(400,'Invalid cursor.');return value;};
 const category=value=>{if(!['personal','learning'].includes(value))fail(400,'Invalid category.');return value;};
 export const directRoomId=(a,b)=>'direct:'+ [ref(a),ref(b)].sort().join(':');
+export function chatSocketExpires(sessionExpires,now=Date.now()){
+  return sessionExpires>0?sessionExpires:now+20*60*1000;
+}
 export async function chatCall(env,binding,id,path,body){
   assertAccountTransferRunning(env);
   const namespace=env[binding];if(!namespace)fail(503,'Chat storage unavailable.');
@@ -428,8 +431,9 @@ export class ChatInbox extends Store{
   }
   async sessionAllowed(ws){
     const session=ws.deserializeAttachment();if(!session.sessionId)return true;
-    try{if(!this.env.MEDIA)throw Error('Unavailable');if(await this.env.MEDIA.head((session.sessionNamespace||'')+'revoked-sid/'+session.sessionId)){ws.close(4003,'Session ended.');return false;}return true;}
-    catch{ws.close(1011,'Session verification unavailable.');return false;}
+    if(!this.env.MEDIA?.head)return false;
+    try{if(await this.env.MEDIA.head((session.sessionNamespace||'')+'revoked-sid/'+session.sessionId)){ws.close(4003,'Session ended.');return false;}return true;}
+    catch{return false;}
   }
   broadcast(value){try{assertAccountTransferRunning(this.baseEnv);}catch{for(const ws of this.ctx.getWebSockets())ws.close(1013,'Account migration in progress.');return;}for(const ws of this.ctx.getWebSockets()){
     if(ws.deserializeAttachment().sessionId||this.baseEnv.CONTENT_ENABLED==='true'){const previous=this.sessionDeliveries.get(ws)||Promise.resolve();const delivery=trackTransferTask(this,async()=>{await previous;try{await assertChatRunning(this);if(await this.sessionAllowed(ws))ws.send(JSON.stringify(value));}catch(error){if(error.migrationFrozen)ws.close(1013,'Account migration in progress.');}}).catch(()=>{});this.sessionDeliveries.set(ws,delivery);this.ctx.waitUntil(delivery);}
@@ -445,7 +449,8 @@ export class ChatInbox extends Store{
   }
   async command(action,body){
     const actor=this.get('profile');if(!actor||actor.active===false)fail(403,'Account unavailable.');
-    if(this.env.CONTENT_WRITES==='false'&&!['snapshot','history','members','sessions','profiles','original'].includes(action))fail(403,'Chat writes are unavailable.');
+    if(this.env.CONTENT_WRITES==='false'&&!['snapshot','history','members','sessions','profiles','original','ping'].includes(action))fail(403,'Chat writes are unavailable.');
+    if(action==='ping')return {ok:true};
     if(action==='snapshot')return this.snapshot();
     if(action==='folders'){
       const folders=this.get('folders',[]),id=ref(body.id);if(!['save','delete'].includes(body.op))fail(400,'Invalid folder action.');
@@ -600,7 +605,7 @@ export class ChatInbox extends Store{
       if(sessionId&&(!/^(?:[a-f0-9]{32}|[a-f0-9]{40})$/.test(sessionId)||!['','auth/neon/'].includes(sessionNamespace)))fail(403,'Invalid session.');
       if(sessionId&&(!this.env.MEDIA||await this.env.MEDIA.head(sessionNamespace+'revoked-sid/'+sessionId)))fail(401,'Session ended.');
       const sessionExpires=Number(request.headers.get('X-Chat-Session-Expires'));
-      const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server);server.serializeAttachment({expires:Math.min(Date.now()+20*60*1000,sessionExpires>0?sessionExpires:Infinity),...(sessionId?{sessionId,sessionNamespace}:{})});
+      const pair=new WebSocketPair(),[client,server]=Object.values(pair);this.ctx.acceptWebSocket(server);server.serializeAttachment({expires:chatSocketExpires(sessionExpires),...(sessionId?{sessionId,sessionNamespace}:{})});
       const after=Number(new URL(request.url).searchParams.get('after')||0),min=this.one('SELECT COALESCE(MIN(id),0) id FROM events').id;
       if(after&&after>=min-1&&after<=this.snapshot().seq){for(const row of this.rows('SELECT id,data FROM events WHERE id>? ORDER BY id',after)){const event=JSON.parse(row.data);if(!event.profile||profileAllowed(this,event.profile.id))server.send(JSON.stringify({type:'event',seq:row.id,event}));}}
       server.send(JSON.stringify({type:'snapshot',data:this.snapshot()}));

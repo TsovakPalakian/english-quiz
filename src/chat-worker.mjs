@@ -14,6 +14,12 @@ export {ChatRoom,ChatInbox};
 const json=(value,status=200)=>Response.json(value,{status,headers:{'Cache-Control':'private, no-store'}});
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const staff=user=>['ADMIN','DEVELOPER'].includes(user?.role);
+export function chatInboxLive(actor,known,inbox){
+  const profile=inbox?.profile;
+  if(!profile||profile.active===false)return false;
+  if(!known||known.role!==actor?.role||known.active===0||known.is_personal_data_revoked)return false;
+  return true;
+}
 const database=studyClient;
 async function mapPool(items,limit,fn){
   const queue=[...items];
@@ -215,9 +221,11 @@ export class ChatBridge{
   }
   async bootstrap(actor){
     await this.reconcileLegacyProfiles();
-    let policy=await this.policy(),known=policy.users.find(u=>String(u.id)===String(actor.id));
     const inboxSnapshot=await chatCall(this.env,'CHAT_INBOX',actor.id,'/snapshot',{}).catch(()=>null);
+    let policy=await this.policy(),known=policy.users.find(u=>String(u.id)===String(actor.id));
+    const skip=chatInboxLive(actor,known,inboxSnapshot);
     if(!known||known.role!==actor.role||known.active===0||known.is_personal_data_revoked||!inboxSnapshot?.profile)policy=await this.policy(true,true);
+    if(skip){this.ctx.waitUntil(this.flush().catch(()=>{}));return {ready:true,skipped:true};}
     const activePolicy=this.get('policy')||policy,db=this.database(this.env),legacy=await db.read('SELECT r.id FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=? OR m.account_id=?',[String(actor.id),Number(actor.id)]);
     const taught=new Set((activePolicy.teachersByGroup||[]).filter(row=>(row.teacherIds||[]).map(String).includes(String(actor.id))).map(row=>Number(row.groupId)));
     const groups=activePolicy.groups.filter(g=>actor.role==='DEVELOPER'||(actor.role==='ADMIN'?taught.has(Number(g.id)):activePolicy.members.some(m=>String(m.account_id)===String(actor.id)&&m.group_id===g.id)));
@@ -304,13 +312,15 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
     const url=new URL(request.url),path=url.pathname,route=path==='/api/messages/socket',legacyChat=path==='/api/messages'||['/api/messages/history','/api/messages/send','/api/messages/open','/api/messages/read','/api/messages/mute'].includes(path);
     if(legacyChat)return json({error:'Reload the page to connect to the new chat.'},410);
       const mutation=!['GET','HEAD','OPTIONS'].includes(request.method),policyMutation=mutation&&(path.startsWith('/api/admin/')||path.startsWith('/api/groups/')||path==='/api/me/revoke'),logout=mutation&&['/api/logout','/api/me/password'].includes(path);
-    try{
-      if(path==='/api/me/notification-sounds'){
+    if(path==='/api/me/notification-sounds'){
+      try{
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');
         const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
         if(mutation&&(request.headers.get('Origin')!==url.origin||env.CONTENT_WRITES!=='true'))fail(403,'Unavailable.');
         return await notificationSoundRoute(request,env.CONTENT_MEDIA,actor);
-      }
+      }catch(error){return json({error:error.status?error.message:'Notification sounds are unavailable.'},error.status||503);}
+    }
+    try{
       if(path==='/api/messages/profile'){
         if(url.hostname!==env.CONTENT_ALLOWED_HOST||env.STORAGE_MODE!=='production')fail(403,'Unavailable.');const actor=await authenticate(env,request);if(!actor)fail(401,'Sign in first.');
         const allowed=await chatCall(env,'CHAT_INBOX',actor.id,'/command',{action:'profiles',body:{ids:[String(actor.id)]}});if(!allowed.profiles.length)fail(403,'Account unavailable.');
@@ -383,9 +393,10 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
         const target='https://chat.internal/connect?after='+Math.max(0,Number(url.searchParams.get('after'))||0);
         return env.CHAT_INBOX.get(env.CHAT_INBOX.idFromName(chatStorageName(env,actor.id))).fetch(new Request(target,{headers:{Upgrade:'websocket','X-Chat-Internal':env.CONTENT_SESSION_SECRET||env.SESSION_SECRET,...(identity?{'X-Chat-Session':identity.sid,'X-Chat-Session-Expires':String(identity.exp*1000),'X-Chat-Session-Namespace':env.AUTH_DATABASE_PROVIDER==='neon'?'auth/neon/':''}:{}),...chatDatabaseHeaders(env)}}));
       }
-      const actor=logout||policyMutation?await authenticate(env,request):null;
-      const syncPolicy=policyMutation&&actor&&(path.startsWith('/api/me/')||staff(actor))&&request.headers.get('Origin')===url.origin;
-      if(syncPolicy)await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});
+    }catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}
+    const actor=logout||policyMutation?await authenticate(env,request):null;
+    const syncPolicy=policyMutation&&actor&&(path.startsWith('/api/me/')||staff(actor))&&request.headers.get('Origin')===url.origin;
+    if(syncPolicy)try{await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});}catch{ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/invalidate',{}).catch(()=>{}));}
       const response=await application.fetch(request,env,ctx);
       if(response.ok&&mutation){
         // The session is already ended; sockets re-check it, so a failed closure must not hide the cookie reset.
@@ -396,7 +407,6 @@ export function durableChatWorker(application,{authenticate=currentUser}={}){ret
       if(response.ok&&mutation&&['/api/assessment','/api/exams/workflow','/api/exams/assign','/api/messages/assignment','/api/messages/pdf-grammar','/api/groups/manage','/api/groups/members'].includes(path))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}).catch(()=>{}));
       if(response.ok&&mutation&&path.startsWith('/api/exams'))ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/catalog',{}).catch(()=>{}));
       return response;
-    }catch(error){return json({error:error.status?error.message:'Chat temporarily unavailable.'},error.status||503);}
   },
   async scheduled(event,env,ctx){if(env.CHAT_V2_ENABLED==='true')ctx.waitUntil(chatCall(env,'CHAT_BRIDGE','global','/flush',{}));}
 };}

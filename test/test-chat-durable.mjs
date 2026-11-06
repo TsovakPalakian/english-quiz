@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {ChatRoom,ChatInbox,chatCall,directRoomId} from '../src/chat-durable.mjs';
-import {ChatBridge,durableChatWorker} from '../src/chat-worker.mjs';
+import {ChatRoom,ChatInbox,chatCall,chatSocketExpires,directRoomId} from '../src/chat-durable.mjs';
+import {ChatBridge,chatInboxLive,durableChatWorker} from '../src/chat-worker.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from '../src/chat-attachments.mjs';
 import {chatPreviewUrl,chatLinkPreview} from '../src/chat-previews.mjs';
 import {MessageService} from '../src/learning-messages.mjs';
@@ -187,6 +187,64 @@ test('ending one authenticated session closes only its sockets and blocks furthe
     inbox.broadcast({seq:1});inbox.broadcast({seq:2});await f.drain();assert.deepEqual(a.messages.map(v=>v.seq),[1,2]);
     revoked.add('revoked-sid/'+'a'.repeat(32));await chatCall(f.env,'CHAT_INBOX','alice','/revoke-session',{sid:'a'.repeat(32)});
     inbox.broadcast({seq:3});await f.drain();assert.ok(a.closes.includes(4003));assert.equal(a.messages.length,2);assert.equal(b.messages.length,3);assert.equal(b.closes.length,0);
+  }finally{f.close();}
+});
+test('a live inbox with the same role skips room migration',async()=>{
+  const alice={id:'alice',role:'USER'},known={id:'alice',role:'USER',active:1};
+  assert.equal(chatInboxLive(alice,known,{profile:{id:'alice',active:true}}),true);
+  assert.equal(chatInboxLive({...alice,role:'ADMIN'},known,{profile:{id:'alice',active:true}}),false);
+  assert.equal(chatInboxLive(alice,known,{profile:null}),false);
+  assert.equal(chatInboxLive(alice,{...known,active:0},{profile:{id:'alice',active:true}}),false);
+  let rooms=0;
+  const journal={read:async sql=>{if(String(sql).includes('chat_rooms r'))rooms++;return [{id:'direct:alice:bob'}];}};
+  const f=fixture(journal);
+  try{
+    await f.boot();
+    const bridge=f.env.CHAT_BRIDGE.get('global');
+    bridge.set('policy',{at:Date.now(),users:[f.alice,f.bob,f.teacher].map(u=>({...u,active:1})),groups:[],members:[],teachersByGroup:[]});
+    let migrates=0,forced=0;
+    bridge.migrate=async()=>{migrates++;};
+    bridge.flush=async()=>({delivered:0});
+    bridge.policy=async force=>{if(force)forced++;return bridge.get('policy');};
+    const again=await bridge.bootstrap(f.alice);
+    assert.equal(again.skipped,true);
+    assert.equal(migrates,0);
+    assert.equal(rooms,0);
+    assert.equal(forced,0);
+    const id='direct:alice:bob';
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct',title:'Private conversation'},members:[f.alice,f.bob]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});
+    await assert.rejects(bridge.bootstrap({id:'fresh',name:'Fresh',role:'USER'}),e=>e.status===403);
+    assert.equal(forced,1);
+    assert.equal(migrates,1);
+    const changed=await bridge.bootstrap({...f.alice,role:'ADMIN'});
+    assert.equal(changed.ready,true);
+    assert.equal(changed.skipped,undefined);
+    assert.equal(forced,2);
+    assert.equal(migrates,2);
+  }finally{await f.drain();f.close();}
+});
+test('an unacked retry with the same client key stores one message',async()=>{
+  const f=fixture();try{const c=await managedChat(f),body={text:'once',clientKey:'retry-same'};
+    const first=await c.command('alice','send',body),second=await c.command('alice','send',body);await f.drain();
+    assert.equal(first.message.id,second.message.id);
+    assert.equal((await c.command('alice','history')).messages.length,1);
+  }finally{await f.drain();f.close();}
+});
+test('socket lifetime follows the account session and a revocation lookup error does not close it',async()=>{
+  const now=1_700_000_000_000;
+  assert.equal(chatSocketExpires(now+3*3600*1000,now),now+3*3600*1000);
+  assert.equal(chatSocketExpires(0,now),now+20*60*1000);
+  assert.equal(chatSocketExpires(Number.NaN,now),now+20*60*1000);
+  const f=fixture();try{
+    f.env.MEDIA={head:async()=>{throw new Error('r2 down');}};await f.boot();const inbox=f.env.CHAT_INBOX.get('alice');
+    const socket={messages:[],closes:[],deserializeAttachment:()=>({sessionId:'c'.repeat(32),expires:now+60000}),send(value){this.messages.push(JSON.parse(value));},close(code){this.closes.push(code);}};
+    inbox.ctx.getWebSockets().push(socket);
+    inbox.broadcast({seq:1});await f.drain();
+    assert.equal(socket.closes.length,0);assert.equal(socket.messages.length,0);
+    const c=await managedChat(f);assert.deepEqual(await c.command('alice','ping'),{ok:true});
+    f.env.CHAT_INBOX.get('alice').baseEnv.CONTENT_WRITES='false';
+    assert.deepEqual(await c.command('alice','ping'),{ok:true});
   }finally{f.close();}
 });
 test('Avatars are private, group photos require staff and presence updates subscribers',async()=>{
@@ -601,6 +659,32 @@ test('ChatBridge reconciles legacy avatar, username, and profiles using legacy_a
   assert.equal(prof?.phone, '+37499123456');
 });
 
+test('a learning route exception is not rewritten as a chat failure',async()=>{
+  let called=false;
+  const worker=durableChatWorker({fetch:async()=>{called=true;throw new Error('Lesson store failed.');}},{authenticate:async()=>({id:'teacher',role:'ADMIN'})});
+  const env={CHAT_V2_ENABLED:'true',STORAGE_MODE:'production',CONTENT_ALLOWED_HOST:'lumiscia.org',CONTENT_SESSION_SECRET:'fixture'};
+  await assert.rejects(worker.fetch(new Request('https://lumiscia.org/api/exams/assign',{method:'POST',headers:{Origin:'https://lumiscia.org'}}),env,{waitUntil(){}}),e=>e.message==='Lesson store failed.');
+  assert.equal(called,true);
+});
+test('a failed chat invalidate does not cancel a group save',async()=>{
+  let saved=false;
+  const bridge={idFromName:()=>'global',get:()=>({fetch:async()=>{throw new Error('bridge down');}})};
+  const worker=durableChatWorker({fetch:async()=>{saved=true;return Response.json({saved:true});}},{authenticate:async()=>({id:'teacher',role:'ADMIN'})});
+  const env={CHAT_V2_ENABLED:'true',CHAT_BRIDGE:bridge,STORAGE_MODE:'production',CONTENT_ALLOWED_HOST:'lumiscia.org',CONTENT_SESSION_SECRET:'fixture'};
+  const response=await worker.fetch(new Request('https://lumiscia.org/api/groups/manage',{method:'POST',headers:{Origin:'https://lumiscia.org'}}),env,{waitUntil(){}});
+  assert.equal(saved,true);
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).saved,true);
+});
+test('a chat route still reports chat unavailable',async()=>{
+  let called=false;
+  const worker=durableChatWorker({fetch:async()=>{called=true;return Response.json({ok:true});}},{authenticate:async()=>{throw new Error('boom');}});
+  const env={CHAT_V2_ENABLED:'true',STORAGE_MODE:'production',CONTENT_ALLOWED_HOST:'lumiscia.org',CONTENT_SESSION_SECRET:'fixture'};
+  const response=await worker.fetch(new Request('https://lumiscia.org/api/messages/socket',{headers:{Upgrade:'websocket',Origin:'https://lumiscia.org'}}),env,{waitUntil(){}});
+  assert.equal(response.status,503);
+  assert.equal((await response.json()).error,'Chat temporarily unavailable.');
+  assert.equal(called,false);
+});
 test('POST /api/me/account does not trigger CHAT_BRIDGE /invalidate', async () => {
   let invalidated = false;
   const student = { id: 1, role: 'USER', name: 'Student', login: 'student' };

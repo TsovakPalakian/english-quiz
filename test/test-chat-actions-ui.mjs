@@ -215,8 +215,10 @@ async function waitForTicks(count = 3) {
   }
 }
 
-test('Chat initializes conversation room and loads message timeline without errors', async () => {
-  const { doc } = createChatEnvironment();
+test('Chat initializes conversation room and loads message timeline without errors', async (t) => {
+  const env = createChatEnvironment();
+  t.after(() => env.win.happyDOM.close());
+  const { doc } = env;
 
   // Click room to open
   const roomNode = doc.querySelector('[data-msg-room="room-101"]');
@@ -234,8 +236,10 @@ test('Chat initializes conversation room and loads message timeline without erro
   assert.equal(messages[1].classList.contains('is-own'), false);
 });
 
-test('Pinning and unpinning messages updates pinned bar and dispatches WebSocket requests', async () => {
-  const { doc, state } = createChatEnvironment();
+test('Pinning and unpinning messages updates pinned bar and dispatches WebSocket requests', async (t) => {
+  const env = createChatEnvironment();
+  t.after(() => env.win.happyDOM.close());
+  const { doc, state } = env;
 
   // Open conversation
   doc.querySelector('[data-msg-room="room-101"]').click();
@@ -285,8 +289,10 @@ test('Pinning and unpinning messages updates pinned bar and dispatches WebSocket
   assert.equal(unpinReq.body.pinned, false);
 });
 
-test('Quoting messages mounts reply draft and delivers quote metadata with outgoing message', async () => {
-  const { doc, state } = createChatEnvironment();
+test('Quoting messages mounts reply draft and delivers quote metadata with outgoing message', async (t) => {
+  const env = createChatEnvironment();
+  t.after(() => env.win.happyDOM.close());
+  const { doc, state } = env;
 
   doc.querySelector('[data-msg-room="room-101"]').click();
   await waitForTicks(5);
@@ -319,8 +325,10 @@ test('Quoting messages mounts reply draft and delivers quote metadata with outgo
   assert.equal(replyDraft.hidden, true, 'Reply preview must be hidden after message is sent');
 });
 
-test('Message author permissions enforce canEdit guard preventing unauthorized edits', async () => {
-  const { doc } = createChatEnvironment();
+test('Message author permissions enforce canEdit guard preventing unauthorized edits', async (t) => {
+  const env = createChatEnvironment();
+  t.after(() => env.win.happyDOM.close());
+  const { doc } = env;
 
   doc.querySelector('[data-msg-room="room-101"]').click();
   await waitForTicks(5);
@@ -345,8 +353,10 @@ test('Message author permissions enforce canEdit guard preventing unauthorized e
   assert.equal(peerEditAction, null, 'Peer message must not display Edit option');
 });
 
-test('Realtime server deletion event replaces message content with deleted placeholder without page reload', async () => {
-  const { doc, state } = createChatEnvironment();
+test('Realtime server deletion event replaces message content with deleted placeholder without page reload', async (t) => {
+  const env = createChatEnvironment();
+  t.after(() => env.win.happyDOM.close());
+  const { doc, state } = env;
 
   doc.querySelector('[data-msg-room="room-101"]').click();
   await waitForTicks(5);
@@ -384,8 +394,10 @@ test('Realtime server deletion event replaces message content with deleted place
   assert.ok(messageNode.textContent.includes('Message deleted'), 'Message body must display deletion notice');
 });
 
-test('Realtime incoming message event appends new message card seamlessly to active timeline', async () => {
-  const { doc, state } = createChatEnvironment();
+test('Realtime incoming message event appends new message card seamlessly to active timeline', async (t) => {
+  const env = createChatEnvironment();
+  t.after(() => env.win.happyDOM.close());
+  const { doc, state } = env;
 
   doc.querySelector('[data-msg-room="room-101"]').click();
   await waitForTicks(5);

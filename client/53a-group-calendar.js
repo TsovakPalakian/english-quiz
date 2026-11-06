@@ -10,6 +10,13 @@
     return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  async function dispatchCalendarChat(groupId, text, options) {
+    if (typeof window.sendGroupChatMessage !== 'function') throw new Error('Chat is unavailable.');
+    const res = await window.sendGroupChatMessage(groupId, text, options);
+    if (!res || !(res.id || res.success || res.message || res.roomId)) throw new Error('Message dispatch unconfirmed');
+    return res;
+  }
+
   const groupWidgetStates = new Map();
 
   function getMonthData(state, monthKey) {
@@ -1322,21 +1329,18 @@
           msgLines.push(reason ? `Reason: ${reason}` : 'Reason: Not specified');
           const chatMsg = msgLines.join('\n');
 
-          if (typeof window.sendGroupChatMessage === 'function') {
-            await window.sendGroupChatMessage(groupId, chatMsg, { category: 'personal' });
-          } else {
-            await fetchFn('/api/messages/send', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'include',
-              body: JSON.stringify({
-                roomId: 'group:' + groupId,
-                category: 'personal',
-                clientKey: 'gcw-absence-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-                text: chatMsg
-              }),
-              quietBug: true
-            }).catch(() => {});
+          try {
+            await dispatchCalendarChat(groupId, chatMsg, { category: 'personal' });
+          } catch {
+            if (statusBox) {
+              statusBox.style.display = 'block';
+              statusBox.style.color = '#b91c1c';
+              statusBox.textContent = 'Absence recorded. The chat notice could not be sent. Check the chat connection.';
+            }
+            reportBtn.remove();
+            if (reasonInput) reasonInput.disabled = true;
+            if (container && state && typeof renderCalendar === 'function') renderCalendar(container, state);
+            return;
           }
 
           if (statusBox) {
@@ -2282,56 +2286,13 @@
             await window.ensureMessages();
           }
 
-          let sent = false;
-          if (typeof window.sendGroupChatMessage === 'function') {
-            const res = await window.sendGroupChatMessage(groupId, msgText, { category: 'learning' });
-            sent = Boolean(res && (res.id || res.success || res.message || res.roomId));
-          }
+          await dispatchCalendarChat(groupId, msgText, { category: 'learning' });
 
-          if (!sent) {
-            const fetchFn = typeof accountFetch === 'function' ? accountFetch : fetch;
-            let openRes = null;
-            try {
-              const res = await fetchFn('/api/messages/open', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ kind: 'group', groupId: Number(groupId) }),
-                quietBug: true
-              });
-              openRes = res && typeof res.json === 'function' ? await res.json() : res;
-            } catch {}
-
-            const roomId = (openRes && openRes.roomId) ? openRes.roomId : ('group:' + groupId);
-            let sendRes = null;
-            try {
-              const res = await fetchFn('/api/messages/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                  roomId,
-                  category: 'learning',
-                  clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-                  text: msgText
-                }),
-                quietBug: true
-              });
-              sendRes = res && typeof res.json === 'function' ? await res.json() : res;
-            } catch {}
-
-            sent = Boolean(sendRes && (sendRes.id || sendRes.sent || sendRes.success || sendRes.clientKey));
-          }
-
-          if (sent) {
-            if (statusNode) {
-              statusNode.textContent = 'Report dispatched to ' + state.groupTitle + ' chat.';
-              statusNode.style.display = 'block';
-              statusNode.style.color = '#065f46';
-              setTimeout(() => { if (statusNode) statusNode.style.display = 'none'; }, 4000);
-            }
-          } else {
-            throw new Error('Message dispatch unconfirmed');
+          if (statusNode) {
+            statusNode.textContent = 'Report dispatched to ' + state.groupTitle + ' chat.';
+            statusNode.style.display = 'block';
+            statusNode.style.color = '#065f46';
+            setTimeout(() => { if (statusNode) statusNode.style.display = 'none'; }, 4000);
           }
         } catch (err) {
           if (statusNode) {

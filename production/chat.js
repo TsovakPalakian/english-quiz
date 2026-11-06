@@ -803,8 +803,27 @@
       socket.send(JSON.stringify({ requestId, action, body }));
     });
   }
+  function chatReconnectPlan(count, event = {}) {
+    if (event.force || event.opened) return { count: 0, delay: 0, stop: false, signOut: false };
+    if (event.code === 1000 || event.code === 4003)
+      return { count, delay: 0, stop: true, signOut: event.code === 4003 };
+    if (count >= 8) return { count, delay: 0, stop: true, signOut: false };
+    return { count: count + 1, delay: Math.min(30000, 700 * 2 ** count), stop: false, signOut: false };
+  }
+  let pingTimer = 0;
+  function stopPing() {
+    clearInterval(pingTimer);
+    pingTimer = 0;
+  }
+  function startPing() {
+    stopPing();
+    pingTimer = setInterval(() => {
+      if (ready && socket?.readyState === WebSocket.OPEN) request('ping').catch(() => {});
+    }, 30000);
+  }
   function disconnect() {
     clearTimeout(reconnectTimer);
+    stopPing();
     ready = false;
     const old = socket;
     socket = null;
@@ -821,7 +840,7 @@
       try { socket.close(); } catch {}
       socket = null;
     }
-    reconnectCount = 0;
+    if (force) reconnectCount = chatReconnectPlan(reconnectCount, { force: true }).count;
     clearTimeout(reconnectTimer);
     const gen = generation;
     status('Connecting...');
@@ -862,7 +881,8 @@
         }
         const reconnect = ready;
         ready = true;
-        reconnectCount = 0;
+        reconnectCount = chatReconnectPlan(reconnectCount, { opened: true }).count;
+        startPing();
         data = value.data;
         if ((data.catalogVersion || 0) !== catalogVersion) {
           catalogVersion = data.catalogVersion || 0;
@@ -897,6 +917,7 @@
           if (data.rooms.some((row) => row.id === saved)) openRoom(saved).catch((error) => status(error.message));
         }
         acknowledgeSnapshot();
+        flushUnacked();
       } else if (value.type === 'event') {
         seq = Math.max(seq, value.seq || 0);
         receive(value.event);
@@ -905,24 +926,21 @@
     ws.onclose = (event) => {
       if (socket !== ws || gen !== generation) return;
       disconnect();
-      if (event.code === 1000 || event.code === 1005) return;
-      if (event.code === 4003) {
-        if (current() && typeof leaveAccount === 'function') void leaveAccount({ signedOut: true });
+      const plan = chatReconnectPlan(reconnectCount, { code: event.code });
+      reconnectCount = plan.count;
+      if (plan.signOut && current() && typeof leaveAccount === 'function') void leaveAccount({ signedOut: true });
+      if (event.code !== 1000 && event.code !== 4003) void window.DatabaseContext?.check?.();
+      if (plan.stop) {
+        if (!plan.signOut && event.code !== 1000) status('Chat unavailable. Click Chats to reconnect.');
         return;
       }
-      void window.DatabaseContext?.check?.();
       if (!signedIn()) return;
       if (event.code === 4001 || event.code === 4002) {
         status('Chat permissions updated. Reconnecting...');
       } else {
         status('Connection interrupted. Reconnecting...');
       }
-      if (reconnectCount >= 8) {
-        status('Chat unavailable. Click Chats to reconnect.');
-        return;
-      }
-      const delay = Math.min(30000, 700 * 2 ** reconnectCount++) + Math.random() * 300;
-      reconnectTimer = setTimeout(connect, delay);
+      reconnectTimer = setTimeout(connect, plan.delay + Math.random() * 300);
     };
     ws.onerror = () => {
       if (socket === ws) status('Unable to connect. Your draft is saved.');
@@ -2417,6 +2435,73 @@
     scheduleRead();
     if (bottom()) el('msgLatest').hidden = true;
   });
+  function chatUnackedSend(saved) {
+    if (!saved || typeof saved.clientKey !== 'string' || !saved.clientKey) return null;
+    return saved;
+  }
+  async function transmit(sent) {
+    const gen = generation;
+    let succeeded = false;
+    busy = true;
+    composer.disabled = true;
+    el('msgSend').disabled = true;
+    el('msgSendState').textContent = 'Sending...';
+    paintUploads();
+    if (kind === sent.category) {
+      mergeNode({ ...sent, id: 'pending', senderId: account, sender: data.profile?.name || 'Me', pending: true });
+      timeline.scrollTop = timeline.scrollHeight;
+    }
+    try {
+      const result = await request('send', sent);
+      if (gen !== generation || pending !== sent) return;
+      const cache = historyCache.get(sent.roomId + ':' + sent.category);
+      if (cache && !cache.rows.some((m) => m.id === result.message.id)) cache.rows.push(result.message);
+      if (room === sent.roomId && kind === sent.category) mergeNode(result.message);
+      if (sent.category === 'personal') {
+        const currentRoom = data.rooms.find((r) => r.id === sent.roomId);
+        if (currentRoom?.personalHidden)
+          setRoomSettings(sent.roomId, { personalHidden: false }).catch(() => {});
+        else {
+          if (currentRoom) {
+            currentRoom.hadPersonal = true;
+            if (currentRoom.has) currentRoom.has.personal = true;
+          }
+          paintRooms();
+        }
+      }
+      pending = null;
+      if (composer.value.trim() === sent.text) {
+        reply = null;
+        files = [];
+        format = null;
+        composer.value = '';
+        window.TextColors?.sync(composer, null);
+      }
+      paintDraft();
+      remember();
+      el('msgSendState').textContent = '';
+      succeeded = true;
+    } catch (error) {
+      if (gen !== generation) return;
+      el('msgSendState').textContent = error.message;
+      if (room === sent.roomId && kind === sent.category)
+        mergeNode({ ...sent, id: 'pending', senderId: account, sender: data.profile?.name || 'Me', failed: true });
+    } finally {
+      busy = false;
+      composer.disabled = false;
+      el('msgSend').disabled = false;
+      paintUploads();
+      if (succeeded && gen === generation && room === sent.roomId && active() && !el('msgCompose').hidden) {
+        window.TextColors?.sync(composer, null);
+        focusComposer();
+      }
+    }
+  }
+  function flushUnacked() {
+    const sent = chatUnackedSend(pending);
+    if (!sent || busy) return;
+    void transmit(sent);
+  }
   async function send() {
     if(recordGesture){finishRecording(false);return;}
     if ([...uploads.values()].some((item) => item.roomId === room && !item.cancelled)) {
@@ -2443,61 +2528,7 @@
     if (!pending || Object.keys(body).some((k) => JSON.stringify(body[k]) !== JSON.stringify(pending[k])))
       pending = { ...body, clientKey: crypto.randomUUID(), createdMs: Date.now() };
     remember();
-    busy = true;
-    composer.disabled = true;
-    el('msgSend').disabled = true;
-    el('msgSendState').textContent = 'Sending...';
-    paintUploads();
-    const sent = pending,
-      gen = generation;
-    let succeeded = false;
-    if (kind === category) {
-      mergeNode({ ...sent, id: 'pending', senderId: account, sender: data.profile?.name || 'Me', pending: true });
-      timeline.scrollTop = timeline.scrollHeight;
-    }
-    try {
-      const result = await request('send', sent);
-      if (gen !== generation || room !== sent.roomId) return;
-      const cache = historyCache.get(room + ':' + category);
-      if (cache && !cache.rows.some((m) => m.id === result.message.id)) cache.rows.push(result.message);
-      if (kind === category) mergeNode(result.message);
-      if (category === 'personal') {
-        const currentRoom = data.rooms.find((r) => r.id === sent.roomId);
-        if (currentRoom?.personalHidden)
-          setRoomSettings(sent.roomId, { personalHidden: false }).catch(() => {});
-        else {
-          if (currentRoom) {
-            currentRoom.hadPersonal = true;
-            if (currentRoom.has) currentRoom.has.personal = true;
-          }
-          paintRooms();
-        }
-      }
-      pending = null;
-      reply = null;
-      files = [];
-      format = null;
-      composer.value = '';
-      window.TextColors?.sync(composer, null);
-      paintDraft();
-      remember();
-      el('msgSendState').textContent = '';
-      succeeded = true;
-    } catch (error) {
-      if (gen !== generation) return;
-      el('msgSendState').textContent = error.message;
-      if (kind === category)
-        mergeNode({ ...sent, id: 'pending', senderId: account, sender: data.profile?.name || 'Me', failed: true });
-    } finally {
-      busy = false;
-      composer.disabled = false;
-      el('msgSend').disabled = false;
-      paintUploads();
-      if (succeeded && gen === generation && room === sent.roomId && active() && !el('msgCompose').hidden) {
-        window.TextColors?.sync(composer, null);
-        focusComposer();
-      }
-    }
+    await transmit(pending);
   }
   el('msgCompose').onsubmit = (event) => {
     event.preventDefault();
