@@ -3012,7 +3012,7 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 #lmNew, #examNew { margin: 0 0 12px; }
 #groups .meta #groupNew { margin: 0 0 0 auto; margin-top: -6px; white-space: nowrap; flex-shrink: 0; }
 #examblocks .meta { align-items: flex-start; }
-#examblocks .meta #examBlockNew { margin: 0 0 0 auto; margin-top: 0; white-space: nowrap; flex-shrink: 0; }
+#examblocks .meta #examBlockNew { margin: 0 0 0 auto; margin-top: -8px; white-space: nowrap; flex-shrink: 0; }
 .date-control { display: grid; grid-template-columns: minmax(0, 1fr) 42px; width: 100%; }
 .date-control input { min-width: 0; border-radius: 14px 0 0 14px; }
 .date-picker-btn {
