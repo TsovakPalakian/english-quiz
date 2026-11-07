@@ -263,26 +263,14 @@
         return {left:r.left-extra,right:r.right+extra,top:r.top-extra,bottom:r.bottom+extra,width:r.width+extra*2,height:r.height+extra*2,element:n.id?'#'+n.id:'.'+[...n.classList].join('.')};
       }).filter(r=>r.width&&r.height);
   }
-  function textBoxes(mode){
+  function textBoxes(){
     const result=[];
-    for(const root of document.querySelectorAll((mode==='home'?'#homeAuth,#home .brand-copy':'#accountBody,#account .brand-copy')+',.site-copyright')){
+    for(const root of document.querySelectorAll('.site-copyright')){
       const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
       while(walker.nextNode()){
         if(!walker.currentNode.textContent.trim())continue;
         const node=walker.currentNode,range=document.createRange();
-        if(root.matches('.brand-copy')){
-          for(let i=0;i<node.length;i++)if(node.textContent[i].trim()){
-            range.setStart(node,i);range.setEnd(node,i+1);
-            result.push(...[...range.getClientRects()].map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom,tight:true})));
-          }
-        }else{range.selectNodeContents(node);result.push(...range.getClientRects());}
-      }
-      for(const input of root.querySelectorAll('input')){
-        const r=input.getBoundingClientRect();if(!r.width||!r.height)continue;
-        const css=getComputedStyle(input),text=input.type==='password'&&input.value?'•'.repeat(input.value.length):input.value||input.placeholder;
-        if(!text)continue;ctx.font=css.font;
-        const left=r.left+parseFloat(css.paddingLeft),top=r.top+(r.height-parseFloat(css.fontSize))/2;
-        result.push({left,top,right:Math.min(r.right-8,left+ctx.measureText(text).width+4),bottom:top+parseFloat(css.fontSize)+3});
+        range.selectNodeContents(node);result.push(...range.getClientRects());
       }
     }
     return result.filter(r=>r.right>r.left&&r.bottom>r.top).map(r=>({left:r.left,top:r.top,right:r.right,bottom:r.bottom,tight:!!r.tight}));
@@ -301,8 +289,8 @@
     const delay=()=>geometry.flybyDelay()*(mode==='home'?2+Math.random()*3:1);
     const firstDelay=delay();let flybys=[],nextFlybyAt=performance.now()+firstDelay;
     canvas.dataset.skyFlybyDelay=String(firstDelay);
-    let textRects=textBoxes(mode);
-    refreshText=()=>{textRects=textBoxes(mode);if(motion.matches)redraw?.();};
+    let textRects=textBoxes();
+    refreshText=()=>{textRects=textBoxes();if(motion.matches)redraw?.();};
     const logoRects=[...document.querySelectorAll(mode==='home'?'#home .studio-brand .brand-mark':'#account .auth-brand .brand-mark')].map(n=>n.getBoundingClientRect()).filter(r=>r.width&&r.height).map(pad);
     const backgroundObstacles=logoRects.map(r=>geometry.shape((r.left+r.right)/2,(r.top+r.bottom)/2,(r.right-r.left)/2,(r.bottom-r.top)/2,'rounded'));
     const inside=p=>obstacles.some(o=>geometry.contains(p,o.points));
@@ -965,8 +953,8 @@
         ctx.restore();
       }
       ctx.restore();
-      // Protect branding and glyphs, not the transparent backgrounds of controls.
-      for(const b of [...logoRects,...labels])ctx.clearRect(b.left-1,b.top-1,b.right-b.left+2,b.bottom-b.top+2);
+      // The emblem and copyright keep a clear patch. Constellation and star names stay transparent.
+      for(const b of logoRects)ctx.clearRect(b.left-1,b.top-1,b.right-b.left+2,b.bottom-b.top+2);
       for(const r of textRects){const pad=r.tight?0:2;ctx.clearRect(r.left-pad,r.top-(r.tight?0:1),r.right-r.left+pad*2,r.bottom-r.top+(r.tight?0:2));}
       ctx.restore();
       links.forEach((link,i)=>{

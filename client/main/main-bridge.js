@@ -619,6 +619,7 @@
       return api(path+encodeURIComponent(item.stageId)+'/dictionary');
     },
     unsupported:operation=>{const message=`Операция «${operation||'изменение'}» ещё не перенесена и не записана на сервер. Доступны точечные карточки, уроки, тексты/песни, прогресс, личная статистика и медиа в изолированном хранилище.`;notice(message,true);reportClientBug({method:'CLIENT',path:'/unsupported',status:0,error:message,stack:new Error(message).stack});},
+    cardAnswerId(card){try{return studyCard(card);}catch{return null;}},
     answer(card,type,correct){
       const c=studyCard(card);enqueuePersonal({kind:'answer',key:c.stageId+'|'+type,cardId:c.stageId,type,correct,path:'/api/cards/'+encodeURIComponent(c.stageId)+'/answers',method:'POST'});
     },

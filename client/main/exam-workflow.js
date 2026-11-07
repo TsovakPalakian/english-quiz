@@ -214,6 +214,10 @@ document.addEventListener('click',event=>{
     button.textContent='Feedback applied ✓';button.disabled=true;
   }
 });
+function examAssignStudents(users,memberIds,developer){
+  const ids=new Set([...(memberIds||[])].map(id=>String(id)));
+  return (users||[]).filter(user=>user&&user.role==='USER'&&user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked&&(!user.hidden||developer)&&ids.has(String(user.id)));
+}
 document.addEventListener('click',async event=>{
   const button=event.target.closest('[data-exam-assign]');if(!button||!canEditLessons())return;
   const examId=Number(button.dataset.examAssign),groupId=Number(examViewGroup),actor=authUser?.id;
@@ -221,8 +225,8 @@ document.addEventListener('click',async event=>{
   try{
     const [membership,accounts]=await Promise.all([accountFetch('/api/groups/members'),accountFetch('/api/admin/users')]);
     if(authUser?.id!==actor||Number(examViewGroup)!==groupId)return;
-    const ids=new Set((membership.members||[]).filter(row=>Number(row.groupId)===groupId).map(row=>row.accountId));
-    const students=(accounts.users||[]).filter(user=>user.role==='USER'&&user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked&&ids.has(user.id));
+    const ids=(membership.members||[]).filter(row=>Number(row.groupId)===groupId).map(row=>row.accountId);
+    const students=examAssignStudents(accounts.users,ids,typeof isDeveloper==='function'&&isDeveloper());
     const exam=examFind(examId),group=classGroups.find(item=>Number(item.id)===groupId);
     const dialog=document.createElement('dialog');dialog.className='display-panel content-copy-panel exam-assign-dialog';
     dialog.innerHTML='<form><div class="display-head"><h2>Assign exam</h2><button type="button" class="btn icon" data-close aria-label="Close" title="Close">&times;</button></div><p class="sub">'+esc(exam?.title||'Exam')+'</p><fieldset><label>Recipient<select name="student" required><option value="group">'+esc('Whole group · '+(group?.title||'Current subgroup'))+'</option>'+students.map(user=>'<option value="'+esc(user.id)+'">'+esc(user.name||user.login)+'</option>').join('')+'</select></label></fieldset><p class="sub" role="status">'+(students.length?'':'No active students in this subgroup.')+'</p><div class="content-copy-actions"><button class="btn" type="button" data-cancel>Cancel</button><button type="submit" class="btn primary"'+(students.length?'':' disabled')+'>Assign exam</button></div></form>';

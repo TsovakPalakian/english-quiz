@@ -91,10 +91,11 @@ test('dictionary Add word waits for the server and reports a retryable failure',
 });
 test('day quiz keeps readable cards and drops a card the student cannot read',async()=>{
   const bridge=readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8');
-  const code=extractFunction(core,'dayQuizReadableCards')+'\n'+extractFunction(core,'dayQuizWithoutCard')+'\n'+extractFunction(core,'dayQuizVisibleCards')+'\n'+extractFunction(bridge,'personalAnswer404')+'\n'+extractFunction(bridge,'runPersonal');
-  const visible={stageId:1,en:'seen'},hidden={stageId:3653,en:'closed'},local={en:'local'};
+  const code=extractFunction(core,'dayQuizServerId')+'\n'+extractFunction(core,'dayQuizReadableCards')+'\n'+extractFunction(core,'dayQuizWithoutCard')+'\n'+extractFunction(core,'dayQuizVisibleCards')+'\n'+extractFunction(bridge,'personalAnswer404')+'\n'+extractFunction(bridge,'runPersonal');
+  const visible={stageId:1,en:'seen'},hidden={stageId:3653,en:'closed'},local={en:'local'},linked={en:'alias'};
   const calls=[];const events=[];
   const scope={
+    LearningMain:{cardAnswerId:card=>card===linked?{stageId:3653}:null},
     accountFetch:async()=>({cards:[{stageId:1}]}),
     personalRunning:false,busy:false,pending:null,personalReady:true,actorId:'student',
     personalQueue:[
@@ -108,8 +109,15 @@ test('day quiz keeps readable cards and drops a card the student cannot read',as
     async api(){calls.push('post');const error=new Error('Card not found.');error.status=404;throw error;}
   };
   runInNewContext(code,scope);
-  const kept=await scope.dayQuizVisibleCards([visible,hidden,local]);
+  const kept=await scope.dayQuizVisibleCards([visible,hidden,local,linked]);
   assert.deepEqual(kept,[visible,local]);
+  scope.accountFetch=async()=>{throw Error('offline');};
+  assert.deepEqual(await scope.dayQuizVisibleCards([visible,hidden,local]),[local]);
+  scope.accountFetch=async()=>({cards:[{id:1}]});
+  const alias={en:'seen-again'};
+  scope.LearningMain.cardAnswerId=card=>card===alias?{stageId:1}:null;
+  const saved=await scope.dayQuizVisibleCards([alias]);
+  assert.equal(saved[0].stageId,'1');
   assert.deepEqual(scope.dayQuizReadableCards([visible,hidden],[1]).map(card=>card.stageId),[1]);
   await scope.runPersonal();
   assert.deepEqual(calls,['post']);

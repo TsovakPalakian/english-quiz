@@ -45,20 +45,26 @@ try{
     yield "03. setViewportSize" + " [" + String(reducedMotion) + "]";
     await page.setViewportSize({width:1360,height:1000});await page.clock.runFor(100);
     assert.equal(await sky.getAttribute('data-sky-constellation'),initial,'Relayout during absence preserves the frozen constellation');
-    const back=()=>page.evaluate(()=>{
+    const back=(leaveAfter)=>page.evaluate(delay=>{
       window.skyHidden=false;window.skyFocused=true;
       document.dispatchEvent(new Event('visibilitychange'));window.dispatchEvent(new Event('focus'));
-    });
-    await back();
+      if(!delay)return;
+      setTimeout(()=>{window.skyFocused=false;window.dispatchEvent(new Event('blur'));},delay);
+    },leaveAfter||0);
+    await back(4900);
     yield "04. runFor" + " [" + String(reducedMotion) + "]";
     await page.clock.runFor(4900);
     assert.equal(await sky.getAttribute('data-sky-constellation'),initial,'Returning does not skip the five-second wait');
-    await page.evaluate(()=>{window.skyFocused=false;window.dispatchEvent(new Event('blur'));});
     await page.clock.fastForward(30000);
     yield "05. checks" + " [" + String(reducedMotion) + "]";
     assert.equal(await sky.getAttribute('data-sky-constellation'),initial,'Leaving for another window cancels the countdown');
-    await back();await page.clock.runFor(4900);
-    assert.equal(await sky.getAttribute('data-sky-constellation'),initial,'A new return starts a full five-second wait');
+    await page.evaluate(()=>{
+      window.skyHidden=false;window.skyFocused=true;
+      document.dispatchEvent(new Event('visibilitychange'));window.dispatchEvent(new Event('focus'));
+      setTimeout(()=>{window.__skyAtDeadline=document.getElementById('authSky').dataset.skyConstellation;},4900);
+    });
+    await page.clock.runFor(4900);
+    assert.equal(await page.evaluate(()=>window.__skyAtDeadline),initial,'A new return starts a full five-second wait');
     yield "06. runFor" + " [" + String(reducedMotion) + "]";
     await page.clock.runFor(150);
     assert.notEqual(await sky.getAttribute('data-sky-constellation'),initial,'A new constellation follows the wait');

@@ -245,3 +245,11 @@ test('exam publish points at the empty Answer field before the request',async()=
   assert.equal(input.focused,true);assert.equal(input.classList.added,'bad');
   assert.equal(task.maxPoints,3);assert.equal(answer.maxPoints,'');
 });
+test('exam assignment list omits a hidden student the server directory cannot see',()=>{
+  const workflow=readFileSync(new URL('../client/main/exam-workflow.js',import.meta.url),'utf8');
+  const scope={};
+  vm.runInNewContext(extractFunction(workflow,'examAssignStudents'),scope);
+  const users=[{id:10,role:'USER',active:true,name:'Ten'},{id:11,role:'USER',active:true,hidden:true,name:'Hidden'},{id:12,role:'USER',active:false,name:'Idle'},{id:13,role:'ADMIN',active:true,name:'Staff'}];
+  assert.deepEqual(scope.examAssignStudents(users,['10','11','12',13],false).map(user=>user.id),[10]);
+  assert.deepEqual(scope.examAssignStudents(users,['10','11'],true).map(user=>user.id),[10,11]);
+});

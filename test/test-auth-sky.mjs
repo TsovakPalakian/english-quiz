@@ -156,3 +156,12 @@ for(let i=0;i<200;i++){
   durations.add(star.duration);alphas.add(star.alpha);
 }
 assert.equal(directions.size,4);assert.equal(counts.size,2);assert.ok(durations.size>100&&alphas.size>100);
+assert.match(renderer,/mag<=3\.5\?Math\.max\(5,Math\.min\(Math\.min\(28,/);
+assert.match(renderer,/'200,220,240',false,brightness\.background\)/);
+assert.doesNotMatch(renderer,/skyStarFlare|skyDustTrail|__triggerEncounter/);
+const textSource=renderer.slice(renderer.indexOf('function textBoxes('),renderer.indexOf('function start('));
+assert.match(textSource,/querySelectorAll\('\.site-copyright'\)/);
+assert.doesNotMatch(textSource,/#homeAuth|#accountBody|\.brand-copy/,'Guest lettering is not punched out of the sky');
+const clearSource=renderer.slice(renderer.indexOf('for(const b of logoRects)'),renderer.indexOf('for(const r of textRects)'));
+assert.match(clearSource,/for\(const b of logoRects\)ctx\.clearRect/);
+assert.doesNotMatch(clearSource,/labels/,'Constellation and star names do not punch a rectangle out of the sky');

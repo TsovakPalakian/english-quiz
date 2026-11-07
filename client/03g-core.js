@@ -73,12 +73,23 @@
     let dayCardTotal = 0;
     let daySetupLabel = "";
     let dayPoolStrict = false;
+    function dayQuizServerId(card) {
+      const direct = card && card.stageId != null ? String(card.stageId) : '';
+      if (/^[1-9]\d{0,15}$/.test(direct)) return direct;
+      if (typeof LearningMain === 'undefined' || typeof LearningMain.cardAnswerId !== 'function') return '';
+      let resolved = null;
+      try { resolved = LearningMain.cardAnswerId(card); } catch { return ''; }
+      const id = resolved && resolved.stageId != null ? String(resolved.stageId) : '';
+      return /^[1-9]\d{0,15}$/.test(id) ? id : '';
+    }
     function dayQuizReadableCards(cards, readableIds) {
       const allowed = new Set((readableIds || []).map(id => String(id)));
       return (cards || []).filter(card => {
-        const id = card && card.stageId != null ? String(card.stageId) : '';
-        if (!/^[1-9]\d{0,15}$/.test(id)) return true;
-        return allowed.has(id);
+        const id = dayQuizServerId(card);
+        if (!id) return true;
+        if (!allowed.has(id)) return false;
+        if (card && !/^[1-9]\d{0,15}$/.test(String(card.stageId || ''))) card.stageId = id;
+        return true;
       });
     }
     function dayQuizWithoutCard(queue, index, cardId) {
@@ -92,10 +103,12 @@
       const source = Array.isArray(cards) ? cards : [];
       const ids = [];
       for (const card of source) {
-        const id = card && /^[1-9]\d{0,15}$/.test(String(card.stageId || '')) ? String(card.stageId) : '';
+        const id = dayQuizServerId(card);
         if (id && !ids.includes(id)) ids.push(id);
       }
-      if (!ids.length || typeof accountFetch !== 'function') return source;
+      if (!ids.length) return source;
+      const unread = () => source.filter(card => !dayQuizServerId(card));
+      if (typeof accountFetch !== 'function') return unread();
       const readable = [];
       try {
         for (let i = 0; i < ids.length; i += 50) {
@@ -105,7 +118,7 @@
             if (id != null) readable.push(id);
           }
         }
-      } catch { return source; }
+      } catch { return unread(); }
       return dayQuizReadableCards(source, readable);
     }
     function quizPool() {
