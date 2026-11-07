@@ -116,7 +116,7 @@ test('complete password reset flow sends email OTP and updates user credentials'
     const codeData = await codeRes.json();
     assert.equal(codeData.ok, true);
     assert.equal(codeData.email, 'learner@example.test');
-    assert.equal(codeData.ttlSec, 600);
+    assert.equal(codeData.ttlSec, 3600);
 
     // Verify email contents
     assert.equal(f.sentEmails.length, 1);

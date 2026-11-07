@@ -13658,7 +13658,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         flash = sessionStorage.getItem("enquiz-auth-flash") || "";
         if (flash) sessionStorage.removeItem("enquiz-auth-flash");
       } catch (e) {}
-      const flashHtml = flash ? '<p class="hint" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
+      const flashHtml = flash ? '<p class="hint auth-flash" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       const tabs='<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
       const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="128" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–128 characters</p>':'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
@@ -13676,15 +13676,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         }
         const teacherInvite=inviteDetails?.kind==='teacher'&&!!invite;
         const inviteHint = invite
-          ? '<p class="hint">'+(teacherInvite?'Verify your invited email. Your account needs approval by the inviting teacher or a developer before you join the group.':'Your invitation approves your student account automatically and adds you to the group.')+'</p>'
+          ? '<p class="hint notice-group">'+(teacherInvite?'Invited teacher. Verify your email for direct access.':'Invited to group: <b>'+esc(inviteDetails?.groupTitle||'Class')+'</b>. Direct access after email verification.')+'</p>'
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         box.innerHTML = '<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1>' + flashHtml +
+          (invite?inviteHint:'') +
           '<form id="registerForm"><label for="authLogin">Login</label><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<label for="authEmail">Email</label><input class="saas-input" id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
           '<label for="authName">Name</label><input class="saas-input" id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
           passwordField(true)+
-          (teacherInvite?'<button class="btn auth-code-send saas-btn" type="button" data-invite-email-send>Send code</button><label data-otp-step hidden for="inviteEmailCode">Email code</label><input class="saas-input" data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" autocomplete="one-time-code" required />':'')+
-          '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">Create account</button></form>' +(invite?inviteHint:'')+'<div data-registration-providers hidden>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
+          (invite?'<button class="btn auth-code-send saas-btn" type="button" data-invite-email-send>Send verification code</button><label data-otp-step hidden for="inviteEmailCode">6-digit email code</label><input class="saas-input" data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" placeholder="123456" maxlength="6" autocomplete="one-time-code" required />':'')+
+          '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">'+(invite?'Create account & Join group':'Create account')+'</button></form>' +'<div data-registration-providers'+(invite?'':' hidden')+'>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
         decorate();
         return;
       }
@@ -15860,7 +15861,7 @@ const STUDIO_CONSTELLATIONS = [{
             const result=await api('/api/auth/'+provider+'/verify',{email:email.value,code:code.value});clear();
             if(!result.inviteWarning)try{sessionStorage.removeItem('enquiz-invite');}catch{}
             if(result.status==='pending'){
-              try{sessionStorage.setItem('enquiz-auth-flash','Account saved. Waiting for approval before you can sign in.');}catch{}
+              try{sessionStorage.setItem('enquiz-auth-flash','Account saved.\nWaiting for approval before you can sign in');}catch{}
               paintAccountForm(false);return;
             }
             if(result.inviteWarning)console.warn(result.inviteWarning);
@@ -19950,7 +19951,7 @@ const STUDIO_CONSTELLATIONS = [{
         const query = params.toString();
         history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
         const messages = {
-          pending: "Account saved. Waiting for teacher approval before you can sign in.",
+          pending: "Account saved.\nWaiting for teacher approval before you can sign in",
           google_denied: "Google sign-in was cancelled.",
           google_error: "Google sign-in failed. Try again.",
           invite_warning: "Signed in, but the group invite could not be applied.",
@@ -20173,7 +20174,7 @@ const STUDIO_CONSTELLATIONS = [{
             sessionStorage.removeItem('enquiz-invite');
             paintAccountForm(false);
             const pendingStatus=document.querySelector('#loginForm [data-form-status]');
-            if(pendingStatus)pendingStatus.textContent='Your email is verified and your teacher invitation has been accepted. Waiting for approval by the inviting teacher or a developer.';
+            if(pendingStatus)pendingStatus.textContent='Your email is verified and your teacher invitation has been accepted.\nWaiting for approval by the inviting teacher';
             return;
           }
           if(!result.user)throw new Error('Sign-in could not be completed. Try again.');
@@ -20205,7 +20206,7 @@ const STUDIO_CONSTELLATIONS = [{
           }
           paintAccountForm(false);
           const loginStatus = document.querySelector("#loginForm [data-form-status]");
-          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher or a developer. Your group invitation has been accepted.':"Waiting for approval. You can sign in after the teacher accepts this account.";
+          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted':"Waiting for approval.\nYou can sign in after the teacher accepts this account";
           return;
         }
         if (result.inviteWarning) console.warn(result.inviteWarning);
@@ -20302,14 +20303,20 @@ const STUDIO_CONSTELLATIONS = [{
         const code=form.querySelector('[name="code"],[name="emailCode"]');code.value='';
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
         otpSend.disabled = true;
-        accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
+        accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }), quietBug: true }).then((result) => {
           if(!form.isConnected||emailField.value!==email)return;
-          if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
+          if (status) status.textContent = "Code sent to " + (result.email || email) + ". Valid for 1 hour (1 request per 12 hours).";
           form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=false;if('disabled' in field)field.disabled=false;});
           code.focus();
         }).catch((err) => {
           if(!form.isConnected||emailField.value!==email)return;
-          if (status) { status.textContent = err.message; status.classList.add("bad"); }
+          if (status) {
+            status.textContent = err.message;
+            status.classList.add("bad");
+            if(err.message.includes('48 hours')||err.message.includes('Suspended')){
+              status.classList.add("ban");
+            }
+          }
         }).finally(() => { otpSend.disabled = false; });
         return;
       }

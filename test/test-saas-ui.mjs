@@ -219,7 +219,10 @@ try{
   await page.locator('[name="emailCode"]:visible').waitFor();
   await page.locator('[name="emailCode"]').fill('123456');
   await page.locator('#registerForm [type="submit"]').click();
-  await page.waitForFunction(()=>document.querySelector('#loginForm [data-form-status]')?.textContent.includes('inviting teacher or a developer'));
+  await page.waitForFunction(()=>{
+    const text=document.querySelector('#loginForm [data-form-status]')?.textContent||'';
+    return text.includes('inviting teacher')&&!text.includes('developer');
+  });
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
   assert.deepEqual(errors,[]);
   console.log('SaaS: boot, desktop/mobile, light/dark, filters and accessibility passed without screenshots.');

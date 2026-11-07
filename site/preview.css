@@ -3585,6 +3585,8 @@ body.guest-auth .account-gate .card { padding: 24px; border-radius: 6px; backgro
 .auth-optional { color: var(--mute); font-weight: 400; }
 .account-gate .auth-password-hint, .account-gate .auth-approval { margin: 8px 0 0; font-size: 12px; line-height: 1.5; }
 .account-gate [data-form-status]:empty { display: none; }
+.account-gate [data-form-status],
+.account-gate .auth-flash { text-align: center; white-space: pre-line; }
 .account-gate form > button[type="submit"] { width: 100%; margin-top: 18px; min-height: 46px; }
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--mute); font-size: 12px; }
 .auth-divider::before, .auth-divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
@@ -4181,6 +4183,11 @@ body.guest-auth .account-gate:has(#otpLoginForm:not([hidden])) .auth-mode-switch
 body.guest-auth .auth-divider { margin: 22px 0; color: #b3c5ce; font-size: 11px; }
 .auth-create { margin: 20px 0 0; color: var(--mute); text-align: center; font-size: 13px; }
 .auth-create button { border: 0; padding: 0; background: none; color: var(--acc); font: inherit; font-weight: 600; cursor: pointer; }
+body.guest-auth .hint.notice-group { background: rgba(33, 68, 85, 0.4); border: 1px solid rgba(185, 216, 230, 0.35); border-radius: 8px; padding: 10px 14px; color: #edf2f3; font-size: 13px; text-align: center; margin-bottom: 16px; }
+body.guest-auth .hint.notice-group b { color: #d2ba7e; }
+body.guest-auth .hint.ban { background: rgba(255, 154, 171, 0.1); border: 1px solid rgba(255, 154, 171, 0.4); padding: 12px 16px; border-radius: 8px; color: #ff9aab; font-size: 13px; text-align: center; margin: 12px 0; }
+.hint.notice-group { background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; padding: 10px 14px; border-radius: 4px; color: #93c5fd; }
+.hint.ban { background: rgba(220, 38, 38, 0.15); border: 1px solid #dc2626; padding: 16px; border-radius: 8px; color: #fecaca; font-size: 14px; }
 body.guest-auth .auth-code-send { margin: 12px 0; }
 body.guest-auth .account-gate .btn:not(.primary):not(.auth-google) { background: transparent; color: #edf2f3; border-color: #527080; }
 body.guest-auth .account-gate .auth-google { background: transparent; color: #d4e4eb; border-color: #6c8793; }

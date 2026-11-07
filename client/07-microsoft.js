@@ -31,7 +31,7 @@
             const result=await api('/api/auth/'+provider+'/verify',{email:email.value,code:code.value});clear();
             if(!result.inviteWarning)try{sessionStorage.removeItem('enquiz-invite');}catch{}
             if(result.status==='pending'){
-              try{sessionStorage.setItem('enquiz-auth-flash','Account saved. Waiting for approval before you can sign in.');}catch{}
+              try{sessionStorage.setItem('enquiz-auth-flash','Account saved.\nWaiting for approval before you can sign in');}catch{}
               paintAccountForm(false);return;
             }
             if(result.inviteWarning)console.warn(result.inviteWarning);

@@ -2,9 +2,11 @@ import {StudyError,statement as s} from './learning-study.mjs';
 
 const namespace='email-otp';
 const ipNamespace='email-otp-ip';
-const TTL_MS=10*60*1000;
-const MAX_ATTEMPTS=5;
-const RESEND_MS=45*1000;
+const banNamespace='email-otp-ban';
+const TTL_MS=60*60*1000;
+const MAX_ATTEMPTS=3;
+const RESEND_MS=12*60*60*1000;
+const BAN_MS=48*60*60*1000;
 const IP_WINDOW_MS=15*60*1000;
 const IP_RATE_LIMIT=5;
 const encoder=new TextEncoder();
@@ -98,6 +100,24 @@ export class EmailOtp{
     ]);
   }
 
+  async #loadBan(banKey, now){
+    const [row]=await this.db.read('SELECT value_json FROM catalog_documents WHERE namespace=? AND key=?',[banNamespace,banKey]);
+    if(!row)return null;
+    try{
+      const parsed=JSON.parse(row.value_json);
+      if(parsed?.bannedUntil&&parsed.bannedUntil>now)return parsed;
+    }catch{}
+    return null;
+  }
+
+  async #setBan(banKey, details, now){
+    const payload=JSON.stringify({bannedUntil:now+BAN_MS,bannedAt:now,...details});
+    await this.db.atomic([
+      s('DELETE FROM catalog_documents WHERE namespace=? AND key=?',[banNamespace,banKey]),
+      s('INSERT INTO catalog_documents(namespace,key,value_json) VALUES(?,?,?)',[banNamespace,banKey,payload]),
+    ]);
+  }
+
   async issue(rawEmail,{purpose='login',clientIp=''}={}){
     const email=normalizeEmail(rawEmail);
     const now=Date.now();
@@ -105,11 +125,17 @@ export class EmailOtp{
     let ipKey=null,ipHistory=[];
     if(cleanIp){
       ipKey=await sha256Hex('ip:'+cleanIp);
+      const ipBan=await this.#loadBan(ipKey,now);
+      if(ipBan)fail(429,'Too many invalid attempts. Suspended for 48 hours.');
       ipHistory=await this.#loadIp(ipKey,now);
       if(ipHistory.length>=IP_RATE_LIMIT){
+        await this.#setBan(ipKey,{reason:'ip_rate_limit',ip:cleanIp},now);
         fail(429,'Too many OTP requests from this address. Try again later.');
       }
     }
+    const emailKey=await sha256Hex('ban:email:'+email);
+    const emailBan=await this.#loadBan(emailKey,now);
+    if(emailBan)fail(429,'Too many invalid attempts. Suspended for 48 hours.');
     const key=await sha256Hex(email);
     const current=await this.#load(key);
     if(current?.sentAt&&now-current.sentAt<RESEND_MS)fail(429,'Wait a moment before requesting another code.');
@@ -133,24 +159,45 @@ export class EmailOtp{
     return {email,code,expiresAt:next.expiresAt,ttlSec:Math.floor(TTL_MS/1000)};
   }
 
-  async consume(rawEmail,rawCode){
+  async consume(rawEmail,rawCode,options={}){
+    const clientIp=typeof options==='string'?options:options?.clientIp||'';
     const email=normalizeEmail(rawEmail);
     const code=String(rawCode||'').trim();
+    const now=Date.now();
+    const cleanIp=String(clientIp||'').trim();
+    let ipKey=null;
+    if(cleanIp){
+      ipKey=await sha256Hex('ip:'+cleanIp);
+      const ipBan=await this.#loadBan(ipKey,now);
+      if(ipBan)fail(429,'Too many invalid attempts. Suspended for 48 hours.');
+    }
+    const emailKey=await sha256Hex('ban:email:'+email);
+    const emailBan=await this.#loadBan(emailKey,now);
+    if(emailBan)fail(429,'Too many invalid attempts. Suspended for 48 hours.');
     if(!/^\d{6}$/.test(code))fail(400,'Enter the 6-digit code.');
     const key=await sha256Hex(email);
     const current=await this.#load(key);
     if(!current)fail(400,'Request a new code first.');
-    if(current.expiresAt<=Date.now()){
+    if(current.expiresAt<=now){
       await this.#remove(key,current);
       fail(400,'Code expired. Request a new one.');
     }
     if((current.attempts||0)>=MAX_ATTEMPTS){
       await this.#remove(key,current);
-      fail(429,'Too many attempts. Request a new code.');
+      if(ipKey)await this.#setBan(ipKey,{reason:'max_attempts',ip:cleanIp},now);
+      await this.#setBan(emailKey,{reason:'max_attempts',email},now);
+      fail(429,'Too many invalid attempts. Suspended for 48 hours.');
     }
     const ok=timingSafeHexEqual(current.codeHash,await sha256Hex(code+':'+email));
     if(!ok){
-      const bumped={...current,attempts:(current.attempts||0)+1};
+      const nextAttempts=(current.attempts||0)+1;
+      if(nextAttempts>=MAX_ATTEMPTS){
+        await this.#remove(key,current);
+        if(ipKey)await this.#setBan(ipKey,{reason:'max_attempts',ip:cleanIp},now);
+        await this.#setBan(emailKey,{reason:'max_attempts',email},now);
+        fail(429,'Too many invalid attempts. Suspended for 48 hours.');
+      }
+      const bumped={...current,attempts:nextAttempts};
       delete bumped.raw;
       try{await this.#save(key,bumped,current);}
       catch{
@@ -164,4 +211,4 @@ export class EmailOtp{
   }
 }
 
-export {normalizeEmail, IP_WINDOW_MS, IP_RATE_LIMIT};
+export {normalizeEmail, IP_WINDOW_MS, IP_RATE_LIMIT, TTL_MS, RESEND_MS, BAN_MS, MAX_ATTEMPTS, banNamespace};

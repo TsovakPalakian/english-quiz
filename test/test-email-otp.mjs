@@ -169,3 +169,49 @@ test('integrated worker /api/auth/otp/request enforces client IP throttling',asy
     assert.match(body.error,/Too many OTP requests from this address/);
   }finally{f.close();}
 });
+
+test('email otp enforces 1 hour TTL and 12 hours resend limit',async()=>{
+  const f=fixture();
+  try{
+    const issued=await f.service.issue('ttl-test@example.com');
+    assert.equal(issued.ttlSec,3600);
+    assert.ok(issued.expiresAt>=Date.now()+3590*1000);
+    await assert.rejects(
+      f.service.issue('ttl-test@example.com'),
+      e=>e.status===429&&e.message==='Wait a moment before requesting another code.'
+    );
+  }finally{f.close();}
+});
+
+test('email otp bans email and IP for 48 hours after 3 wrong attempts',async()=>{
+  const f=fixture();
+  try{
+    const clientIp='203.0.113.88';
+    const issued=await f.service.issue('attacker@example.com',{clientIp});
+    // Attempt 1: wrong code -> 401
+    await assert.rejects(
+      f.service.consume('attacker@example.com','000001',{clientIp}),
+      e=>e.status===401&&e.message==='Wrong code.'
+    );
+    // Attempt 2: wrong code -> 401
+    await assert.rejects(
+      f.service.consume('attacker@example.com','000002',{clientIp}),
+      e=>e.status===401&&e.message==='Wrong code.'
+    );
+    // Attempt 3: 3rd wrong code -> 429 suspended for 48 hours
+    await assert.rejects(
+      f.service.consume('attacker@example.com','000003',{clientIp}),
+      e=>e.status===429&&e.message.includes('Suspended for 48 hours')
+    );
+    // Verify that subsequent issue request from this IP is rejected with 429
+    await assert.rejects(
+      f.service.issue('newtarget@example.com',{clientIp}),
+      e=>e.status===429&&e.message.includes('Suspended for 48 hours')
+    );
+    // Verify that subsequent issue request for this email from another IP is also rejected
+    await assert.rejects(
+      f.service.issue('attacker@example.com',{clientIp:'203.0.113.99'}),
+      e=>e.status===429&&e.message.includes('Suspended for 48 hours')
+    );
+  }finally{f.close();}
+});

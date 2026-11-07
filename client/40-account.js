@@ -97,7 +97,7 @@
         const query = params.toString();
         history.replaceState(null, "", location.pathname + (query ? "?" + query : "") + location.hash);
         const messages = {
-          pending: "Account saved. Waiting for teacher approval before you can sign in.",
+          pending: "Account saved.\nWaiting for teacher approval before you can sign in",
           google_denied: "Google sign-in was cancelled.",
           google_error: "Google sign-in failed. Try again.",
           invite_warning: "Signed in, but the group invite could not be applied.",
@@ -320,7 +320,7 @@
             sessionStorage.removeItem('enquiz-invite');
             paintAccountForm(false);
             const pendingStatus=document.querySelector('#loginForm [data-form-status]');
-            if(pendingStatus)pendingStatus.textContent='Your email is verified and your teacher invitation has been accepted. Waiting for approval by the inviting teacher or a developer.';
+            if(pendingStatus)pendingStatus.textContent='Your email is verified and your teacher invitation has been accepted.\nWaiting for approval by the inviting teacher';
             return;
           }
           if(!result.user)throw new Error('Sign-in could not be completed. Try again.');
@@ -352,7 +352,7 @@
           }
           paintAccountForm(false);
           const loginStatus = document.querySelector("#loginForm [data-form-status]");
-          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher or a developer. Your group invitation has been accepted.':"Waiting for approval. You can sign in after the teacher accepts this account.";
+          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted':"Waiting for approval.\nYou can sign in after the teacher accepts this account";
           return;
         }
         if (result.inviteWarning) console.warn(result.inviteWarning);
@@ -449,14 +449,20 @@
         const code=form.querySelector('[name="code"],[name="emailCode"]');code.value='';
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
         otpSend.disabled = true;
-        accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }).then((result) => {
+        accountFetch("/api/auth/otp/request", { method: "POST", body: JSON.stringify({ email }), quietBug: true }).then((result) => {
           if(!form.isConnected||emailField.value!==email)return;
-          if (status) status.textContent = "Code sent to " + (result.email || email) + ". Check your inbox.";
+          if (status) status.textContent = "Code sent to " + (result.email || email) + ". Valid for 1 hour (1 request per 12 hours).";
           form.querySelectorAll('[data-otp-step]').forEach(field=>{field.hidden=false;if('disabled' in field)field.disabled=false;});
           code.focus();
         }).catch((err) => {
           if(!form.isConnected||emailField.value!==email)return;
-          if (status) { status.textContent = err.message; status.classList.add("bad"); }
+          if (status) {
+            status.textContent = err.message;
+            status.classList.add("bad");
+            if(err.message.includes('48 hours')||err.message.includes('Suspended')){
+              status.classList.add("ban");
+            }
+          }
         }).finally(() => { otpSend.disabled = false; });
         return;
       }

@@ -1380,15 +1380,19 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           let body;try{body=JSON.parse(await boundedText(request,8192,'Registration too large.'));}catch(error){if(error instanceof StudyError)throw error;throw new StudyError(400,'Invalid registration.');}
           inviteToken=typeof body?.invite==='string'?body.invite.trim():'';
           body={...body,role:'USER'};
+          const clientIp=(request.headers.get('cf-connecting-ip')||request.headers.get('x-forwarded-for')?.split(',')[0]||'').trim();
           if(inviteToken){
             if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
             signupInvite=await new AccountInvites(studyDatabase(env)).peek(inviteToken,body.email);
-            if(signupInvite.kind==='teacher'){
-              const proof=await new EmailOtp(studyDatabase(env)).consume(body.email,body.emailCode);
-              if(proof.email!==String(body.email).trim().toLowerCase())throw new StudyError(403,'Verify the invited email.');
+            if(signupInvite.kind==='teacher'||body.emailCode){
+              const proof=await new EmailOtp(studyDatabase(env)).consume(body.email,body.emailCode,{clientIp});
+              if(signupInvite.kind==='teacher'&&signupInvite.email&&proof.email!==String(body.email).trim().toLowerCase())throw new StudyError(403,'Verify the invited email.');
             }
             body={...body,role:signupInvite.kind==='teacher'?'ADMIN':'USER'};
             delete body.invite;
+            delete body.emailCode;
+          }else if(body.emailCode){
+            await new EmailOtp(studyDatabase(env)).consume(body.email,body.emailCode,{clientIp});
             delete body.emailCode;
           }
           signupBody=body;

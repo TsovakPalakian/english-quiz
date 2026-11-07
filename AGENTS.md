@@ -1,6 +1,7 @@
 # Working Preferences
 
 - Mandatory: Никогда не делать ничего без прямого разрешения и слова `do` (Never do anything without direct user permission and the explicit keyword `do`).
+- Mandatory: обязательно перепроверять свои ответы на корректность ровно 2 раза перед отправкой (это строго обязательное правило) / Mandatory: thoroughly double-check all responses and solutions for correctness 2 times before answering (this is a strictly mandatory rule).
 - Communication language with the user is Russian; all application UI, controls, and user-facing copy must be in English unless explicitly requested otherwise.
 - Before editing code, briefly state your understanding in Russian.
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
@@ -9,12 +10,13 @@
 - Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.
 - Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; only direct permission with the word "do" approves the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
-- Mandatory: every task in summary or remediation documents must include an explicit warning block forbidding touching or breaking functionality unrelated to the current scoped edit; if adjacent functionality must be affected, explicitly state this to the user in Russian before making changes and wait for confirmation.
+- Mandatory: every task in summary or remediation documents must include an explicit warning block forbidding touching or breaking functionality unrelated to the current scoped edit; tasks must strictly touch only their own scoped functionality. If adjacent functionality must be affected or modified (whether accidentally or due to shared operation and mutual coupling), explicitly notify the user in Russian using red text `<span style="color: red; font-weight: bold;">WARNING</span>` detailing the affected areas and wait for confirmation before making changes.
 - After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for the user's `do` before starting that next implementation; proposing it is not authorization to proceed. Always include an English past-tense commit message for completed changes.
 - For each new feature, create a Markdown (.md) document detailing implementation steps and stages. Do not automatically create or update change-history documents unless explicitly requested. Explicit requests to save working preferences authorize editing existing instruction files; always apply preference updates to both global and project instruction files.
 - Use only colored squares for checklist status, without checkmarks, crosses or Markdown checkboxes: `🟩` verified done, `🟨` selected/current work, `⬜` not started, `🟥` checked but needs rework. For rework, record the failed check and required correction; use green only after fixing and reverifying. Mark the selected scope before implementation; do not mark a prototype as a completed production integration. Split mixed tasks when only part is selected.
 - Always provide the user a short commit-message line in English and past tense, such as "Added ..." or "Fixed ...", for completed changes.
-- When a task is performed from a Jira task/issue, prefix the commit message with `[<type>] <TASK-KEY>` followed by the commit message text. Templates: `[task] TASK-14 Commit message`, `[bag] TASK-15 Commit message`.
+- When a task is performed from a Jira task/issue, prefix the commit message with `[<type>] <TASK-KEY>` followed by the commit message text. Templates: `[task] TASK-14 Commit message`, `[bug] TASK-15 Commit message`.
+- Mandatory: по окончании задач всегда явно указывать в ответе, что это финальная правка, и предоставлять единый обобщенный коммит, объединяющий все внесенные изменения / Mandatory: upon completion of tasks, always explicitly state that this is the final edit and provide a single generalized commit message covering all changes made for the task.
 - Mandatory: always write tests for all changes without exception, regardless of how small the edit is.
 - Mandatory: if changes involve modifying or adding UI/UX, visual tests must also be added.
 - Mandatory: whenever test files are modified or newly added, output their list without file extensions in the chat directly below the commit message.
@@ -55,7 +57,7 @@
   1. Single Source of Truth: In any conflict between client state and server state, server validation holds absolute priority.
   2. Prohibition of Destructive Changes: Deleting existing error handlers, telemetry logging, or guard conditions is forbidden; only appending or refining conditional logic is permitted.
   3. Mandatory Edge Case Analysis: Every collision resolution must account for `null`/`undefined` inputs, asynchronous timeouts, and concurrent requests.
-  4. Prohibition of Collateral Modifications: Strictly prohibit touching, breaking, or modifying any functionality unrelated to the current scoped task. If adjacent functionality must be affected, explicitly state this to the user in Russian before making changes and wait for confirmation.
+  4. Prohibition of Collateral Modifications: Strictly prohibit touching, breaking, or modifying any functionality unrelated to the current scoped task; tasks strictly touch only their designated functional scope. If adjacent functionality must be affected (due to mutual coupling, shared execution, or necessity), explicitly report this to the user in Russian using red text `<span style="color: red; font-weight: bold;">WARNING</span>` before making changes and wait for confirmation.
 - Antigravity Native Control Mechanisms:
   1. Artifacts: Plan and hypothesis tracking in Markdown documents prior to code modifications.
   2. Verification Loops: Automated validation via targeted test runs and production asset builder before task completion.

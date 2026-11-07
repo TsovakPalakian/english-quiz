@@ -28,11 +28,57 @@ function randomSecret(){
   return [...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-function parseInviteToken(raw){
+const INVITE_ENC_SALT='lumiscia-invite-aes-v1';
+let cachedInviteKey=null;
+
+async function getInviteKey(){
+  if(cachedInviteKey)return cachedInviteKey;
+  const hash=await crypto.subtle.digest('SHA-256',encoder.encode(INVITE_ENC_SALT));
+  cachedInviteKey=await crypto.subtle.importKey('raw',hash,{name:'AES-GCM'},false,['encrypt','decrypt']);
+  return cachedInviteKey;
+}
+
+function bytesToHex(bytes){
+  return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function hexToBytes(hex){
+  const bytes=new Uint8Array(hex.length/2);
+  for(let i=0;i<bytes.length;i++)bytes[i]=parseInt(hex.substr(i*2,2),16);
+  return bytes;
+}
+
+export async function encryptInviteToken(id,secret){
+  const key=await getInviteKey();
+  const iv=new Uint8Array(12);
+  crypto.getRandomValues(iv);
+  const data=encoder.encode(secret);
+  const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,data);
+  const combined=new Uint8Array(iv.length+encrypted.byteLength);
+  combined.set(iv,0);
+  combined.set(new Uint8Array(encrypted),iv.length);
+  return id+'.'+bytesToHex(combined);
+}
+
+export async function parseInviteToken(raw){
   const text=String(raw||'').trim();
-  const match=text.match(/^([a-zA-Z0-9_-]{8,64})\.([a-f0-9]{32,128})$/);
+  const match=text.match(/^([a-zA-Z0-9_-]{8,64})\.([a-f0-9]{32,512})$/);
   if(!match)fail(400,'Invalid invite link.');
-  return {id:match[1],secret:match[2]};
+  const id=match[1],payload=match[2];
+  if(payload.length>64){
+    try{
+      const key=await getInviteKey();
+      const bytes=hexToBytes(payload);
+      const iv=bytes.subarray(0,12);
+      const ciphertext=bytes.subarray(12);
+      const decrypted=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ciphertext);
+      const secret=new TextDecoder().decode(decrypted);
+      return {id,secret};
+    }catch{
+      fail(400,'Invalid invite link.');
+    }
+  }
+  return {id,secret:payload};
 }
 
 export class AccountInvites{
@@ -92,6 +138,8 @@ export class AccountInvites{
     const maxUses=1,days=3;
     const id=crypto.randomUUID().replace(/-/g,'').slice(0,16);
     const secret=randomSecret();
+    const rawToken=id+'.'+secret;
+    const token=await encryptInviteToken(id,secret);
     const now=Date.now();
     const value={
       secretHash:await sha256Hex(secret),
@@ -109,7 +157,8 @@ export class AccountInvites{
     return {
       id,
       kind,
-      token:id+'.'+secret,
+      token,
+      rawToken,
       groupId:Number(group.id),
       groupTitle:group.title,
       teacherId,
@@ -157,7 +206,7 @@ export class AccountInvites{
   }
 
   async peek(token,verifiedEmail){
-    const {id,secret}=parseInviteToken(token);
+    const {id,secret}=await parseInviteToken(token);
     const value=await this.#row(id);
     if(!value||value.revoked)fail(404,'Invite not found.');
     if(inviteExpiry(value)<=Date.now())fail(410,'Invite expired.');
@@ -172,7 +221,7 @@ export class AccountInvites{
 
   async redeem(actor,token,assignStudent,{verifiedEmail='',users=[]}={}){
     if(!actor?.id)fail(401,'Sign in first.');
-    const {id,secret}=parseInviteToken(token);
+    const {id,secret}=await parseInviteToken(token);
     const previous=await this.#row(id);
     if(!previous||previous.revoked)fail(404,'Invite not found.');
     if(inviteExpiry(previous)<=Date.now())fail(410,'Invite expired.');
@@ -218,7 +267,7 @@ export class AccountInvites{
 
   async acceptPendingRegistration(token,email,registrationId,kind='student'){
     await this.peek(token);
-    const {id}=parseInviteToken(token),previous=await this.#row(id);
+    const {id}=await parseInviteToken(token),previous=await this.#row(id);
     if(previous.revoked||previous.uses>=1||inviteExpiry(previous)<=Date.now())fail(410,'Invite is no longer available.');
     if((previous.kind||'student')!==kind||(kind==='teacher'&&previous.email&&previous.email!==String(email).trim().toLowerCase()))fail(403,'Use the invited teacher email.');
     await this.#save(id,{...previous,uses:1,registrationEmail:String(email).trim().toLowerCase(),pendingRegistrationId:registrationId,acceptedAt:Date.now()},previous);

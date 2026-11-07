@@ -27,7 +27,7 @@ try{
     assert.equal(new URL(page.url()).searchParams.has('invite'),false,'Invite token is removed from the address');
     yield "01. evaluate" + " [" + String(kind) + "]";
     assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),'fixture-'+kind);
-    assert.equal(await page.locator('[data-invite-email-send]').count(),kind==='teacher'?1:0);
+    assert.equal(await page.locator('[data-invite-email-send]').count(),1);
     await page.reload();await page.locator('#registerForm').waitFor({state:'visible'});
     yield "02. #registerForm [name=\"role\"] / checks" + " [" + String(kind) + "]";
     assert.equal(await page.locator('#registerForm [name="role"]').count(),0);
@@ -43,10 +43,12 @@ try{
     }
     if(kind==='student'){
       let registerCalls=0;
+      await page.route('**/api/auth/otp/request',route=>route.fulfill({json:{email:'student@example.invalid'}}));
       await page.route('**/api/register',async route=>{
         registerCalls++;
         const body=route.request().postDataJSON();
         assert.equal(body.invite,'fixture-student');assert.equal(body.name,'Student');
+        assert.equal(body.emailCode,'123456');
         assert.equal('role' in body,false);
         await new Promise(r=>setTimeout(r,150));
         return route.fulfill({json:{status:'pending'}});
@@ -56,6 +58,12 @@ try{
       await page.locator('#registerForm [name="name"]').fill('Student');
       yield "04. #registerForm [name=\"password\"] / fill" + " [" + String(kind) + "]";
       await page.locator('#registerForm [name="password"]').fill('fixture-password');
+      await page.locator('[data-invite-email-send]').click();
+      await page.locator('#registerForm [name="emailCode"]').waitFor({state:'visible'});
+      const otpStatus=page.locator('#registerForm [data-form-status]');
+      assert.match(await otpStatus.textContent(),/Valid for 1 hour/);
+      assert.match(await otpStatus.textContent(),/1 request per 12 hours/);
+      await page.locator('#registerForm [name="emailCode"]').fill('123456');
       const submitBtn=page.locator('#registerForm [type="submit"]');
       await submitBtn.click();
       assert.equal(await submitBtn.evaluate(el=>el.disabled),true,'Submit button is disabled while registration request is in flight');
@@ -63,6 +71,10 @@ try{
       await page.locator('#loginForm').waitFor({state:'visible'});
       assert.equal(registerCalls,1,'Concurrent/duplicate submission is blocked while request is in flight');
       assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
+      const studentStatus=await page.locator('#loginForm [data-form-status]').textContent();
+      assert.equal(studentStatus,'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted');
+      assert.equal(studentStatus.includes('developer'),false);
+      assert.equal(await page.locator('#loginForm [data-form-status]').evaluate(el=>getComputedStyle(el).textAlign),'center');
     }
     if(kind==='teacher'){
       assert.equal(await page.locator('#accountBody').evaluate(node=>getComputedStyle(node).scrollbarWidth),'none');
@@ -81,7 +93,12 @@ try{
       await page.locator('[data-otp-send]').click();
       await page.locator('#otpLoginForm [name="code"]').fill('123456');
       await page.locator('#otpLoginForm [type="submit"]').click();
-      await page.locator('#loginForm [data-form-status]').filter({hasText:'Waiting for approval'}).waitFor();
+      const teacherStatusLoc=page.locator('#loginForm [data-form-status]');
+      await teacherStatusLoc.filter({hasText:'Waiting for approval'}).waitFor();
+      const teacherStatus=await teacherStatusLoc.textContent();
+      assert.equal(teacherStatus,'Your email is verified and your teacher invitation has been accepted.\nWaiting for approval by the inviting teacher');
+      assert.equal(teacherStatus.includes('developer'),false);
+      assert.equal(await teacherStatusLoc.evaluate(el=>getComputedStyle(el).textAlign),'center');
       yield "07. #registerForm / checks" + " [" + String(kind) + "]";
       assert.equal(await page.locator('#registerForm').count(),0);
       assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
@@ -119,7 +136,30 @@ try{
   assert.equal(await callback.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
   yield "12. #accountBody / checks";
   assert.match(await callback.locator('#accountBody').textContent(),/Waiting for teacher approval/);
+  const flashText=await callback.locator('.account-gate .auth-flash').textContent();
+  assert.equal(flashText,'Account saved.\nWaiting for teacher approval before you can sign in');
+  assert.equal(await callback.locator('.account-gate .auth-flash').evaluate(el=>getComputedStyle(el).textAlign),'center');
   await callback.close();
+
+  const banPage=await browser.newPage();
+  await banPage.route('**/api/me',route=>route.fulfill({json:{user:null}}));
+  await banPage.route('**/api/accounts/invites?*',route=>route.fulfill({json:{kind:'student',groupTitle:'Fixture Group'}}));
+  await banPage.route('**/api/auth/otp/request',route=>route.fulfill({status:429,json:{error:'Suspended for 48 hours after 3 failed attempts. Try again later.'}}));
+  await banPage.goto(preview.url+'/?invite=fixture-ban-test');
+  await banPage.locator('#registerForm').waitFor({state:'visible'});
+  yield "13. ban notice checks";
+  assert.equal(await banPage.locator('.hint.notice-group').count(),1);
+  assert.match(await banPage.locator('.hint.notice-group').textContent(),/Fixture Group/);
+  await banPage.locator('#registerForm [name="email"]').fill('student@example.invalid');
+  await banPage.locator('[data-invite-email-send]').click();
+  const banNotice=banPage.locator('#registerForm [data-form-status].ban');
+  await banNotice.waitFor({state:'visible'});
+  assert.match(await banNotice.textContent(),/48 hours/);
+  assert.equal(await banPage.locator('#learning-main-banner[open]').count(),0,'System dialog is suppressed by quietBug');
+  yield "14. ban styling visual checks";
+  const banBg=await banNotice.evaluate(el=>getComputedStyle(el).backgroundColor);
+  assert.ok(banBg.includes('rgba(255, 154, 171')||banBg.includes('rgb('),'Ban banner uses bad tinted background');
+  await banPage.close();
   console.log('Invite registration UI: direct entry, reload, provider redirects, token submission, configuration gating and expired invitations passed (no screenshots).');
 }finally{await browser?.close();await preview.close();}
 
