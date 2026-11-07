@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -23,7 +23,7 @@ const port=server.address().port;
 let browser;
 
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage();
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));

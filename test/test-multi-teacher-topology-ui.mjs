@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
@@ -19,7 +19,7 @@ await scenarioSubtests("multi-teacher-topology-ui", async function*(){
   await new Promise(done=>server.listen(0,'127.0.0.1',done));
   let browser;
   try{
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
 
     // 1. Two Developers
     const dev1={id:'d1'.repeat(16),login:'dev_alpha',name:'Developer Alpha',email:'dev_alpha@example.com',role:'DEVELOPER',active:1};

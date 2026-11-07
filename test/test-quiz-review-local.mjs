@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -27,7 +27,7 @@ test('local backend UI saves to SQLite and enforces review workflow without prod
     const boot=(await call('/local/boot')).data,c=boot.contexts.find(c=>!c.personal);
     const invalid={mutationId:crypto.randomUUID(),groupId:c.groupId,lessonId:c.lessonId,cardId:3,senseId:c.senseId,type:'Gap',content:{explanation:'Light rain.',items:[{shown:'A fine ____ fell.',answer:'drizzle'}]}};
     assert.equal((await call('/local/quizzes',invalid)).status,403,'Cannot submit personal-card quizzes');
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const page=await browser.newPage({viewport:{width:1400,height:1000}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     await page.goto(url);await page.locator('#context').waitFor();

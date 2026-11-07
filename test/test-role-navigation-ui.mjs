@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -18,7 +18,7 @@ const server=createServer((req,res)=>{
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 let browser;
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   for(const role of ['DEVELOPER','ADMIN','USER']){
     const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[],requests=[];
     await page.context().grantPermissions(['clipboard-read','clipboard-write']);

@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -52,7 +52,7 @@ yield "00. Fixture and browser setup";
       }catch(error){res.writeHead(error.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify({error:error.message}));}
     });server.listen(0,'127.0.0.1');await once(server,'listening');const url='http://127.0.0.1:'+server.address().port;
     yield "03. launch";
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const page=await browser.newPage({viewport:{width:1100,height:850}}),errors=[],requests=[];page.setDefaultTimeout(7000);page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(url);assert.equal(await page.locator('[data-workbench-lesson]').count(),0);assert.ok(!requests.some(path=>path.includes('/api/learning-workbench')));
     yield "04. evaluate";

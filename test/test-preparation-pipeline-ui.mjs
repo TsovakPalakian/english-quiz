@@ -1,10 +1,10 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {createQuizReviewPreview} from '../ops/preview-quiz-review-backend.mjs';
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
-async function preview(work){const {server,url}=await createQuizReviewPreview();let browser;try{browser=await chromium.launch(chromiumLaunchOptions());await work(await browser.newPage({viewport:{width:1280,height:960}}),url);}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}}
+async function preview(work){const {server,url}=await createQuizReviewPreview();let browser;try{browser=await launchChromium(chromium);await work(await browser.newPage({viewport:{width:1280,height:960}}),url);}finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}}
 const expand=async node=>node.evaluate(element=>{for(let n=element;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
 test('developer enables the chain, teachers see its status/history and students see no controls',async()=>preview(async(page,url)=>{
   const post=(path,data)=>fetch(url+path,{method:'POST',headers:{Origin:url,Cookie:'qr-preview=dev','Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),...data})});

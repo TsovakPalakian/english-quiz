@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency,testTempRoot} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency,testTempRoot} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync,mkdtempSync,writeFileSync,mkdirSync,rmSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -21,7 +21,7 @@ const server=createServer((req,res)=>{const path=new URL(req.url,'http://localho
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage({viewport:{width:1664,height:1000}}),errors=[],http=[],commands=[];page.on('pageerror',e=>errors.push(e.message));
   const renderedHeading=async(selector,expected)=>{
     await page.locator(selector).scrollIntoViewIfNeeded();

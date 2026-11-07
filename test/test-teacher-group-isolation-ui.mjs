@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -19,7 +19,7 @@ await scenarioSubtests("teacher-group-isolation-ui",async function*(){
   await new Promise(done=>server.listen(0,'127.0.0.1',done));
   let browser;
   try{
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const teacher1={id:'1'.repeat(32),login:'teacher_one',name:'Teacher One',role:'ADMIN'};
     const teacher2={id:'2'.repeat(32),login:'teacher_two',name:'Teacher Two',role:'ADMIN'};
     const devUser={id:'3'.repeat(32),login:'dev_user',name:'Dev User',role:'DEVELOPER'};

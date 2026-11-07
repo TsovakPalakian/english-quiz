@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
@@ -9,7 +9,7 @@ const server=spawn(process.execPath,['ops/preview-dashboard.mjs'],{env:{...proce
 let browser;
 try{
   const url=await new Promise((resolve,reject)=>{server.on('error',reject);server.stdout.on('data',chunk=>{const match=String(chunk).match(/http:\/\/127\.0\.0\.1:\d+/);if(match)resolve(match[0]);});server.on('exit',code=>reject(Error('Preview exited '+code)));});
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage({viewport:{width:1280,height:1000},timezoneId:'Asia/Yerevan'}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.addInitScript(()=>sessionStorage.setItem('enquiz-place',JSON.stringify({id:'bugs'})));

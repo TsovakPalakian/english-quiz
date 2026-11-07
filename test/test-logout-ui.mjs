@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -12,7 +12,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream'});res.end(readFileSync(file));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch(chromiumLaunchOptions());
+const browser=await launchChromium(chromium);
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));

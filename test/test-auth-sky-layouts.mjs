@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {mkdirSync,writeFileSync} from 'node:fs';
@@ -8,7 +8,7 @@ const preview=await previewAuthStudio();let browser;
 const results=[];
 try{
   mkdirSync('/tmp/lumiscia-go-audit',{recursive:true});
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
     const page=await browser.newPage({viewport,reducedMotion:'reduce'});
     await page.route('**/preview.js*',async route=>{

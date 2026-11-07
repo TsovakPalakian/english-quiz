@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -28,7 +28,7 @@ test('Interactive editor extracts only iframe src and renders responsive safe fr
   const preview=await createLearningWorkbenchPreview();let browser;
   try{
     const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const page=await browser.newPage();page.setDefaultTimeout(10000);
     await page.route('https://wordwall.net/**',route=>route.fulfill({contentType:'text/html',body:'<p>Local Wordwall fixture</p>'}));
     await page.goto(preview.url);await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);

@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -7,7 +7,7 @@ import {inspectQuizMedia,localSpeech,closeQuizMediaInspector} from '../ops/quiz-
 import {wav} from './quiz-media-fixture.mjs';
 import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
-const launch=()=>chromium.launch(chromiumLaunchOptions());
+const launch=()=>launchChromium(chromium);
 async function clip(page){return Buffer.from(await page.evaluate(async()=>{
   const canvas=document.createElement('canvas');canvas.width=320;canvas.height=180;const ctx=canvas.getContext('2d'),stream=canvas.captureStream(8),chunks=[];
   const recorder=new MediaRecorder(stream,{mimeType:'video/mp4;codecs=avc1.42001E'});

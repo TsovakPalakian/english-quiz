@@ -13,6 +13,12 @@
 
 Строка коммита: `Aligned chat bubbles, cleared read badges, and opened the room panel from the header photo.`
 
+## Курсор в видимом Chrome
+
+Отдельного теста для курсора нет. Все текущие тесты, которые открывают Chrome через `launchChromium`, при `SHOW_BROWSER=1` показывают черную стрелку. Она едет к точке и в момент нажатия темнеет с кольцом. Быстрый запуск без этой переменной и CI стрелку не рисуют. Курсор macOS по экрану не двигается.
+
+Строка коммита для курсора: `Showed a pointer in visible Chrome tests only.`
+
 ## Какие тесты запускать
 
 Полный набор и `test/test-chat-ui.mjs` для просмотра этих правок не запускать. Второй файл проходит весь сайт.

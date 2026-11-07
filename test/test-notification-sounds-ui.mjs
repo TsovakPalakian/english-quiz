@@ -1,10 +1,10 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import recordings from '../production/notification-catalog.json' with {type:'json'};
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
-const browser=await chromium.launch(chromiumLaunchOptions());
+const browser=await launchChromium(chromium);
 try{
   const page=await browser.newPage({viewport:{width:1000,height:900}}),errors=[];page.on('pageerror',error=>errors.push(error.message));
   let settings={enabled:true,volume:.65,sound:'soft-double',sounds:[],revision:''},counter=0,audio,failPreview=false;

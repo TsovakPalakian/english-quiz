@@ -1,11 +1,11 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
 const {chromium}=createRequire(import.meta.url)(resolveTestDependency('playwright'));
 const preview=await previewAuthStudio();let browser;
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto(preview.url);await page.waitForSelector('body.guest-home');

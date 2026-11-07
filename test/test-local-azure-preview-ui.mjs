@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -12,7 +12,7 @@ test('Azure selection stays Off until saved and speech consent names the real pr
   const dir=mkdtempSync(join(tmpdir(),'azure-ui-'));let azure,preview,browser,calls=0;
   try{
     azure=await openLocalAzureProvider({filename:join(dir,'budget.sqlite'),apiKey:'fixture-only-key',resourceName:'lumiscia-speech',region:'northeurope',endpoint:'https://northeurope.api.cognitive.microsoft.com/',tier:'F0',confirmFreeTier:true,allowDataProcessing:true,fetchImpl:async()=>calls++});
-    preview=await createLearningWorkbenchPreview({azure});browser=await chromium.launch(chromiumLaunchOptions());
+    preview=await createLearningWorkbenchPreview({azure});browser=await launchChromium(chromium);
     const context=await browser.newContext();await context.addCookies([{name:'local-workbench-role',value:'dev',url:preview.url}]);
     const page=await context.newPage();page.setDefaultTimeout(10000);
     await page.goto(preview.url+'/__local/providers');await page.locator('#provider-pronunciation').waitFor();assert.equal(await page.locator('#provider-pronunciation').inputValue(),'off');

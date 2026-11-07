@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -7,7 +7,7 @@ import {LANGUAGE_TASKS} from '../src/language-providers.mjs';
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
 async function preview(work){
   const {server,url}=await createQuizReviewPreview();let browser;
-  try{browser=await chromium.launch(chromiumLaunchOptions());const page=await browser.newPage({viewport:{width:1280,height:1050}});await work(page,url);}
+  try{browser=await launchChromium(chromium);const page=await browser.newPage({viewport:{width:1280,height:1050}});await work(page,url);}
   finally{await browser?.close();await new Promise(resolve=>server.close(resolve));}
 }
 test('provider settings UI persists selections, disables tasks, preserves audit and handles conflicts and lost responses',async()=>preview(async(page,url)=>{

@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
@@ -56,7 +56,7 @@ async function assertClosedAndEditable(page){
 }
 
 test('spectrum, HEX and swatch close the popup and restore typing focus',async()=>{
-  const browser=await chromium.launch(chromiumLaunchOptions());
+  const browser=await launchChromium(chromium);
   try{
     for(const mode of ['plain','formatted','rich-tools']){
       const page=await browser.newPage();
@@ -94,7 +94,7 @@ test('spectrum, HEX and swatch close the popup and restore typing focus',async()
 });
 
 test('caret at start, middle and end: color then type continues in the field',async()=>{
-  const browser=await chromium.launch(chromiumLaunchOptions());
+  const browser=await launchChromium(chromium);
   try{
     const page=await browser.newPage();
     await boot(page,'formatted','abcd');
@@ -116,7 +116,7 @@ test('caret at start, middle and end: color then type continues in the field',as
 });
 
 test('boundary: full selection, escape, outside click',async()=>{
-  const browser=await chromium.launch(chromiumLaunchOptions());
+  const browser=await launchChromium(chromium);
   try{
     const page=await browser.newPage();
     await boot(page,'formatted','alpha');
@@ -141,7 +141,7 @@ test('boundary: full selection, escape, outside click',async()=>{
 });
 
 test('chat edit reopen preserves colored runs',async()=>{
-  const browser=await chromium.launch(chromiumLaunchOptions());
+  const browser=await launchChromium(chromium);
   try{
     const page=await browser.newPage();
     await page.setContent('<main></main>');

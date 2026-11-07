@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createServer} from 'node:http';
@@ -16,7 +16,7 @@ assert.ok(!source.includes('function groupInviteHTML'));
 const server=createServer((request,response)=>{response.writeHead(200,{'Content-Type':'text/html'});response.end('<html data-theme="almond"><body><main><section id="admin" class="on">'+tabs+'<div id="adminBody"></div></section><div id="adminUser"></div></main></body></html>');});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));let browser;
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await page.goto('http://127.0.0.1:'+server.address().port);

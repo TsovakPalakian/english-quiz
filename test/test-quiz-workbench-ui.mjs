@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
@@ -11,7 +11,7 @@ const server=spawn(process.execPath,['ops/preview-quiz-workbench.mjs'],{stdio:['
 let browser;
 try{
   const url=await new Promise((resolve,reject)=>{server.on('error',reject);server.on('exit',code=>reject(Error('Preview exited '+code)));server.stderr.on('data',c=>process.stderr.write(c));server.stdout.on('data',c=>{const m=String(c).match(/http:\/\/127\.0\.0\.1:\d+/);if(m)resolve(m[0]);});});
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage({viewport:{width:1400,height:1000}}),errors=[],requests=[];
   const reveal=async id=>page.locator('[data-item="'+id+'"]').evaluate(node=>{for(let el=node;el;el=el.parentElement)if(el.tagName==='DETAILS')el.open=true;});
   page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));

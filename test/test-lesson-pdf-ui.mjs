@@ -8,7 +8,7 @@ import {readFileSync,existsSync,writeFileSync} from 'node:fs';
 import {resolve,basename,extname} from 'node:path';
 import {createHash} from 'node:crypto';
 import {createRequire} from 'node:module';
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {parseLessonPdfMeta,normalizeLessonPdfDraft} from '../src/lesson-pdf-meta.mjs';
 import {scenarioSubtests} from "./helpers/scenario-subtests.mjs";
 await scenarioSubtests("lesson-pdf-ui",async function*(){
@@ -34,7 +34,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 let browser;
 let releaseAnalysis;const analysisGate=new Promise(resolve=>releaseAnalysis=resolve);
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage(),errors=[],findings=[];
   const user={id:'a'.repeat(32),login:'pdf_ui_test',name:'PDF UI test',email:'pdf@example.invalid',role:'DEVELOPER'};
   let nextId=100,analysed=null,analysisCalls=0,uploads=0,role='DEVELOPER',imports=0,alertCalls=0,archiveCalls=0,failNewDraftSave=false;const responses=new Map(),dictionaryCards=new Map(),createBodies=[],writeOrder=[];

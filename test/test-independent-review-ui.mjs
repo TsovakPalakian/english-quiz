@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test, {after} from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -8,7 +8,7 @@ const require=createRequire(import.meta.url),{chromium}=require(resolveTestDepen
 let sharedBrowser;
 async function preview(work,options={}){
   const {server,url}=await createQuizReviewPreview(options);
-  if(!sharedBrowser)sharedBrowser=await chromium.launch(chromiumLaunchOptions());
+  if(!sharedBrowser)sharedBrowser=await launchChromium(chromium);
   const page=await sharedBrowser.newPage({viewport:{width:1280,height:960}});
   try{await work(page,url);}
   finally{

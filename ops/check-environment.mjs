@@ -65,4 +65,38 @@ export function chromiumLaunchOptions(extra={}){
   else delete options.slowMo;
   return options;
 }
+function visibleCursorInstaller(){
+  if(window.top!==window)return;
+  const draw=()=>{
+    if(document.getElementById('visible-test-cursor'))return;
+    const style=document.createElement('style');
+    style.textContent='#visible-test-cursor{position:fixed;z-index:2147483647;width:28px;height:28px;margin:-2px 0 0 -2px;pointer-events:none;left:-40px;top:-40px;transition:left .28s linear,top .28s linear}#visible-test-cursor svg{display:block;transform-origin:4px 4px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}#visible-test-cursor .ring{position:absolute;left:2px;top:2px;width:18px;height:18px;border:2px solid rgba(20,20,20,.85);border-radius:50%;transform:scale(.2);opacity:0}#visible-test-cursor.is-down .ring{transform:scale(1);opacity:1}#visible-test-cursor.is-down svg{transform:scale(.86)}';
+    const cursor=document.createElement('div');
+    cursor.id='visible-test-cursor';
+    cursor.innerHTML='<span class="ring"></span><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2 L3 18 L8 13 L12 21 L15 19 L11 12 L18 12 Z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+    document.documentElement.append(style,cursor);
+    document.addEventListener('mousemove',event=>{cursor.style.left=event.clientX+'px';cursor.style.top=event.clientY+'px';},true);
+    document.addEventListener('mousedown',()=>cursor.classList.add('is-down'),true);
+    document.addEventListener('mouseup',()=>cursor.classList.remove('is-down'),true);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',draw);
+  else draw();
+}
+export async function launchChromium(chromium,extra){
+  const browser=await chromium.launch(chromiumLaunchOptions(extra));
+  if(!visibleBrowser())return browser;
+  const newPage=browser.newPage.bind(browser);
+  browser.newPage=async(...args)=>{
+    const page=await newPage(...args);
+    await page.addInitScript(visibleCursorInstaller);
+    return page;
+  };
+  const newContext=browser.newContext.bind(browser);
+  browser.newContext=async(...args)=>{
+    const context=await newContext(...args);
+    await context.addInitScript(visibleCursorInstaller);
+    return context;
+  };
+  return browser;
+}
 export const testTempRoot=()=>tmpdir();

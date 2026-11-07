@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -16,7 +16,7 @@ test('developer selects Gemini and explicitly dispatches one lesson quiz from th
       return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({type,meaning,content:{explanation:'Drizzle is light rain.',items:[{front:meaning.en,back:meaning.translation}]}})}]}}]});
     }});
     preview=await createLearningWorkbenchPreview({gemini});
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const context=await browser.newContext();await context.addCookies([{name:'local-workbench-role',value:'dev',url:preview.url}]);
     const page=await context.newPage();page.setDefaultTimeout(10000);
     await page.goto(preview.url+'/__local/providers');await page.locator('#provider-generation').waitFor();

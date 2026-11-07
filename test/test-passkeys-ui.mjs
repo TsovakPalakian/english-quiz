@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {createServer} from 'node:http';
@@ -18,7 +18,7 @@ const origin='http://localhost:'+server.address().port,service=new Passkeys(db,o
 const actor={id:'fixture-student',login:'Student',name:'Student'},session={sid:'fixture-session'};
 let browser;
 try{
-  browser=await chromium.launch(chromiumLaunchOptions());
+  browser=await launchChromium(chromium);
   const page=await browser.newPage();await page.goto(origin);
   await page.addScriptTag({content:readFileSync('node_modules/@simplewebauthn/browser/dist/bundle/index.umd.min.js','utf8')});
   const cdp=await page.context().newCDPSession(page);await cdp.send('WebAuthn.enable');

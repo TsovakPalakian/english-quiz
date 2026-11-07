@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -49,7 +49,7 @@ test('connected UI manages metadata, opinions, library, exact meanings, filters 
 yield "00. Fixture and browser setup";
 
   let browser;try{
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     const call=client(url),choose=async role=>{await page.selectOption('#account',role);await page.locator('#account:not([disabled])').waitFor();};
     const nav=async view=>{await page.locator('[data-view="'+view+'"]').click();await page.waitForFunction(view=>document.querySelector('[data-view="'+view+'"]')?.getAttribute('aria-current')==='page'&&!document.querySelector('#account')?.disabled,view);};
@@ -118,7 +118,7 @@ test('kit UI retains failed edits and queue filters, and reports empty results w
 yield "00. Fixture and browser setup";
 
   let browser;try{
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const page=await browser.newPage({viewport:{width:1280,height:960}}),call=client(url);await page.goto(url);await page.locator('#account:not([disabled])').waitFor();
     yield "01. checks";
     const {contexts}=(await call('/local/boot')).data,c=contexts[0];

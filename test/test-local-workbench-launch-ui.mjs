@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -9,7 +9,7 @@ test('full local shell exposes one isolated workbench across roles without produ
   try{
     const initial=await(await fetch(preview.url+'/__local/status')).json();assert.equal(initial.environment,'local-synthetic');assert.equal(initial.externalCalls,false);
     const foreign=await fetch(preview.url+'/__local/role',{method:'POST',headers:{Origin:'https://evil.invalid','Content-Type':'application/json'},body:JSON.stringify({id:'dev'})});assert.equal(foreign.status,403);
-    browser=await chromium.launch(chromiumLaunchOptions());
+    browser=await launchChromium(chromium);
     const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[],requests=[],failed=[];page.setDefaultTimeout(10000);
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>{if(request.url().includes('/api/'))requests.push(request.url());});
     page.on('response',response=>{if(response.status()>=400)failed.push(response.status()+' '+response.url());});

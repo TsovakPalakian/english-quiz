@@ -1,4 +1,4 @@
-import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
+import {launchChromium,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -15,7 +15,7 @@ yield "00. Fixture and browser setup";
   };
   try{
     const settings=(await api('/local/providers',null,'dev')).data;assert.equal((await api('/local/providers',{expectedRevision:settings.revision,selections:{pronunciation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'scripted'},conversation:{adapterId:'local-speech-fixture',locale:'en-US',mode:'text'}},reason:'Synthetic local speech UI test.'},'dev')).status,200);
-    browser=await chromium.launch(chromiumLaunchOptions({args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']}));
+    browser=await launchChromium(chromium, {args:['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']});
     const context=await browser.newContext({permissions:['microphone'],viewport:{width:1280,height:960}}),page=await context.newPage(),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     yield "01. addInitScript";
