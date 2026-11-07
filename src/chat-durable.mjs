@@ -321,7 +321,7 @@ export class ChatRoom extends Store{
     if(delivered){if(through<=member[column]||last<=member[column])return {read:true,unchanged:true};}
     else{
       const cursor=Math.max(member[column],last),unread=this.one("SELECT COUNT(*) n FROM messages WHERE deleted=0 AND category=? AND sender<>? AND id>? AND (id>? OR category='learning')",kind,actor.id,cursor,member.joined).n;
-      if(cursor===member[column]&&unread===member['unread_'+kind])return {read:true,unchanged:true};
+      if(cursor===member[column]&&unread===member['unread_'+kind])return {read:true,unchanged:true,room:this.summary(actor.id)};
       this.tx(()=>{
         this.sql.exec('UPDATE members SET '+column+'=?,delivered_'+kind+'=MAX(delivered_'+kind+',?),unread_'+kind+'=? WHERE id=?',cursor,cursor,unread,actor.id);
         if(cursor>member[column]){

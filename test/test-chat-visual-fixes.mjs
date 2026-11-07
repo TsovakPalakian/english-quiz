@@ -95,6 +95,25 @@ try {
     return [other.getBoundingClientRect().left, own.getBoundingClientRect().left];
   });
   assert.ok(ownLeft > otherLeft, 'Own message stays on the right');
+  const directHeadersHidden = await page.locator('#messages .msg-message:not(.is-group-message) > header').evaluateAll(headers =>
+    headers.every(h => window.getComputedStyle(h).display === 'none')
+  );
+  assert.ok(directHeadersHidden, 'Direct conversation headers are hidden');
+  const photoMetrics = await page.evaluate(() => {
+    const el = document.createElement('div');
+    el.id = 'messages';
+    el.innerHTML = '<article class="msg-message"><button class="chat-file" data-photo-preview><img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"></button></article>';
+    document.body.appendChild(el);
+    const img = el.querySelector('img');
+    const btn = el.querySelector('.chat-file');
+    const style = window.getComputedStyle(img);
+    const btnStyle = window.getComputedStyle(btn);
+    const res = { objectFit: style.objectFit, maxHeight: style.maxHeight, btnMaxWidth: btnStyle.maxWidth };
+    el.remove();
+    return res;
+  });
+  assert.equal(photoMetrics.objectFit, 'contain');
+  assert.ok(photoMetrics.maxHeight.includes('320px') || parseFloat(photoMetrics.maxHeight) <= 320);
   await page.locator('#msgRoomAvatar.has-avatar-photo').click();
   await page.locator('#msgRight:not([hidden])').waitFor();
   assert.equal(await page.locator('dialog.chat-avatar-dialog').count(), 0);

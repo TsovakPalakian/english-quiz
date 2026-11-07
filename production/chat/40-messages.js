@@ -768,15 +768,14 @@
       return;
     }
     const html = messageHTML(m);
-    if (node) {
-      if (node.innerHTML === html) return;
-      node.innerHTML = html;
-    } else {
+    if (!node) {
       node = document.createElement('article');
       node.tabIndex = -1;
-      node.innerHTML = html;
       timeline.append(node);
       timelineResize.observe(node);
+    }
+    if (node.innerHTML !== html) {
+      node.innerHTML = html;
     }
     const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : ''));
     node.className =

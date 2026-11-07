@@ -41,7 +41,7 @@ try {
       await page.evaluate(kind=>window.renderSeries(kind),kind);
       assert.equal(await page.locator('.is-series-continuation').count(),1,'Only adjacent same-sender messages within 60 seconds group');
       assert.equal(await page.locator('article[data-msg-id="1"]>header').isVisible(),false);
-      assert.equal(await page.locator('article[data-msg-id="2"]>header').isVisible(),true,'61-second gap starts a new series');
+      assert.equal(await page.locator('article[data-msg-id="2"]>header').isVisible(),kind!=='direct','61-second gap starts a new series in groups, direct hides author names');
       assert.equal(await page.locator('article>footer').count(),6,'All message times remain');
       assert.equal(await page.locator('.msg-message.is-own .msg-sender-avatar').count(),0);
       assert.equal(await page.locator('.msg-sender-avatar').count(),kind==='direct'?0:1);
@@ -61,7 +61,7 @@ try {
         document.querySelector('article[data-msg-id="0"]').remove();
         syncDays();
       });
-      assert.equal(await page.locator('article[data-msg-id="1"]>header').isVisible(),true,'Deleting the series head restores the next author');
+      assert.equal(await page.locator('article[data-msg-id="1"]>header').isVisible(),kind!=='direct','Deleting the series head restores the next author in groups');
     }
   }
   console.log('Message series: 60-second boundary, sender/day changes, deletion, group avatars and group/direct alignment passed on desktop/mobile');

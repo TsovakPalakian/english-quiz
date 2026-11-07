@@ -476,7 +476,18 @@
     }
   };
   timeline.oncontextmenu = (event) => {
-    const node = event.target.closest('.msg-message');
+    let node = event.target.closest('.msg-message');
+    if (!node) {
+      const x = event.clientX;
+      const y = event.clientY;
+      for (const dy of [-8, -16, 8, 16]) {
+        const candidate = document.elementFromPoint(x, y + dy)?.closest('.msg-message');
+        if (candidate) {
+          node = candidate;
+          break;
+        }
+      }
+    }
     if (!node) return;
     const message = state()?.rows.find((m) => m.id === Number(node.dataset.msgId));
     if (!message || message.deleted) return;

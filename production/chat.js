@@ -171,7 +171,15 @@
   const myAccountId = () => String(account || signedIn()?.id || data?.profile?.id || '');
   const isOwnMessage = (m) => {
     const me = myAccountId();
-    return !!me && String(m?.senderId ?? '') === me;
+    if (me && String(m?.senderId ?? '') === me) return true;
+    if (m?.pending) return true;
+    const currentRoom = (data?.rooms || []).find((item) => item.id === room);
+    if (currentRoom && currentRoom.kind === 'direct') {
+      const peer = String(currentRoom.peerId || '');
+      const sender = String(m?.senderId ?? '');
+      if (peer && sender && sender !== peer) return true;
+    }
+    return false;
   };
   const chatCacheKey = () => 'english-chat-snapshot:' + account;
   const chatCacheDb = () =>
@@ -688,7 +696,10 @@
     'pointerdown',
     (event) => {
       const notice = el('msgStatus');
-      if (!notice.hidden && !notice.contains(event.target)) status('');
+      if (!notice.hidden && !notice.contains(event.target)) {
+        if (event.button === 2) return;
+        status('');
+      }
     },
     { capture: true, passive: true },
   );
@@ -2230,15 +2241,14 @@
       return;
     }
     const html = messageHTML(m);
-    if (node) {
-      if (node.innerHTML === html) return;
-      node.innerHTML = html;
-    } else {
+    if (!node) {
       node = document.createElement('article');
       node.tabIndex = -1;
-      node.innerHTML = html;
       timeline.append(node);
       timelineResize.observe(node);
+    }
+    if (node.innerHTML !== html) {
+      node.innerHTML = html;
     }
     const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : ''));
     node.className =
@@ -5497,7 +5507,18 @@
     }
   };
   timeline.oncontextmenu = (event) => {
-    const node = event.target.closest('.msg-message');
+    let node = event.target.closest('.msg-message');
+    if (!node) {
+      const x = event.clientX;
+      const y = event.clientY;
+      for (const dy of [-8, -16, 8, 16]) {
+        const candidate = document.elementFromPoint(x, y + dy)?.closest('.msg-message');
+        if (candidate) {
+          node = candidate;
+          break;
+        }
+      }
+    }
     if (!node) return;
     const message = state()?.rows.find((m) => m.id === Number(node.dataset.msgId));
     if (!message || message.deleted) return;

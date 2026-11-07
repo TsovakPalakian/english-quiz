@@ -6,7 +6,10 @@
     'pointerdown',
     (event) => {
       const notice = el('msgStatus');
-      if (!notice.hidden && !notice.contains(event.target)) status('');
+      if (!notice.hidden && !notice.contains(event.target)) {
+        if (event.button === 2) return;
+        status('');
+      }
     },
     { capture: true, passive: true },
   );

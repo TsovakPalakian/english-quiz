@@ -171,7 +171,15 @@
   const myAccountId = () => String(account || signedIn()?.id || data?.profile?.id || '');
   const isOwnMessage = (m) => {
     const me = myAccountId();
-    return !!me && String(m?.senderId ?? '') === me;
+    if (me && String(m?.senderId ?? '') === me) return true;
+    if (m?.pending) return true;
+    const currentRoom = (data?.rooms || []).find((item) => item.id === room);
+    if (currentRoom && currentRoom.kind === 'direct') {
+      const peer = String(currentRoom.peerId || '');
+      const sender = String(m?.senderId ?? '');
+      if (peer && sender && sender !== peer) return true;
+    }
+    return false;
   };
   const chatCacheKey = () => 'english-chat-snapshot:' + account;
   const chatCacheDb = () =>
