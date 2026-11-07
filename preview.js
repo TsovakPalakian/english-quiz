@@ -20144,6 +20144,7 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
+      if (form.dataset.busy === "1") return;
       if(form.id==='otpLoginForm'&&form.querySelector('[name="code"]').disabled){form.querySelector('[data-otp-send]').click();return;}
       if(form.id==='registerForm'&&form.querySelector('[name="emailCode"]')?.disabled){form.querySelector('[data-invite-email-send]').click();return;}
       const status = form.querySelector("[data-form-status]");
@@ -20154,6 +20155,13 @@ const STUDIO_CONSTELLATIONS = [{
         if(!data.name){if(status){status.textContent='Enter your name.';status.classList.add('bad');}form.elements.name.focus();return;}
         delete data.role;
       }
+      const submitBtn = form.querySelector('button[type="submit"]');
+      form.dataset.busy = "1";
+      if (submitBtn) submitBtn.disabled = true;
+      const unlock = () => {
+        delete form.dataset.busy;
+        if (submitBtn) submitBtn.disabled = false;
+      };
       if (form.id === "otpLoginForm") {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (err) {}
@@ -20161,6 +20169,7 @@ const STUDIO_CONSTELLATIONS = [{
         accountFetch("/api/auth/otp/verify", { method: "POST", body: JSON.stringify(data) }).then((result) => {
           if (result.inviteWarning) throw new Error(result.inviteWarning);
           if(result.status==='pending'){
+            unlock();
             sessionStorage.removeItem('enquiz-invite');
             paintAccountForm(false);
             const pendingStatus=document.querySelector('#loginForm [data-form-status]');
@@ -20171,6 +20180,7 @@ const STUDIO_CONSTELLATIONS = [{
           try { sessionStorage.removeItem("enquiz-invite"); } catch (err) {}
           return enterAccount(result.user);
         }).catch((err) => {
+          unlock();
           if (status) { status.textContent = err.message; status.classList.add("bad"); }
         });
         return;
@@ -20178,6 +20188,7 @@ const STUDIO_CONSTELLATIONS = [{
       const path = form.id === "loginForm" ? "/api/login" : "/api/register";
       let hasInvite=false;try{hasInvite=!!sessionStorage.getItem('enquiz-invite');}catch{}
       if(path==='/api/login'&&hasInvite&&inviteDetails?.kind==='teacher'){
+        unlock();
         if(status)status.textContent='Accept this teacher invite using email code or Google.';
         return;
       }
@@ -20188,6 +20199,7 @@ const STUDIO_CONSTELLATIONS = [{
       }
       accountFetch(path, { method: "POST", body: JSON.stringify(data) }).then((result) => {
         if (result.status === "pending") {
+          unlock();
           if(path==='/api/register'&&hasInvite){
             try { sessionStorage.removeItem('enquiz-invite'); } catch {}
           }
@@ -20202,6 +20214,7 @@ const STUDIO_CONSTELLATIONS = [{
         }
         return enterAccount(result.user);
       }).catch((err) => {
+        unlock();
         if (status) { status.textContent = err.message; status.classList.add("bad"); }
       });
     });

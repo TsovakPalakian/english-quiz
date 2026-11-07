@@ -82,6 +82,9 @@ test('login and registration validation is ignored without hiding server failure
   await call('/api/register',400);
   await call('/api/register',409);
   await call('/api/login',429);
+  await saveBug(db,{path:'/api/register',status:0,error:'Connection interrupted. Saving is not confirmed; retry the same operation.'});
+  await saveBug(db,{path:'/api/login',status:0,error:'Connection interrupted. Saving is not confirmed; retry the same operation.'});
+  await saveBug(db,{path:'/api/logout',status:0,error:'Connection interrupted. Saving is not confirmed; retry the same operation.'});
   await saveBug(db,{path:'/api/me/themes',status:401,error:'Sign in first.'});
   assert.equal(db.rows.length,0);
   await call('/api/login',500);

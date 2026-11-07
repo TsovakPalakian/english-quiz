@@ -70,7 +70,7 @@ await scenarioSubtests('student-lessons-ui', async function*() {
       });
 
       await page.goto('http://127.0.0.1:' + port);
-      await page.waitForFunction(() => accountReady);
+      await page.waitForFunction(() => typeof accountReady !== 'undefined' && accountReady && typeof placeBoot !== 'undefined' && placeBoot);
       await page.evaluate(() => { classGroupId = 77; show('days'); });
       await page.locator('#days.on').waitFor();
 
@@ -131,7 +131,7 @@ await scenarioSubtests('student-lessons-ui', async function*() {
       });
 
       await page.goto('http://127.0.0.1:' + port);
-      await page.waitForFunction(() => accountReady);
+      await page.waitForFunction(() => typeof accountReady !== 'undefined' && accountReady && typeof placeBoot !== 'undefined' && placeBoot);
       await page.evaluate(() => { classGroupId = 77; show('days'); });
       await page.locator('#days.on').waitFor();
 

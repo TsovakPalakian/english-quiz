@@ -112,7 +112,7 @@ export async function saveBug(db,event){
   const status=Number(event.status)||0;
   const path=String(event.path||'/').split('?')[0];
   const err=String(event.error||'');
-  if(status===401||(status===404&&path==='/api/lesson-file')||((status===404||status===410)&&path==='/api/accounts/invites')||(status===410&&path.startsWith('/api/messages/'))||err.includes('Reload the page to connect to the new chat')||(status===404&&(path==='/lookup'||err==='No such word or phrase.'))||status>=400&&status<500&&['/api/login','/api/register','/api/logout'].includes(path)||err==='Sign in first.')return {ignored:true};
+  if(status===401||(status===404&&path==='/api/lesson-file')||((status===404||status===410)&&path==='/api/accounts/invites')||(status===410&&path.startsWith('/api/messages/'))||err.includes('Reload the page to connect to the new chat')||(status===404&&(path==='/lookup'||err==='No such word or phrase.'))||(status===0||(status>=400&&status<500))&&['/api/login','/api/register','/api/logout'].includes(path)||err==='Sign in first.')return {ignored:true};
   if(status===409&&/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path))return {ignored:true};
   if(status===400&&(err==='Enter a lesson title before saving.'||path==='/api/lessons'&&err.includes('title')))return {ignored:true};
   if((status===502||status===503||status===504||status===429)&&(path==='/api/lessons/parse-pdf'||err.includes('timed out')||err.includes('quota')||err.includes('Could not analyse this PDF')))return {ignored:true};
