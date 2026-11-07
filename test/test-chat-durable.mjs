@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {ChatRoom,ChatInbox,chatCall,chatSocketExpires,directRoomId} from '../src/chat-durable.mjs';
 import {chatDatabaseHeaders} from '../src/chat-database.mjs';
@@ -1021,4 +1023,22 @@ test('GET /api/messages/profile returns details and enriched public profile', as
   assert.ok(data.profile);
   assert.equal(data.profile.username, '@myuser');
   assert.equal(data.profile.avatarUrl, '/api/messages/avatar?subject=1&v=abc');
+});
+
+test('Chat direct message sides, receipt styling and unread persistence invariants', () => {
+  const css = fs.readFileSync(path.resolve('production/chat.css'), 'utf8');
+  assert.match(css, /#messages \.msg-message\.is-own\{[^}]*align-self:flex-end[^}]*\}/);
+  assert.match(css, /#messages \.msg-message:not\(\.is-own\)\{[^}]*align-self:flex-start[^}]*\}/);
+  assert.match(css, /\.msg-receipt\{[^}]*color:var\(--mute\)[^}]*\}/);
+  assert.match(css, /\.msg-receipt\.is-read\{color:#1682e8\}/);
+  assert.match(css, /#messages \.msg-receipt svg\{[^}]*width:16px;height:16px;display:block[^}]*\}/);
+
+  const roomsJs = fs.readFileSync(path.resolve('production/chat/30-rooms.js'), 'utf8');
+  assert.match(roomsJs, /r\.id !== room && r\.unread\?\.\[kind\]/);
+
+  const messagesJs = fs.readFileSync(path.resolve('production/chat/40-messages.js'), 'utf8');
+  assert.match(messagesJs, /activeRow\.unread\[kind\] = 0/);
+
+  const durableJs = fs.readFileSync(path.resolve('src/chat-durable.mjs'), 'utf8');
+  assert.match(durableJs, /if\(result\?\.room\)this\.sql\.exec\('INSERT INTO rooms\(id,data\) VALUES\(\?,\?\) ON CONFLICT\(id\) DO UPDATE SET data=excluded\.data'/);
 });

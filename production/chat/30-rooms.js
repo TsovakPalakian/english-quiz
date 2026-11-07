@@ -4,6 +4,12 @@
     if (old && (old.revision || 0) > (row.revision || 0)) return;
     if (old) Object.assign(old, row);
     else data.rooms.push(row);
+    if (row.id === room) {
+      const activeItem = old || row;
+      if (activeItem.unread && kind) {
+        activeItem.unread[kind] = 0;
+      }
+    }
   }
   function badge() {
     const unread = { personal: 0, learning: 0 };
@@ -97,7 +103,7 @@
                   icon('pin') +
                   '</span>'
                 : '') +
-              (r.unread?.[kind] ? '<span class="chat-counter">' + r.unread[kind] + '</span>' : '') +
+              (r.id !== room && r.unread?.[kind] ? '<span class="chat-counter">' + r.unread[kind] + '</span>' : '') +
               escape(roomPreview(r.lastMessage?.text || (isGroupChat(r) ? 'Group chat' : 'Private conversation'))) +
               '</span></span></button>',
           )

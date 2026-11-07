@@ -168,6 +168,11 @@
     readTimer,
     listMode = 'chats',
     emojiMode = '';
+  const myAccountId = () => String(account || signedIn()?.id || data?.profile?.id || '');
+  const isOwnMessage = (m) => {
+    const me = myAccountId();
+    return !!me && String(m?.senderId ?? '') === me;
+  };
   const chatCacheKey = () => 'english-chat-snapshot:' + account;
   const chatCacheDb = () =>
     new Promise((resolve, reject) => {

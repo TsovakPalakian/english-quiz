@@ -562,7 +562,9 @@ export class ChatInbox extends Store{
     }
     const room=ref(body.roomId);if(!this.one('SELECT id FROM rooms WHERE id=?',room))fail(403,'Conversation unavailable.');
     if(!['history','send','read','delivered','mute','members','edit','delete','pin','react','relation','room-settings','clear-history'].includes(action))fail(400,'Invalid chat command.');
-    return chatCall(this.env,'CHAT_ROOM',room,'/'+action,{...body,actor});
+    const result=await chatCall(this.env,'CHAT_ROOM',room,'/'+action,{...body,actor});
+    if(result?.room)this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',room,this.seal(JSON.stringify(result.room),'data'));
+    return result;
   }
   async webSocketMessage(ws,raw){return trackTransferTask(this,()=>this.receiveWebSocketMessage(ws,raw));}
   async receiveWebSocketMessage(ws,raw){

@@ -51,7 +51,7 @@
     status('Photo copied.');
   }
   function canEdit(message) {
-    return message.canEdit ?? (String(message.senderId) === String(account) && !message.examId);
+    return message.canEdit ?? (isOwnMessage(message) && !message.examId);
   }
   function messageMenu(message, x, y, fileId = '') {
     const selected = getSelection(),
@@ -72,7 +72,7 @@
     contextRoom = room;
     const node = el('msgContext'),
       study = message.category === 'learning',
-      canReply = !study || (String(message.senderId) !== String(account) && message.canStudyReply !== false),
+      canReply = !study || (!isOwnMessage(message) && message.canStudyReply !== false),
       items = [];
     if (canReply) items.push(['reply', 'reply', 'Reply']);
     node.dataset.quote = quote;
@@ -93,7 +93,7 @@
         ? 'Unpin'
         : 'Pin',
     ]);
-    if ((!study || canReply) && String(message.forwardTo) !== String(account)) items.push(['forward', 'forward', 'Forward']);
+    if ((!study || canReply) && String(message.forwardTo) !== myAccountId()) items.push(['forward', 'forward', 'Forward']);
     items.push(['select', 'circle-check', 'Select']);
     if (canEdit(message)) items.push(['delete', 'trash-2', 'Delete']);
     node.dataset.fileId = fileId;

@@ -48,7 +48,7 @@
         const wasBottom = bottom();
         if (cache?.loaded) mergeNode(event.message);
         else history().catch((error) => status(error.message));
-        if (wasBottom || String(event.message.senderId) === String(account)) timeline.scrollTop = timeline.scrollHeight;
+        if (wasBottom || isOwnMessage(event.message)) timeline.scrollTop = timeline.scrollHeight;
         else el('msgLatest').hidden = false;
         scheduleRead();
       }
@@ -64,7 +64,7 @@
       if (
         event.type === 'message' &&
         prefs.notifications !== false &&
-        String(event.message.senderId) !== String(account) &&
+        !isOwnMessage(event.message) &&
         !mutedChat(event.room) &&
         document.visibilityState === 'hidden' &&
         window.Notification?.permission === 'granted'
@@ -76,8 +76,8 @@
       const cache = historyCache.get(event.room.id + ':' + c);
       if (cache)
         for (const message of cache.rows)
-          if (String(message.senderId) === String(account)) {
-            Object.assign(message, chatReceiptMarks(message.id, event.receipt.readers, account, isGroupChat(event.room)));
+          if (isOwnMessage(message)) {
+            Object.assign(message, chatReceiptMarks(message.id, event.receipt.readers, myAccountId(), isGroupChat(event.room)));
             if (active() && room === event.room.id && kind === c) mergeNode(message);
           }
     }
@@ -276,7 +276,7 @@
     return { label: 'Sent', title: 'Sent', read: false, some: false, mark: 'check' };
   }
   function messageHTML(m) {
-    const own = String(m.senderId) === String(account),
+    const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : '')),
       date = new Date(m.createdMs || m.created * 1000),
       face = chatReceiptFace(m);
     return (
@@ -778,9 +778,10 @@
       timeline.append(node);
       timelineResize.observe(node);
     }
+    const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : ''));
     node.className =
       'msg-message' +
-      (String(m.senderId) === String(account) ? ' is-own' : '') +
+      (own ? ' is-own' : '') +
       (m.category === 'learning' ? ' is-learning' : '') +
       (m.deleted ? ' is-deleted' : '') +
       (selection.has(m.id) ? ' is-selected' : '');
@@ -862,7 +863,7 @@
   function paintMessages() {
     timelineResize.disconnect();
     timelineResize.observe(timeline);
-    const renderKey = account + ':' + key();
+    const renderKey = myAccountId() + ':' + key();
     if (timeline.dataset.chatKey !== renderKey) {
       timeline.replaceChildren();
       timeline.dataset.chatKey = renderKey;
@@ -908,7 +909,7 @@
       mergeNode({
         ...pending,
         id: 'pending',
-        senderId: account,
+        senderId: myAccountId(),
         sender: data.profile?.name || current()?.name || 'Me',
         createdMs: pending.createdMs || Date.now(),
         pending: busy,
@@ -989,6 +990,10 @@
     if (recordGesture) cancelRecording();
     loading++;
     room = id;
+    const activeRow = data.rooms.find((item) => item.id === id);
+    if (activeRow?.unread && kind) {
+      activeRow.unread[kind] = 0;
+    }
     reply = null;
     pending = null;
     files = [];
@@ -1089,7 +1094,7 @@
     el('msgSendState').textContent = 'Sending...';
     paintUploads();
     if (kind === sent.category) {
-      mergeNode({ ...sent, id: 'pending', senderId: account, sender: data.profile?.name || 'Me', pending: true });
+      mergeNode({ ...sent, id: 'pending', senderId: myAccountId(), sender: data.profile?.name || 'Me', pending: true });
       timeline.scrollTop = timeline.scrollHeight;
     }
     try {
@@ -1126,7 +1131,7 @@
       if (gen !== generation) return;
       el('msgSendState').textContent = error.message;
       if (room === sent.roomId && kind === sent.category)
-        mergeNode({ ...sent, id: 'pending', senderId: account, sender: data.profile?.name || 'Me', failed: true });
+        mergeNode({ ...sent, id: 'pending', senderId: myAccountId(), sender: data.profile?.name || 'Me', failed: true });
     } finally {
       busy = false;
       composer.disabled = false;

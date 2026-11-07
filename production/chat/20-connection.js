@@ -215,6 +215,9 @@
             ...profileViews[value.data.profile.id],
             ...value.data.profile,
           };
+          if (!account || String(account) !== String(value.data.profile.id)) {
+            account = String(value.data.profile.id);
+          }
         }
         const reconnect = ready;
         value.data.rooms = chatSnapshotRooms(data.rooms, value.data.rooms);
