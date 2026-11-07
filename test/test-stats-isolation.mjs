@@ -41,4 +41,27 @@ test('resolveStatTarget scopes ADMIN stats impersonation to managed students',as
   assert.deepEqual(await resolveStatTarget(envFor({id:studentA,role:'USER',active:1}),teacher,studentA),{uid:studentA,role:'USER'});
   assert.deepEqual(await resolveStatTarget(envFor({id:studentB,role:'USER',active:1}),teacher,studentB),{uid:teacherA,role:'ADMIN'});
   assert.deepEqual(await resolveStatTarget(envFor({id:studentB,role:'USER',active:1}),{id:teacherA,role:'DEVELOPER'},studentB),{uid:studentB,role:'USER'});
+  assert.deepEqual(await resolveStatTarget(envFor({id:studentA,role:'USER',active:1,hidden:0}),{id:teacherA,role:'DEVELOPER'},studentA),{uid:studentA,role:'USER'});
+  assert.deepEqual(await resolveStatTarget(envFor({id:studentA,role:'USER',active:0,hidden:0}),{id:teacherA,role:'DEVELOPER'},studentA),{uid:teacherA,role:'DEVELOPER'});
+});
+test('resolveStatTarget keeps own stats when account columns are missing',async()=>{
+  const actor={id:teacherA,role:'DEVELOPER'};
+  let queries=0;
+  const missing=(message)=>({
+    DB:{prepare(){queries++;return {bind(){return {first:async()=>{throw new Error(message);}}}}}},
+    [STUDY_DATABASE]:studyFixture()
+  });
+  assert.deepEqual(await resolveStatTarget(missing('D1_ERROR: no such column: hidden'),actor,studentA),{uid:teacherA,role:'DEVELOPER'});
+  assert.equal(queries,1);
+  queries=0;
+  assert.deepEqual(await resolveStatTarget(missing('D1_ERROR: no such column: active'),actor,studentA),{uid:teacherA,role:'DEVELOPER'});
+  assert.equal(queries,1);
+  await assert.rejects(resolveStatTarget(missing('disk'),actor,studentA),/disk/);
+  queries=0;
+  const quiet=envFor({id:studentA,role:'USER',active:1,hidden:0});
+  const original=quiet.DB.prepare;
+  quiet.DB.prepare=()=>{queries++;return original();};
+  assert.deepEqual(await resolveStatTarget(quiet,actor,''),{uid:teacherA,role:'DEVELOPER'});
+  assert.deepEqual(await resolveStatTarget(quiet,actor,teacherA),{uid:teacherA,role:'DEVELOPER'});
+  assert.equal(queries,0);
 });

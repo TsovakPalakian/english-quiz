@@ -79,7 +79,7 @@
   };
   const time = (ms) => {
     const d = new Date(ms);
-    return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
   const roomTime = (ms, now = Date.now()) => (dateLabel(ms) === dateLabel(now) ? time(ms) : dateLabel(ms));
   const roomPreview = (text) => {

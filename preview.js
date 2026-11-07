@@ -10762,6 +10762,41 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     let dayCardTotal = 0;
     let daySetupLabel = "";
     let dayPoolStrict = false;
+    function dayQuizReadableCards(cards, readableIds) {
+      const allowed = new Set((readableIds || []).map(id => String(id)));
+      return (cards || []).filter(card => {
+        const id = card && card.stageId != null ? String(card.stageId) : '';
+        if (!/^[1-9]\d{0,15}$/.test(id)) return true;
+        return allowed.has(id);
+      });
+    }
+    function dayQuizWithoutCard(queue, index, cardId) {
+      const id = String(cardId || '');
+      const next = (queue || []).filter(item => String(item && item.card && item.card.stageId || '') !== id);
+      let at = Number(index) || 0;
+      if (at >= next.length) at = Math.max(0, next.length - 1);
+      return { queue: next, index: at, removed: next.length !== (queue || []).length };
+    }
+    async function dayQuizVisibleCards(cards) {
+      const source = Array.isArray(cards) ? cards : [];
+      const ids = [];
+      for (const card of source) {
+        const id = card && /^[1-9]\d{0,15}$/.test(String(card.stageId || '')) ? String(card.stageId) : '';
+        if (id && !ids.includes(id)) ids.push(id);
+      }
+      if (!ids.length || typeof accountFetch !== 'function') return source;
+      const readable = [];
+      try {
+        for (let i = 0; i < ids.length; i += 50) {
+          const data = await accountFetch('/api/me/cards/dictionary?ids=' + ids.slice(i, i + 50).join(','));
+          for (const row of data && data.cards || []) {
+            const id = row && (row.stageId != null ? row.stageId : row.id);
+            if (id != null) readable.push(id);
+          }
+        }
+      } catch { return source; }
+      return dayQuizReadableCards(source, readable);
+    }
     function quizPool() {
       const base = dayPoolOverride || lessonPool(dayQuizPlace);
       // Keep the active pool as-is. Custom quizzes weave in per card in buildDayQueue.
@@ -11904,8 +11939,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       });
       return queue;
     }
-    function startMistakeQuiz(groups) {
-      const queue = mistakeItems(groups);
+    async function startMistakeQuiz(groups) {
+      let queue = mistakeItems(groups);
+      const visible = new Set(await dayQuizVisibleCards(queue.map(item => item.card).filter(Boolean)));
+      queue = queue.filter(item => !item.card || visible.has(item.card));
       if (!queue.length) return;
       if (!mistakeQuizOn) {
         mistakePoolSaved = dayPoolOverride;
@@ -12063,7 +12100,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (!left) clearInterval(examClock);
       }, 1000);
     }
-    function beginQuiz(exam) {
+    let dayQuizOpen = 0;
+    async function beginQuiz(exam) {
+      const openTicket = ++dayQuizOpen;
       let here = (document.querySelector("section.on") || {}).id;
       if (here !== "setup" && here !== "daysetup") {
         openGlobalStudy();
@@ -12079,10 +12118,13 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (exam) examPassMark = examPassPercent(here);
       let cards = quizPool();
       if (here === "daysetup" || here === "setup") cards = limitStudyCards(cards, here);
+      const pooled = cards.slice();
+      cards = await dayQuizVisibleCards(cards);
+      if (openTicket !== dayQuizOpen) return;
       const note = document.getElementById(here === "daysetup" ? "daySetupNote" : "studyNote");
       const types = chosenTypes(exam);
       if (!cards.length) {
-        setQuizNote(note, "No cards on this page yet.", true);
+        setQuizNote(note, pooled.length ? "These cards are no longer available." : "No cards on this page yet.", true);
         return;
       }
       if (!types.length) {
@@ -12637,6 +12679,19 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       refreshDaySetupTime();
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
+    document.addEventListener("learning-card-unreadable", event => {
+      const step = dayQuizWithoutCard(dayQueue, dayAt, event.detail && event.detail.cardId);
+      if (!step.removed) return;
+      dayQueue = step.queue;
+      dayAt = step.index;
+      const view = document.getElementById("dayqView");
+      if (!dayQueue.length) {
+        if (view) view.innerHTML = '<p class="prompt">This card is no longer available.</p>';
+        return;
+      }
+      renderDay();
+      document.getElementById("dayqView")?.insertAdjacentHTML("afterbegin", '<p class="hint">This card is no longer available.</p>');
+    });
     document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
       inp.addEventListener("pointerdown", (e) => {
         e.stopPropagation();
@@ -16791,13 +16846,16 @@ const STUDIO_CONSTELLATIONS = [{
         html += '<label class="admin-form-field saas-form-group is-full"><span class="field-label saas-label">Email Address</span><input data-profile-email class="saas-input" type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
 
         // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
-        html += '<div class="admin-form-field saas-form-group account-group-row is-full">';
+        html += '<div class="admin-form-field saas-form-group is-full">';
+        html += '<div class="account-group-row">';
         html += '<div class="account-group-controls">';
         html += '<label><span class="field-label saas-label">Assigned Group</span>';
         html += '<select class="saas-select" data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '"' + (!adminGroups.length ? ' disabled' : '') + '>' + adminGroupOptions(assignedGroupId) + '</select>';
         html += '</label>';
         html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
+        html += '</div>';
+        html += '<label class="account-earlier-history"><input type="checkbox" data-show-earlier> Show earlier group messages</label>';
         html += '</div>';
 
         // Role field
@@ -16844,6 +16902,8 @@ const STUDIO_CONSTELLATIONS = [{
       const picker = event.target.closest('[data-student-group]');
       if (!picker) return;
       const button = picker.closest('.account-group-row')?.querySelector('[data-account="assign-group"]');
+      const earlier = picker.closest('.admin-form-field')?.querySelector('[data-show-earlier]');
+      if (earlier) earlier.checked = false;
       if (button) button.disabled = picker.value === picker.dataset.originalGroup;
     });
     function viewKeys() {
@@ -17034,14 +17094,25 @@ const STUDIO_CONSTELLATIONS = [{
     });
   }
 
+  function profileAssignedTeacher(user, rows) {
+    const id = String(user?.id ?? '');
+    if (!id) return false;
+    return (rows || []).some(row => Array.isArray(row?.teacherIds) && row.teacherIds.map(String).includes(id));
+  }
+  function profileTeacherRows() {
+    const rows = [];
+    if (typeof groupDirectory !== 'undefined' && Array.isArray(groupDirectory?.assignments)) rows.push(...groupDirectory.assignments);
+    if (typeof adminTeacherAssignments !== 'undefined' && Array.isArray(adminTeacherAssignments)) rows.push(...adminTeacherAssignments);
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) rows.push(...classGroups);
+    return rows;
+  }
   function getUserRoleInfo(user) {
     if (!user) return { label: 'Guest', roleName: 'Guest', emoji: '👤', class: 'role-guest' };
     if ((typeof isDeveloper === 'function' && isDeveloper()) || user.role === 'DEVELOPER') {
       return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
     }
     if (user.role === 'ADMIN') {
-      const login = String(user.login || '').toLowerCase();
-      if (login.startsWith('teacher') || user.leadInstructor) {
+      if (user.leadInstructor || profileAssignedTeacher(user, profileTeacherRows())) {
         return { label: 'Teacher', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
       }
       return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
@@ -20310,8 +20381,11 @@ const STUDIO_CONSTELLATIONS = [{
         const picker = button.closest('.card').querySelector('[data-student-group]');
         if (!picker || picker.value === picker.dataset.originalGroup || picker.disabled) return;
         const selected = picker.value;button.disabled = true;picker.disabled = true;
-        accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
+        const seeEarlier = button.closest('.admin-form-field')?.querySelector('[data-show-earlier]')?.checked === true;
+        accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null,seeEarlier})}).then(async () => {
           picker.dataset.originalGroup = selected;
+          const box = button.closest('.admin-form-field')?.querySelector('[data-show-earlier]');
+          if (box) box.checked = false;
           adminMembers = (await accountFetch('/api/groups/members')).members || [];
           groupDirectory=null;classGroupsReady=false;examReady=false;
           await Promise.all([groupPull(),examPull(true)]);
@@ -24589,6 +24663,56 @@ function lmPdfApplyMetadata(draft,data,selected){
   if(!String(draft.title||'').trim())draft.title=String(data.title||draft.title||'').trim();
   if(!draft.title)throw new Error('Enter a lesson title before applying the document.');
 }
+function lmPdfBlockBudget(occupied, incoming) {
+  const used = Math.max(0, Math.trunc(Number(occupied) || 0));
+  const added = Math.max(0, Math.trunc(Number(incoming) || 0));
+  const room = Math.max(0, 200 - used);
+  return { occupied: used, room, over: added > room };
+}
+function lmPdfBlockBudgetText(occupied, incoming) {
+  const budget = lmPdfBlockBudget(occupied, incoming);
+  return 'This lesson already has ' + budget.occupied + ' blocks. ' + budget.room + ' more can be added.';
+}
+function lmPdfIncomingBlocks(groups, selected, hasPdfBlock) {
+  let count = 0;
+  for (const [tab, rows] of Object.entries(groups || {})) if (selected?.has(tab)) count += Array.isArray(rows) ? rows.length : 0;
+  if (selected?.has('pdf') && !hasPdfBlock) count += 1;
+  return count;
+}
+function lmPdfPayloadBytes(draft) {
+  const snapshot = window.LearningMain.lessonSnapshot(draft);
+  const baseline = draft.stageLessonBaseline;
+  const previous = new Map((baseline?.blocks || []).map(block => [block.id, block]));
+  const upserts = snapshot.blocks.filter(block => JSON.stringify({ ...block, expectedRevision: 0 }) !== JSON.stringify({ ...(previous.get(block.id) || {}), expectedRevision: 0 }));
+  const payload = baseline ? { changes: snapshot.changes, upserts, deletes: [], order: snapshot.blocks.map(block => block.id || null) } : snapshot;
+  return new TextEncoder().encode(JSON.stringify(payload)).length;
+}
+async function lmPdfSaveBounded(draft, current, active) {
+  const target = (draft.blocks || []).slice();
+  const occupied = (current?.blocks || []).length;
+  const incoming = Math.max(0, target.length - occupied);
+  if (lmPdfBlockBudget(occupied, incoming).over) throw new Error(lmPdfBlockBudgetText(occupied, incoming));
+  let end = 0, batches = 0;
+  if (!target.length) {
+    await lmPdfSavePreparedDraft(draft, current, active);
+    return 1;
+  }
+  while (end < target.length) {
+    if (!active()) throw new Error('The lesson changed.');
+    let next = end;
+    while (next < target.length) {
+      draft.blocks = target.slice(0, next + 1);
+      if (lmPdfPayloadBytes(draft) > 58000) break;
+      next += 1;
+    }
+    if (next === end) throw new Error('Selected content is too large for one save. Apply fewer sections.');
+    draft.blocks = target.slice(0, next);
+    await lmPdfSavePreparedDraft(draft, current, active);
+    batches += 1;
+    end = next;
+  }
+  return batches;
+}
 async function lmPdfSavePreparedDraft(draft,current,active){
   const oldId = current?.id;
   try{await window.LearningMain.saveLesson(draft);}
@@ -25376,6 +25500,16 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft saas-card';dialog.setAttribute('open','');
     const heading=document.createElement('h2');heading.textContent=isDocument ? 'Review lesson draft' : 'Review PDF lesson draft';dialog.append(heading);
     const hint=document.createElement('p');hint.textContent=isDocument ? 'Select sections to import into this draft. Existing blocks and manual edits stay unchanged.' : 'Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
+    const budgetNote=document.createElement('p');budgetNote.id='lmPdfBlockBudget';dialog.append(budgetNote);
+    function paintPdfBlockBudget(){
+      const selected=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
+      const occupied=(current.blocks||[]).length;
+      const hasPdf=(current.blocks||[]).some(block=>block.type==='pdf'&&block.pdfImport?.source===hash);
+      const incoming=lmPdfIncomingBlocks(groups,selected,hasPdf);
+      const budget=lmPdfBlockBudget(occupied,incoming);
+      budgetNote.textContent=lmPdfBlockBudgetText(occupied,incoming);
+      budgetNote.classList.toggle('bad',budget.over);
+    }
     const choices=new Map();
     let sectionCount = 0;
     const section=(key,title,renderContent,checked)=>{
@@ -25388,6 +25522,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       const syncState=()=>{
         numBadge.classList.toggle('is-off',!input.checked);
         details.classList.toggle('is-section-off',!input.checked);
+        paintPdfBlockBudget();
       };
       input.onchange=syncState;
       numBadge.onclick=(e)=>{
@@ -25730,6 +25865,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       },true);
     }
     if(data.warnings.length){const warnings=document.createElement('p');warnings.textContent='Review required: '+data.warnings.join(' ');dialog.append(warnings);}
+    paintPdfBlockBudget();
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
@@ -25904,19 +26040,15 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
           status.textContent='Preparing dictionary cards…';
           await lmPdfPrepareCards(draft,active,(done,total)=>lmPdfProgress('Preparing cards',[],done,total),selected);
           if(!active())throw new Error('The lesson changed.');
-          let pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
-          if(draft.blocks.length>200)throw new Error('The lesson would exceed 200 blocks. Select fewer sections.');
-          const snapshot=window.LearningMain.lessonSnapshot(draft),baseline=draft.stageLessonBaseline;
-          const previous=new Map((baseline?.blocks||[]).map(b=>[b.id,b]));
-          const upserts=snapshot.blocks.filter(b=>JSON.stringify({...b,expectedRevision:0})!==JSON.stringify({...previous.get(b.id),expectedRevision:0}));
-          const payload=baseline?{changes:snapshot.changes,upserts,deletes:[],order:snapshot.blocks.map(b=>b.id||null)}:snapshot;
-          if(new TextEncoder().encode(JSON.stringify(payload)).length>58000)throw new Error('Selected content is too large for one save. Apply fewer sections.');
+          const occupied=(current.blocks||[]).length;
+          const budget=lmPdfBlockBudget(occupied,draft.blocks.length-occupied);
+          if(budget.over)throw new Error(lmPdfBlockBudgetText(occupied,draft.blocks.length-occupied));
           lmPdfProgress('Saving draft');status.textContent='Saving draft…';
-          await lmPdfSavePreparedDraft(draft,current,active);
+          await lmPdfSaveBounded(draft,current,active);
           // Keep confirmed server revisions even if upload fails; retry reuses the same PDF block.
           if(!active())throw new Error('Draft saved, but the lesson or account changed. Reopen the lesson to attach its PDF.');
           if(selected.has('pdf') && !isDocument && file && (file.type==='application/pdf'||/\.pdf$/i.test(file.name||''))){
-            pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
+            const pdf=draft.blocks.find(b=>b.type==='pdf'&&b.pdfImport?.source===hash);
             if(!pdf?.hasFile)await window.LearningMain.uploadLessonFile(draft,pdf,file);
             if(active()){
               Object.assign(current,draft);
@@ -26203,8 +26335,8 @@ if(typeof window!=='undefined'){
     function groupLiveStudentCount(group){
       if(!authUser||viewAccount||!isTeacher())return undefined;
       if(!groupDirectoryReady()||groupDirectory.error)return undefined;
-      const members=new Set(groupDirectory.members.filter(row=>String(row.groupId)===String(group.id)).map(row=>row.accountId));
-      return new Set(groupDirectory.users.filter(user=>members.has(user.id)&&user.role==='USER'&&user.active!==false&&user.active!==0&&!user.hidden&&!user.revoked).map(user=>user.id)).size;
+      const members=new Set(groupDirectory.members.filter(row=>String(row.groupId)===String(group.id)).map(row=>String(row.accountId)));
+      return new Set(groupDirectory.users.filter(user=>members.has(String(user.id))&&user.role==='USER'&&user.active!==false&&user.active!==0&&!user.hidden&&!user.revoked).map(user=>String(user.id))).size;
     }
     function refreshGroupStudentCounts(){
       if(!isTeacher()||viewAccount)return;

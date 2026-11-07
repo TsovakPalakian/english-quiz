@@ -1,4 +1,23 @@
 // Exam-only presentation; lesson definitions and rendering delegate unchanged.
+function examPublishPointsGap(parts, scoring) {
+  if (!scoring || typeof scoring.examGrading !== 'function') return null;
+  for (const row of scoring.examGrading(parts || [])) {
+    const source = row.part.scoringVersion >= 3 ? row.item : row.part;
+    if (source.maxPoints == null || source.maxPoints === '' || !Number.isFinite(row.max) || row.max <= 0 || row.max > 1e12) {
+      const whole = source === row.part || ['task','text'].includes(row.part.type) || ['Match','Memory'].includes(row.part.quizType);
+      return { id: row.part.id, itemIndex: whole ? null : row.index, message: 'Set Maximum points explicitly for ' + (row.part.title || row.part.type) + '.' };
+    }
+  }
+  return null;
+}
+function examPublishPointsField(root, gap) {
+  if (!root || !gap || typeof root.querySelectorAll !== 'function') return null;
+  const article = [...root.querySelectorAll('[data-block-id]')].find(node => node.dataset.blockId === String(gap.id));
+  if (!article) return null;
+  article.classList.remove('is-shut');
+  if (gap.itemIndex == null) return article.querySelector('[data-field="maxPoints"]');
+  return [...article.querySelectorAll('[data-item-field="maxPoints"]')].find(node => node.dataset.item === String(gap.itemIndex)) || null;
+}
 const examTones=['#247b78','#9265ad','#ac6741','#4e78a8','#988024','#b64d70','#44845c','#986173'];
 function examTone(part){
   if(/^#[a-f0-9]{6}$/i.test(part.blockColor||''))return part.blockColor;

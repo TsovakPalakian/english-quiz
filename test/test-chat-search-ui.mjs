@@ -26,8 +26,8 @@ try{
   `});
   for(const width of [1000,390]){
     await page.setViewportSize({width,height:800});
-    for(const mode of ['prefix','exact','regex']){
-      await page.evaluate(mode=>runSearch(mode==='regex'?'hel+o':'hello',mode),mode);
+    for(const mode of ['prefix','exact']){
+      await page.evaluate(mode=>runSearch('hello',mode),mode);
       assert.equal(await page.locator('#msgSearchResults mark').count(),3,mode+' highlights all result matches');
       assert.equal(await page.locator('#timeline mark').count(),4,mode+' preserves matches split across formatting');
       await page.evaluate(()=>focusResult());
@@ -40,10 +40,10 @@ try{
     assert.equal(await page.locator('#timeline mark').count(),1,'Case sensitivity is respected');
     await page.evaluate(()=>runSearch('<world>','exact'));
     assert.equal(await page.locator('#msgSearchResults mark').textContent(),'<world>','Query is escaped, not interpreted as HTML');
-    await page.evaluate(()=>runSearch('[','regex'));
-    assert.equal(await page.locator('#timeline mark').count(),0,'Invalid regex does not break rendering');
+    await page.evaluate(()=>runSearch('hel+o','regex'));
+    assert.equal(await page.locator('#timeline mark').count(),0,'A regular expression is not applied');
     await page.evaluate(()=>runSearch('','exact'));
     assert.equal(await page.locator('#messages mark').count(),0,'Clearing search removes all highlights');
   }
-  console.log('Chat search: result and message highlighting, formatting, case, regex, escaping and clearing passed on desktop/mobile');
+  console.log('Chat search: result and message highlighting, formatting, case, escaping and clearing passed on desktop/mobile');
 }finally{await browser.close();}

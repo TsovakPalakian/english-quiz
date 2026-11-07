@@ -939,6 +939,23 @@
     true,
   );
   window.openChatSettings = settings;
+  const calendarReportKeys = new Map();
+  function chatCalendarReportKey(store, groupId, category, text) {
+    const id = String(groupId) + '\n' + String(category) + '\n' + String(text);
+    let key = store.get(id);
+    if (typeof key !== 'string' || !key) {
+      key = 'gcw-report-' + crypto.randomUUID();
+      store.set(id, key);
+    }
+    return key;
+  }
+  function chatCalendarReportDone(store, groupId, category, text) {
+    store.delete(String(groupId) + '\n' + String(category) + '\n' + String(text));
+  }
+  function chatGroupReportCategory(user, options, teacher) {
+    if (options && options.category) return options.category;
+    return user && (user.role === 'ADMIN' || user.role === 'DEVELOPER' || teacher) ? 'learning' : 'personal';
+  }
   window.sendGroupChatMessage = async function(groupId, text, options) {
     if (!signedIn() && typeof checkAuth === 'function') {
       try { await checkAuth(); } catch {}
@@ -959,15 +976,16 @@
     const numId = Number(groupId);
     const openRes = await request('open', { kind: 'group', groupId: numId });
     if (openRes && openRes.roomId) {
-      const u = signedIn();
-      const isStaff = u && (u.role === 'TEACHER' || u.role === 'LEAD_INSTRUCTOR' || u.leadInstructor || (typeof isTeacher === 'function' && isTeacher()));
-      const category = (options && options.category) || (isStaff ? 'learning' : 'personal');
-      return request('send', {
+      const category = chatGroupReportCategory(signedIn(), options, typeof isTeacher === 'function' && isTeacher());
+      const clientKey = chatCalendarReportKey(calendarReportKeys, numId, category, text);
+      const result = await request('send', {
         roomId: openRes.roomId,
         category,
-        clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        clientKey,
         text
       });
+      chatCalendarReportDone(calendarReportKeys, numId, category, text);
+      return result;
     }
   };
   el('msgProfile').onclick = settings;

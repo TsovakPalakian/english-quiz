@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
+import {extractFunction} from './helpers/extract-function.mjs';
 
 const cards=readFileSync(new URL('../client/03c-cards.js',import.meta.url),'utf8');
 const core=readFileSync(new URL('../client/03g-core.js',import.meta.url),'utf8');
@@ -87,4 +88,37 @@ test('dictionary Add word waits for the server and reports a retryable failure',
   assert.equal(rendered,0);assert.equal(button.disabled,true);
   release({revision:2,card:{stageId:7,word:'harbour',place:'mine'}});await pending;
   assert.equal(rendered,1);assert.equal(button.disabled,false);assert.equal(f.list()[0].stageId,7);
+});
+test('day quiz keeps readable cards and drops a card the student cannot read',async()=>{
+  const bridge=readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8');
+  const code=extractFunction(core,'dayQuizReadableCards')+'\n'+extractFunction(core,'dayQuizWithoutCard')+'\n'+extractFunction(core,'dayQuizVisibleCards')+'\n'+extractFunction(bridge,'personalAnswer404')+'\n'+extractFunction(bridge,'runPersonal');
+  const visible={stageId:1,en:'seen'},hidden={stageId:3653,en:'closed'},local={en:'local'};
+  const calls=[];const events=[];
+  const scope={
+    accountFetch:async()=>({cards:[{stageId:1}]}),
+    personalRunning:false,busy:false,pending:null,personalReady:true,actorId:'student',
+    personalQueue:[
+      {kind:'answer',key:'3653|FSRS Flashcard',cardId:3653,type:'FSRS Flashcard',correct:true,path:'/api/cards/3653/answers',method:'POST',actorId:'student',mutationId:'m1'},
+      {kind:'answer',key:'3653|FSRS Flashcard',cardId:'3653',type:'FSRS Flashcard',correct:true,path:'/api/cards/3653/answers',method:'POST',actorId:'student',mutationId:'m2'}
+    ],
+    unloading:false,quizProgress:new Map(),cardProgress:new Map(),savedResponses:new Map(),themeRevision:0,customRevision:0,
+    savePersonal(){},notice(){},reportClientBug(){},registerThemes(){},crypto:{randomUUID:()=>'id'},
+    document:{dispatchEvent(event){events.push(event);}},
+    CustomEvent:class CustomEvent{constructor(type,init){this.type=type;this.detail=init&&init.detail;}},
+    async api(){calls.push('post');const error=new Error('Card not found.');error.status=404;throw error;}
+  };
+  runInNewContext(code,scope);
+  const kept=await scope.dayQuizVisibleCards([visible,hidden,local]);
+  assert.deepEqual(kept,[visible,local]);
+  assert.deepEqual(scope.dayQuizReadableCards([visible,hidden],[1]).map(card=>card.stageId),[1]);
+  await scope.runPersonal();
+  assert.deepEqual(calls,['post']);
+  assert.equal(scope.personalQueue.length,0);
+  assert.equal(events[0].detail.cardId,3653);
+  const step=scope.dayQuizWithoutCard([{card:hidden},{card:visible}],0,3653);
+  assert.equal(step.removed,true);
+  assert.equal(step.queue.length,1);
+  assert.equal(step.queue[0].card.stageId,1);
+  await scope.runPersonal();
+  assert.deepEqual(calls,['post']);
 });

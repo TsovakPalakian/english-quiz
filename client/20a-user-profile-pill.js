@@ -79,14 +79,25 @@
     });
   }
 
+  function profileAssignedTeacher(user, rows) {
+    const id = String(user?.id ?? '');
+    if (!id) return false;
+    return (rows || []).some(row => Array.isArray(row?.teacherIds) && row.teacherIds.map(String).includes(id));
+  }
+  function profileTeacherRows() {
+    const rows = [];
+    if (typeof groupDirectory !== 'undefined' && Array.isArray(groupDirectory?.assignments)) rows.push(...groupDirectory.assignments);
+    if (typeof adminTeacherAssignments !== 'undefined' && Array.isArray(adminTeacherAssignments)) rows.push(...adminTeacherAssignments);
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) rows.push(...classGroups);
+    return rows;
+  }
   function getUserRoleInfo(user) {
     if (!user) return { label: 'Guest', roleName: 'Guest', emoji: '👤', class: 'role-guest' };
     if ((typeof isDeveloper === 'function' && isDeveloper()) || user.role === 'DEVELOPER') {
       return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };
     }
     if (user.role === 'ADMIN') {
-      const login = String(user.login || '').toLowerCase();
-      if (login.startsWith('teacher') || user.leadInstructor) {
+      if (user.leadInstructor || profileAssignedTeacher(user, profileTeacherRows())) {
         return { label: 'Teacher', roleName: 'Teacher', emoji: '📚', class: 'role-teacher' };
       }
       return { label: 'Support', roleName: 'Support', emoji: '👑', class: 'role-admin' };

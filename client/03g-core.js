@@ -73,6 +73,41 @@
     let dayCardTotal = 0;
     let daySetupLabel = "";
     let dayPoolStrict = false;
+    function dayQuizReadableCards(cards, readableIds) {
+      const allowed = new Set((readableIds || []).map(id => String(id)));
+      return (cards || []).filter(card => {
+        const id = card && card.stageId != null ? String(card.stageId) : '';
+        if (!/^[1-9]\d{0,15}$/.test(id)) return true;
+        return allowed.has(id);
+      });
+    }
+    function dayQuizWithoutCard(queue, index, cardId) {
+      const id = String(cardId || '');
+      const next = (queue || []).filter(item => String(item && item.card && item.card.stageId || '') !== id);
+      let at = Number(index) || 0;
+      if (at >= next.length) at = Math.max(0, next.length - 1);
+      return { queue: next, index: at, removed: next.length !== (queue || []).length };
+    }
+    async function dayQuizVisibleCards(cards) {
+      const source = Array.isArray(cards) ? cards : [];
+      const ids = [];
+      for (const card of source) {
+        const id = card && /^[1-9]\d{0,15}$/.test(String(card.stageId || '')) ? String(card.stageId) : '';
+        if (id && !ids.includes(id)) ids.push(id);
+      }
+      if (!ids.length || typeof accountFetch !== 'function') return source;
+      const readable = [];
+      try {
+        for (let i = 0; i < ids.length; i += 50) {
+          const data = await accountFetch('/api/me/cards/dictionary?ids=' + ids.slice(i, i + 50).join(','));
+          for (const row of data && data.cards || []) {
+            const id = row && (row.stageId != null ? row.stageId : row.id);
+            if (id != null) readable.push(id);
+          }
+        }
+      } catch { return source; }
+      return dayQuizReadableCards(source, readable);
+    }
     function quizPool() {
       const base = dayPoolOverride || lessonPool(dayQuizPlace);
       // Keep the active pool as-is. Custom quizzes weave in per card in buildDayQueue.
@@ -1215,8 +1250,10 @@
       });
       return queue;
     }
-    function startMistakeQuiz(groups) {
-      const queue = mistakeItems(groups);
+    async function startMistakeQuiz(groups) {
+      let queue = mistakeItems(groups);
+      const visible = new Set(await dayQuizVisibleCards(queue.map(item => item.card).filter(Boolean)));
+      queue = queue.filter(item => !item.card || visible.has(item.card));
       if (!queue.length) return;
       if (!mistakeQuizOn) {
         mistakePoolSaved = dayPoolOverride;
@@ -1374,7 +1411,9 @@
         if (!left) clearInterval(examClock);
       }, 1000);
     }
-    function beginQuiz(exam) {
+    let dayQuizOpen = 0;
+    async function beginQuiz(exam) {
+      const openTicket = ++dayQuizOpen;
       let here = (document.querySelector("section.on") || {}).id;
       if (here !== "setup" && here !== "daysetup") {
         openGlobalStudy();
@@ -1390,10 +1429,13 @@
       if (exam) examPassMark = examPassPercent(here);
       let cards = quizPool();
       if (here === "daysetup" || here === "setup") cards = limitStudyCards(cards, here);
+      const pooled = cards.slice();
+      cards = await dayQuizVisibleCards(cards);
+      if (openTicket !== dayQuizOpen) return;
       const note = document.getElementById(here === "daysetup" ? "daySetupNote" : "studyNote");
       const types = chosenTypes(exam);
       if (!cards.length) {
-        setQuizNote(note, "No cards on this page yet.", true);
+        setQuizNote(note, pooled.length ? "These cards are no longer available." : "No cards on this page yet.", true);
         return;
       }
       if (!types.length) {
@@ -1948,6 +1990,19 @@
       refreshDaySetupTime();
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
+    document.addEventListener("learning-card-unreadable", event => {
+      const step = dayQuizWithoutCard(dayQueue, dayAt, event.detail && event.detail.cardId);
+      if (!step.removed) return;
+      dayQueue = step.queue;
+      dayAt = step.index;
+      const view = document.getElementById("dayqView");
+      if (!dayQueue.length) {
+        if (view) view.innerHTML = '<p class="prompt">This card is no longer available.</p>';
+        return;
+      }
+      renderDay();
+      document.getElementById("dayqView")?.insertAdjacentHTML("afterbegin", '<p class="hint">This card is no longer available.</p>');
+    });
     document.querySelectorAll("[data-exam-pass]").forEach((inp) => {
       inp.addEventListener("pointerdown", (e) => {
         e.stopPropagation();

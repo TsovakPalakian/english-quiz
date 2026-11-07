@@ -535,8 +535,11 @@
         const picker = button.closest('.card').querySelector('[data-student-group]');
         if (!picker || picker.value === picker.dataset.originalGroup || picker.disabled) return;
         const selected = picker.value;button.disabled = true;picker.disabled = true;
-        accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null})}).then(async () => {
+        const seeEarlier = button.closest('.admin-form-field')?.querySelector('[data-show-earlier]')?.checked === true;
+        accountFetch('/api/groups/members',{method:'POST',body:JSON.stringify({accountId:button.dataset.id,groupId:picker.value ? Number(picker.value) : null,seeEarlier})}).then(async () => {
           picker.dataset.originalGroup = selected;
+          const box = button.closest('.admin-form-field')?.querySelector('[data-show-earlier]');
+          if (box) box.checked = false;
           adminMembers = (await accountFetch('/api/groups/members')).members || [];
           groupDirectory=null;classGroupsReady=false;examReady=false;
           await Promise.all([groupPull(),examPull(true)]);

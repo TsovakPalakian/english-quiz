@@ -218,7 +218,7 @@ test('integrated worker /api/feedback endpoints', async () => {
     body: JSON.stringify({
       category: 'bug',
       message: 'Test button is unresponsive',
-      screenshot: 'data:image/webp;base64,dGVzdA==',
+      screenshot: 'data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADwAQCdASoBAAEAAkA4JaQAA3AA/vuUAAA=',
       contact: 'reporter@test.org',
       context: {url: 'https://test.invalid/home'}
     })

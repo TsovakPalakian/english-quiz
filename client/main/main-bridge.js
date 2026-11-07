@@ -509,6 +509,9 @@
     personalFlight=runPersonal(retry).finally(()=>{personalFlight=null;});
     return personalFlight;
   }
+  function personalAnswer404(job, error) {
+    return !!(job && job.kind === 'answer' && error && error.status === 404);
+  }
   async function runPersonal(retry=false){
     if(personalRunning || busy || pending || !personalReady || !actorId || !personalQueue.length)return;
     if(personalQueue[0]?.paused && !retry)return;
@@ -555,13 +558,18 @@
       notice('Личные данные подтверждены тестовой Learning.');
     }catch(error){
       const failedJob=personalQueue[0];
+      const unreadable=typeof personalAnswer404==='function'&&personalAnswer404(failedJob,error);
       if(error.status>=400 && error.status<500 && error.status!==409){
         personalQueue.shift();
+        if(unreadable){
+          for(let i=personalQueue.length-1;i>=0;i--)if(personalQueue[i].kind==='answer'&&String(personalQueue[i].cardId)===String(failedJob.cardId))personalQueue.splice(i,1);
+          document.dispatchEvent(new CustomEvent('learning-card-unreadable',{detail:{cardId:failedJob.cardId}}));
+        }
       }else if(personalQueue[0]){
         personalQueue[0].paused=true;
       }
       savePersonal();
-      const message=error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message;
+      const message=unreadable?'This card is no longer available.':error.status===409?'Конфликт личных данных. Перечитайте сервер; более новые ответы не перезаписаны.':error.message;
       notice(message,true);
       if(!error.reported&&!error.quietBug)reportClientBug({method:failedJob?.method||'POST',path:failedJob?.path||'/personal',status:Number(error.status)||0,error:message,stack:error.stack});
     }finally{personalRunning=false;}

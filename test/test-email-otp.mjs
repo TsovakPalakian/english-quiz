@@ -15,6 +15,27 @@ function fixture(){
   return {sql,service:new EmailOtp(db),db,close:()=>sql.close()};
 }
 
+test('a failed attempt write removes the code instead of keeping the old counter',async()=>{
+  const f=fixture();
+  try{
+    const issued=await f.service.issue('limit@example.com');
+    await assert.rejects(f.service.consume(issued.email,'000000'),e=>e.status===401&&e.message==='Wrong code.');
+    const stored=JSON.parse(f.sql.prepare("SELECT value_json FROM catalog_documents WHERE namespace='email-otp'").get().value_json);
+    assert.equal(stored.attempts,1);
+    const real=f.db.atomic;
+    f.db.atomic=async commands=>{
+      if(commands.some(command=>String(command.sql).includes('UPDATE catalog_documents')))throw new Error('attempt counter was not saved');
+      return real(commands);
+    };
+    await assert.rejects(f.service.consume(issued.email,'000000'),e=>e.status===401&&e.message==='Wrong code. Request a new one.');
+    assert.equal(f.sql.prepare("SELECT COUNT(*) n FROM catalog_documents WHERE namespace='email-otp'").get().n,0);
+    await assert.rejects(f.service.consume(issued.email,issued.code),e=>e.status===400&&e.message==='Request a new code first.');
+    f.db.atomic=real;
+    const fresh=await f.service.issue('limit@example.com');
+    assert.equal((await f.service.consume(fresh.email,fresh.code)).email,fresh.email);
+  }finally{f.close();}
+});
+
 test('email otp issues and consumes a code once',async()=>{
   const f=fixture();
   try{

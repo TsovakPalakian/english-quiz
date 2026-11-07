@@ -62,7 +62,7 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
           const bytes=new Uint8Array(await object.arrayBuffer()),metadata=await lessonMediaMetadata(bytes,object.httpMetadata?.contentType||'',name);return {bytes,metadata};
         };return store;
       });
-      if (path==='/api/groups/members') return json(await service.assignStudent(actor,value.accountId,value.groupId));
+      if (path==='/api/groups/members') return json(await service.assignStudent(actor,value.accountId,value.groupId,value.seeEarlier===true));
       if (path==='/api/groups/manage') {
         if(Object.keys(value).some(key=>!['action','id','expectedRevision','title','examId'].includes(key)))throw new StudyError(400,'Invalid group request.');
         await service.assign(actor,{targetKind:'group',targetId:value.id,examId:value.examId,action:value.action==='exam'?'assign':'unassign',expectedRevision:value.expectedRevision,clientKey:'group:'+value.id+':'+value.expectedRevision+':'+value.action+':'+value.examId});

@@ -48,6 +48,8 @@ export class GroupService{
       const changes=[];
       if(!names.has('lesson_date'))changes.push(stmt("ALTER TABLE class_groups ADD COLUMN lesson_date TEXT NOT NULL DEFAULT ''"));
       if(!names.has('hidden_from_students'))changes.push(stmt('ALTER TABLE class_groups ADD COLUMN hidden_from_students INTEGER NOT NULL DEFAULT 0 CHECK (hidden_from_students IN (0, 1))'));
+      const studentNames=new Set((await this.db.read('PRAGMA table_info(class_group_students)')).map(column=>column.name));
+      if(!studentNames.has('see_earlier'))changes.push(stmt('ALTER TABLE class_group_students ADD COLUMN see_earlier INTEGER NOT NULL DEFAULT 0'));
       if(changes.length)await this.db.atomic(changes);
     })().catch(error=>{ready.delete(key);throw error;}));
     return ready.get(key);
@@ -158,7 +160,7 @@ export class GroupService{
     recordId(id);await this.seed();const [group]=await this.db.read('SELECT * FROM class_groups WHERE id=? AND deleted_at IS NULL',[id]);
     if(!group)fail(404,'Group not found.');return group;
   }
-  async assignStudent(actor,accountId,groupId){
+  async assignStudent(actor,accountId,groupId,seeEarlier=false){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');
     if((typeof accountId!=='string'&&!Number.isSafeInteger(accountId))||!/^[A-Za-z0-9_-]{1,100}$/.test(String(accountId)))fail(400,'Invalid student.');
     if(groupId!=null)await this.activeGroup(groupId);else await this.ensure();
@@ -171,7 +173,7 @@ export class GroupService{
     const transfer=await this.studentExamTransferCommands(accountId,groupId);
     await this.groupTransaction((groupId==null?[stmt('DELETE FROM class_group_students WHERE account_id=?',[accountId])]:[
       stmt("INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND deleted_at IS NULL)",[groupId]),
-      stmt('INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES(?,?,?) ON CONFLICT(account_id) DO UPDATE SET group_id=excluded.group_id,assigned_by=excluded.assigned_by,updated_at=unixepoch()',[accountId,groupId,actor.id]),
+      stmt('INSERT INTO class_group_students(account_id,group_id,assigned_by,see_earlier) VALUES(?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET group_id=excluded.group_id,assigned_by=excluded.assigned_by,see_earlier=excluded.see_earlier,updated_at=unixepoch()',[accountId,groupId,actor.id,seeEarlier===true?1:0]),
       stmt('UPDATE class_groups SET revision=revision+1 WHERE id=?',[groupId])]).concat(transfer));return {saved:true};
   }
   async studentExamTransferCommands(accountId,groupId){

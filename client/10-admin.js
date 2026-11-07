@@ -972,13 +972,16 @@
         html += '<label class="admin-form-field saas-form-group is-full"><span class="field-label saas-label">Email Address</span><input data-profile-email class="saas-input" type="email" value="' + esc(user.email) + '" autocomplete="off"' + (!isDeveloper() ? ' readonly' : '') + ' /></label>';
 
         // Group field: retains .account-group-row and [data-student-group] / [data-account="assign-group"]
-        html += '<div class="admin-form-field saas-form-group account-group-row is-full">';
+        html += '<div class="admin-form-field saas-form-group is-full">';
+        html += '<div class="account-group-row">';
         html += '<div class="account-group-controls">';
         html += '<label><span class="field-label saas-label">Assigned Group</span>';
         html += '<select class="saas-select" data-student-group data-original-group="' + esc(String(assignedGroupId || '')) + '"' + (!adminGroups.length ? ' disabled' : '') + '>' + adminGroupOptions(assignedGroupId) + '</select>';
         html += '</label>';
         html += '<div class="account-group-actions"><button class="btn small saas-btn saas-btn-sm saas-btn-secondary" type="button" data-account="assign-group" data-id="' + esc(user.id) + '" disabled>Reassign group</button></div>';
         html += '</div>';
+        html += '</div>';
+        html += '<label class="account-earlier-history"><input type="checkbox" data-show-earlier> Show earlier group messages</label>';
         html += '</div>';
 
         // Role field
@@ -1025,5 +1028,7 @@
       const picker = event.target.closest('[data-student-group]');
       if (!picker) return;
       const button = picker.closest('.account-group-row')?.querySelector('[data-account="assign-group"]');
+      const earlier = picker.closest('.admin-form-field')?.querySelector('[data-show-earlier]');
+      if (earlier) earlier.checked = false;
       if (button) button.disabled = picker.value === picker.dataset.originalGroup;
     });

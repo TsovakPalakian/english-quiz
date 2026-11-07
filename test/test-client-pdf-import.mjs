@@ -15,6 +15,11 @@ const IMPORT_PDF_FUNCTIONS = [
   'lmPdfIdentity',
   'lmPdfContentKey',
   'lmPdfGrammarMatch',
+  'lmPdfBlockBudget',
+  'lmPdfBlockBudgetText',
+  'lmPdfIncomingBlocks',
+  'lmPdfPayloadBytes',
+  'lmPdfSaveBounded',
   'lmPdfDraftBlocks',
   'lmMountLessonDraftDialog',
   'lmImportPdfDraft',
@@ -308,6 +313,7 @@ test('lmImportPdfDraft executes PDF analysis pipeline via accountFetch and mount
   const dialog = doc.getElementById('lmPdfDraftDialog');
   assert.ok(dialog, 'Review dialog must be mounted in DOM');
   assert.equal(dialog.hasAttribute('open'), true);
+  assert.match(doc.getElementById('lmPdfBlockBudget').textContent, /already has 0 blocks\. 200 more can be added\./);
 
   // Lazy-mount Words section via toggle event on details
   const wordDetails = Array.from(dialog.querySelectorAll('details')).find(d => d.textContent.includes('Words'));
@@ -411,4 +417,65 @@ test('lmGenerateLessonFromScript validates input and DOM event listeners dispatc
 
   dropZone.dispatchEvent(new win.Event('dragleave', { bubbles: true }));
   assert.equal(dropZone.classList.contains('is-over'), false);
+});
+
+test('a large PDF import saves in bounded batches and shows the block room first', async () => {
+  const code = extractFunctions(source, 'lmPdfBlockBudget', 'lmPdfBlockBudgetText', 'lmPdfIncomingBlocks', 'lmPdfPayloadBytes', 'lmPdfSaveBounded');
+  const saves = [];
+  function lessonSnapshot(draft) {
+    return {
+      changes: { title: 'Lesson' },
+      blocks: (draft.blocks || []).map(block => ({
+        ...(Number.isSafeInteger(block.id) && block.id > 0 ? { id: block.id } : {}),
+        expectedRevision: block.stageBlockRevision || 0,
+        type: 'text',
+        content: { text: block.text || '' }
+      }))
+    };
+  }
+  const sandbox = {
+    window: { LearningMain: { lessonSnapshot } },
+    TextEncoder,
+    JSON,
+    Math,
+    Map,
+    Set,
+    Number,
+    Object,
+    async lmPdfSavePreparedDraft(draft) {
+      const bytes = sandbox.lmPdfPayloadBytes(draft);
+      saves.push(bytes);
+      draft.blocks.forEach((block, index) => {
+        if (!block.id) block.id = saves.length * 100 + index + 1;
+        block.stageBlockRevision = 1;
+      });
+      draft.stageLessonBaseline = lessonSnapshot(draft);
+      draft.stageRevision = (draft.stageRevision || 0) + 1;
+    }
+  };
+  vm.runInNewContext(code + '\nthis.lmPdfBlockBudget=lmPdfBlockBudget;this.lmPdfBlockBudgetText=lmPdfBlockBudgetText;this.lmPdfPayloadBytes=lmPdfPayloadBytes;this.lmPdfSaveBounded=lmPdfSaveBounded;this.lmPdfIncomingBlocks=lmPdfIncomingBlocks;', sandbox);
+  const budget = sandbox.lmPdfBlockBudget(180, 30);
+  assert.equal(budget.over, true);
+  assert.equal(budget.room, 20);
+  assert.equal(sandbox.lmPdfBlockBudgetText(180, 30), 'This lesson already has 180 blocks. 20 more can be added.');
+  assert.equal(sandbox.lmPdfIncomingBlocks({ words: [{}, {}], rules: [{}] }, new Set(['words', 'pdf']), false), 3);
+  const current = { blocks: [{ id: 1, text: 'kept', stageBlockRevision: 1 }] };
+  const draft = {
+    title: 'Lesson',
+    stageRevision: 4,
+    stageLessonBaseline: lessonSnapshot(current),
+    blocks: [current.blocks[0], { text: 'n'.repeat(30000) }, { text: 'm'.repeat(30000) }, { text: 'p'.repeat(30000) }]
+  };
+  const batches = await sandbox.lmPdfSaveBounded(draft, current, () => true);
+  assert.ok(batches > 1);
+  assert.ok(saves.length > 1);
+  assert.ok(saves.every(bytes => bytes <= 58000));
+  assert.equal(draft.blocks.length, 4);
+  saves.length = 0;
+  const full = { blocks: Array.from({ length: 199 }, (_, index) => ({ id: index + 1, text: 'old' })) };
+  const tooMany = { blocks: full.blocks.concat([{ text: 'a' }, { text: 'b' }]), stageLessonBaseline: lessonSnapshot(full) };
+  await assert.rejects(() => sandbox.lmPdfSaveBounded(tooMany, full, () => true), /199 blocks/);
+  assert.equal(saves.length, 0);
+  assert.match(source, /lmPdfPrepareCards\(/);
+  assert.match(source, /pdfGrammarAlerts\(/);
 });

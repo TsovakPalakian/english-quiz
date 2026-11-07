@@ -1104,6 +1104,23 @@ function stageSaveLesson(published){
   if(lmState&&lmState.examOwned){
     if(!canEditLessons()||viewSwitching)return Promise.resolve();
     const current=lmState,generation=viewGen;
+    if(published===true&&typeof examPublishPointsGap==='function'&&window.MaterialScoring){
+      const gap=examPublishPointsGap(current.blocks||[],window.MaterialScoring);
+      if(gap){
+        const part=(current.blocks||[]).find(block=>block.id===gap.id);
+        let field=examPublishPointsField(document.getElementById('lmBlocks'),gap);
+        if(!field&&part){
+          if(part.tab)current.tab=part.tab;
+          if(typeof lmRenderEditor==='function')lmRenderEditor();
+          field=examPublishPointsField(document.getElementById('lmBlocks'),gap);
+        }
+        window.LearningMain.notice(gap.message,true);
+        if(typeof lmNote==='function')lmNote(gap.message);
+        field?.classList.add('bad');
+        field?.focus();
+        return Promise.resolve();
+      }
+    }
     clearTimeout(lmSaveTimer);
     if(published!==undefined){current.published=!!published;current.mode=published?'preview':'edit';}
     if(typeof examSync==='function')return window.LearningMain.perform(async()=>{

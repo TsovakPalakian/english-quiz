@@ -343,7 +343,7 @@ try{
   await page.locator('#msgSend').click();
     yield "80. waitForFunction";
     await page.waitForFunction(()=>document.querySelector('#msgText').value==='');assert.equal(rows.filter(r=>r.text==='My saved reply').length,1);await page.waitForFunction(()=>document.activeElement===document.querySelector('#msgText'));
-  await page.locator('.is-own time').first().waitFor();assert.match(await page.locator('.is-own time').first().innerText(),/^\d{2}\.\d{2}$/);
+  await page.locator('.is-own time').first().waitFor();assert.match(await page.locator('.is-own time').first().innerText(),/^\d{2}:\d{2}$/);
   const checkLastVisible=async()=>{await page.waitForFunction(()=>{const list=document.querySelector('#msgTimeline'),form=document.querySelector('#msgCompose'),last=list.querySelector('.msg-message:last-of-type');return last&&last.getBoundingClientRect().bottom<=form.getBoundingClientRect().top&&list.getBoundingClientRect().bottom<=form.getBoundingClientRect().top;});};
   yield "81. checks";
   await checkLastVisible();
@@ -629,7 +629,7 @@ try{
   await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('teacher@example.com');const beforeLookups=commands.filter(c=>c==='lookup').length;await page.waitForTimeout(350);assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups,'Typing never queries the directory');
     yield "162. #msgLookup / click";
     await page.locator('#msgLookup').click();await page.locator('[data-contact-id]').click();assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups+1);
-  accessOverride={protected:false,state:'pending',requestedBy:student.id,canSend:false};event('room');await page.locator('#msgAccess').filter({hasText:'Waiting'}).waitFor();assert.equal(await page.locator('#msgCompose').isVisible(),false);
+  accessOverride={protected:false,state:'pending',requestedBy:student.id,canSend:false};event('room');await page.locator('#msgAccess').filter({hasText:'Waiting'}).waitFor();assert.equal(await page.locator('#msgCompose').isVisible(),true);assert.equal(await page.locator('#msgText').getAttribute('placeholder'),'Wait for this person to accept your message request.');
   accessOverride={protected:false,state:'pending',requestedBy:teacher,canAccept:true,canSend:true};event('room');
     yield "163. [data-relation=\"accept\"] / click";
     await page.locator('[data-relation="accept"]').click();await page.locator('#msgAccess').waitFor({state:'hidden'});

@@ -34,6 +34,16 @@ test('Live student counts exclude missing, moved, hidden, inactive and revoked a
   f.pending[3]({users:[]});f.pending[4]({members:[]});f.pending[5]({assignments:[]});await refreshed;
   assert.equal(f.groupLiveStudentCount({id:41}),0);
 });
+test('Live student count matches a numeric account id with a string membership id',async()=>{
+  const f=fixture();f.scope.accountVisible=()=>true;
+  const loading=f.loadGroupDirectory();
+  f.pending[0]({users:[{id:10,role:'USER',active:true},{id:11,role:'USER',hidden:true},{id:12,role:'USER',active:false},{id:13,role:'ADMIN',active:true}]});
+  f.pending[1]({members:[{groupId:24,accountId:'10'},{groupId:24,accountId:'11'},{groupId:24,accountId:'12'},{groupId:24,accountId:13}]});
+  f.pending[2]({assignments:[{groupId:24,teacherIds:[13]}]});
+  await loading;
+  assert.equal(f.groupLiveStudentCount({id:24}),1);
+  assert.deepEqual(f.groupDirectoryPeople([{id:24}]).map(user=>user.id),[13]);
+});
 test('Student directory requests and cross-account late responses are rejected',async()=>{
   const f=fixture(),loading=f.loadGroupDirectory();f.scope.authUser={id:'student'};
   for(const resolve of f.pending)resolve({});await loading;

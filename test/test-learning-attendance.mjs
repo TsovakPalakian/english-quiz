@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {AttendanceService} from '../src/learning-attendance.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
+import {readFileSync} from 'node:fs';
+import {runInNewContext} from 'node:vm';
+import {extractFunction} from './helpers/extract-function.mjs';
 
 const teacher1 = {id: 'teacher1', role: 'ADMIN'};
 const teacher2 = {id: 'teacher2', role: 'ADMIN'};
@@ -472,5 +475,17 @@ test('Client contracts: group calendar month cache isolation, real student bindi
 
   const chatRoomsSrc = await fs.readFile(path.resolve('production/chat/30-rooms.js'), 'utf8');
   assert.ok(chatRoomsSrc.includes("userStatus === 'in_class' && event.message?.category !== 'learning'"), 'Chat rooms must mute non-learning message sounds when in class');
+});
+
+test('admin profile label follows group assignment', () => {
+  const pill = readFileSync(new URL('../client/20a-user-profile-pill.js', import.meta.url), 'utf8');
+  const cards = readFileSync(new URL('../client/03a-cards.js', import.meta.url), 'utf8');
+  const scope = { groupDirectory: { assignments: [{ groupId: 24, teacherIds: [10] }] }, adminTeacherAssignments: [], classGroups: [] };
+  runInNewContext(extractFunction(pill, 'profileAssignedTeacher') + '\n' + extractFunction(pill, 'profileTeacherRows') + '\n' + extractFunction(pill, 'getUserRoleInfo'), scope);
+  assert.equal(scope.getUserRoleInfo({ id: 10, role: 'ADMIN', login: 'yester' }).label, 'Teacher');
+  assert.equal(scope.getUserRoleInfo({ id: 11, role: 'ADMIN', login: 'teacher_other' }).label, 'Support');
+  assert.equal(scope.getUserRoleInfo({ id: 12, role: 'USER', login: 'teacher_student' }).label, 'Student');
+  assert.equal(scope.getUserRoleInfo({ id: 13, role: 'DEVELOPER', login: 'teacher_dev' }).label, 'Support');
+  assert.match(cards, /authUser\.role === "ADMIN" \|\| authUser\.role === "DEVELOPER"/);
 });
 

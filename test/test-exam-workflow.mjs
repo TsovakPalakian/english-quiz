@@ -8,7 +8,10 @@ import {AssessmentService,gradingQuestions} from '../src/learning-assessment.mjs
 import {MessageService} from '../src/learning-messages.mjs';
 import {ExamWorkflowService} from '../src/exam-workflow.mjs';
 import {examSuggestion} from '../src/exam-checking.mjs';
-import {examTaskMax} from '../src/exam-scoring.mjs';
+import {examTaskMax,examGrading} from '../src/exam-scoring.mjs';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {extractFunction} from './helpers/extract-function.mjs';
 import {examRecommendation} from '../src/exam-recommendations.mjs';
 const teacher={id:'teacher',login:'TsovakTeacher',name:'Teacher',role:'ADMIN'},student={id:'student',login:'Somestudent',name:'Student',role:'USER'};
 function fixture(){
@@ -88,6 +91,23 @@ test('Whole-subgroup assignment creates copies only for its active students and 
     const rows=await db.read('SELECT account_id,group_id FROM exam_instances WHERE source_exam_id=?',[source.id]);
     assert.deepEqual(rows.map(row=>row.account_id),['student']);assert.equal(rows[0].group_id,99);
     assert.equal(sqlite.prepare('SELECT group_id FROM class_group_exams WHERE exam_id=?').get(source.id).group_id,99);
+  }finally{sqlite.close();}
+});
+test('exam assignment matches student 10 when the id is a number or a string',async()=>{
+  const {db,sqlite}=fixture();try{
+    const pupil={id:10,role:'USER',name:'Ten',active:true},idle={id:11,role:'USER',name:'Idle',active:false},staff={id:12,role:'ADMIN',name:'Staff'};
+    const exams=new ExamService(db),messages=new MessageService(db,async()=>[teacher,pupil,idle,staff]);
+    await exams.ensure();await messages.ensure();
+    sqlite.exec("INSERT INTO class_groups(id,title) VALUES(24,'Group 24'); INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES('10',24,'teacher'),('11',24,'teacher'),('12',24,'teacher');");
+    const source=await exams.save(teacher,{exam:{title:'C2 Exam',groupId:24,published:true,blocks:[{title:'Task',published:true,materials:[{type:'task',title:'Task1',text:'Write',maxPoints:3}]}]}});
+    await messages.assignInSubgroup(teacher,{examId:source.id,groupId:24,studentId:'10',clientKey:'assign-10-text'});
+    const again=await messages.assign(teacher,{action:'assign',targetKind:'student',targetId:10,examId:source.id,clientKey:'assign-10-number'});
+    assert.equal(again.unchanged,true);
+    const copies=await db.read('SELECT account_id FROM exam_instances WHERE source_exam_id=?',[source.id]);
+    assert.deepEqual(copies.map(row=>row.account_id),['10']);
+    await assert.rejects(messages.assignInSubgroup(teacher,{examId:source.id,groupId:24,studentId:'11',clientKey:'assign-11-idle'}),error=>error.status===409&&error.message==='This student account is inactive.');
+    await assert.rejects(messages.assignInSubgroup(teacher,{examId:source.id,groupId:24,studentId:'12',clientKey:'assign-12-staff'}),error=>error.status===403&&error.message==='This account is not a student.');
+    await assert.rejects(messages.assign(teacher,{action:'assign',targetKind:'student',targetId:'missing',examId:source.id,clientKey:'assign-missing'}),error=>error.status===404&&error.message==='Student not found.');
   }finally{sqlite.close();}
 });
 test('complete demo supports all 16 quiz types, frozen copies, private references, review and idempotent completion without changing lessons',async()=>{
@@ -177,4 +197,51 @@ test('instant auto-publish automatically grades, publishes and completes 100% ob
     assert.equal(studentView.points[parts[0].id][0],2);
     assert.equal(studentView.points[parts[1].id][0],3);
   }finally{f.sqlite.close();}
+});
+test('an unpublished Answer block keeps empty points and publication still rejects them',async()=>{
+  const f=fixture();try{
+    const exams=new ExamService(f.db);
+    const materials=[
+      {type:'task',title:'Task1',scoringVersion:3,maxPoints:3,assignmentId:'task-1',text:'Write'},
+      {type:'text',title:'Answer',answerEnabled:true,scoringVersion:3,maxPoints:'',assignmentKey:'task-1',html:'<p></p>'}
+    ];
+    const draft=await exams.save(teacher,{exam:{title:'C2 Exam',published:false,blocks:[{title:'Block',published:false,materials}]}});
+    const saved=draft.blocks[0].materials;
+    const task=saved.find(part=>part.title==='Task1'),answer=saved.find(part=>part.title==='Answer');
+    assert.equal(draft.blocks[0].published,false);
+    assert.equal(task.maxPoints,3);
+    assert.equal(answer.maxPoints,'');
+    await assert.rejects(exams.save(teacher,{exam:{id:draft.id,title:draft.title,published:true,blocks:[{...draft.blocks[0],published:true}]}}),error=>error.status===400&&error.message==='Set Maximum points explicitly for Answer.');
+    const kept=(await exams.list(teacher)).find(row=>row.id===draft.id).blocks[0].materials;
+    assert.equal(kept.find(part=>part.title==='Task1').maxPoints,3);
+    assert.equal(kept.find(part=>part.title==='Answer').maxPoints,'');
+  }finally{f.sqlite.close();}
+});
+test('exam publish points at the empty Answer field before the request',async()=>{
+  const hooks=readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8');
+  const workflow=readFileSync(new URL('../client/main/exam-workflow.js',import.meta.url),'utf8');
+  const task={id:'task',type:'task',title:'Task1',scoringVersion:3,maxPoints:3,assignmentId:'task-1'};
+  const answer={id:'answer',type:'text',title:'Answer',answerEnabled:true,scoringVersion:3,maxPoints:'',assignmentKey:'task-1',tab:'overview'};
+  const input={dataset:{field:'maxPoints'},classList:{added:'',add(name){this.added=name;}},focused:false,focus(){this.focused=true;}};
+  const article={dataset:{blockId:'answer'},classList:{removed:'',remove(name){this.removed=name;}},querySelector(sel){return sel==='[data-field="maxPoints"]'?input:null;},querySelectorAll(){return [];}};
+  const root={querySelectorAll(sel){return sel==='[data-block-id]'?[article]:[];}};
+  const notes=[],saved=[];
+  const scope={
+    lmState:{id:8,examOwned:true,published:false,mode:'edit',tab:'overview',blocks:[task,answer]},
+    viewGen:1,viewAccount:null,viewSwitching:false,lmSaveTimer:0,canEditLessons:()=>true,clearTimeout(){},
+    document:{getElementById(id){return id==='material'?{dataset:{lmKind:'exam'}}:id==='lmBlocks'?root:null;}},
+    window:{MaterialScoring:{examGrading},LearningMain:{perform:fn=>fn(),notice(message){notes.push(message);}}},
+    examSync:async()=>saved.push(scope.lmState.published),lmShow(){},lmNote(message){notes.push(message);},examDress(){},lmRenderEditor(){saved.push('render');}
+  };
+  vm.runInNewContext(extractFunction(workflow,'examPublishPointsGap')+'\n'+extractFunction(workflow,'examPublishPointsField')+'\n'+extractFunction(hooks,'stageSaveLesson'),scope);
+  await scope.stageSaveLesson(false);
+  assert.deepEqual(saved,[false]);
+  assert.equal(task.maxPoints,3);assert.equal(answer.maxPoints,'');
+  saved.length=0;notes.length=0;
+  await scope.stageSaveLesson(true);
+  assert.deepEqual(saved,[]);
+  assert.equal(scope.lmState.published,false);
+  assert.equal(notes[0],'Set Maximum points explicitly for Answer.');
+  assert.equal(input.focused,true);assert.equal(input.classList.added,'bad');
+  assert.equal(task.maxPoints,3);assert.equal(answer.maxPoints,'');
 });

@@ -37,6 +37,11 @@
     el('msgContactsTab').classList.toggle('on', listMode === 'contacts');
     el('msgContactsTab').setAttribute('aria-selected', String(listMode === 'contacts'));
   }
+  function chatRequestWait(access, actor) {
+    if (!access || access.protected || access.blocked || access.state !== 'pending') return '';
+    if (String(access.requestedBy) !== String(actor)) return '';
+    return 'Wait for this person to accept your message request.';
+  }
   function paintRooms() {
     scheduleProfiles();
     const query = el('msgRoomSearch').value.trim().toLocaleLowerCase(),
@@ -299,7 +304,9 @@
       face.dataset.avatarName = name;
       delete face.dataset.avatarState;
     }
-    el('msgCompose').hidden = !selected || selected.access?.canSend === false || (kind === 'learning' && !reviewer());
+    const requestWait = chatRequestWait(selected?.access, account);
+    el('msgCompose').hidden = !selected || (selected.access?.canSend === false && !requestWait) || (kind === 'learning' && !reviewer());
+    el('msgText').placeholder = requestWait || 'Enter message';
     el('msgSearch').disabled = !selected;
     el('msgInfo').disabled = !selected;
     el('msgRoomInfo').disabled = !selected;

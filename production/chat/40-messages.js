@@ -72,16 +72,12 @@
         new Notification(event.room.title, { body: event.message.text.slice(0, 160), tag: event.room.id });
     }
     if (event.receipt && event.room) {
-      const c = event.receipt.category,
-        peers = event.receipt.readers.filter((r) => String(r.id) !== String(account)),
-        read = peers.length ? Math.min(...peers.map((r) => r.read)) : 0,
-        delivered = peers.length ? Math.min(...peers.map((r) => r.delivered)) : 0;
+      const c = event.receipt.category;
       const cache = historyCache.get(event.room.id + ':' + c);
       if (cache)
         for (const message of cache.rows)
           if (String(message.senderId) === String(account)) {
-            message.read = read >= message.id;
-            message.delivered = delivered >= message.id;
+            Object.assign(message, chatReceiptMarks(message.id, event.receipt.readers, account, isGroupChat(event.room)));
             if (active() && room === event.room.id && kind === c) mergeNode(message);
           }
     }
@@ -254,10 +250,35 @@
       });
     }
   }
+  function chatReceiptMarks(messageId, readers, actor, group) {
+    const peers = (readers || []).filter((r) => String(r.id) !== String(actor));
+    const memberCount = peers.length;
+    const readCount = peers.filter((r) => (r.read || 0) >= messageId).length;
+    const deliveredCount = peers.filter((r) => (r.delivered || 0) >= messageId).length;
+    const readAll = memberCount > 0 && Math.min(...peers.map((r) => r.read || 0)) >= messageId;
+    const deliveredAll = memberCount > 0 && Math.min(...peers.map((r) => r.delivered || 0)) >= messageId;
+    if (!group) return { read: readAll, delivered: deliveredAll, readSome: readAll, readCount: readAll ? memberCount : 0, memberCount };
+    return { read: readAll, delivered: deliveredCount > 0, readSome: readCount > 0, readCount, memberCount };
+  }
+  function chatReceiptFace(m) {
+    if (m.pending) return { label: 'Sending', title: 'Sending', read: false, some: false, mark: 'clock' };
+    if (m.failed) return { label: 'Retry', title: 'Retry', read: false, some: false, mark: 'circle-alert' };
+    if (m.read) return { label: 'Read', title: 'Read by everyone', read: true, some: false, mark: 'check-check' };
+    if (m.readSome)
+      return {
+        label: 'Read by ' + (m.readCount || 0) + ' of ' + (m.memberCount || 0),
+        title: 'Read by ' + (m.readCount || 0) + ' of ' + (m.memberCount || 0),
+        read: false,
+        some: true,
+        mark: 'check-check',
+      };
+    if (m.delivered) return { label: 'Delivered', title: 'Delivered', read: false, some: false, mark: 'check-check' };
+    return { label: 'Sent', title: 'Sent', read: false, some: false, mark: 'check' };
+  }
   function messageHTML(m) {
     const own = String(m.senderId) === String(account),
       date = new Date(m.createdMs || m.created * 1000),
-      receipt = m.pending ? 'Sending' : m.failed ? 'Retry' : m.read ? 'Read' : m.delivered ? 'Delivered' : 'Sent';
+      face = chatReceiptFace(m);
     return (
       (m.forwarded ? '' : '<header><strong>' + escape(m.sender) + '</strong></header>') +
       (m.forwarded
@@ -342,13 +363,13 @@
       '</time>' +
       (own
         ? '<span class="msg-receipt' +
-          (m.read ? ' is-read' : '') +
+          (face.read ? ' is-read' : face.some ? ' is-read-some' : '') +
           '" aria-label="' +
-          receipt +
+          escape(face.label) +
           '" title="' +
-          (m.read ? 'Read by everyone' : receipt) +
+          escape(face.title) +
           '">' +
-          icon(m.pending ? 'clock' : m.failed ? 'circle-alert' : m.delivered || m.read ? 'check-check' : 'check') +
+          icon(face.mark) +
           '</span>'
         : '') +
       '</div>'
@@ -730,12 +751,18 @@
     ]);
     if (node?.dataset.content === content) {
       const receipt = node.querySelector('.msg-receipt'),
-        label = m.read ? 'Read' : m.delivered ? 'Delivered' : 'Sent';
-      if (receipt && receipt.getAttribute('aria-label') !== label) {
-        receipt.classList.toggle('is-read', !!m.read);
-        receipt.setAttribute('aria-label', label);
-        receipt.title = m.read ? 'Read by everyone' : label;
-        receipt.innerHTML = icon(m.delivered || m.read ? 'check-check' : 'check');
+        face = chatReceiptFace(m);
+      if (
+        receipt &&
+        (receipt.getAttribute('aria-label') !== face.label ||
+          receipt.classList.contains('is-read') !== face.read ||
+          receipt.classList.contains('is-read-some') !== face.some)
+      ) {
+        receipt.classList.toggle('is-read', face.read);
+        receipt.classList.toggle('is-read-some', face.some);
+        receipt.setAttribute('aria-label', face.label);
+        receipt.title = face.title;
+        receipt.innerHTML = icon(face.mark);
         icons();
       }
       return;
@@ -815,11 +842,12 @@
       node.classList.toggle('is-series-continuation', continuation);
       node.classList.toggle('is-group-message', groupChat);
       const face = node.querySelector('.msg-sender-avatar');
-      if (groupChat && !continuation && !message.deleted && !face) {
+      const own = node.classList.contains('is-own');
+      if (groupChat && !own && !continuation && !message.deleted && !face) {
         node.insertAdjacentHTML('afterbegin', avatar(message.senderName, false, message.senderId));
         node.firstElementChild.classList.add('msg-sender-avatar');
         addedAvatar = true;
-      } else if ((!groupChat || continuation || message.deleted) && face) face.remove();
+      } else if ((!groupChat || own || continuation || message.deleted) && face) face.remove();
       if (node.dataset.day !== day) {
         day = node.dataset.day;
         const heading = document.createElement('p');
@@ -852,7 +880,7 @@
       older.id = 'msgOlder';
       older.className = 'chat-link';
       older.textContent = 'Earlier messages';
-      older.onclick = () => history({ older: true }).catch((error) => status(error.message));
+      older.onclick = () => loadEarlier();
       timeline.prepend(older);
     }
     older.hidden = !state()?.more;
@@ -887,8 +915,27 @@
         failed: !busy,
       });
   }
+  let historyFlight = 0;
+  function chatEarlierRequest(scrollTop, rows, more, pending) {
+    if (pending || more !== true || !rows?.length || scrollTop > 1) return null;
+    return rows[0].id;
+  }
+  function loadEarlier() {
+    const before = chatEarlierRequest(0, state()?.rows, state()?.more, olderPending || historyFlight > 0);
+    if (before == null) return;
+    olderPending = true;
+    history({ older: true })
+      .catch((error) => status(error.message))
+      .finally(() => {
+        olderPending = false;
+      });
+  }
+  let olderPending = false;
   async function history({ older = false, refresh = false, before = 0 } = {}) {
     if (!room || !ready) return;
+    if (older && historyFlight) return;
+    historyFlight++;
+    try {
     const token = ++loading,
       cacheKey = key(),
       roomId = room,
@@ -930,6 +977,7 @@
         : timeline.scrollHeight;
     ack('delivered', roomId, category, result.messages.at(-1)?.id || 0);
     scheduleRead();
+    } finally { historyFlight--; }
   }
   async function openRoom(id) {
     stickBottom = true;
@@ -960,18 +1008,26 @@
     } catch {}
     await history();
   }
-  function ack(action, id, category, through) {
+  function chatCategoryReadThrough(rows) {
+    return (rows || []).reduce((max, row) => Math.max(max, Number(row.id) || 0), 0);
+  }
+  function ack(action, id, category, through, force) {
     if (!ready || !through) return;
     const k = id + ':' + category,
       entry = cursors.get(k) || {},
       column = action === 'read' ? 'read' : 'delivered';
-    if (through <= Math.max(entry[column] || 0, entry[column + 'Pending'] || 0)) return;
+    if (!force && through <= Math.max(entry[column] || 0, entry[column + 'Pending'] || 0)) return;
+    if (force && entry[column + 'Pending']) return;
     entry[column + 'Pending'] = through;
     cursors.set(k, entry);
     request(action, { roomId: id, category, through })
       .then((result) => {
         entry[column] = Math.max(entry[column] || 0, through);
-        upsertRoom(result.room);
+        if (result.room) upsertRoom(result.room);
+        else if (force && action === 'read') {
+          const row = data.rooms.find((item) => item.id === id);
+          if (row?.unread) row.unread[category] = 0;
+        }
         badge();
         paintRooms();
       })
@@ -982,6 +1038,7 @@
   }
   function acknowledgeSnapshot() {
     for (const r of data.rooms) if (r.lastMessage) ack('delivered', r.id, r.lastMessage.category, r.lastMessage.id);
+    markRead();
   }
   function markRead() {
     if (
@@ -994,12 +1051,9 @@
       (innerWidth <= 700 && prefs.left)
     )
       return;
-    const box = timeline.getBoundingClientRect();
-    const visible = [...timeline.querySelectorAll('[data-msg-id]')].filter((n) => {
-      const r = n.getBoundingClientRect();
-      return r.top < box.bottom && r.bottom > box.top;
-    });
-    ack('read', room, kind, Math.max(0, ...visible.map((n) => Number(n.dataset.msgId) || 0)));
+    const through = chatCategoryReadThrough(state()?.rows);
+    const current = data.rooms.find((item) => item.id === room);
+    ack('read', room, kind, through, (current?.unread?.[kind] || 0) > 0);
   }
   function scheduleRead() {
     clearTimeout(readTimer);
@@ -1008,7 +1062,14 @@
   timeline.addEventListener('scroll', () => {
     scheduleRead();
     if (bottom()) el('msgLatest').hidden = true;
+    if (chatEarlierRequest(timeline.scrollTop, state()?.rows, state()?.more, olderPending || historyFlight > 0) != null)
+      loadEarlier();
   });
+  function chatSendDraft(saved, body) {
+    if (saved && typeof saved.clientKey === 'string' && saved.clientKey)
+      return { ...body, clientKey: saved.clientKey, createdMs: saved.createdMs || Date.now() };
+    return { ...body, clientKey: crypto.randomUUID(), createdMs: Date.now() };
+  }
   function chatUnackedSend(saved) {
     if (!saved || typeof saved.clientKey !== 'string' || !saved.clientKey) return null;
     return saved;
@@ -1017,7 +1078,6 @@
     const gen = generation;
     let succeeded = false;
     busy = true;
-    composer.disabled = true;
     el('msgSend').disabled = true;
     el('msgSendState').textContent = 'Sending...';
     paintUploads();
@@ -1076,6 +1136,15 @@
     if (!sent || busy) return;
     void transmit(sent);
   }
+  function chatRetryClick(label, sending) {
+    return label === 'Retry' && !sending;
+  }
+  timeline.addEventListener('click', (event) => {
+    const receipt = event.target.closest('.msg-receipt');
+    if (!receipt || !timeline.contains(receipt) || !chatRetryClick(receipt.getAttribute('aria-label'), busy)) return;
+    event.preventDefault();
+    flushUnacked();
+  });
   async function send() {
     if(recordGesture){finishRecording(false);return;}
     if ([...uploads.values()].some((item) => item.roomId === room && !item.cancelled)) {
@@ -1099,8 +1168,7 @@
         format: window.TextColors?.trim(format, composer.value) || null,
         files: files.map((f) => f.id),
       };
-    if (!pending || Object.keys(body).some((k) => JSON.stringify(body[k]) !== JSON.stringify(pending[k])))
-      pending = { ...body, clientKey: crypto.randomUUID(), createdMs: Date.now() };
+    pending = chatSendDraft(pending, body);
     remember();
     await transmit(pending);
   }

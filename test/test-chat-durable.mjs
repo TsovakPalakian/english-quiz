@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {ChatRoom,ChatInbox,chatCall,chatSocketExpires,directRoomId} from '../src/chat-durable.mjs';
+import {chatDatabaseHeaders} from '../src/chat-database.mjs';
 import {ChatBridge,chatInboxLive,durableChatWorker} from '../src/chat-worker.mjs';
+import {profileAllowed} from '../src/chat-profiles.mjs';
 import {CHAT_FILE_LIMIT,chatFileMetadata,chatFileResponse} from '../src/chat-attachments.mjs';
 import {chatPreviewUrl,chatLinkPreview} from '../src/chat-previews.mjs';
 import {MessageService} from '../src/learning-messages.mjs';
@@ -34,6 +36,54 @@ async function managedChat(f,kind='direct'){
   await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});
   await f.drain();return {id,command:(actor,action,body={})=>chatCall(f.env,'CHAT_INBOX',actor,'/command',{action,body:{roomId:id,...body}})};
 }
+test('a new group student sees earlier messages only when allowed at entry',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f,'group');
+    await c.command('alice','send',{text:'Before the new student',clientKey:'before-new'});await f.drain();
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/import',{messages:[{sender_id:'teacher',sender_name:'Teacher',category:'learning',body:'Lesson',client_key:'learn-new',created_ms:Date.now()}]});await f.drain();
+    const room=f.env.CHAT_ROOM.get(c.id);
+    const newbie={id:'newbie',name:'Newbie',role:'USER'},shown={id:'shown',name:'Shown',role:'USER',seeEarlier:true};
+    const members=[f.alice,f.bob,f.teacher];
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/configure',{room:{id:c.id,kind:'group',groupId:1,title:'A1'},members:[...members,newbie,shown]});
+    assert.equal(room.history(newbie,{}).messages.length,0);
+    assert.equal(room.history(newbie,{category:'learning'}).messages.length,1);
+    assert.equal(room.history(shown,{}).messages.length,1);
+    const last=room.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
+    assert.equal(room.one('SELECT joined FROM members WHERE id=?','shown').joined,0);
+    assert.equal(room.one('SELECT read_personal FROM members WHERE id=?','shown').read_personal,last);
+    assert.ok(room.one('SELECT joined FROM members WHERE id=?','newbie').joined>0);
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/configure',{room:{id:c.id,kind:'group',groupId:1,title:'A1'},members:[...members,{...newbie,seeEarlier:true},shown]});
+    assert.equal(room.history(newbie,{}).messages.length,0);
+    assert.equal(room.history(shown,{}).messages.length,1);
+    const circle='circle:1',carol={id:'carol',name:'Carol',role:'USER',seeEarlier:true};
+    await chatCall(f.env,'CHAT_ROOM',circle,'/configure',{room:{id:circle,kind:'circle',title:'Circle'},members:[f.alice]});
+    await chatCall(f.env,'CHAT_ROOM',circle,'/import',{initial:true,messages:[{id:1,sender_id:'alice',sender_name:'Alice',category:'personal',body:'Circle past',client_key:'circle-past',created_ms:Date.now()}],complete:true});await f.drain();
+    await chatCall(f.env,'CHAT_ROOM',circle,'/configure',{room:{id:circle,kind:'circle',title:'Circle'},members:[f.alice,carol]});
+    const circleRoom=f.env.CHAT_ROOM.get(circle);
+    assert.equal(circleRoom.history(carol,{}).messages.length,0);
+    assert.equal(circleRoom.one('SELECT joined FROM members WHERE id=?','carol').joined,1);
+  }finally{await f.drain();f.close();}
+});
+test('staff chat profiles stay inside contacts and rooms',async()=>{
+  const f=fixture();try{
+    await f.boot();
+    const inbox=f.env.CHAT_INBOX.get('teacher');
+    assert.equal(profileAllowed(inbox,'teacher'),true);
+    assert.equal(profileAllowed(inbox,'alice'),true);
+    assert.equal(profileAllowed(inbox,'outsider'),false);
+    assert.equal(profileAllowed(inbox,'group:1'),true);
+    assert.equal(profileAllowed(inbox,'group:9'),false);
+    inbox.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?)','direct:teacher:outsider',JSON.stringify({id:'direct:teacher:outsider',peerId:'outsider',active:true}));
+    assert.equal(profileAllowed(inbox,'outsider'),true);
+    inbox.sql.exec('UPDATE rooms SET data=? WHERE id=?',JSON.stringify({id:'direct:teacher:outsider',peerId:'outsider',active:true,access:{blocked:true}}),'direct:teacher:outsider');
+    assert.equal(profileAllowed(inbox,'outsider'),false);
+    inbox.sql.exec('DELETE FROM rooms WHERE id=?','direct:teacher:outsider');
+    inbox.set('discovered:outsider',{expires:Date.now()+60000});
+    assert.equal(profileAllowed(inbox,'outsider'),true);
+    inbox.set('discovered:outsider',{expires:Date.now()-1000});
+    assert.equal(profileAllowed(inbox,'outsider'),false);
+  }finally{await f.drain();f.close();}
+});
 test('Account purge removes personal messages and inbox references while preserving other group messages',async()=>{
   const f=fixture();try{
     const c=await managedChat(f,'group');
@@ -172,6 +222,22 @@ test('cipher survives hibernated object reconstruction and migrates old rows wit
     const RenamedRoom=class extends ChatRoom{},again=new RenamedRoom(old.ctx,f.env);await again.alarm();assert.equal(again.history(f.alice,{q:'leg'}).messages[0].text,'legacy content');
   }finally{await f.drain();f.close();}
 });
+test('an unsealed row stays out of history and open still returns legacy text for import',async()=>{
+  const f=fixture();f.env.CHAT_ENCRYPTION_KEY=btoa('u'.repeat(32));try{
+    const c=await managedChat(f);
+    await c.command('alice','send',{text:'sealed text',clientKey:'sealed-one'});await f.drain();
+    const room=f.env.CHAT_ROOM.get(c.id),open=room.cipher.open.bind(room.cipher);let plain=0;
+    room.cipher.open=(value,context)=>{if(typeof value==='string'&&!value.startsWith('chatenc:'))plain++;return open(value,context);};
+    room.sql.exec("INSERT INTO messages(sender,name,category,body,format,client_key,created_ms) VALUES('alice','Alice','personal',?,?,?,?)",'visible secret','{"stolen":true}','plain-key',Date.now());
+    const page=room.history(f.alice,{category:'personal'});
+    assert.equal(page.messages.find(m=>m.clientKey==='sealed-one').text,'sealed text');
+    assert.equal(page.messages.find(m=>m.clientKey==='plain-key').text,'');
+    assert.equal(page.messages.find(m=>m.clientKey==='plain-key').format,null);
+    assert.equal(room.history(f.alice,{category:'personal',q:'visible'}).messages.length,0);
+    assert.equal(plain,0);
+    assert.equal(open('visible secret','journal:'+c.id+':body'),'visible secret');
+  }finally{await f.drain();f.close();}
+});
 test('legacy encryption batches continue by alarm until every stored message is sealed',async()=>{
   const f=fixture();try{const c=await managedChat(f),old=f.env.CHAT_ROOM.get(c.id);for(let i=0;i<205;i++)old.sql.exec("INSERT INTO messages(sender,name,category,body,client_key,created_ms) VALUES('alice','Alice','personal',?,?,?)",'legacy '+i,'legacy-batch-'+i,Date.now());
     f.env.CHAT_ENCRYPTION_KEY=btoa('m'.repeat(32));let alarm=null;old.ctx.storage.setAlarm=async at=>{alarm=at;};old.ctx.storage.deleteAlarm=async()=>{alarm=null;};const room=new ChatRoom(old.ctx,f.env);
@@ -229,6 +295,50 @@ test('an unacked retry with the same client key stores one message',async()=>{
     const first=await c.command('alice','send',body),second=await c.command('alice','send',body);await f.drain();
     assert.equal(first.message.id,second.message.id);
     assert.equal((await c.command('alice','history')).messages.length,1);
+  }finally{await f.drain();f.close();}
+});
+test('a revocation lookup error during handshake still opens the socket',async()=>{
+  const f=fixture();const sid='d'.repeat(32);
+  const previousPair=globalThis.WebSocketPair,previousResponse=globalThis.Response;
+  globalThis.WebSocketPair=function WebSocketPair(){const socket={send(){},serializeAttachment(){}};return {0:socket,1:{...socket}};}
+  function Response(body,init){if(init?.status===101)return {status:101,webSocket:init.webSocket};return new previousResponse(body,init);}
+  Response.json=previousResponse.json.bind(previousResponse);
+  globalThis.Response=Response;
+  try{
+    await f.boot();
+    const inbox=f.env.CHAT_INBOX.get('alice');
+    inbox.ctx.acceptWebSocket=()=>{};
+    const headers={'X-Chat-Internal':f.env.CONTENT_SESSION_SECRET,'X-Chat-Session':sid,'X-Chat-Session-Expires':String(Date.now()+60000),...chatDatabaseHeaders(f.env)};
+    f.env.MEDIA={head:async()=>{throw new Error('r2 down');}};
+    assert.equal((await inbox.fetch(new Request('https://chat.internal/connect',{headers}))).status,101);
+    f.env.MEDIA={head:async()=>({})};
+    assert.equal((await inbox.fetch(new Request('https://chat.internal/connect',{headers}))).status,401);
+    delete f.env.MEDIA;
+    assert.equal((await inbox.fetch(new Request('https://chat.internal/connect',{headers}))).status,401);
+  }finally{if(previousPair)globalThis.WebSocketPair=previousPair;else delete globalThis.WebSocketPair;globalThis.Response=previousResponse;f.close();}
+});
+test('an open read recounts unread and a cursor already at the end still clears a stale count',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f);
+    const sent=await c.command('alice','send',{text:'one',clientKey:'unread-one'});await f.drain();
+    const room=f.env.CHAT_ROOM.get(c.id);
+    room.sql.exec('UPDATE members SET unread_personal=5,unread_learning=2 WHERE id=?',f.bob.id);
+    const read=await c.command('bob','read',{category:'personal',through:sent.message.id});
+    assert.equal(read.room.unread.personal,0);assert.equal(read.room.unread.learning,2);
+    await f.drain();
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,0);
+    room.sql.exec('UPDATE members SET unread_personal=4 WHERE id=?',f.bob.id);
+    const again=await c.command('bob','read',{category:'personal',through:sent.message.id});
+    assert.equal(again.unchanged,undefined);assert.equal(again.room.unread.personal,0);assert.equal(again.room.unread.learning,2);
+    await f.drain();
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,0);
+    const second=await c.command('alice','send',{text:'two',clientKey:'unread-two'});await f.drain();
+    const delivered=await c.command('bob','delivered',{category:'personal',through:second.message.id});
+    assert.equal(delivered.room.unread.personal,1);assert.equal(delivered.room.unread.learning,2);
+    const staleCursor=await c.command('bob','read',{category:'personal',through:sent.message.id});
+    assert.equal(staleCursor.unchanged,true);
+    const cleared=await c.command('bob','read',{category:'personal',through:second.message.id});
+    assert.equal(cleared.room.unread.personal,0);assert.equal(cleared.room.unread.learning,2);
   }finally{await f.drain();f.close();}
 });
 test('socket lifetime follows the account session and a revocation lookup error does not close it',async()=>{
@@ -335,6 +445,17 @@ test('Selected quotes persist, reject forged text, retain retry safety and follo
     const result=await chatCall(env,'CHAT_INBOX',alice.id,'/command',{action:'study-reply',body:{sourceRoomId:alertRoom,messageId:alert.message.id,quote:'study announcement',text:'My question',clientKey:'quoted-alert-reply'}});assert.equal(result.roomId,alertRoom);assert.equal(result.message.forwarded.text,'study announcement');
   }finally{await f.drain();f.close();}
 });
+test('regex chat search is rejected while prefix and exact still match',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f);
+    await c.command('alice','send',{text:'Hello durable',clientKey:'search-mode'});await f.drain();
+    assert.equal((await c.command('alice','history',{q:'Hello',searchMode:'prefix'})).messages.length,1);
+    assert.equal((await c.command('alice','history',{q:'Hello durable',searchMode:'exact'})).messages.length,1);
+    assert.equal((await c.command('alice','history',{q:'missing',searchMode:'exact'})).messages.length,0);
+    await assert.rejects(c.command('alice','history',{q:'(a+)+$',searchMode:'regex'}),e=>e.status===400);
+    await assert.rejects(c.command('alice','history',{searchMode:'regex'}),e=>e.status===400);
+  }finally{await f.drain();f.close();}
+});
 test('Durable chat persists, deduplicates, searches, publishes counters and read receipts',async()=>{
   const f=fixture();try{
     await f.boot();const {env,alice,bob}=f,id=directRoomId(alice.id,bob.id);
@@ -352,6 +473,46 @@ test('Durable chat persists, deduplicates, searches, publishes counters and read
     await assert.rejects(chatCall(env,'CHAT_ROOM',id,'/send',{...body,text:'Changed payload'}),e=>e.status===409);
     await assert.rejects(chatCall(env,'CHAT_ROOM',id,'/send',{...body,clientKey:'learning',category:'learning'}),e=>e.status===403);
   }finally{f.close();}
+});
+test('a group delivery check does not wait for the third member',async()=>{
+  const f=fixture();try{
+    await f.boot();const id='group:1';
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'group',groupId:1,title:'A1'},members:[f.alice,f.bob,f.teacher]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});await f.drain();
+    const sent=await chatCall(f.env,'CHAT_ROOM',id,'/send',{actor:f.alice,text:'group receipt',category:'personal',clientKey:'group-receipt'});await f.drain();
+    const teacherUnread=(await chatCall(f.env,'CHAT_INBOX','teacher','/snapshot',{})).rooms.find(r=>r.id===id).unread.personal;
+    await chatCall(f.env,'CHAT_ROOM',id,'/delivered',{actor:f.bob,category:'personal',through:sent.message.id});await f.drain();
+    const partial=(await chatCall(f.env,'CHAT_ROOM',id,'/history',{actor:f.alice,category:'personal'})).messages[0];
+    assert.equal(partial.delivered,true);
+    assert.equal(partial.read,false);
+    assert.equal(partial.readSome,false);
+    assert.equal(partial.memberCount,2);
+    assert.equal((await chatCall(f.env,'CHAT_INBOX','teacher','/snapshot',{})).rooms.find(r=>r.id===id).unread.personal,teacherUnread);
+    await chatCall(f.env,'CHAT_ROOM',id,'/read',{actor:f.bob,category:'personal',through:sent.message.id});await f.drain();
+    const one=(await chatCall(f.env,'CHAT_ROOM',id,'/history',{actor:f.alice,category:'personal'})).messages[0];
+    assert.equal(one.read,false);
+    assert.equal(one.readSome,true);
+    assert.equal(one.readCount,1);
+    assert.equal(one.delivered,true);
+    assert.equal((await chatCall(f.env,'CHAT_INBOX','bob','/snapshot',{})).rooms.find(r=>r.id===id).unread.personal,0);
+    assert.equal((await chatCall(f.env,'CHAT_INBOX','teacher','/snapshot',{})).rooms.find(r=>r.id===id).unread.personal,teacherUnread);
+    await chatCall(f.env,'CHAT_ROOM',id,'/read',{actor:f.teacher,category:'personal',through:sent.message.id});await f.drain();
+    const all=(await chatCall(f.env,'CHAT_ROOM',id,'/history',{actor:f.alice,category:'personal'})).messages[0];
+    assert.equal(all.read,true);
+    assert.equal(all.readCount,2);
+    const direct=directRoomId(f.alice.id,f.bob.id);
+    await chatCall(f.env,'CHAT_ROOM',direct,'/configure',{room:{id:direct,kind:'direct',title:'Private'},members:[f.alice,f.bob]});
+    await chatCall(f.env,'CHAT_ROOM',direct,'/import',{initial:true,messages:[],complete:true});await f.drain();
+    const note=await chatCall(f.env,'CHAT_ROOM',direct,'/send',{actor:f.alice,text:'direct receipt',category:'personal',clientKey:'direct-receipt'});await f.drain();
+    const waiting=(await chatCall(f.env,'CHAT_ROOM',direct,'/history',{actor:f.alice,category:'personal'})).messages[0];
+    assert.equal(waiting.read,false);
+    assert.equal(waiting.delivered,false);
+    await chatCall(f.env,'CHAT_ROOM',direct,'/read',{actor:f.bob,category:'personal',through:note.message.id});await f.drain();
+    const seen=(await chatCall(f.env,'CHAT_ROOM',direct,'/history',{actor:f.alice,category:'personal'})).messages[0];
+    assert.equal(seen.read,true);
+    assert.equal(seen.delivered,true);
+    assert.equal(seen.readSome,true);
+  }finally{await f.drain();f.close();}
 });
 for(const encrypted of [false,true])test('Academic bridge imports once, retains colored replies and dispatches assignment/review/publication notices'+(encrypted?' with encryption':''),async()=>{
   const sqlite=new DatabaseSync(':memory:');applyLearningSchema(sqlite);let reads=0;
@@ -384,6 +545,26 @@ for(const encrypted of [false,true])test('Academic bridge imports once, retains 
     await chatCall(env,'CHAT_BRIDGE','global','/invalidate',{});await assert.rejects(chatCall(env,'CHAT_INBOX','alice','/command',{action:'history',body:{roomId,category:'personal'}}),e=>e.status===403);await chatCall(env,'CHAT_BRIDGE','global','/policy',{});assert.equal((await chatCall(env,'CHAT_INBOX','alice','/command',{action:'history',body:{roomId,category:'personal'}})).messages.length,3);
     await chatCall(env,'CHAT_BRIDGE','global','/catalog',{});assert.equal((await chatCall(env,'CHAT_INBOX','teacher','/snapshot',{})).catalogVersion,1);assert.equal((await chatCall(env,'CHAT_INBOX','alice','/snapshot',{})).catalogVersion,0);
   }finally{f.close();sqlite.close();}
+});
+test('an ignored group event stays queued and a failed row does not stop the batch',async()=>{
+  const f=fixture();try{
+    await f.boot();const id='group:1';
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'group',groupId:1,title:'A1'},members:[f.alice,f.bob,f.teacher]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[],complete:true});await f.drain();
+    await chatCall(f.env,'CHAT_INBOX','bob','/configure',{profile:f.bob,contacts:[f.alice,f.teacher],groups:[]});
+    const room=f.env.CHAT_ROOM.get(id);
+    room.sql.exec('DELETE FROM outbox');
+    const namespace=f.env.CHAT_INBOX,original=namespace.get;
+    namespace.get=function(name){if(name==='bob')return {fetch:async()=>Response.json({error:'Temporary failure'},{status:503})};return original.call(namespace,name);};
+    await chatCall(f.env,'CHAT_ROOM',id,'/send',{actor:f.alice,text:'group note',category:'personal',clientKey:'group-queue'});await f.drain();
+    const queued=room.sql.exec('SELECT recipient FROM outbox').toArray().map(row=>row.recipient);
+    assert.deepEqual(queued,['bob']);
+    assert.equal((await chatCall(f.env,'CHAT_INBOX','alice','/snapshot',{})).rooms.find(r=>r.id===id).lastMessage.text,'group note');
+    namespace.get=original;
+    await room.flush();await f.drain();
+    assert.deepEqual(room.sql.exec('SELECT recipient FROM outbox').toArray().map(row=>row.recipient),['bob']);
+    assert.equal((await chatCall(f.env,'CHAT_INBOX','bob','/snapshot',{})).rooms.some(r=>r.id===id),false);
+  }finally{await f.drain();f.close();}
 });
 test('Room outbox retries safely, stale room updates do not erase counters, and attachments remain private',async()=>{
   const f=fixture();try{
@@ -657,6 +838,17 @@ test('ChatBridge reconciles legacy avatar, username, and profiles using legacy_a
   assert.equal(bridge.get('username:1'), '@tsovak');
   const prof = bridge.sql.exec("SELECT phone FROM profiles WHERE user_id='1'").toArray()[0];
   assert.equal(prof?.phone, '+37499123456');
+  const moved = JSON.stringify(bridge.get('avatar:1'));
+  bridge.set('avatar:old_dev_uuid_12345', { storageKey: 'chat/avatars/other.jpg', mime: 'image/jpeg' });
+  bridge.sql.exec("UPDATE profiles SET phone='+100' WHERE user_id='old_dev_uuid_12345'");
+  await bridge.reconcileLegacyProfiles();
+  assert.equal(JSON.stringify(bridge.get('avatar:1')), moved);
+  assert.equal(bridge.get('username:1'), '@tsovak');
+  assert.equal(bridge.sql.exec("SELECT phone FROM profiles WHERE user_id='1'").toArray()[0]?.phone, '+37499123456');
+  bridge.set('journalVersion', 1);
+  bridge.database = () => ({});
+  bridge.env.DB = { prepare() { throw new Error('legacy read failed'); } };
+  await assert.rejects(bridge.policy(true), error => error.message === 'legacy read failed');
 });
 
 test('a learning route exception is not rewritten as a chat failure',async()=>{

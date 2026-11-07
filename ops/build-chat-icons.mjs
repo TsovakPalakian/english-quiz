@@ -18,6 +18,7 @@ function collectNames(){
     for(const match of text.matchAll(/data-(?:lucide|chat-icon)="([a-z0-9-]+)"/g))names.add(match[1]);
     for(const match of text.matchAll(/\bicon\(([^)]*)\)/g))
       for(const name of match[1].matchAll(/['"]([a-z0-9-]+)['"]/g))names.add(name[1]);
+    for(const match of text.matchAll(/\bmark:\s*'([a-z0-9-]+)'/g))names.add(match[1]);
   };
   for(const dir of ['production/chat','production','client','client/main','site']){
     const path=resolve(root,dir);

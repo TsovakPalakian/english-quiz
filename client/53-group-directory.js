@@ -26,8 +26,8 @@
     function groupLiveStudentCount(group){
       if(!authUser||viewAccount||!isTeacher())return undefined;
       if(!groupDirectoryReady()||groupDirectory.error)return undefined;
-      const members=new Set(groupDirectory.members.filter(row=>String(row.groupId)===String(group.id)).map(row=>row.accountId));
-      return new Set(groupDirectory.users.filter(user=>members.has(user.id)&&user.role==='USER'&&user.active!==false&&user.active!==0&&!user.hidden&&!user.revoked).map(user=>user.id)).size;
+      const members=new Set(groupDirectory.members.filter(row=>String(row.groupId)===String(group.id)).map(row=>String(row.accountId)));
+      return new Set(groupDirectory.users.filter(user=>members.has(String(user.id))&&user.role==='USER'&&user.active!==false&&user.active!==0&&!user.hidden&&!user.revoked).map(user=>String(user.id))).size;
     }
     function refreshGroupStudentCounts(){
       if(!isTeacher()||viewAccount)return;

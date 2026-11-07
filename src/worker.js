@@ -102,11 +102,7 @@ const LOGIN_FAIL_LIMIT = 8;
 const LOGIN_LOCK_SECONDS = 15 * 60;
 
 function clientIp(request) {
-  return String(
-    request.headers.get("CF-Connecting-IP") ||
-    (request.headers.get("X-Forwarded-For") || "").split(",")[0] ||
-    ""
-  ).trim() || "unknown";
+  return String(request.headers.get("CF-Connecting-IP") || "").trim() || "unknown";
 }
 
 function loginFailKey(ip, kind = "login") {
@@ -372,7 +368,7 @@ async function sessionKey(env) {
   return sessionCryptoKey;
 }
 
-async function signSession(env, user, previous) {
+export async function signSession(env, user, previous) {
   const key = await sessionKey(env);
   if (!key) return "";
   const payload = {
@@ -382,7 +378,7 @@ async function signSession(env, user, previous) {
     name: user.name || "",
     role: user.role,
     // Bind cookie to password hash so changePassword / reset invalidates other sessions.
-    pwdv: String(user.password_hash || "").slice(0, 24),
+    pwdv: String(user.password_hash || ""),
     createdAt: user.created_at || user.createdAt || 0,
     idleSession: 1,
     database: env.AUTH_DATABASE_PROVIDER || 'd1',
@@ -450,7 +446,7 @@ export async function currentUser(env, request) {
     ).bind(session.id).first();
     if (!row || row.is_personal_data_revoked) return null;
     if (row.active === 0) return null;
-    const livePwd = String(row.password_hash || "").slice(0, 24);
+    const livePwd = String(row.password_hash || "");
     if (!session.pwdv || session.pwdv !== livePwd) return null;
     return {
       id: row.id,
@@ -463,21 +459,7 @@ export async function currentUser(env, request) {
     };
   } catch (error) {
     if (String(error && error.message || error).indexOf("no such column: active") < 0) throw error;
-    const row = await env.DB.prepare(
-      "SELECT id, login, email, name, role, password_hash, is_personal_data_revoked, created_at FROM users WHERE id = ?"
-    ).bind(session.id).first();
-    if (!row || row.is_personal_data_revoked) return null;
-    const livePwd = String(row.password_hash || "").slice(0, 24);
-    if (!session.pwdv || session.pwdv !== livePwd) return null;
-    return {
-      id: row.id,
-      login: row.login,
-      email: row.email,
-      name: row.name || "",
-      role: row.role,
-      is_personal_data_revoked: 0,
-      created_at: row.created_at || 0
-    };
+    return null;
   }
 }
 
@@ -904,9 +886,7 @@ async function d1UserById(env, userId) {
     ).bind(userId).first();
   } catch (error) {
     if (String(error && error.message || error).indexOf("no such column") < 0) throw error;
-    return await env.DB.prepare(
-      "SELECT id, login, email, name, role, is_personal_data_revoked FROM users WHERE id = ?"
-    ).bind(userId).first();
+    return null;
   }
 }
 

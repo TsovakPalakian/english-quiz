@@ -36,28 +36,26 @@ export class ChatBridge{
   async ensureJournal(){if(this.get('journalVersion')!==1){await new MessageService(this.database(this.env),async()=>[]).ensure();this.set('journalVersion',1);}}
   async reconcileLegacyProfiles(){
     if(!this.env.DB)return;
-    try{
-      const hasTable=(await this.env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_account_ids'").all()).results?.length;
-      if(!hasTable)return;
-      const mappings=(await this.env.DB.prepare('SELECT old_id, new_id FROM legacy_account_ids').all()).results||[];
-      for(const {old_id,new_id} of mappings){
-        if(!old_id||!new_id||String(old_id)===String(new_id))continue;
-        const newStr=String(new_id),oldStr=String(old_id);
-        const oldAvatar=this.get('avatar:'+oldStr);
-        if(oldAvatar&&!this.get('avatar:'+newStr)){
-          this.set('avatar:'+newStr,{
-            ...oldAvatar,
-            avatarUrl:'/api/messages/avatar?subject='+encodeURIComponent(newStr)+'&v='+(oldAvatar.avatarUrl?.split('&v=')[1]||crypto.randomUUID())
-          });
-        }
-        const oldUsername=this.get('username:'+oldStr);
-        if(oldUsername&&!this.get('username:'+newStr)){
-          this.set('username:'+newStr,oldUsername);
-          this.set('username-owner:'+oldUsername,newStr);
-        }
-        this.sql.exec("INSERT OR IGNORE INTO profiles(user_id, phone, phone_visible, birthday, birthday_visible) SELECT ?, phone, phone_visible, birthday, birthday_visible FROM profiles WHERE user_id = ?",newStr,oldStr);
+    const hasTable=(await this.env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='legacy_account_ids'").all()).results?.length;
+    if(!hasTable)return;
+    const mappings=(await this.env.DB.prepare('SELECT old_id, new_id FROM legacy_account_ids').all()).results||[];
+    for(const {old_id,new_id} of mappings){
+      if(!old_id||!new_id||String(old_id)===String(new_id))continue;
+      const newStr=String(new_id),oldStr=String(old_id);
+      const oldAvatar=this.get('avatar:'+oldStr);
+      if(oldAvatar&&!this.get('avatar:'+newStr)){
+        this.set('avatar:'+newStr,{
+          ...oldAvatar,
+          avatarUrl:'/api/messages/avatar?subject='+encodeURIComponent(newStr)+'&v='+(oldAvatar.avatarUrl?.split('&v=')[1]||crypto.randomUUID())
+        });
       }
-    }catch{}
+      const oldUsername=this.get('username:'+oldStr);
+      if(oldUsername&&!this.get('username:'+newStr)){
+        this.set('username:'+newStr,oldUsername);
+        this.set('username-owner:'+oldUsername,newStr);
+      }
+      this.sql.exec("INSERT OR IGNORE INTO profiles(user_id, phone, phone_visible, birthday, birthday_visible) SELECT ?, phone, phone_visible, birthday, birthday_visible FROM profiles WHERE user_id = ?",newStr,oldStr);
+    }
   }
   async policy(force=false,release=false){
     if(this.get('policyDirtyAt')&&!release){
@@ -73,9 +71,11 @@ export class ChatBridge{
       const db=this.database(this.env);await this.ensureJournal();
       await this.reconcileLegacyProfiles();
       const users=(await this.env.DB.prepare('SELECT id,login,name,email,role,active,hidden,is_personal_data_revoked FROM users').all()).results||[];
+      const studentColumns=typeof db.read==='function'?await db.read('PRAGMA table_info(class_group_students)'):[];
+      const seeColumn=(studentColumns||[]).some(row=>row.name==='see_earlier');
       const [groups,members,teacherDocs]=await db.readMany([
         statement('SELECT id,title FROM class_groups WHERE deleted_at IS NULL'),
-        statement('SELECT account_id,group_id FROM class_group_students'),
+        statement(seeColumn?'SELECT account_id,group_id,see_earlier FROM class_group_students':'SELECT account_id,group_id,0 AS see_earlier FROM class_group_students'),
         statement("SELECT key,value_json FROM catalog_documents WHERE namespace='accounts-group-teachers'"),
       ]);
       const teachersByGroup=new Map();
@@ -151,6 +151,9 @@ export class ChatBridge{
           if(u.role==='DEVELOPER')return true;
           if(!assigned)return false;
           return assigned.has(String(u.id));
+        }).map(u=>{
+          const row=members.find(m=>m.group_id===group.id&&String(m.account_id)===String(u.id));
+          return row&&Number(row.see_earlier)===1?{...u,seeEarlier:true}:u;
         })});
       });
       await mapPool([...allRooms.values()],8,async room=>{

@@ -132,6 +132,14 @@
       socket.send(JSON.stringify({ requestId, action, body }));
     });
   }
+  function chatSnapshotRooms(current, incoming) {
+    const kept = new Map((current || []).map((row) => [row.id, row]));
+    return (incoming || []).map((row) => {
+      const old = kept.get(row.id);
+      if (old && (old.revision || 0) > (row.revision || 0)) return old;
+      return row;
+    });
+  }
   function chatReconnectPlan(count, event = {}) {
     if (event.force || event.opened) return { count: 0, delay: 0, stop: false, signOut: false };
     if (event.code === 1000 || event.code === 4003)
@@ -209,6 +217,7 @@
           };
         }
         const reconnect = ready;
+        value.data.rooms = chatSnapshotRooms(data.rooms, value.data.rooms);
         ready = true;
         reconnectCount = chatReconnectPlan(reconnectCount, { opened: true }).count;
         startPing();

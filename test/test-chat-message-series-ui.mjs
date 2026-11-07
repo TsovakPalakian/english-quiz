@@ -43,10 +43,20 @@ try {
       assert.equal(await page.locator('article[data-msg-id="1"]>header').isVisible(),false);
       assert.equal(await page.locator('article[data-msg-id="2"]>header').isVisible(),true,'61-second gap starts a new series');
       assert.equal(await page.locator('article>footer').count(),6,'All message times remain');
-      assert.equal(await page.locator('.msg-sender-avatar').count(),kind==='direct'?0:5);
+      assert.equal(await page.locator('.msg-message.is-own .msg-sender-avatar').count(),0);
+      assert.equal(await page.locator('.msg-sender-avatar').count(),kind==='direct'?0:1);
       const positions=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().left));
-      if(kind==='direct') assert.ok(positions[0]>positions[3],'Direct own messages stay on the right');
-      else assert.ok(positions.every(x=>x===positions[0]),'All group messages stay on the left');
+      const boxes=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>({own:node.classList.contains('is-own'),group:node.classList.contains('is-group-message'),visibility:getComputedStyle(node).contentVisibility,marginLeft:getComputedStyle(node).marginLeft})));
+      if(kind==='direct'){
+        assert.ok(positions[0]>positions[3],'Direct own messages stay on the right');
+        assert.ok(boxes.every(row=>row.visibility==='visible'&&!row.group));
+        assert.ok(boxes.filter(row=>row.own).every(row=>row.marginLeft!=='0px'));
+        assert.ok(boxes.filter(row=>!row.own).every(row=>row.marginLeft==='0px'));
+      }else{
+        assert.ok(positions[0]>positions[3],'Own group messages stay on the right');
+        assert.ok(boxes.filter(row=>row.own).every(row=>row.group&&row.marginLeft!=='44px'));
+        assert.ok(boxes.filter(row=>!row.own).every(row=>row.group&&row.marginLeft==='44px'));
+      }
       await page.evaluate(()=>{
         document.querySelector('article[data-msg-id="0"]').remove();
         syncDays();

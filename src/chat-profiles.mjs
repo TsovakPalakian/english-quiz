@@ -5,7 +5,7 @@ export function profileAllowed(inbox,id){
   const actor=inbox.get('profile');if(!actor||actor.active===false)return false;
   const sid=String(id??'');
   if(sid.startsWith('group:'))return inbox.get('groups',[]).some(g=>'group:'+g.id===sid);
-  if(sid===String(actor.id)||staff(actor))return true;
+  if(sid===String(actor.id))return true;
   const rooms=inbox.rows('SELECT data FROM rooms').map(row=>JSON.parse(row.data)).filter(room=>String(room.peerId)===sid&&room.active!==false);
   if(rooms.some(room=>room.access?.blocked))return false;
   return inbox.get('contacts',[]).some(u=>String(u.id)===sid)||rooms.length>0||inbox.get('discovered:'+sid)?.expires>Date.now();

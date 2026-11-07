@@ -81,6 +81,22 @@ test('Private rooms, group membership and teacher-only announcements are enforce
     assert.equal((await s.summary(by('other'))).unread.learning,1);
   }finally{f.close();}
 });
+test('assigning a student can reveal earlier group messages once',async()=>{
+  const f=fixture();try{await f.boot();const {service:s,by,sqlite}=f;
+    const group=await s.open(by('teacher'),{kind:'group',groupId:1});
+    await s.send(by('teacher'),{roomId:group.roomId,text:'Before the new student',category:'personal',clientKey:'before-student'});
+    await s.assignStudent(by('teacher'),'other',1,false);
+    assert.equal((await s.history(by('other'),group.roomId)).messages.length,0);
+    await s.assignStudent(by('teacher'),'other',null);
+    await s.assignStudent(by('teacher'),'other',1,true);
+    assert.equal((await s.history(by('other'),group.roomId)).messages.filter(row=>row.category==='personal').length,1);
+    assert.equal(sqlite.prepare('SELECT see_earlier FROM class_group_students WHERE account_id=?').get('other').see_earlier,1);
+    await s.assignStudent(by('teacher'),'other',null);
+    await s.assignStudent(by('teacher'),'other',1,false);
+    assert.equal((await s.history(by('other'),group.roomId)).messages.filter(row=>row.category==='personal').length,0);
+    assert.equal(sqlite.prepare('SELECT see_earlier FROM class_group_students WHERE account_id=?').get('other').see_earlier,0);
+  }finally{f.close();}
+});
 test('Assignments and notifications commit together, retry once and preserve cancellation history',async()=>{
   const f=fixture();try{await f.boot();const {service:s,by,sqlite}=f;
     const request={targetKind:'group',targetId:1,examId:1,action:'assign',clientKey:'assignment'};

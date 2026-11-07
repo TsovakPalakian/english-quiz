@@ -155,7 +155,7 @@
         .closest('label')
         .insertAdjacentHTML(
           'afterend',
-          '<div id="msgSearchOptions" class="chat-search-options"><label><span>Mode</span><select id="msgSearchMode" aria-label="Search mode"><option value="prefix">Words</option><option value="exact">Exact phrase</option><option value="regex">Regex</option></select></label><label class="chat-mute-choice"><span>Case sensitive</span><input id="msgSearchCase" type="checkbox"></label></div>',
+          '<div id="msgSearchOptions" class="chat-search-options"><label><span>Mode</span><select id="msgSearchMode" aria-label="Search mode"><option value="prefix">Words</option><option value="exact">Exact phrase</option></select></label><label class="chat-mute-choice"><span>Case sensitive</span><input id="msgSearchCase" type="checkbox"></label></div>',
         );
       el('msgSearchMode').onchange = () => search().catch((error) => status(error.message));
       el('msgSearchCase').onchange = () => search().catch((error) => status(error.message));
@@ -175,8 +175,8 @@
         if (terms.some(term => value.startsWith(term))) ranges.push([word.index, word.index + word[0].length]);
         if (ranges.length >= 1000) break;
       }
-    } else {
-      const pattern = mode === 'regex' ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    } else if (mode === 'exact') {
+      const pattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       try {
         for (const match of text.matchAll(new RegExp(pattern, sensitive ? 'g' : 'gi'))) {
           if (match[0]) ranges.push([match.index, match.index + match[0].length]);

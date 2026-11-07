@@ -152,7 +152,11 @@ export class EmailOtp{
     if(!ok){
       const bumped={...current,attempts:(current.attempts||0)+1};
       delete bumped.raw;
-      try{await this.#save(key,bumped,current);}catch{}
+      try{await this.#save(key,bumped,current);}
+      catch{
+        await this.#remove(key,current);
+        fail(401,'Wrong code. Request a new one.');
+      }
       fail(401,'Wrong code.');
     }
     try{await this.#remove(key,current,true);}catch{fail(400,'Code already used. Request a new one.');}

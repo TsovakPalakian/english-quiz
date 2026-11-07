@@ -79,7 +79,7 @@
   };
   const time = (ms) => {
     const d = new Date(ms);
-    return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   };
   const roomTime = (ms, now = Date.now()) => (dateLabel(ms) === dateLabel(now) ? time(ms) : dateLabel(ms));
   const roomPreview = (text) => {
@@ -803,6 +803,14 @@
       socket.send(JSON.stringify({ requestId, action, body }));
     });
   }
+  function chatSnapshotRooms(current, incoming) {
+    const kept = new Map((current || []).map((row) => [row.id, row]));
+    return (incoming || []).map((row) => {
+      const old = kept.get(row.id);
+      if (old && (old.revision || 0) > (row.revision || 0)) return old;
+      return row;
+    });
+  }
   function chatReconnectPlan(count, event = {}) {
     if (event.force || event.opened) return { count: 0, delay: 0, stop: false, signOut: false };
     if (event.code === 1000 || event.code === 4003)
@@ -880,6 +888,7 @@
           };
         }
         const reconnect = ready;
+        value.data.rooms = chatSnapshotRooms(data.rooms, value.data.rooms);
         ready = true;
         reconnectCount = chatReconnectPlan(reconnectCount, { opened: true }).count;
         startPing();
@@ -984,6 +993,11 @@
     });
     el('msgContactsTab').classList.toggle('on', listMode === 'contacts');
     el('msgContactsTab').setAttribute('aria-selected', String(listMode === 'contacts'));
+  }
+  function chatRequestWait(access, actor) {
+    if (!access || access.protected || access.blocked || access.state !== 'pending') return '';
+    if (String(access.requestedBy) !== String(actor)) return '';
+    return 'Wait for this person to accept your message request.';
   }
   function paintRooms() {
     scheduleProfiles();
@@ -1247,7 +1261,9 @@
       face.dataset.avatarName = name;
       delete face.dataset.avatarState;
     }
-    el('msgCompose').hidden = !selected || selected.access?.canSend === false || (kind === 'learning' && !reviewer());
+    const requestWait = chatRequestWait(selected?.access, account);
+    el('msgCompose').hidden = !selected || (selected.access?.canSend === false && !requestWait) || (kind === 'learning' && !reviewer());
+    el('msgText').placeholder = requestWait || 'Enter message';
     el('msgSearch').disabled = !selected;
     el('msgInfo').disabled = !selected;
     el('msgRoomInfo').disabled = !selected;
@@ -1498,16 +1514,12 @@
         new Notification(event.room.title, { body: event.message.text.slice(0, 160), tag: event.room.id });
     }
     if (event.receipt && event.room) {
-      const c = event.receipt.category,
-        peers = event.receipt.readers.filter((r) => String(r.id) !== String(account)),
-        read = peers.length ? Math.min(...peers.map((r) => r.read)) : 0,
-        delivered = peers.length ? Math.min(...peers.map((r) => r.delivered)) : 0;
+      const c = event.receipt.category;
       const cache = historyCache.get(event.room.id + ':' + c);
       if (cache)
         for (const message of cache.rows)
           if (String(message.senderId) === String(account)) {
-            message.read = read >= message.id;
-            message.delivered = delivered >= message.id;
+            Object.assign(message, chatReceiptMarks(message.id, event.receipt.readers, account, isGroupChat(event.room)));
             if (active() && room === event.room.id && kind === c) mergeNode(message);
           }
     }
@@ -1680,10 +1692,35 @@
       });
     }
   }
+  function chatReceiptMarks(messageId, readers, actor, group) {
+    const peers = (readers || []).filter((r) => String(r.id) !== String(actor));
+    const memberCount = peers.length;
+    const readCount = peers.filter((r) => (r.read || 0) >= messageId).length;
+    const deliveredCount = peers.filter((r) => (r.delivered || 0) >= messageId).length;
+    const readAll = memberCount > 0 && Math.min(...peers.map((r) => r.read || 0)) >= messageId;
+    const deliveredAll = memberCount > 0 && Math.min(...peers.map((r) => r.delivered || 0)) >= messageId;
+    if (!group) return { read: readAll, delivered: deliveredAll, readSome: readAll, readCount: readAll ? memberCount : 0, memberCount };
+    return { read: readAll, delivered: deliveredCount > 0, readSome: readCount > 0, readCount, memberCount };
+  }
+  function chatReceiptFace(m) {
+    if (m.pending) return { label: 'Sending', title: 'Sending', read: false, some: false, mark: 'clock' };
+    if (m.failed) return { label: 'Retry', title: 'Retry', read: false, some: false, mark: 'circle-alert' };
+    if (m.read) return { label: 'Read', title: 'Read by everyone', read: true, some: false, mark: 'check-check' };
+    if (m.readSome)
+      return {
+        label: 'Read by ' + (m.readCount || 0) + ' of ' + (m.memberCount || 0),
+        title: 'Read by ' + (m.readCount || 0) + ' of ' + (m.memberCount || 0),
+        read: false,
+        some: true,
+        mark: 'check-check',
+      };
+    if (m.delivered) return { label: 'Delivered', title: 'Delivered', read: false, some: false, mark: 'check-check' };
+    return { label: 'Sent', title: 'Sent', read: false, some: false, mark: 'check' };
+  }
   function messageHTML(m) {
     const own = String(m.senderId) === String(account),
       date = new Date(m.createdMs || m.created * 1000),
-      receipt = m.pending ? 'Sending' : m.failed ? 'Retry' : m.read ? 'Read' : m.delivered ? 'Delivered' : 'Sent';
+      face = chatReceiptFace(m);
     return (
       (m.forwarded ? '' : '<header><strong>' + escape(m.sender) + '</strong></header>') +
       (m.forwarded
@@ -1768,13 +1805,13 @@
       '</time>' +
       (own
         ? '<span class="msg-receipt' +
-          (m.read ? ' is-read' : '') +
+          (face.read ? ' is-read' : face.some ? ' is-read-some' : '') +
           '" aria-label="' +
-          receipt +
+          escape(face.label) +
           '" title="' +
-          (m.read ? 'Read by everyone' : receipt) +
+          escape(face.title) +
           '">' +
-          icon(m.pending ? 'clock' : m.failed ? 'circle-alert' : m.delivered || m.read ? 'check-check' : 'check') +
+          icon(face.mark) +
           '</span>'
         : '') +
       '</div>'
@@ -2156,12 +2193,18 @@
     ]);
     if (node?.dataset.content === content) {
       const receipt = node.querySelector('.msg-receipt'),
-        label = m.read ? 'Read' : m.delivered ? 'Delivered' : 'Sent';
-      if (receipt && receipt.getAttribute('aria-label') !== label) {
-        receipt.classList.toggle('is-read', !!m.read);
-        receipt.setAttribute('aria-label', label);
-        receipt.title = m.read ? 'Read by everyone' : label;
-        receipt.innerHTML = icon(m.delivered || m.read ? 'check-check' : 'check');
+        face = chatReceiptFace(m);
+      if (
+        receipt &&
+        (receipt.getAttribute('aria-label') !== face.label ||
+          receipt.classList.contains('is-read') !== face.read ||
+          receipt.classList.contains('is-read-some') !== face.some)
+      ) {
+        receipt.classList.toggle('is-read', face.read);
+        receipt.classList.toggle('is-read-some', face.some);
+        receipt.setAttribute('aria-label', face.label);
+        receipt.title = face.title;
+        receipt.innerHTML = icon(face.mark);
         icons();
       }
       return;
@@ -2241,11 +2284,12 @@
       node.classList.toggle('is-series-continuation', continuation);
       node.classList.toggle('is-group-message', groupChat);
       const face = node.querySelector('.msg-sender-avatar');
-      if (groupChat && !continuation && !message.deleted && !face) {
+      const own = node.classList.contains('is-own');
+      if (groupChat && !own && !continuation && !message.deleted && !face) {
         node.insertAdjacentHTML('afterbegin', avatar(message.senderName, false, message.senderId));
         node.firstElementChild.classList.add('msg-sender-avatar');
         addedAvatar = true;
-      } else if ((!groupChat || continuation || message.deleted) && face) face.remove();
+      } else if ((!groupChat || own || continuation || message.deleted) && face) face.remove();
       if (node.dataset.day !== day) {
         day = node.dataset.day;
         const heading = document.createElement('p');
@@ -2278,7 +2322,7 @@
       older.id = 'msgOlder';
       older.className = 'chat-link';
       older.textContent = 'Earlier messages';
-      older.onclick = () => history({ older: true }).catch((error) => status(error.message));
+      older.onclick = () => loadEarlier();
       timeline.prepend(older);
     }
     older.hidden = !state()?.more;
@@ -2313,8 +2357,27 @@
         failed: !busy,
       });
   }
+  let historyFlight = 0;
+  function chatEarlierRequest(scrollTop, rows, more, pending) {
+    if (pending || more !== true || !rows?.length || scrollTop > 1) return null;
+    return rows[0].id;
+  }
+  function loadEarlier() {
+    const before = chatEarlierRequest(0, state()?.rows, state()?.more, olderPending || historyFlight > 0);
+    if (before == null) return;
+    olderPending = true;
+    history({ older: true })
+      .catch((error) => status(error.message))
+      .finally(() => {
+        olderPending = false;
+      });
+  }
+  let olderPending = false;
   async function history({ older = false, refresh = false, before = 0 } = {}) {
     if (!room || !ready) return;
+    if (older && historyFlight) return;
+    historyFlight++;
+    try {
     const token = ++loading,
       cacheKey = key(),
       roomId = room,
@@ -2356,6 +2419,7 @@
         : timeline.scrollHeight;
     ack('delivered', roomId, category, result.messages.at(-1)?.id || 0);
     scheduleRead();
+    } finally { historyFlight--; }
   }
   async function openRoom(id) {
     stickBottom = true;
@@ -2386,18 +2450,26 @@
     } catch {}
     await history();
   }
-  function ack(action, id, category, through) {
+  function chatCategoryReadThrough(rows) {
+    return (rows || []).reduce((max, row) => Math.max(max, Number(row.id) || 0), 0);
+  }
+  function ack(action, id, category, through, force) {
     if (!ready || !through) return;
     const k = id + ':' + category,
       entry = cursors.get(k) || {},
       column = action === 'read' ? 'read' : 'delivered';
-    if (through <= Math.max(entry[column] || 0, entry[column + 'Pending'] || 0)) return;
+    if (!force && through <= Math.max(entry[column] || 0, entry[column + 'Pending'] || 0)) return;
+    if (force && entry[column + 'Pending']) return;
     entry[column + 'Pending'] = through;
     cursors.set(k, entry);
     request(action, { roomId: id, category, through })
       .then((result) => {
         entry[column] = Math.max(entry[column] || 0, through);
-        upsertRoom(result.room);
+        if (result.room) upsertRoom(result.room);
+        else if (force && action === 'read') {
+          const row = data.rooms.find((item) => item.id === id);
+          if (row?.unread) row.unread[category] = 0;
+        }
         badge();
         paintRooms();
       })
@@ -2408,6 +2480,7 @@
   }
   function acknowledgeSnapshot() {
     for (const r of data.rooms) if (r.lastMessage) ack('delivered', r.id, r.lastMessage.category, r.lastMessage.id);
+    markRead();
   }
   function markRead() {
     if (
@@ -2420,12 +2493,9 @@
       (innerWidth <= 700 && prefs.left)
     )
       return;
-    const box = timeline.getBoundingClientRect();
-    const visible = [...timeline.querySelectorAll('[data-msg-id]')].filter((n) => {
-      const r = n.getBoundingClientRect();
-      return r.top < box.bottom && r.bottom > box.top;
-    });
-    ack('read', room, kind, Math.max(0, ...visible.map((n) => Number(n.dataset.msgId) || 0)));
+    const through = chatCategoryReadThrough(state()?.rows);
+    const current = data.rooms.find((item) => item.id === room);
+    ack('read', room, kind, through, (current?.unread?.[kind] || 0) > 0);
   }
   function scheduleRead() {
     clearTimeout(readTimer);
@@ -2434,7 +2504,14 @@
   timeline.addEventListener('scroll', () => {
     scheduleRead();
     if (bottom()) el('msgLatest').hidden = true;
+    if (chatEarlierRequest(timeline.scrollTop, state()?.rows, state()?.more, olderPending || historyFlight > 0) != null)
+      loadEarlier();
   });
+  function chatSendDraft(saved, body) {
+    if (saved && typeof saved.clientKey === 'string' && saved.clientKey)
+      return { ...body, clientKey: saved.clientKey, createdMs: saved.createdMs || Date.now() };
+    return { ...body, clientKey: crypto.randomUUID(), createdMs: Date.now() };
+  }
   function chatUnackedSend(saved) {
     if (!saved || typeof saved.clientKey !== 'string' || !saved.clientKey) return null;
     return saved;
@@ -2443,7 +2520,6 @@
     const gen = generation;
     let succeeded = false;
     busy = true;
-    composer.disabled = true;
     el('msgSend').disabled = true;
     el('msgSendState').textContent = 'Sending...';
     paintUploads();
@@ -2502,6 +2578,15 @@
     if (!sent || busy) return;
     void transmit(sent);
   }
+  function chatRetryClick(label, sending) {
+    return label === 'Retry' && !sending;
+  }
+  timeline.addEventListener('click', (event) => {
+    const receipt = event.target.closest('.msg-receipt');
+    if (!receipt || !timeline.contains(receipt) || !chatRetryClick(receipt.getAttribute('aria-label'), busy)) return;
+    event.preventDefault();
+    flushUnacked();
+  });
   async function send() {
     if(recordGesture){finishRecording(false);return;}
     if ([...uploads.values()].some((item) => item.roomId === room && !item.cancelled)) {
@@ -2525,8 +2610,7 @@
         format: window.TextColors?.trim(format, composer.value) || null,
         files: files.map((f) => f.id),
       };
-    if (!pending || Object.keys(body).some((k) => JSON.stringify(body[k]) !== JSON.stringify(pending[k])))
-      pending = { ...body, clientKey: crypto.randomUUID(), createdMs: Date.now() };
+    pending = chatSendDraft(pending, body);
     remember();
     await transmit(pending);
   }
@@ -3967,7 +4051,7 @@
         .closest('label')
         .insertAdjacentHTML(
           'afterend',
-          '<div id="msgSearchOptions" class="chat-search-options"><label><span>Mode</span><select id="msgSearchMode" aria-label="Search mode"><option value="prefix">Words</option><option value="exact">Exact phrase</option><option value="regex">Regex</option></select></label><label class="chat-mute-choice"><span>Case sensitive</span><input id="msgSearchCase" type="checkbox"></label></div>',
+          '<div id="msgSearchOptions" class="chat-search-options"><label><span>Mode</span><select id="msgSearchMode" aria-label="Search mode"><option value="prefix">Words</option><option value="exact">Exact phrase</option></select></label><label class="chat-mute-choice"><span>Case sensitive</span><input id="msgSearchCase" type="checkbox"></label></div>',
         );
       el('msgSearchMode').onchange = () => search().catch((error) => status(error.message));
       el('msgSearchCase').onchange = () => search().catch((error) => status(error.message));
@@ -3987,8 +4071,8 @@
         if (terms.some(term => value.startsWith(term))) ranges.push([word.index, word.index + word[0].length]);
         if (ranges.length >= 1000) break;
       }
-    } else {
-      const pattern = mode === 'regex' ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    } else if (mode === 'exact') {
+      const pattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       try {
         for (const match of text.matchAll(new RegExp(pattern, sensitive ? 'g' : 'gi'))) {
           if (match[0]) ranges.push([match.index, match.index + match[0].length]);
@@ -6475,6 +6559,23 @@
     true,
   );
   window.openChatSettings = settings;
+  const calendarReportKeys = new Map();
+  function chatCalendarReportKey(store, groupId, category, text) {
+    const id = String(groupId) + '\n' + String(category) + '\n' + String(text);
+    let key = store.get(id);
+    if (typeof key !== 'string' || !key) {
+      key = 'gcw-report-' + crypto.randomUUID();
+      store.set(id, key);
+    }
+    return key;
+  }
+  function chatCalendarReportDone(store, groupId, category, text) {
+    store.delete(String(groupId) + '\n' + String(category) + '\n' + String(text));
+  }
+  function chatGroupReportCategory(user, options, teacher) {
+    if (options && options.category) return options.category;
+    return user && (user.role === 'ADMIN' || user.role === 'DEVELOPER' || teacher) ? 'learning' : 'personal';
+  }
   window.sendGroupChatMessage = async function(groupId, text, options) {
     if (!signedIn() && typeof checkAuth === 'function') {
       try { await checkAuth(); } catch {}
@@ -6495,15 +6596,16 @@
     const numId = Number(groupId);
     const openRes = await request('open', { kind: 'group', groupId: numId });
     if (openRes && openRes.roomId) {
-      const u = signedIn();
-      const isStaff = u && (u.role === 'TEACHER' || u.role === 'LEAD_INSTRUCTOR' || u.leadInstructor || (typeof isTeacher === 'function' && isTeacher()));
-      const category = (options && options.category) || (isStaff ? 'learning' : 'personal');
-      return request('send', {
+      const category = chatGroupReportCategory(signedIn(), options, typeof isTeacher === 'function' && isTeacher());
+      const clientKey = chatCalendarReportKey(calendarReportKeys, numId, category, text);
+      const result = await request('send', {
         roomId: openRes.roomId,
         category,
-        clientKey: 'gcw-report-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        clientKey,
         text
       });
+      chatCalendarReportDone(calendarReportKeys, numId, category, text);
+      return result;
     }
   };
   el('msgProfile').onclick = settings;

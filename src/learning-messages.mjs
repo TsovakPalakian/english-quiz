@@ -60,20 +60,20 @@ export class MessageService {
   async groupAccess(actor,id) {
     const [group] = await this.db.read('SELECT id,title FROM class_groups WHERE id=? AND deleted_at IS NULL',[id]);
     if (!group) fail(404,'This group is unavailable.');
-    const [enrolled] = await this.db.read('SELECT updated_at FROM class_group_students WHERE account_id=? AND group_id=?',[actor.id,id]);
+    const [enrolled] = await this.db.read('SELECT updated_at,see_earlier FROM class_group_students WHERE account_id=? AND group_id=?',[actor.id,id]);
     if (!staff(actor) && !enrolled) fail(403,'This chat is for members of the group.');
-    return {group,epoch:staff(actor) ? 0 : enrolled.updated_at};
+    return {group,epoch:staff(actor) ? 0 : enrolled.updated_at,seeEarlier:!staff(actor)&&Number(enrolled.see_earlier)===1};
   }
   async member(actor,roomId) {
     signed(actor); key(roomId); await this.ensure();
     const [room] = await this.db.read('SELECT * FROM chat_rooms WHERE id=?',[roomId]);
     if (!room) fail(404,'Conversation not found.');
     if (room.kind === 'group') {
-      const {epoch} = await this.groupAccess(actor,room.group_id);
+      const {epoch,seeEarlier} = await this.groupAccess(actor,room.group_id);
       await this.db.atomic([s(`INSERT INTO chat_members(room_id,account_id,joined_seq,group_epoch,read_personal,read_learning)
-        SELECT ?,?,CASE WHEN ?=0 THEN 0 ELSE COALESCE(MAX(id),0) END,?,COALESCE(MAX(id),0),COALESCE(MAX(id),0) FROM chat_messages WHERE room_id=?
+        SELECT ?,?,CASE WHEN ?=0 OR ?=1 THEN 0 ELSE COALESCE(MAX(id),0) END,?,COALESCE(MAX(id),0),COALESCE(MAX(id),0) FROM chat_messages WHERE room_id=?
         ON CONFLICT(room_id,account_id) DO UPDATE SET joined_seq=excluded.joined_seq,group_epoch=excluded.group_epoch,read_personal=excluded.read_personal,read_learning=excluded.read_learning
-        WHERE chat_members.group_epoch<>excluded.group_epoch`,[roomId,actor.id,epoch,epoch,roomId])]);
+        WHERE chat_members.group_epoch<>excluded.group_epoch`,[roomId,actor.id,epoch,seeEarlier?1:0,epoch,roomId])]);
     }
     const [member] = await this.db.read('SELECT * FROM chat_members WHERE room_id=? AND account_id=?',[roomId,actor.id]);
     if (!member) fail(403,'This is a private conversation.');
@@ -189,7 +189,7 @@ export class MessageService {
     await this.db.atomic([s('UPDATE chat_members SET muted=? WHERE room_id=? AND account_id=?',[+body.muted,body.roomId,actor.id])]);
     return {saved:true};
   }
-  async assignStudent(actor,accountId,groupId) {
+  async assignStudent(actor,accountId,groupId,seeEarlier=false) {
     signed(actor); if (!staff(actor)) fail(403,'Only a teacher can assign students.'); await this.ensure();
     if (!(await this.directory()).some(user => String(user.id)===String(accountId) && user.role==='USER')) fail(404,'Student not found.');
     const service = new GroupService(this.db);
@@ -198,12 +198,12 @@ export class MessageService {
     if (old?.group_id===groupId) return {saved:true};
     const commands = groupId==null ? [s('DELETE FROM class_group_students WHERE account_id=?',[accountId])] : [
       s('INSERT INTO group_guard SELECT EXISTS(SELECT 1 FROM class_groups WHERE id=? AND deleted_at IS NULL)',[groupId]),
-      s('INSERT INTO class_group_students(account_id,group_id,assigned_by) VALUES(?,?,?) ON CONFLICT(account_id) DO UPDATE SET group_id=excluded.group_id,assigned_by=excluded.assigned_by,updated_at=unixepoch()',[accountId,groupId,actor.id]),
+      s('INSERT INTO class_group_students(account_id,group_id,assigned_by,see_earlier) VALUES(?,?,?,?) ON CONFLICT(account_id) DO UPDATE SET group_id=excluded.group_id,assigned_by=excluded.assigned_by,see_earlier=excluded.see_earlier,updated_at=unixepoch()',[accountId,groupId,actor.id,seeEarlier===true?1:0]),
       s('UPDATE class_groups SET revision=revision+1 WHERE id=?',[groupId]),
       s(`INSERT INTO chat_members(room_id,account_id,joined_seq,group_epoch,read_personal,read_learning)
-        SELECT r.id,?,COALESCE((SELECT MAX(id) FROM chat_messages WHERE room_id=r.id),0),c.updated_at,COALESCE((SELECT MAX(id) FROM chat_messages WHERE room_id=r.id),0),0
+        SELECT r.id,?,CASE WHEN ? THEN 0 ELSE COALESCE((SELECT MAX(id) FROM chat_messages WHERE room_id=r.id),0) END,c.updated_at,COALESCE((SELECT MAX(id) FROM chat_messages WHERE room_id=r.id),0),0
         FROM chat_rooms r JOIN class_group_students c ON c.group_id=r.group_id WHERE c.account_id=? AND r.kind='group'
-        ON CONFLICT(room_id,account_id) DO UPDATE SET joined_seq=excluded.joined_seq,group_epoch=excluded.group_epoch,read_personal=excluded.read_personal,read_learning=excluded.read_learning`,[accountId,accountId])];
+        ON CONFLICT(room_id,account_id) DO UPDATE SET joined_seq=excluded.joined_seq,group_epoch=excluded.group_epoch,read_personal=excluded.read_personal,read_learning=excluded.read_learning`,[accountId,seeEarlier===true?1:0,accountId])];
     commands.push(...await service.studentExamTransferCommands(accountId,groupId));
     await service.groupTransaction(commands); return {saved:true};
   }
@@ -247,8 +247,11 @@ export class MessageService {
       recipients = (await this.db.read('SELECT account_id FROM class_group_students WHERE group_id=?',[group.id])).map(row => row.account_id);
       if(body.subgroupId!=null){groupMembers=[...recipients];const active=new Set((await this.directory()).filter(user=>user.role==='USER'&&user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked).map(user=>user.id));recipients=recipients.filter(id=>active.has(id));if(!recipients.length)fail(409,'No active students in this subgroup.');}
     } else {
-      const student = (await this.directory()).find(user => user.id===targetId && user.role==='USER' && (body.subgroupId==null || user.active!==0&&user.active!==false&&!user.revoked&&!user.is_personal_data_revoked));
-      if (!student) fail(404,'Student not found.'); recipients = [targetId];
+      const account = (await this.directory()).find(user => String(user.id) === targetId);
+      if (!account) fail(404,'Student not found.');
+      if (account.role !== 'USER') fail(403,'This account is not a student.');
+      if (body.subgroupId != null && (account.active === 0 || account.active === false || account.revoked || account.is_personal_data_revoked)) fail(409,'This student account is inactive.');
+      recipients = [String(account.id)];
     }
     const [current] = await this.db.read('SELECT id FROM chat_assignments WHERE exam_id=? AND target_kind=? AND target_id=? AND active=1',[exam.id,body.targetKind,targetId]);
     const [link] = body.targetKind==='group' ? await this.db.read('SELECT group_id FROM class_group_exams WHERE exam_id=?',[exam.id]) : [];

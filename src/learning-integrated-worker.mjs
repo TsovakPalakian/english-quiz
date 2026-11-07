@@ -74,6 +74,63 @@ async function boundedText(request,limit,message){
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
   return decoder.decode(bytes);
 }
+export function feedbackAttachmentKind(bytes){
+  if(!(bytes instanceof Uint8Array)||bytes.length<3)return null;
+  const starts=values=>bytes.length>=values.length&&values.every((v,i)=>bytes[i]===v);
+  const ascii=(at,length)=>bytes.length>=at+length?new TextDecoder().decode(bytes.subarray(at,at+length)):'';
+  if(starts([137,80,78,71,13,10,26,10]))return {mime:'image/png',inline:true};
+  if(starts([255,216,255]))return {mime:'image/jpeg',inline:true};
+  if(ascii(0,4)==='RIFF'&&ascii(8,4)==='WEBP')return {mime:'image/webp',inline:true};
+  if(ascii(0,6)==='GIF87a'||ascii(0,6)==='GIF89a')return {mime:'image/gif',inline:true};
+  if(ascii(0,5)==='%PDF-')return {mime:'application/pdf',inline:false};
+  return null;
+}
+function feedbackPlainText(bytes){
+  if(bytes.includes(0))return false;
+  try{new TextDecoder('utf-8',{fatal:true}).decode(bytes);return true;}catch{return false;}
+}
+export function feedbackAttachmentBytes(dataUrl){
+  if(typeof dataUrl!=='string'||!dataUrl.startsWith('data:'))return null;
+  const comma=dataUrl.indexOf(',');
+  if(comma<1||!/base64/i.test(dataUrl.slice(0,comma)))return null;
+  try{
+    const binary=Uint8Array.from(atob(dataUrl.slice(comma+1)),c=>c.charCodeAt(0));
+    return binary.length?binary:null;
+  }catch{return null;}
+}
+export function feedbackAttachmentRecord(item){
+  if(!item||typeof item!=='object')throw new StudyError(400,'Attachment could not be read.');
+  const dataUrl=typeof item.dataUrl==='string'?item.dataUrl:'';
+  const binary=feedbackAttachmentBytes(dataUrl);
+  if(!binary)throw new StudyError(400,'Attachment could not be read.');
+  const sniffed=feedbackAttachmentKind(binary);
+  const kind=sniffed||(item.mime==='text/plain'&&feedbackPlainText(binary)?{mime:'text/plain',inline:false}:null);
+  if(!kind)throw new StudyError(400,'Attachment type is not allowed.');
+  const payload=dataUrl.slice(dataUrl.indexOf(',')+1);
+  return {
+    name:String(item.name||'attachment').slice(0,150),
+    mime:kind.mime,
+    size:binary.length,
+    bytes:binary,
+    ...(binary.length<65536?{dataUrl:`data:${kind.mime};base64,${payload}`}:{})
+  };
+}
+export async function feedbackObjectBytes(obj){
+  if(!obj)return new Uint8Array();
+  if(obj.body instanceof Uint8Array)return obj.body;
+  if(typeof obj.arrayBuffer==='function')return new Uint8Array(await obj.arrayBuffer());
+  if(obj.body&&typeof obj.body.arrayBuffer==='function')return new Uint8Array(await obj.body.arrayBuffer());
+  return new Uint8Array();
+}
+export function feedbackAttachmentHeaders(bytes){
+  const kind=feedbackAttachmentKind(bytes);
+  return {
+    'Content-Type':kind?.mime||'application/octet-stream',
+    'Content-Disposition':kind?.inline?'inline':'attachment',
+    'Cache-Control':'private, max-age=86400',
+    'X-Content-Type-Options':'nosniff'
+  };
+}
 const identity='(?:[a-f0-9]{16,64}|[1-9]\\d{0,15})';
 const cardKey=value=>{const id=Number(value);if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(id))throw new StudyError(400,'Invalid card ID.');return id;};
 // The source handler uses HTTP-quoted ETags for CAS. R2Conditional needs raw
@@ -586,7 +643,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(path==='/api/groups/manage')return json(await new GroupService(studyDatabase(env)).manage(actor,value));
         const found=await authorizeManaged(accountEnv,actor,value.accountId);if(found.error)return found.error;
         if(found.row.role!=='USER')throw new StudyError(400,'Only students can be assigned to a group.');
-        return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId));
+        return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId,value.seeEarlier===true));
       }
       if(path==='/api/groups/absence'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -1007,38 +1064,18 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
 
         for(const item of incomingAttachments){
           if(!item||typeof item!=='object')continue;
+          const record=feedbackAttachmentRecord(item);
           const fileId=crypto.randomUUID();
-          const name=String(item.name||'attachment').slice(0,150);
-          const mime=String(item.mime||item.type||'application/octet-stream').slice(0,100);
-          let size=Number(item.size)||0;
-          let storageKey='';
-          let dataUrl=typeof item.dataUrl==='string'&&item.dataUrl.startsWith('data:')?item.dataUrl:'';
-
-          if(dataUrl){
-            const comma=dataUrl.indexOf(',');
-            if(comma>0){
-              const b64=dataUrl.slice(comma+1);
-              try{
-                const binary=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
-                size=binary.length;
-                totalAttachmentBytes+=size;
-                storageKey=`feedback-attachments/${fileId}/${name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
-                if(env.MEDIA?.put){
-                  await env.MEDIA.put(storageKey,binary,{httpMetadata:{contentType:mime}});
-                }
-              }catch{}
-            }
-          }else{
-            totalAttachmentBytes+=size;
-          }
-
+          const storageKey=`feedback-attachments/${fileId}/${record.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+          totalAttachmentBytes+=record.size;
+          if(env.MEDIA?.put)await env.MEDIA.put(storageKey,record.bytes,{httpMetadata:{contentType:record.mime}});
           processedAttachments.push({
             id:fileId,
-            name,
-            mime,
-            size,
+            name:record.name,
+            mime:record.mime,
+            size:record.size,
             storageKey,
-            ...(size<65536&&dataUrl?{dataUrl}:{})
+            ...(record.dataUrl?{dataUrl:record.dataUrl}:{})
           });
         }
 
@@ -1117,7 +1154,8 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         if(!key||!key.startsWith('feedback-attachments/'))throw new StudyError(400,'Invalid attachment key.');
         const obj=await env.MEDIA?.get?.(key);
         if(!obj)throw new StudyError(404,'Attachment not found.');
-        return new Response(obj.body,{headers:{'Content-Type':obj.httpMetadata?.contentType||'application/octet-stream','Content-Disposition':'inline','Cache-Control':'private, max-age=86400'}});
+        const bytes=await feedbackObjectBytes(obj);
+        return new Response(bytes,{headers:feedbackAttachmentHeaders(bytes)});
       }
       if(path==='/api/feedback/resolve'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

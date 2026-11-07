@@ -14,19 +14,22 @@ function definition(name){
   return lines.slice(start,end).join('\n');
 }
 function presentation(data={contacts:[]}){
-  const definitions=['dateLabel','time','roomTime','roomTitle'].map(name=>{
+  const definitions=['dateLabel','time','stamp','roomTime','roomTitle'].map(name=>{
     const line=definition(name);
     assert.ok(line,'Missing presentation helper '+name);return line;
   }).join('\n');
-  return runInNewContext(definitions+'\n({dateLabel,time,roomTime,roomTitle})',{data,Date});
+  return runInNewContext(definitions+'\n({dateLabel,time,stamp,roomTime,roomTitle})',{data,Date});
 }
-test('chat uses local dotted times and dates across year and midnight boundaries',()=>{
+test('chat clock uses a colon and day labels keep dots across year and midnight boundaries',()=>{
   const p=presentation(),now=new Date(2026,0,1,0,5).getTime();
-  assert.equal(p.roomTime(new Date(2026,0,1,0,1).getTime(),now),'00.01');
+  assert.equal(p.time(new Date(2026,5,4,4,6).getTime()),'04:06');
+  assert.equal(p.dateLabel(new Date(2026,5,4,4,6).getTime()),'04.06.2026');
+  assert.equal(p.roomTime(new Date(2026,0,1,0,1).getTime(),now),'00:01');
   assert.equal(p.roomTime(new Date(2025,11,31,23,59).getTime(),now),'31.12.2025');
   assert.equal(p.roomTime(new Date(2025,0,1,0,1).getTime(),now),'01.01.2025');
-  assert.equal(p.time(new Date(2026,9,16,20,55).getTime()),'20.55');
+  assert.equal(p.time(new Date(2026,9,16,20,55).getTime()),'20:55');
   assert.equal(p.dateLabel('1990-04-25'),'25.04.1990');
+  assert.equal(p.stamp(new Date(2026,5,4,4,6,7,8).getTime()),'04.06.2026 · 04:06.07.008');
 });
 test('chat names use public roles, preserve group titles and do not invent internal roles',()=>{
   const p=presentation({contacts:[{id:'a',role:'Support'},{id:'b',role:'Teacher'},{id:'c',role:'DEVELOPER'}]});
@@ -40,10 +43,10 @@ test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
   const message={id:1,text:'hello',senderId:'me',createdMs:1,delivered:true};
   const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions,false]);
   let writes=0,scans=0;
-  const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;}},set innerHTML(value){writes++;},set title(value){writes++;}};
+  const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;},contains:()=>false},set innerHTML(value){writes++;},set title(value){writes++;}};
   const node={dataset:{content,msgId:'1'},querySelector:()=>receipt};
   const timeline={querySelector:()=>node,querySelectorAll:()=>[node]};
-  const merge=runInNewContext(extractFunction(source, 'mergeNode')+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
+  const merge=runInNewContext(extractFunction(source,'chatReceiptFace')+'\n'+extractFunction(source,'mergeNode')+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
   for(let i=0;i<100;i++)merge(message);
   assert.equal(writes,0);assert.equal(scans,0);
 });
