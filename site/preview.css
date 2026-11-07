@@ -3847,6 +3847,8 @@ button.group-person:hover { background: var(--acc-s); }
 .admin-form-field.is-full { grid-column: 1 / -1; }
 .admin-form-field .field-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mute, #64748b); }
 .admin-form-field input, .admin-form-field select { width: 100%; height: 42px; padding: 0 12px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; background: var(--saas-input-bg, var(--card)); color: var(--ink, #0f172a); font-size: 14px; box-sizing: border-box; transition: all 0.15s ease; }
+.account-earlier-history { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; width: auto; margin-top: 4px; font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink, #0f172a); }
+.admin-form-field .account-earlier-history input[type="checkbox"] { width: 16px; height: 16px; min-height: 16px; padding: 0; flex: 0 0 16px; border-radius: 4px; box-shadow: none; }
 .admin-form-field input:focus, .admin-form-field select:focus { outline: none; border-color: var(--acc); background: var(--saas-input-bg-focus, var(--card)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent); }
 .account-group-actions, .account-role-actions { display: flex; gap: 8px; align-items: center; margin-top: 0; }
 #adminuser .account-group-row,

@@ -64,6 +64,28 @@ test('a new group student sees earlier messages only when allowed at entry',asyn
     assert.equal(circleRoom.one('SELECT joined FROM members WHERE id=?','carol').joined,1);
   }finally{await f.drain();f.close();}
 });
+test('signing in again keeps a student message visible and reading clears the badge',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f,'group');
+    await c.command('alice','send',{text:'From the student',clientKey:'from-student'});await f.drain();
+    const room=f.env.CHAT_ROOM.get(c.id);
+    const again={...f.alice,id:Number(42)};
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/configure',{room:{id:c.id,kind:'group',groupId:1,title:'A1'},members:[f.alice,f.bob,f.teacher]});
+    assert.equal(room.history(f.teacher,{}).messages.some(message=>message.text==='From the student'),true);
+    assert.equal(room.history(f.alice,{}).messages.some(message=>message.text==='From the student'),true);
+    await chatCall(f.env,'CHAT_ROOM','group:42','/configure',{room:{id:'group:42',kind:'group',groupId:42,title:'B1'},members:[{id:'42',name:'Numeric',role:'USER'}]});
+    await chatCall(f.env,'CHAT_ROOM','group:42','/import',{initial:true,messages:[{id:1,sender_id:'42',sender_name:'Numeric',category:'personal',body:'Kept after sign-in',client_key:'kept',created_ms:Date.now()}],complete:true});await f.drain();
+    await chatCall(f.env,'CHAT_ROOM','group:42','/configure',{room:{id:'group:42',kind:'group',groupId:42,title:'B1'},members:[again]});
+    const numeric=f.env.CHAT_ROOM.get('group:42');
+    assert.equal(numeric.history({id:'42'},{}).messages.length,1);
+    const direct=await managedChat(f,'direct');
+    await direct.command('bob','send',{text:'Student line',clientKey:'student-line'});await f.drain();
+    const directRoom=f.env.CHAT_ROOM.get(direct.id);
+    const last=directRoom.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
+    const read=directRoom.read(f.alice,{category:'personal',through:last});
+    assert.equal(read.room.unread.personal,0);
+  }finally{await f.drain();f.close();}
+});
 test('staff chat profiles stay inside contacts and rooms',async()=>{
   const f=fixture();try{
     await f.boot();

@@ -1020,18 +1020,26 @@
     if (force && entry[column + 'Pending']) return;
     entry[column + 'Pending'] = through;
     cursors.set(k, entry);
+    const row = data.rooms.find((item) => item.id === id);
+    const cleared = action === 'read' && force && row?.unread ? row.unread[category] || 0 : 0;
+    if (cleared) {
+      row.unread[category] = 0;
+      badge();
+      paintRooms();
+    }
     request(action, { roomId: id, category, through })
       .then((result) => {
         entry[column] = Math.max(entry[column] || 0, through);
         if (result.room) upsertRoom(result.room);
-        else if (force && action === 'read') {
-          const row = data.rooms.find((item) => item.id === id);
-          if (row?.unread) row.unread[category] = 0;
-        }
+        else if (force && action === 'read' && row?.unread) row.unread[category] = 0;
         badge();
         paintRooms();
       })
-      .catch(() => {})
+      .catch(() => {
+        if (cleared && row?.unread && !row.unread[category]) row.unread[category] = cleared;
+        badge();
+        paintRooms();
+      })
       .finally(() => {
         entry[column + 'Pending'] = 0;
       });
@@ -1046,13 +1054,12 @@
       !active() ||
       !room ||
       document.visibilityState !== 'visible' ||
-      !document.hasFocus() ||
       rightMode === 'search' ||
       (innerWidth <= 700 && prefs.left)
     )
       return;
-    const through = chatCategoryReadThrough(state()?.rows);
     const current = data.rooms.find((item) => item.id === room);
+    const through = Math.max(chatCategoryReadThrough(state()?.rows), Number(current?.lastMessage?.id) || 0);
     ack('read', room, kind, through, (current?.unread?.[kind] || 0) > 0);
   }
   function scheduleRead() {

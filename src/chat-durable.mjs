@@ -146,7 +146,7 @@ export class ChatRoom extends Store{
   async alarm(){return trackTransferTask(this,async()=>{try{await this.trusted();await this.flush();}catch(error){if(!error.inactiveDatabase&&!error.migrationFrozen)await this.ctx.storage.setAlarm(Date.now()+10000);}});}
   configure(body){
     const room={...body.room,active:body.room.active!==false};ref(room.id);
-    const old=this.get('room'),previousMembers=new Map(this.rows('SELECT * FROM members').map(m=>[m.id,m])),last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
+    const old=this.get('room'),previousMembers=new Map(this.rows('SELECT * FROM members').map(m=>[String(m.id),m])),last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
     this.tx(()=>{
       this.set('room',room);
       const members=body.members||[],protectedChat=room.kind==='group'||room.kind==='circle'||members.some(staff)||members.length===2&&members[0].groupId!=null&&members[0].groupId===members[1].groupId;
@@ -154,7 +154,7 @@ export class ChatRoom extends Store{
       if(old&&oldProtected===null&&!protectedChat&&this.get('counts')?.personal)this.set('consent',{state:'accepted'});
       if(room.kind==='group'||room.kind==='circle')this.sql.exec('UPDATE members SET active=0');
       for(const member of body.members||[]){
-        const previous=previousMembers.get(member.id),reveal=room.kind==='group'&&member.role==='USER'&&member.seeEarlier===true&&!previous?.active,joined=previous?.active?previous.joined:(reveal?0:(old&&member.role==='USER'?last:member.joined||0)),readMark=reveal?last:(member.readPersonal||joined);
+        const previous=previousMembers.get(String(member.id)),reveal=room.kind==='group'&&member.role==='USER'&&member.seeEarlier===true&&!previous?.active,joined=previous?.active?previous.joined:(reveal?0:(old&&member.role==='USER'?last:member.joined||0)),readMark=reveal?last:(member.readPersonal||joined);
         this.sql.exec('INSERT INTO members(id,name,role,active,joined,read_personal,read_learning,delivered_personal,delivered_learning,muted) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,role=excluded.role,active=excluded.active,joined=excluded.joined',ref(member.id),publicName(member),member.role,member.active===false?0:1,joined,readMark,member.readLearning||0,readMark,member.readLearning||0,+!!member.muted);
         if((room.kind==='group'||room.kind==='circle')&&previous&&!previous.active&&member.role==='USER')this.sql.exec('UPDATE members SET read_personal=MAX(read_personal,?),delivered_personal=MAX(delivered_personal,?),unread_personal=0 WHERE id=?',readMark,readMark,member.id);
       }

@@ -708,7 +708,7 @@ try{
     await page.locator('[data-avatar-upload="group:1"]').click();await(await groupChooser).setFiles({name:'Group.png',mimeType:'image/png',buffer:avatar});await page.locator('[data-crop-done]').click();
     yield "180. waitForFunction";
     await page.waitForFunction(()=>document.querySelector('#msgRoomAvatar img')?.naturalWidth===1024);assert.equal(await page.locator('#msgRoomAvatar .chat-presence').count(),0);
-  await page.locator('#msgRoomAvatar').click();await page.locator('.chat-avatar-dialog[open] img').waitFor();
+  await page.locator('#msgRoomAvatar').click();assert.equal(await page.locator('.chat-avatar-dialog[open]').count(),0);await page.locator('#msgRight:not([hidden])').waitFor();
     yield "181. press";
     await page.keyboard.press('Escape');await Promise.resolve();assert.deepEqual(errors,[]);
   await page.evaluate(()=>window.enquizVisit('account'));await page.locator('#accountBody .account-avatar-row img').waitFor();

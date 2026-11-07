@@ -334,8 +334,13 @@
       }
       const node = event.target.closest('[data-avatar-subject].has-avatar-photo');
       if (!node || node.closest('.brand-account')) return;
+      if (node.closest('#messages .msg-room, #messages [data-contact-id], #messages [data-chat-group]')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      if (node.closest('#msgRoomAvatar, #msgTimeline')) {
+        showInfo().catch(() => {});
+        return;
+      }
       openAvatar(node.dataset.avatarSubject);
     },
     true,
@@ -344,11 +349,12 @@
     'keydown',
     (event) => {
       const node = event.target.closest('[data-avatar-subject].has-avatar-photo');
-      if (node && !node.closest('.brand-account') && ['Enter', ' '].includes(event.key)) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        openAvatar(node.dataset.avatarSubject);
-      }
+      if (!node || node.closest('.brand-account') || !['Enter', ' '].includes(event.key)) return;
+      if (node.closest('#messages .msg-room, #messages [data-contact-id], #messages [data-chat-group]')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (node.closest('#msgRoomAvatar, #msgTimeline')) showInfo().catch(() => {});
+      else openAvatar(node.dataset.avatarSubject);
     },
     true,
   );

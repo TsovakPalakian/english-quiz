@@ -1160,7 +1160,7 @@
     button.after(next);
   }
   for (const root of document.querySelectorAll('.side-foot,.mobile-tools'))
-    if (!document.body.dataset.roleNavigation && !root.querySelector('[data-msg-open]')) {
+    if (!document.body.dataset.roleNavigation && !root.querySelector('[data-msg-open]') && !document.querySelector('.side nav [data-msg-open], .tabbar [data-msg-open]')) {
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'btn ghost';
