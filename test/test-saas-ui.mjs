@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 // Local production assets and synthetic APIs only; never visits the live site.
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
@@ -18,7 +18,7 @@ const server=createServer((req,res)=>{
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+  browser=await chromium.launch(chromiumLaunchOptions());
   const page=await browser.newPage(),errors=[];
   let user=null;
   let otpRequestFails=true;

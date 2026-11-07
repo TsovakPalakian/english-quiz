@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -12,7 +12,7 @@ yield "00. Fixture and browser setup";
 
   const {server,url}=await createQuizReviewPreview();let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+    browser=await chromium.launch(chromiumLaunchOptions());
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     await page.goto(url);await page.locator('#context').waitFor();

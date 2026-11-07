@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {previewAuthStudio} from '../ops/preview-auth-studio.mjs';
@@ -8,7 +8,7 @@ const {chromium}=require(resolveTestDependency('playwright'));
 const preview=await previewAuthStudio();
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+  browser=await chromium.launch(chromiumLaunchOptions());
   const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'no-preference'});
   
   const consoleErrors=[];

@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
@@ -8,7 +8,7 @@ const {chromium}=require(resolveTestDependency('playwright'));
 const source=readFileSync(new URL('../production/chat/40-messages.js',import.meta.url),'utf8');
 const grouping=extractFunctions(source, 'sameSenderSeries', 'syncDays');
 const css=readFileSync(new URL('../production/chat.css',import.meta.url),'utf8');
-const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+const browser=await chromium.launch(chromiumLaunchOptions());
 try {
   const page=await browser.newPage({viewport:{width:1000,height:800}});
   await page.setContent('<div id="messages" class="on"><div id="fixture" style="width:600px"></div></div>');

@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url),{chromium}=require(resolveTestDepen
 test('developer changes quota without resetting usage; conflicts, audit, lost responses and mobile layout stay safe',async()=>{
   const {server,url}=await createQuizReviewPreview({requestLimit:3,generationEnabled:true});let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+    browser=await chromium.launch(chromiumLaunchOptions());
     const page=await browser.newPage({viewport:{width:1280,height:1050}}),errors=[],requests=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
     const read=async path=>(await fetch(url+path,{headers:{Cookie:'qr-preview=dev'}})).json();

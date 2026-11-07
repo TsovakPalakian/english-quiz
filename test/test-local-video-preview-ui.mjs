@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -15,7 +15,7 @@ yield "00. Fixture and browser setup";
   try{
     assert.equal((await fetch(preview.url+'/__local/video/api',{headers:{Cookie:'local-workbench-role=u1'}})).status,403);
     assert.equal((await fetch(preview.url+'/__local/video/api/settings',{method:'POST',headers:{Origin:'https://evil.invalid','Content-Type':'application/json'},body:'{}'})).status,403);
-    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+    browser=await chromium.launch(chromiumLaunchOptions());
     const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];page.setDefaultTimeout(20000);page.on('pageerror',error=>errors.push(error.message));
     yield "01. context";
     await page.context().addCookies([{name:'local-workbench-role',value:'dev',url:preview.url}]);await page.goto(preview.url+'/__local/video');

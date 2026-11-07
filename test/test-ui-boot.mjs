@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 // Isolated browser regression: synthetic responses, no production account data.
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
@@ -21,7 +21,7 @@ const server=createServer((req,res)=>{
   res.writeHead(200,{'Content-Type':type});res.end(readFileSync(file));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH||chromiumExecutable()});
+const browser=await chromium.launch(chromiumLaunchOptions());
 try{
   const databaseContext=()=>{try{localStorage.setItem('app-database-context-v1','d1:1');}catch{}};
   const page=await browser.newPage();await page.addInitScript(databaseContext);const errors=[],requests=[];

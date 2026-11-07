@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -8,7 +8,7 @@ yield "00. Browser and fixture setup";
 
 const require=createRequire(import.meta.url);
 const {chromium}=require(resolveTestDependency('playwright'));
-const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+const browser=await chromium.launch(chromiumLaunchOptions());
 try{
   const page=await browser.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.setContent('<main id="quiz"></main>');

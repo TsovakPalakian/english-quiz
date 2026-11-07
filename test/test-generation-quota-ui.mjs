@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -7,7 +7,7 @@ const require=createRequire(import.meta.url),{chromium}=require(resolveTestDepen
 test('developer quota UI is read-only, lazy, paginated, responsive and isolated across role changes',async()=>{
   const {server,url}=await createQuizReviewPreview({requestLimit:1,generationEnabled:true});let browser;
   try{
-    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+    browser=await chromium.launch(chromiumLaunchOptions());
     const page=await browser.newPage({viewport:{width:1280,height:960}}),errors=[],requests=[];
     page.on('pageerror',error=>errors.push(error.message));page.on('request',request=>requests.push(request.url()));
     await page.goto(url);await page.locator('#account:not([disabled])').waitFor();

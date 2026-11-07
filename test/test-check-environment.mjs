@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkMode,chromiumExecutable} from '../ops/check-environment.mjs';
+import {checkMode,chromiumExecutable,chromiumLaunchOptions} from '../ops/check-environment.mjs';
 import {telegramConfig,pipelineNotification} from '../ops/telegram-notify.mjs';
 
 test('test mode comes from a validated flag or environment; filters remain filters',()=>{
@@ -19,6 +19,24 @@ test('ci uses bundled Chromium unless the user explicitly provides a browser pat
   }finally{
     for(const [key,value] of [['CHECK_MODE',previous.mode],['CHROME_PATH',previous.chrome]])if(value===undefined)delete process.env[key];else process.env[key]=value;
   }
+});
+test('SHOW_BROWSER opens Chrome only outside ci',()=>{
+  const previous={CI:process.env.CI,CHECK_MODE:process.env.CHECK_MODE,SHOW_BROWSER:process.env.SHOW_BROWSER,CHROME_PATH:process.env.CHROME_PATH};
+  const restore=()=>{for(const [key,value] of Object.entries(previous))if(value===undefined)delete process.env[key];else process.env[key]=value;};
+  try{
+    delete process.env.CI;process.env.CHECK_MODE='local';delete process.env.SHOW_BROWSER;process.env.CHROME_PATH='/custom/chromium';
+    assert.equal(chromiumLaunchOptions().headless,true);
+    assert.equal(chromiumLaunchOptions().executablePath,'/custom/chromium');
+    process.env.SHOW_BROWSER='0';
+    assert.equal(chromiumLaunchOptions().headless,true);
+    process.env.SHOW_BROWSER='1';
+    assert.equal(chromiumLaunchOptions().headless,false);
+    assert.deepEqual(chromiumLaunchOptions({args:['--use-fake-ui-for-media-stream']}).args,['--use-fake-ui-for-media-stream']);
+    process.env.CI='true';
+    assert.equal(chromiumLaunchOptions().headless,true);
+    delete process.env.CI;process.env.CHECK_MODE='ci';
+    assert.equal(chromiumLaunchOptions().headless,true);
+  }finally{restore();}
 });
 test('Telegram config rejects missing values and non-numeric destinations without disclosing secrets',()=>{
   for(const env of [{},{TELEGRAM_BOT_TOKEN:'invalid',TELEGRAM_CHAT_ID:'123'},{TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'@someone'}])assert.throws(()=>telegramConfig(env),/Configure TELEGRAM_BOT_TOKEN/);

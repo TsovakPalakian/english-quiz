@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -50,7 +50,7 @@ const server=createServer((req,res)=>{
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const origin='http://127.0.0.1:'+server.address().port;
 
-const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+const browser=await chromium.launch(chromiumLaunchOptions());
 try{
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
 

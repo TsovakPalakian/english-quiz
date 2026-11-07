@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import {createServer} from 'node:http';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
@@ -11,7 +11,7 @@ const accountSource=readFileSync('client/05-account.js','utf8');
 const paint=accountSource.slice(accountSource.indexOf('    function paintAccountForm('),accountSource.indexOf('    function paintProfile('));
 let browser;
 try{
-  browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+  browser=await chromium.launch(chromiumLaunchOptions());
   for(const enabled of [false,true]){
     const page=await browser.newPage();let providerCalls=0,pending=true;
     await page.route('**/api/**',async route=>{

@@ -1,4 +1,4 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -116,7 +116,7 @@ test('main developer UI manages real-provider selections, budgets and approvals 
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
       }catch(error){res.writeHead(error.status||400,{'content-type':'application/json'});res.end(JSON.stringify({error:error.message}));}
     });server.listen(0,'127.0.0.1');await once(server,'listening');
-    browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+    browser=await chromium.launch(chromiumLaunchOptions());
     const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.setDefaultTimeout(6000);page.on('pageerror',error=>errors.push(error.message));
     await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('[data-workbench-providers]:visible').click();
     await page.getByRole('button',{name:'Initialize providers',exact:true}).click();await page.locator('#provider-generation').waitFor();

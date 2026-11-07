@@ -1,11 +1,11 @@
-import {chromiumExecutable,resolveTestDependency} from '../ops/check-environment.mjs';
+import {chromiumLaunchOptions,resolveTestDependency} from '../ops/check-environment.mjs';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
 import jsQR from 'jsqr';
 import {inviteQrDependency} from '../ops/build-preview.mjs';
 const require=createRequire(import.meta.url),{chromium}=require(resolveTestDependency('playwright'));
-const browser=await chromium.launch({headless:true,executablePath:chromiumExecutable()});
+const browser=await chromium.launch(chromiumLaunchOptions());
 try{
   const page=await browser.newPage(),requests=[];
   page.on('request',request=>requests.push(request.url()));

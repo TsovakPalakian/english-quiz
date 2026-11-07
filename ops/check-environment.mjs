@@ -41,4 +41,9 @@ export function chromiumExecutable(){
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   return process.env.CHECK_MODE!=='ci'&&process.platform==='darwin'&&existsSync(chrome)?chrome:undefined;
 }
+export function chromiumLaunchOptions(extra={}){
+  const ci=process.env.CI==='true'||process.env.CI==='1'||process.env.CHECK_MODE==='ci';
+  const headless=ci||process.env.SHOW_BROWSER!=='1';
+  return {...extra,headless,executablePath:chromiumExecutable()};
+}
 export const testTempRoot=()=>tmpdir();
