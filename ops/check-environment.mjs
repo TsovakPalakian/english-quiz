@@ -41,9 +41,28 @@ export function chromiumExecutable(){
   const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   return process.env.CHECK_MODE!=='ci'&&process.platform==='darwin'&&existsSync(chrome)?chrome:undefined;
 }
+export function visibleBrowser(env=process.env){
+  const ci=env.CI==='true'||env.CI==='1'||env.CHECK_MODE==='ci';
+  return !ci&&env.SHOW_BROWSER==='1';
+}
+export function chromiumStepDelay(env=process.env){
+  if(!visibleBrowser(env))return 0;
+  const slow=Number(env.SLOW_MO);
+  return Number.isSafeInteger(slow)&&slow>0?slow:0;
+}
+export function checkWorkerCounts(env,cpuCount){
+  const mode=env.CHECK_MODE==='ci'?'ci':'local';
+  const parallelDefault=mode==='ci'?Math.min(3,cpuCount):Math.min(8,Math.max(4,cpuCount-1));
+  const browserDefault=mode==='ci'?Math.min(3,cpuCount):Math.min(4,Math.max(1,Math.floor(cpuCount/3)));
+  if(visibleBrowser(env))return {parallel:1,browserParallel:1};
+  return {parallel:Number(env.CHECK_PARALLEL||parallelDefault),browserParallel:Number(env.CHECK_BROWSER_PARALLEL||browserDefault)};
+}
 export function chromiumLaunchOptions(extra={}){
-  const ci=process.env.CI==='true'||process.env.CI==='1'||process.env.CHECK_MODE==='ci';
-  const headless=ci||process.env.SHOW_BROWSER!=='1';
-  return {...extra,headless,executablePath:chromiumExecutable()};
+  const headless=!visibleBrowser();
+  const slowMo=chromiumStepDelay();
+  const options={...extra,headless,executablePath:chromiumExecutable()};
+  if(slowMo)options.slowMo=slowMo;
+  else delete options.slowMo;
+  return options;
 }
 export const testTempRoot=()=>tmpdir();

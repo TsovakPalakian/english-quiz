@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {checkMode,chromiumExecutable,chromiumLaunchOptions} from '../ops/check-environment.mjs';
+import {checkMode,checkWorkerCounts,chromiumExecutable,chromiumLaunchOptions} from '../ops/check-environment.mjs';
 import {telegramConfig,pipelineNotification} from '../ops/telegram-notify.mjs';
 
 test('test mode comes from a validated flag or environment; filters remain filters',()=>{
@@ -21,21 +21,31 @@ test('ci uses bundled Chromium unless the user explicitly provides a browser pat
   }
 });
 test('SHOW_BROWSER opens Chrome only outside ci',()=>{
-  const previous={CI:process.env.CI,CHECK_MODE:process.env.CHECK_MODE,SHOW_BROWSER:process.env.SHOW_BROWSER,CHROME_PATH:process.env.CHROME_PATH};
+  const previous={CI:process.env.CI,CHECK_MODE:process.env.CHECK_MODE,SHOW_BROWSER:process.env.SHOW_BROWSER,SLOW_MO:process.env.SLOW_MO,CHROME_PATH:process.env.CHROME_PATH};
   const restore=()=>{for(const [key,value] of Object.entries(previous))if(value===undefined)delete process.env[key];else process.env[key]=value;};
   try{
-    delete process.env.CI;process.env.CHECK_MODE='local';delete process.env.SHOW_BROWSER;process.env.CHROME_PATH='/custom/chromium';
+    delete process.env.CI;process.env.CHECK_MODE='local';delete process.env.SHOW_BROWSER;delete process.env.SLOW_MO;process.env.CHROME_PATH='/custom/chromium';
     assert.equal(chromiumLaunchOptions().headless,true);
+    assert.equal(chromiumLaunchOptions().slowMo,undefined);
     assert.equal(chromiumLaunchOptions().executablePath,'/custom/chromium');
-    process.env.SHOW_BROWSER='0';
+    process.env.SHOW_BROWSER='0';process.env.SLOW_MO='800';
     assert.equal(chromiumLaunchOptions().headless,true);
-    process.env.SHOW_BROWSER='1';
+    assert.equal(chromiumLaunchOptions().slowMo,undefined);
+    process.env.SHOW_BROWSER='1';process.env.SLOW_MO='800';
     assert.equal(chromiumLaunchOptions().headless,false);
+    assert.equal(chromiumLaunchOptions().slowMo,800);
     assert.deepEqual(chromiumLaunchOptions({args:['--use-fake-ui-for-media-stream']}).args,['--use-fake-ui-for-media-stream']);
-    process.env.CI='true';
+    assert.deepEqual(checkWorkerCounts({CHECK_MODE:'local',SHOW_BROWSER:'1',CHECK_PARALLEL:'12',CHECK_BROWSER_PARALLEL:'4'},8),{parallel:1,browserParallel:1});
+    process.env.SLOW_MO='0';
+    assert.equal(chromiumLaunchOptions().slowMo,undefined);
+    process.env.CI='true';process.env.SLOW_MO='800';
     assert.equal(chromiumLaunchOptions().headless,true);
+    assert.equal(chromiumLaunchOptions().slowMo,undefined);
     delete process.env.CI;process.env.CHECK_MODE='ci';
     assert.equal(chromiumLaunchOptions().headless,true);
+    assert.equal(chromiumLaunchOptions().slowMo,undefined);
+    assert.deepEqual(checkWorkerCounts({CHECK_MODE:'ci',CI:'true',SHOW_BROWSER:'1',SLOW_MO:'800',CHECK_PARALLEL:'12',CHECK_BROWSER_PARALLEL:'4'},8),{parallel:12,browserParallel:4});
+    assert.deepEqual(checkWorkerCounts({CHECK_MODE:'local',CHECK_PARALLEL:'12',CHECK_BROWSER_PARALLEL:'4'},8),{parallel:12,browserParallel:4});
   }finally{restore();}
 });
 test('Telegram config rejects missing values and non-numeric destinations without disclosing secrets',()=>{

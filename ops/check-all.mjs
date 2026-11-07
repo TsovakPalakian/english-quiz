@@ -3,7 +3,7 @@ import {spawn} from 'node:child_process';
 import {readFileSync,readdirSync} from 'node:fs';
 import {availableParallelism,cpus} from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {checkMode} from './check-environment.mjs';
+import {checkMode,checkWorkerCounts,chromiumStepDelay,visibleBrowser} from './check-environment.mjs';
 
 let settings;
 try{settings=checkMode(process.argv.slice(2));}catch(error){console.error(error.message);process.exit(2);}
@@ -16,13 +16,13 @@ if(filters.length&&!scripts.length){console.error('No automatic tests matched th
 for(const [name,reason] of exclusions)if(!filters.length||filters.some(part=>name.includes(part)))console.log('EXCLUDED '+name+': '+reason);
 const cpuCount=(typeof availableParallelism==='function'?availableParallelism():cpus().length)||4;
 const timeout=Number(env.CHECK_TIMEOUT_MS||300000);
-const parallel=Number(env.CHECK_PARALLEL||(mode==='ci'?Math.min(3,cpuCount):Math.min(8,Math.max(4,cpuCount-1))));
-const browserParallel=Number(env.CHECK_BROWSER_PARALLEL||(mode==='ci'?Math.min(3,cpuCount):Math.min(4,Math.max(1,Math.floor(cpuCount/3)))));
+const {parallel,browserParallel}=checkWorkerCounts(env,cpuCount);
 if(!Number.isSafeInteger(timeout)||timeout<1||!Number.isSafeInteger(parallel)||parallel<1||!Number.isSafeInteger(browserParallel)||browserParallel<1){
   console.error('CHECK_TIMEOUT_MS, CHECK_PARALLEL, and CHECK_BROWSER_PARALLEL must be positive integers.');
   process.exit(2);
 }
-console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+'; fast workers: '+parallel+'; browser workers: '+browserParallel+'; screenshots: disabled.');
+const stepDelay=chromiumStepDelay(env);
+console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+'; fast workers: '+parallel+'; browser workers: '+browserParallel+'; screenshots: disabled.'+(visibleBrowser(env)?(' Visible Chrome'+(stepDelay?', step delay '+stepDelay+' ms.':'.')):''));
 
 function run(command,args){
   return new Promise(resolve=>{
