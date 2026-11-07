@@ -38,10 +38,12 @@ test('full local shell exposes one isolated workbench across roles without produ
     await page.locator('.learning-kit-dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
     assert.match(await page.locator('.learning-kit-dialog').innerText(),/Weather/);
     await closeWorkbench();
-    await page.locator('#local-workbench-role').selectOption('u1');await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id==='u1');
+    await page.locator('#local-workbench-role').selectOption('u1');await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id==='u1'&&typeof classGroupsReady!=='undefined'&&classGroupsReady);
     assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0);
     const denied=await page.evaluate(async()=>{const response=await fetch('/api/learning-workbench/queue');return response.status;});assert.equal(denied,403);
-    await page.evaluate(()=>{classGroupId=1;window.enquizVisit('days');});await page.locator('[data-lm-open="1"]').click();await page.locator('[data-lm-tab="words"]:visible').first().click();await page.locator('[data-workbench-lesson]').click();
+    await page.evaluate(()=>{classGroupId=1;window.enquizVisit('days');});
+    if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
+    await page.locator('[data-lm-open="1"]').click();await page.locator('[data-lm-tab="words"]:visible').first().click();await page.locator('[data-workbench-lesson]').click();
     await page.getByRole('heading',{name:'1 / 17 types ready'}).waitFor();assert.equal(await page.locator('[data-workbench-prepare]').count(),0);
     await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('.learning-kit-dialog').evaluate(node=>node.scrollWidth<=node.clientWidth+1));
     await Promise.resolve();

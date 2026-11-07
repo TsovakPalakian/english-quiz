@@ -1,18 +1,20 @@
 # Working Preferences
 
+- Mandatory: Никогда не делать ничего без прямого разрешения и слова `do` (Never do anything without direct user permission and the explicit keyword `do`).
 - Communication language with the user is Russian; all application UI, controls, and user-facing copy must be in English unless explicitly requested otherwise.
 - Before editing code, briefly state your understanding in Russian.
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
 - Always attach visual screenshots or mockups demonstrating your understanding of any proposed UI changes or feature designs.
 - Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
 - Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.
-- Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; "do"/"делай" approves only the scope already explained. An explicit request to save this preference authorizes the preference update itself.
+- Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; only direct permission with the word "do" approves the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
 - Mandatory: every task in summary or remediation documents must include an explicit warning block forbidding touching or breaking functionality unrelated to the current scoped edit; if adjacent functionality must be affected, explicitly state this to the user in Russian before making changes and wait for confirmation.
 - After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for the user's `do` before starting that next implementation; proposing it is not authorization to proceed. Always include an English past-tense commit message for completed changes.
-- For each new feature, create a Markdown (.md) document detailing implementation steps and stages. Do not automatically create or update change-history documents unless explicitly requested. Explicit requests to save working preferences authorize editing existing instruction files.
+- For each new feature, create a Markdown (.md) document detailing implementation steps and stages. Do not automatically create or update change-history documents unless explicitly requested. Explicit requests to save working preferences authorize editing existing instruction files; always apply preference updates to both global and project instruction files.
 - Use only colored squares for checklist status, without checkmarks, crosses or Markdown checkboxes: `🟩` verified done, `🟨` selected/current work, `⬜` not started, `🟥` checked but needs rework. For rework, record the failed check and required correction; use green only after fixing and reverifying. Mark the selected scope before implementation; do not mark a prototype as a completed production integration. Split mixed tasks when only part is selected.
 - Always provide the user a short commit-message line in English and past tense, such as "Added ..." or "Fixed ...", for completed changes.
+- When a task is performed from a Jira task/issue, prefix the commit message with `[<type>] <TASK-KEY>` followed by the commit message text. Templates: `[task] TASK-14 Commit message`, `[bag] TASK-15 Commit message`.
 - Mandatory: always write tests for all changes without exception, regardless of how small the edit is.
 - Mandatory: if changes involve modifying or adding UI/UX, visual tests must also be added.
 - Mandatory: whenever test files are modified or newly added, output their list without file extensions in the chat directly below the commit message.

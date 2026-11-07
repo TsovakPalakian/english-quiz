@@ -35,6 +35,7 @@
   --saas-canvas: var(--bg, #F8FAFC);
   --saas-card: var(--card, #FFFFFF);
   --saas-card-muted: color-mix(in srgb, var(--card, #FFFFFF) 88%, var(--bg, #F8FAFC));
+  --saas-subtle: color-mix(in srgb, var(--card, #FFFFFF) 88%, var(--bg, #F8FAFC));
   --saas-input-bg: var(--card, #F8FAFC);
   --saas-input-bg-focus: var(--card, #FFFFFF);
 
@@ -5931,7 +5932,7 @@ details[data-review-key] > summary {
 }
 
 .bug-body .bug-detail {
-  background: var(--saas-subtle, #f8fafc);
+  background: var(--saas-subtle, var(--saas-card-muted));
   border: 1px solid var(--saas-border);
   border-radius: var(--saas-radius-md);
   padding: 14px 16px;

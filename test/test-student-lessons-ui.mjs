@@ -71,7 +71,7 @@ await scenarioSubtests('student-lessons-ui', async function*() {
 
       await page.goto('http://127.0.0.1:' + port);
       await page.waitForFunction(() => accountReady);
-      await page.evaluate(() => show('days'));
+      await page.evaluate(() => { classGroupId = 77; show('days'); });
       await page.locator('#days.on').waitFor();
 
       const subText = await page.$eval('#lmDaysSub', el => el.textContent.trim());
@@ -132,7 +132,7 @@ await scenarioSubtests('student-lessons-ui', async function*() {
 
       await page.goto('http://127.0.0.1:' + port);
       await page.waitForFunction(() => accountReady);
-      await page.evaluate(() => show('days'));
+      await page.evaluate(() => { classGroupId = 77; show('days'); });
       await page.locator('#days.on').waitFor();
 
       const subText = await page.$eval('#lmDaysSub', el => el.textContent.trim());

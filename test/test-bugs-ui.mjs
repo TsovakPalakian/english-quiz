@@ -27,6 +27,14 @@ try{
   const history=page.locator('[data-bug-history="'+'1'.repeat(32)+'"]');assert.equal(await history.getAttribute('open'),null);
   await history.locator('summary').click();
   assert.match((await history.innerText()),/20 October 2026 — 2 occurrences/);assert.match(await history.innerText(),/Resolved:/);
+  const detail=page.locator('.bug-body:not([hidden]) .bug-detail').first();
+  await detail.waitFor({state:'visible'});
+  for(const theme of ['ocean','dark','graphite']){
+    await page.evaluate(t=>document.documentElement.setAttribute('data-theme',t),theme);
+    const bg=await detail.evaluate(el=>getComputedStyle(el).backgroundColor);
+    assert.notEqual(bg,'rgb(248, 250, 252)','Bug detail background in '+theme+' theme must be synchronized and dark, not hardcoded white');
+  }
+  await page.evaluate(()=>document.documentElement.removeAttribute('data-theme'));
   await Promise.resolve();
   await page.locator('[data-bug-tab="done"]').click();
   assert.deepEqual(await page.locator('[data-bug-day]').evaluateAll(nodes=>nodes.map(node=>node.dataset.bugDay)),['2026-10-20','2026-10-19','unknown']);
