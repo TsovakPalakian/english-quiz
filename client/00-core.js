@@ -281,11 +281,17 @@
       const root = document.getElementById(id);
       if (!root) return [];
       const group = classGroups.find((row) => row.id === classGroupId);
-      const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      const isStudentViewer = authUser?.role === 'USER' && !viewAccount;
+      const groupPath = owner => {
+        if (isStudentViewer) return owner ? [{id:'days',label:owner.title,groupId:owner.id}] : [];
+        return [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      };
       if(id==='groupdetail')return groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item);
       if(['groupteachers','groupstudents'].includes(id))return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id,label:id==='groupteachers'?'Teachers':'Students'}];
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
-      if (id === "days") return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
+      if (id === "days") return isStudentViewer
+        ? [...(group ? [{id:'days',label:group.title,groupId:group.id}] : []), {id:'days',label:'Lessons',groupId:group?.id}]
+        : [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
       if (id.startsWith('grammar')) {
         const isConfused = stageGrammarGroup === 'confused' || (Boolean(stageGrammarRule) && /\b(vs\.?|versus| or )\b/i.test(stageGrammarRule));
         let category = (window.GrammarCategories || []).find(row => row.id === stageGrammarGroup);
@@ -347,7 +353,7 @@
       const items = pagePathItems(id);
       path.hidden=id==='groups'&&!groupViewLevel;
       path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
-        && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
+        && !['groups','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
         : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
       const shellLeft = document.querySelector('.shell-header-left');
       if (shellLeft) {

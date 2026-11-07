@@ -3008,11 +3008,17 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const root = document.getElementById(id);
       if (!root) return [];
       const group = classGroups.find((row) => row.id === classGroupId);
-      const groupPath = owner => [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      const isStudentViewer = authUser?.role === 'USER' && !viewAccount;
+      const groupPath = owner => {
+        if (isStudentViewer) return owner ? [{id:'days',label:owner.title,groupId:owner.id}] : [];
+        return [{id:'groups',label:'Groups',level:''},...(owner?[{id:'groups',label:accountGroupLevel(owner)==='unassigned'?'Unassigned':accountGroupLevel(owner),level:accountGroupLevel(owner)},{id:'days',label:owner.title,groupId:owner.id}]:[])];
+      };
       if(id==='groupdetail')return groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item);
       if(['groupteachers','groupstudents'].includes(id))return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id,label:id==='groupteachers'?'Teachers':'Students'}];
       if(id==='groups')return [{id:'groups',label:'Groups',level:''},...(groupViewLevel?[{id:'groups',label:groupViewLevel==='unassigned'?'Unassigned':groupViewLevel,level:groupViewLevel}]:[])];
-      if (id === "days") return [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
+      if (id === "days") return isStudentViewer
+        ? [...(group ? [{id:'days',label:group.title,groupId:group.id}] : []), {id:'days',label:'Lessons',groupId:group?.id}]
+        : [...groupPath(group).map(item=>item.id==='days'?{...item,id:'groupdetail',groupDetail:true}:item),{id:'days',label:'Lessons',groupId:group?.id}];
       if (id.startsWith('grammar')) {
         const isConfused = stageGrammarGroup === 'confused' || (Boolean(stageGrammarRule) && /\b(vs\.?|versus| or )\b/i.test(stageGrammarRule));
         let category = (window.GrammarCategories || []).find(row => row.id === stageGrammarGroup);
@@ -3074,7 +3080,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const items = pagePathItems(id);
       path.hidden=id==='groups'&&!groupViewLevel;
       path.innerHTML = "<ol>" + items.map((item, index) => "<li>" + (index === items.length - 1
-        && !['groups','days','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
+        && !['groups','material'].includes(id) ? '<span aria-current="page">' + esc(item.label) + "</span>"
         : '<button type="button" data-page-path="' + esc(item.id) + '"' + (item.settings?' data-user-settings':'')+(item.adminBucket!==undefined?' data-path-admin-bucket="'+esc(item.adminBucket)+'"':'')+(item.examLevel!==undefined?' data-path-exam-level="'+esc(item.examLevel)+'"':'')+(item.examGroup!==undefined?' data-path-exam-group="'+esc(item.examGroup)+'"':'')+(item.level!==undefined?' data-path-level="'+esc(item.level)+'"':'')+(item.groupId?' data-path-group="'+item.groupId+'"':'')+(item.tab ? ' data-page-tab="' + esc(item.tab) + '"' : "") + '>' + esc(item.label) + "</button>") + "</li>").join("") + "</ol>";
       const shellLeft = document.querySelector('.shell-header-left');
       if (shellLeft) {
@@ -23489,6 +23495,34 @@ const STUDIO_CONSTELLATIONS = [{
       if (lmHiddenForStudent(material.id)) return false;
       return true;
     }
+    function lmLessonWordList(material) {
+      const words = [];
+      const blocks = Array.isArray(material?.blocks) ? material.blocks : [];
+      for (const b of blocks) {
+        if ((b.type === "wordcard" || b.type === "word") && b.word) {
+          words.push(String(b.word).toLowerCase());
+        } else if (b.type === "vocab" && Array.isArray(b.items)) {
+          for (const item of b.items) if (item && item.word) words.push(String(item.word).toLowerCase());
+        } else if (b.type === "cards" && Array.isArray(b.items)) {
+          for (const item of b.items) if (item && (item.front || item.back)) words.push(String(item.front || item.back).toLowerCase());
+        }
+      }
+      return words;
+    }
+    function lmLessonStudentProgress(material) {
+      const words = lmLessonWordList(material);
+      const learned = typeof loadLearned === 'function' ? loadLearned() : new Set();
+      const started = typeof loadStarted === 'function' ? loadStarted() : [];
+      const isStarted = started.includes(material.id);
+      if (words.length > 0) {
+        const learnedCount = words.filter(w => learned.has(w)).length;
+        if (learnedCount === words.length) return { status: 'Completed', cls: 'saas-badge-active' };
+        if (learnedCount > 0 || isStarted) return { status: 'In progress', cls: 'saas-badge-info' };
+        return { status: 'Not started', cls: 'saas-badge-muted' };
+      }
+      if (isStarted) return { status: 'Completed', cls: 'saas-badge-active' };
+      return { status: 'Not started', cls: 'saas-badge-muted' };
+    }
     function paintLmDays() {
       const box = document.getElementById("lmDayList");
       document.getElementById('days')?.classList.toggle('staff-group-lessons',isTeacher()&&!viewAccount);
@@ -23500,8 +23534,17 @@ const STUDIO_CONSTELLATIONS = [{
       const group = classGroups.find((row) => row.id === classGroupId) || classGroups[0];
       const title = document.getElementById("lmGroupTitle");
       if (title) title.textContent = 'Lessons';
+      const sub = document.getElementById("lmDaysSub") || document.querySelector("#days > p.sub");
+      if (sub) {
+        const isStudent = !canEditLessons() || (authUser?.role === 'USER' && !viewAccount);
+        sub.textContent = isStudent ? 'Your curriculum' : 'In date order. One date can hold as many lessons as you add.';
+      }
       const name = document.getElementById("lmGroupName");
-      if (name) name.innerHTML = esc(group?.title||'')+' · '+metricPairs([['students',group?groupLiveStudentCount(group)??'…':'—'],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
+      if (name) {
+        const metrics = metricPairs([['students',group?groupLiveStudentCount(group)??'…':'—'],['lessons',(group?.lessonIds||[]).filter(id=>lmLibrary.materials.some(row=>row.id===id&&lmLessonVisibleToViewer(row))).length]]);
+        const groupTitle = esc(group?.title || '');
+        name.innerHTML = groupTitle && metrics ? groupTitle + ' · ' + metrics : (groupTitle || metrics);
+      }
       paintPagePath("days");
       const groupLessons = new Set(group ? group.lessonIds : []);
       const rows = lmLibrary.materials.filter((row) => groupLessons.has(row.id) && lmLessonVisibleToViewer(row)).slice().sort((a, b) => {
@@ -23510,6 +23553,7 @@ const STUDIO_CONSTELLATIONS = [{
         if (!b.date) return 1;
         return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
       });
+      const isStudentViewer = !canEditLessons() || (authUser?.role === 'USER' && !viewAccount);
       box.innerHTML = rows.map((material) => {
         const chip = lmDateChip(material.date);
         const globalHidden = !!material.hiddenFromStudents;
@@ -23517,9 +23561,18 @@ const STUDIO_CONSTELLATIONS = [{
         const personalAllowed = viewAccount && globalHidden ? lmAllowedForStudent(material.id) : false;
         const hidden = lmLessonHidden(material);
         let about = material.published ? "Published lesson" : "Draft";
-        if (viewAccount && globalHidden) about = personalAllowed ? "Hidden · allowed for this student" : "Hidden from students";
-        else if (globalHidden) about = "Hidden from students";
-        else if (personalHidden) about = "Hidden for this student";
+        let badgeCls = material.published ? 'saas-badge-active' : 'saas-badge-muted';
+        if (isStudentViewer) {
+          const prog = lmLessonStudentProgress(material);
+          about = prog.status;
+          badgeCls = prog.cls;
+        } else if (viewAccount && globalHidden) {
+          about = personalAllowed ? "Hidden · allowed for this student" : "Hidden from students";
+        } else if (globalHidden) {
+          about = "Hidden from students";
+        } else if (personalHidden) {
+          about = "Hidden for this student";
+        }
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const eye = hidden
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -23536,7 +23589,7 @@ const STUDIO_CONSTELLATIONS = [{
           : "";
         const course = lmCourseBits(material);
         const courseHtml = course.length ? '<span class="label lm-course">' + course.map((pair) => "<b>" + esc(pair[0]) + "</b> " + esc(lmCourseValue(pair[0], pair[1]))).join('<span class="dot"> · </span>') + "</span>" : "";
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" data-lm-open="' + material.id + '"><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about saas-badge ' + (material.published ? 'saas-badge-active' : 'saas-badge-muted') + '">' + esc(about) + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + '"><button class="day saas-card" type="button" data-lm-open="' + material.id + '"><span class="date saas-badge saas-badge-muted"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(material.title || "Untitled lesson") + "</b>" + courseHtml + '<span class="label about saas-badge ' + badgeCls + '">' + esc(about) + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function lmOpenLesson(id) {
@@ -23547,6 +23600,7 @@ const STUDIO_CONSTELLATIONS = [{
       const found = lmLibrary.materials.find((row) => row.id === id);
       if (!found) return;
       if (!lmLessonVisibleToViewer(found)) return;
+      if (typeof markClassStarted === 'function') markClassStarted(id);
       const group = classGroups.find((row) => row.lessonIds.includes(id));
       if (group) classGroupId = group.id;
       lmState = found;

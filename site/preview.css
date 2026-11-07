@@ -3359,7 +3359,7 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
 #lmDayList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
 #lmDayList > :not(.day-row) { grid-column: 1 / -1; }
 #lmDayList .day-row { margin: 0; min-width: 0; gap: 8px; }
-#lmDayList .day { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 18px 20px; min-height: 168px; min-width: 0; background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
+#lmDayList .day { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 12px; padding: 18px 20px; min-height: auto; min-width: 0; background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease; }
 #lmDayList .day:hover { border-color: var(--saas-brand); transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
 #lmDayList .date { width: auto; height: auto; flex-direction: row; gap: 6px; border-radius: var(--saas-radius-pill); padding: 4px 10px; background: var(--saas-brand-subtle); color: var(--saas-brand); border: 1px solid var(--saas-brand-border); }
 #lmDayList .date b, #lmDayList .date small { font-size: 12px; margin: 0; font-weight: 600; }
