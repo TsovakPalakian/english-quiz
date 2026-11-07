@@ -145,9 +145,33 @@ async function lmPdfPrepareCards(draft,active,onProgress=()=>{},selected=new Set
     if(!active())throw new Error('The lesson or account changed.');
     const row=block.items[0],context={meaning:row.meaning,translation:row.translation||'',example:row.sourceExample??row.example??''},word=row.word||row.phrase;
     if(!context.translation)throw new Error('Missing Russian translation for '+word+'. Analyse the PDF again.');
-    const card=await window.LearningMain.lookupLessonCard(word,context);
+    let card;
+    for(let attempt=1;attempt<=2;attempt++){
+      try{
+        card=await window.LearningMain.lookupLessonCard(word,context);
+        break;
+      }catch(err){
+        if(err?.status===0 && attempt<2 && active()){
+          await new Promise(r=>setTimeout(r,300));
+          continue;
+        }
+        throw err;
+      }
+    }
     if(!active())throw new Error('The lesson or account changed.');
-    const definition=await window.LearningMain.dictionary({stageId:card.id});
+    let definition;
+    for(let attempt=1;attempt<=2;attempt++){
+      try{
+        definition=await window.LearningMain.dictionary({stageId:card.id});
+        break;
+      }catch(err){
+        if(err?.status===0 && attempt<2 && active()){
+          await new Promise(r=>setTimeout(r,300));
+          continue;
+        }
+        throw err;
+      }
+    }
     if(!active())throw new Error('The lesson or account changed.');
     const content={pdfImport:block.pdfImport,pdfVocabulary:{word, ...context},collapsed:false};
     Object.assign(block,definition,{id:block.id,type:'wordcard',word,ru:context.translation,stageId:card.id,stageScope:'shared',...content,

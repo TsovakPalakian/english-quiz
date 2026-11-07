@@ -192,6 +192,7 @@
     if((status===502||status===503||status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')||entry.error?.includes?.('Could not analyse this PDF')))return;
     if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Wait for pending personal changes')||entry.error?.includes?.('Дождитесь сохранения личной очереди.')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
     if(status===0&&['GET','HEAD'].includes(String(entry.method||'GET').toUpperCase()))return;
+    if(status===0&&path==='/api/cards/lookup')return;
     // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.
     if(status===409&&(path==='/api/groups'||/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path)))return;
     try{
@@ -362,20 +363,34 @@
     const intent=JSON.stringify({path,method,body});
     if(pending && (pending.actorId!==actorId || pending.intent!==intent))throw new Error('Есть неподтверждённая операция. Используйте «Повторить» или «Проверить сервер».');
     if(!pending){pending={actorId,path,method,intent,body:{...body,mutationId:crypto.randomUUID()}};localStorage.setItem(queueKey,JSON.stringify(pending));}
-    try{
-      const result=await api(path,{method,body:JSON.stringify(pending.body)});
-      pending=null;localStorage.removeItem(queueKey);
-      if(path==='/api/archive')await archiveChanged(result);
-      if(path==='/api/content/copy'){
-        const detail={...result,actorId};document.dispatchEvent(new CustomEvent('learning-content-copied',{detail}));
-        if(detail.refresh)await detail.refresh;
+    let result,lastError;
+    for(let attempt=1;attempt<=2;attempt++){
+      try{
+        result=await api(path,{method,body:JSON.stringify(pending.body),quietBug:attempt===1});
+        lastError=null;
+        break;
+      }catch(error){
+        lastError=error;
+        if(error.status===0 && attempt<2){
+          await new Promise(r=>setTimeout(r,300));
+          continue;
+        }
+        break;
       }
-      return result;
-    }catch(error){
-      if(error.status>=400 && error.status<500){pending=null;localStorage.removeItem(queueKey);}
+    }
+    if(lastError){
+      const error=lastError;
+      if((error.status>=400 && error.status<500)||path==='/api/cards/lookup'){pending=null;localStorage.removeItem(queueKey);}
       if(error.status===409 && (!error.message || /revision/i.test(error.message)))error.message='Конфликт версии. Изменение не сохранено. Перечитайте сервер и повторите редактирование.';
       throw error;
     }
+    pending=null;localStorage.removeItem(queueKey);
+    if(path==='/api/archive')await archiveChanged(result);
+    if(path==='/api/content/copy'){
+      const detail={...result,actorId};document.dispatchEvent(new CustomEvent('learning-content-copied',{detail}));
+      if(detail.refresh)await detail.refresh;
+    }
+    return result;
   }
   function sendBinary(path,mime,bytes,onProgress){
     if(typeof onProgress!=='function')return api(path,{method:'POST',headers:{'Content-Type':mime},body:bytes});
