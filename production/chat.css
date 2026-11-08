@@ -345,21 +345,18 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .chat-context-reactions{display:flex;align-items:center;gap:3px;border-bottom:1px solid var(--line);margin-bottom:4px;padding:4px 2px 6px}
 #messages .chat-context-reactions button{flex:1;min-width:0;height:32px;font-size:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;border:0;background:transparent;cursor:pointer;transition:transform .1s,background .1s}
 #messages .chat-context-reactions button:hover{background:var(--acc-s);transform:scale(1.15)}
-.chat-reaction-expand-btn{background:#f0f4f6!important;color:#505f79!important;border-radius:50%!important;width:26px!important;height:26px!important;min-width:26px!important;flex:0 0 26px!important;display:flex!important;align-items:center!important;justify-content:center!important;margin-left:auto!important;border:none!important;cursor:pointer!important;padding:0!important}
-.chat-reaction-expand-btn:hover{background:#e2e7ec!important;transform:none!important}
+.chat-reaction-expand-btn{background:var(--acc-s)!important;color:var(--mute)!important;border-radius:50%!important;width:26px!important;height:26px!important;min-width:26px!important;flex:0 0 26px!important;display:flex!important;align-items:center!important;justify-content:center!important;margin-left:auto!important;border:none!important;cursor:pointer!important;padding:0!important;transition:background .15s,color .15s}
+.chat-reaction-expand-btn:hover{background:color-mix(in srgb,var(--ink) 10%,transparent)!important;color:var(--ink)!important;transform:none!important}
 .chat-reaction-expand-btn svg{width:14px;height:14px;stroke-width:2.5;display:block}
-.chat-reaction-picker{width:360px;max-width:calc(100vw - 32px);background:#17212b;color:#fff;border-radius:16px;padding:12px;box-shadow:0 16px 44px rgba(0,0,0,.5);border:1px solid #2b394a;font-family:inherit}
-.chat-reaction-search-bar{display:flex;align-items:center;gap:8px;background:#242f3d;border-radius:10px;padding:6px 12px;margin-bottom:12px}
-.chat-reaction-search-bar svg{width:16px;height:16px;stroke:#708499;fill:none;stroke-width:2.2}
-.chat-reaction-search-bar input{background:transparent;border:0;outline:none;color:#fff;font-size:14px;width:100%}
-.chat-reaction-search-bar input::placeholder{color:#708499}
-.chat-reaction-filter-chips{display:flex;gap:6px;align-items:center;margin-left:auto;font-size:15px}
-.chat-reaction-chip{cursor:pointer;opacity:.85;transition:opacity .15s}
-.chat-reaction-chip:hover{opacity:1}
-.chat-reaction-section-title{font-size:11px;font-weight:700;letter-spacing:.5px;color:#708499;margin:10px 0 6px 4px;text-transform:uppercase}
-.chat-reaction-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}
+#messages .chat-context.is-expanded-reactions{width:min(340px,calc(100vw - 16px));max-height:380px;padding:12px;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--ink) 25%,transparent) transparent}
+#messages .chat-context.is-expanded-reactions::-webkit-scrollbar{width:6px}
+#messages .chat-context.is-expanded-reactions::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 25%,transparent);border-radius:4px}
+.chat-reaction-picker{width:100%;box-sizing:border-box;background:transparent;color:var(--ink);border:none;padding:0;box-shadow:none;overflow-x:hidden;font-family:inherit}
+.chat-reaction-section-title{font-size:11px;font-weight:700;letter-spacing:.6px;color:var(--mute);margin:10px 0 6px 4px;text-transform:uppercase}
+.chat-reaction-section-title:first-child{margin-top:0}
+.chat-reaction-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;box-sizing:border-box;overflow-x:hidden}
 .chat-reaction-grid button{background:transparent;border:none;font-size:22px;height:38px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s,background .1s}
-.chat-reaction-grid button:hover{background:#2b394a;transform:scale(1.18)}
+.chat-reaction-grid button:hover{background:var(--acc-s);transform:scale(1.18)}
 .chat-reactions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
 #messages .chat-reactions button{border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:13px;background:var(--card)}
 #messages .chat-reactions button[aria-pressed=true]{border-color:var(--acc);background:var(--acc-s)}

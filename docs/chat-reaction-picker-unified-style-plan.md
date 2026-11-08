@@ -33,8 +33,8 @@
 
 ## 4. Этапы реализации и чеклист
 
-- ⬜ **Этап 1**: Создание визуального теста в `test/test-chat-reaction-picker-theme.mjs` для проверки светлой и темной тем панели реакций.
-- ⬜ **Этап 2**: Рефакторинг разметки и стилей в [production/chat/85-message-actions.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js) и [production/chat.css](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat.css): удаление блока поиска `.chat-reaction-search-bar`, переход на дизайн-токены `var(--card)`, `var(--ink)`, `var(--line)`, `var(--mute)`, `var(--acc-s)`, с полным исключением горизонтальной прокрутки (`overflow-x: hidden`) и вертикальным скроллом вниз (`overflow-y: auto`).
-- ⬜ **Этап 3**: Корректировка разметки и класса контейнера при раскрытии реакций в [production/chat/85-message-actions.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js) для устранения артефакта двойных рамок.
-- ⬜ **Этап 4**: Сборка продакшн-бандла `npm run build:preview` и запуск таргетированных тестов.
-- ⬜ **Этап 5**: Фиксация результатов и подготовка отчёта для пользователя.
+- 🟩 **Этап 1**: Создание визуального теста в `test/test-chat-reaction-picker-theme.mjs` для проверки светлой темы панели реакций, отсутствия строки поиска и вертикальной прокрутки.
+- 🟩 **Этап 2**: Рефакторинг разметки и стилей в [production/chat/85-message-actions.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js) и [production/chat.css](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat.css): удаление блока поиска `.chat-reaction-search-bar`, переход на дизайн-токены `var(--card)`, `var(--ink)`, `var(--line)`, `var(--mute)`, `var(--acc-s)`, с полным исключением горизонтальной прокрутки (`overflow-x: hidden`) и вертикальным скроллом вниз (`overflow-y: auto`).
+- 🟩 **Этап 3**: Корректировка разметки и класса контейнера при раскрытии реакций в [production/chat/85-message-actions.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/85-message-actions.js) для устранения артефакта двойных рамок.
+- 🟩 **Этап 4**: Сборка продакшн-бандла `npm run build:preview` и запуск таргетированных тестов.
+- 🟩 **Этап 5**: Фиксация результатов и подготовка отчёта для пользователя.

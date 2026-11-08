@@ -5081,6 +5081,7 @@
   }
   function closeContext() {
     el('msgContext').hidden = true;
+    el('msgContext').classList.remove('is-expanded-reactions');
     const menu = document.getElementById('chatRoomContext');
     if (menu) menu.hidden = true;
     contextMessage = null;
@@ -5136,10 +5137,12 @@
   }
   const defaultReactions = ['😄', '👍', '❤️', '😆', '🤯', '🤝', '🤨'];
   const popularReactions = [
-    '💔', '👎', '👏', '🤔', '😱', '🎉', '🤩', '💩',
-    '🙏', '👌', '🕊️', '🤡', '🥱', '🥴', '😍', '🐳',
-    '❤️‍🔥', '🌚', '🌭', '💯', '⚡', '🍌', '🏆', '🍓',
-    '🔥', '👀', '🤭', '🤮', '🤬', '😔', '🥰', '😐'
+    '💔', '👎', '👏', '🤔', '😱', '🎉', '🙏',
+    '👌', '🕊️', '🤡', '🥱', '🤨', '❤️‍🔥', '🌚',
+    '🌭', '💯', '⚡', '🍌', '🔥', '👀', '😋',
+    '🤮', '🤬', '😔', '😍', '🤩', '🥳', '😎',
+    '😴', '😭', '🤯', '🫡', '🤗', '👻', '💩',
+    '💀', '👽', '🤖', '🎃', '😺', '🦄'
   ];
   function getUserFrequentReactions() {
     try {
@@ -5165,20 +5168,13 @@
     } catch {}
   }
   function renderExpandedReactionPicker(node, message, id) {
+    node.classList.add('is-expanded-reactions');
     const frequent = getUserFrequentReactions();
     const set = new Set(frequent);
     defaultReactions.forEach((d) => set.add(d));
-    const topGrid = [...set].slice(0, 16);
+    const topGrid = [...set].slice(0, 7);
     node.innerHTML =
       '<div class="chat-reaction-picker">' +
-      '<div class="chat-reaction-search-bar">' +
-      icon('search') +
-      '<input type="search" placeholder="Search" aria-label="Search reactions">' +
-      '<div class="chat-reaction-filter-chips">' +
-      ['❤️', '👍', '👎', '🎉', '😄', '😢', '😡']
-        .map((chip) => '<span class="chat-reaction-chip" data-reaction-chip="' + chip + '">' + chip + '</span>')
-        .join('') +
-      '</div></div>' +
       '<div class="chat-reaction-grid chat-reaction-frequent">' +
       topGrid
         .map(
@@ -5208,23 +5204,13 @@
         )
         .join('') +
       '</div></div>';
-    icons();
-    const input = node.querySelector('input');
-    input?.focus({ preventScroll: true });
-    input?.addEventListener('input', (event) => {
-      const q = event.target.value.trim().toLocaleLowerCase();
-      node.querySelectorAll('.chat-reaction-grid button').forEach((btn) => {
-        const text = btn.textContent.trim().toLocaleLowerCase();
-        btn.hidden = Boolean(q && !text.includes(q));
-      });
-    });
-    node.querySelectorAll('.chat-reaction-chip').forEach((chip) => {
-      chip.addEventListener('click', () => {
-        if (!input) return;
-        input.value = chip.dataset.reactionChip;
-        input.dispatchEvent(new Event('input'));
-      });
-    });
+    const box = node.getBoundingClientRect();
+    if (box.right > innerWidth - 8) {
+      node.style.left = Math.max(8, innerWidth - box.width - 8) + 'px';
+    }
+    if (box.bottom > innerHeight - 8) {
+      node.style.top = Math.max(8, innerHeight - box.height - 8) + 'px';
+    }
   }
   function messageMenu(message, x, y, fileId = '') {
     const selected = getSelection(),
@@ -5247,6 +5233,7 @@
       study = message.category === 'learning',
       canReply = !study || (!isOwnMessage(message) && message.canStudyReply !== false),
       items = [];
+    node.classList.remove('is-expanded-reactions');
     if (canReply) items.push(['reply', 'reply', 'Reply']);
     node.dataset.quote = quote;
     if (canReply && quote) items.push(['quote', 'quote', 'Quote selection']);
