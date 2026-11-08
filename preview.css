@@ -390,7 +390,7 @@
   --bg: #D4EEEA; --card: #F6FBFA; --ink: #163430; --mute: #5A7572; --line: #C5DDD9;
   --acc: #1C7874; --acc-s: #D4EBE7; --ok: #1F8A56; --ok-s: #D7F3E6; --bad: #C4373C; --bad-s: #F8D6D8;
   --on-acc: #FFFFFF;
-  --photo-wash: #D4EEEA99;
+  --photo-wash: transparent;
   --theme-photo: url("almond-blossom.jpg");
   color-scheme: light;
 }
