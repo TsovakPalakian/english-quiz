@@ -40,7 +40,13 @@ function run(command,args){
     });child.stderr?.on('data',append);
     const timer=setTimeout(()=>{
       timedOut=true;append('\nTimed out after '+timeout+' ms.');
-      try{if(process.platform==='win32')child.kill('SIGKILL');else process.kill(-child.pid,'SIGKILL');}catch{}
+      try{
+        if(process.platform==='win32')child.kill('SIGKILL');
+        else{
+          process.kill(-child.pid,'SIGTERM');
+          setTimeout(()=>{try{process.kill(-child.pid,'SIGKILL');}catch{}},2000).unref();
+        }
+      }catch{}
     },timeout);
     const finish=code=>{
       if(finished)return;finished=true;clearTimeout(timer);

@@ -1032,8 +1032,8 @@ test('Chat direct message sides, receipt styling and unread persistence invarian
   assert.match(css, /#messages \.msg-message:not\(\.is-group-message\)>header\{display:none!important\}/);
   assert.match(css, /#messages \.chat-file\[data-photo-preview\] img\{[^}]*object-fit:contain[^}]*\}/);
   assert.match(css, /\.msg-receipt\{[^}]*color:var\(--mute\)[^}]*\}/);
-  assert.match(css, /\.msg-receipt\.is-read\{color:#1682e8\}/);
-  assert.match(css, /#messages \.msg-receipt svg\{[^}]*width:16px;height:16px;display:block[^}]*\}/);
+  assert.match(css, /\.msg-receipt\.is-read(?:,\.msg-receipt\.is-read-some)?\{color:#248bda\}/);
+  assert.match(css, /#messages \.msg-receipt svg\{[^}]*width:15px;height:15px;display:block[^}]*\}/);
 
   const roomsJs = fs.readFileSync(path.resolve('production/chat/30-rooms.js'), 'utf8');
   assert.match(roomsJs, /r\.id !== room && r\.unread\?\.\[kind\]/);
@@ -1042,7 +1042,7 @@ test('Chat direct message sides, receipt styling and unread persistence invarian
   assert.match(messagesJs, /activeRow\.unread\[kind\] = 0/);
 
   const coreJs = fs.readFileSync(path.resolve('production/chat/00-core.js'), 'utf8');
-  assert.match(coreJs, /if \(currentRoom && currentRoom\.kind === 'direct'\)/);
+  assert.match(coreJs, /if \(me && String\(m\?\.senderId \?\? ''\) === me\) return true;/);
 
   const durableJs = fs.readFileSync(path.resolve('src/chat-durable.mjs'), 'utf8');
   assert.match(durableJs, /if\(cursor===member\[column\]&&unread===member\['unread_'\+kind\]\)return \{read:true,unchanged:true,room:this\.summary\(actor\.id\)\};/);

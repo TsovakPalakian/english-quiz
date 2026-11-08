@@ -170,16 +170,10 @@
     emojiMode = '';
   const myAccountId = () => String(account || signedIn()?.id || data?.profile?.id || '');
   const isOwnMessage = (m) => {
+    if (!m) return false;
     const me = myAccountId();
     if (me && String(m?.senderId ?? '') === me) return true;
-    if (m?.pending) return true;
-    const currentRoom = (data?.rooms || []).find((item) => item.id === room);
-    if (currentRoom && currentRoom.kind === 'direct') {
-      const peer = String(currentRoom.peerId || '');
-      const sender = String(m?.senderId ?? '');
-      if (peer && sender && sender !== peer) return true;
-    }
-    return false;
+    return Boolean(m?.pending);
   };
   const chatCacheKey = () => 'english-chat-snapshot:' + account;
   const chatCacheDb = () =>

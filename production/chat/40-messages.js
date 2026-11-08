@@ -261,19 +261,20 @@
     return { read: readAll, delivered: deliveredCount > 0, readSome: readCount > 0, readCount, memberCount };
   }
   function chatReceiptFace(m) {
-    if (m.pending) return { label: 'Sending', title: 'Sending', read: false, some: false, mark: 'clock' };
-    if (m.failed) return { label: 'Retry', title: 'Retry', read: false, some: false, mark: 'circle-alert' };
-    if (m.read) return { label: 'Read', title: 'Read by everyone', read: true, some: false, mark: 'check-check' };
+    if (m.pending) return { label: 'Sending', title: 'Sending', read: false, some: false, delivered: false, mark: 'clock' };
+    if (m.failed) return { label: 'Retry', title: 'Retry', read: false, some: false, delivered: false, mark: 'circle-alert' };
+    if (m.read) return { label: 'Read', title: 'Read by everyone', read: true, some: false, delivered: true, mark: 'check-check' };
     if (m.readSome)
       return {
         label: 'Read by ' + (m.readCount || 0) + ' of ' + (m.memberCount || 0),
         title: 'Read by ' + (m.readCount || 0) + ' of ' + (m.memberCount || 0),
         read: false,
         some: true,
+        delivered: true,
         mark: 'check-check',
       };
-    if (m.delivered) return { label: 'Delivered', title: 'Delivered', read: false, some: false, mark: 'check-check' };
-    return { label: 'Sent', title: 'Sent', read: false, some: false, mark: 'check' };
+    if (m.delivered) return { label: 'Delivered', title: 'Delivered', read: false, some: false, delivered: true, mark: 'check-check' };
+    return { label: 'Sent', title: 'Sent', read: false, some: false, delivered: false, mark: 'check' };
   }
   function messageHTML(m) {
     const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : '')),
@@ -363,7 +364,7 @@
       '</time>' +
       (own
         ? '<span class="msg-receipt' +
-          (face.read ? ' is-read' : face.some ? ' is-read-some' : '') +
+          (face.read ? ' is-read' : face.some ? ' is-read-some' : face.delivered ? ' is-delivered' : ' is-sent') +
           '" aria-label="' +
           escape(face.label) +
           '" title="' +
@@ -756,10 +757,13 @@
         receipt &&
         (receipt.getAttribute('aria-label') !== face.label ||
           receipt.classList.contains('is-read') !== face.read ||
-          receipt.classList.contains('is-read-some') !== face.some)
+          receipt.classList.contains('is-read-some') !== face.some ||
+          receipt.classList.contains('is-delivered') !== Boolean(face.delivered && !face.read && !face.some))
       ) {
         receipt.classList.toggle('is-read', face.read);
         receipt.classList.toggle('is-read-some', face.some);
+        receipt.classList.toggle('is-delivered', Boolean(face.delivered && !face.read && !face.some));
+        receipt.classList.toggle('is-sent', !face.read && !face.some && !face.delivered && !m.pending && !m.failed);
         receipt.setAttribute('aria-label', face.label);
         receipt.title = face.title;
         receipt.innerHTML = icon(face.mark);
@@ -827,10 +831,14 @@
     }
   }
   function sameSenderSeries(previous, message) {
-    const gap = Number(message.createdMs) - Number(previous?.createdMs);
-    return !!previous && !!message.senderId && previous.senderId === message.senderId &&
-      previous.day === message.day && Number.isFinite(gap) && gap >= 0 && gap <= 60000 &&
-      !previous.deleted && !message.deleted;
+    if (!previous || !message || !message.senderId || previous.senderId !== message.senderId) return false;
+    if (previous.deleted || message.deleted) return false;
+    if (previous.day !== message.day) return false;
+    const prevMs = Number(previous.createdMs), msgMs = Number(message.createdMs);
+    const gap = msgMs - prevMs;
+    if (!Number.isFinite(gap) || gap < 0 || gap > 60000) return false;
+    const d1 = new Date(prevMs), d2 = new Date(msgMs);
+    return d1.getMinutes() === d2.getMinutes() && d1.getHours() === d2.getHours() && d1.getDate() === d2.getDate();
   }
   function syncDays() {
     timeline.querySelectorAll('.chat-empty,.msg-day').forEach((n) => n.remove());
@@ -843,11 +851,13 @@
       node.classList.toggle('is-group-message', groupChat);
       const face = node.querySelector('.msg-sender-avatar');
       const own = node.classList.contains('is-own');
-      if (groupChat && !own && !continuation && !message.deleted && !face) {
-        node.insertAdjacentHTML('afterbegin', avatar(message.senderName, false, message.senderId));
+      if (!continuation && !message.deleted && !face) {
+        const name = own ? (data?.profile?.name || message.senderName || 'Me') : message.senderName;
+        const id = own ? ((typeof myAccountId === 'function' ? myAccountId() : '') || message.senderId) : message.senderId;
+        node.insertAdjacentHTML('afterbegin', avatar(name, false, id));
         node.firstElementChild.classList.add('msg-sender-avatar');
         addedAvatar = true;
-      } else if ((!groupChat || own || continuation || message.deleted) && face) face.remove();
+      } else if ((continuation || message.deleted) && face) face.remove();
       if (node.dataset.day !== day) {
         day = node.dataset.day;
         const heading = document.createElement('p');
@@ -990,8 +1000,10 @@
     loading++;
     room = id;
     const activeRow = data.rooms.find((item) => item.id === id);
+    const hadUnread = Boolean(activeRow?.unread && kind && (activeRow.unread[kind] || 0) > 0);
     if (activeRow?.unread && kind) {
       activeRow.unread[kind] = 0;
+      if (typeof writeChatCache === 'function') writeChatCache();
     }
     reply = null;
     pending = null;
@@ -1011,6 +1023,7 @@
       sessionStorage.setItem('enquiz-chat-room:' + account, room);
     } catch {}
     await history();
+    if (hadUnread) markRead(true);
   }
   function chatCategoryReadThrough(rows) {
     return (rows || []).reduce((max, row) => Math.max(max, Number(row.id) || 0), 0);
@@ -1030,6 +1043,7 @@
       row.unread[category] = 0;
       badge();
       paintRooms();
+      if (typeof writeChatCache === 'function') writeChatCache();
     }
     request(action, { roomId: id, category, through })
       .then((result) => {
@@ -1038,11 +1052,13 @@
         else if (force && action === 'read' && row?.unread) row.unread[category] = 0;
         badge();
         paintRooms();
+        if (typeof writeChatCache === 'function') writeChatCache();
       })
       .catch(() => {
         if (cleared && row?.unread && !row.unread[category]) row.unread[category] = cleared;
         badge();
         paintRooms();
+        if (typeof writeChatCache === 'function') writeChatCache();
       })
       .finally(() => {
         entry[column + 'Pending'] = 0;
@@ -1052,7 +1068,7 @@
     for (const r of data.rooms) if (r.lastMessage) ack('delivered', r.id, r.lastMessage.category, r.lastMessage.id);
     markRead();
   }
-  function markRead() {
+  function markRead(force = false) {
     if (
       !ready ||
       !active() ||
@@ -1064,7 +1080,7 @@
       return;
     const current = data.rooms.find((item) => item.id === room);
     const through = Math.max(chatCategoryReadThrough(state()?.rows), Number(current?.lastMessage?.id) || 0);
-    ack('read', room, kind, through, (current?.unread?.[kind] || 0) > 0);
+    ack('read', room, kind, through, force || (current?.unread?.[kind] || 0) > 0);
   }
   function scheduleRead() {
     clearTimeout(readTimer);

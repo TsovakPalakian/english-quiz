@@ -43,7 +43,7 @@ test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
   const message={id:1,text:'hello',senderId:'me',createdMs:1,delivered:true};
   const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions,false]);
   let writes=0,scans=0;
-  const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;},contains:()=>false},set innerHTML(value){writes++;},set title(value){writes++;}};
+  const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;},contains:cls=>cls==='is-delivered'},set innerHTML(value){writes++;},set title(value){writes++;}};
   const node={dataset:{content,msgId:'1'},querySelector:()=>receipt};
   const timeline={querySelector:()=>node,querySelectorAll:()=>[node]};
   const merge=runInNewContext(extractFunction(source,'chatReceiptFace')+'\n'+extractFunction(source,'mergeNode')+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});

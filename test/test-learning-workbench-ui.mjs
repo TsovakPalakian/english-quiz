@@ -223,6 +223,7 @@ yield "00. Fixture and browser setup";
     yield "46. [data-review-key=\"version-'+pending.id+'\"] / evaluate";
     await page.locator('[data-review-key="version-'+pending.id+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
     await page.locator('[data-workbench-attribution="'+pending.id+'"]').click();await page.locator('[name=publicName]').check();await page.locator('[data-workbench-attribution-save] button').click();
+    await page.locator('[data-workbench-attribution-save]').waitFor({state:'detached'});
     assert.equal(f.sql.prepare('SELECT public_name FROM qr_author_visibility WHERE version_id=?').get(pending.id).public_name,1);
     yield "47. [data-workbench-close] / click";
     await page.locator('[data-workbench-close]').click();await page.locator('[data-workbench-lesson]').click();await page.selectOption('[data-workbench-group]','1');await page.selectOption('[data-workbench-sense]',f.senseId);

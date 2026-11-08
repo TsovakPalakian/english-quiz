@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {existsSync} from 'node:fs';
 import {checkMode,checkWorkerCounts,chromiumExecutable,chromiumLaunchOptions} from '../ops/check-environment.mjs';
 import {telegramConfig,pipelineNotification} from '../ops/telegram-notify.mjs';
 
@@ -18,6 +19,20 @@ test('ci uses bundled Chromium unless the user explicitly provides a browser pat
     process.env.CHROME_PATH='/custom/chromium';assert.equal(chromiumExecutable(),'/custom/chromium');
   }finally{
     for(const [key,value] of [['CHECK_MODE',previous.mode],['CHROME_PATH',previous.chrome]])if(value===undefined)delete process.env[key];else process.env[key]=value;
+  }
+});
+test('local headless uses bundled Chromium unless CHROME_PATH or SHOW_BROWSER is provided',()=>{
+  const previous={mode:process.env.CHECK_MODE,chrome:process.env.CHROME_PATH,show:process.env.SHOW_BROWSER,ci:process.env.CI};
+  try{
+    delete process.env.CI;process.env.CHECK_MODE='local';delete process.env.CHROME_PATH;delete process.env.SHOW_BROWSER;
+    assert.equal(chromiumExecutable(),undefined);
+    process.env.SHOW_BROWSER='1';
+    const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    if(process.platform==='darwin'&&existsSync(chrome)){
+      assert.equal(chromiumExecutable(),chrome);
+    }
+  }finally{
+    for(const [key,value] of [['CHECK_MODE',previous.mode],['CHROME_PATH',previous.chrome],['SHOW_BROWSER',previous.show],['CI',previous.ci]])if(value===undefined)delete process.env[key];else process.env[key]=value;
   }
 });
 test('SHOW_BROWSER opens Chrome only outside ci',()=>{

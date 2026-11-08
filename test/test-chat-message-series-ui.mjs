@@ -15,6 +15,7 @@ try {
   await page.addStyleTag({content:css});
   await page.addScriptTag({content:`
     const timeline=document.getElementById('fixture');
+    const myAccountId=()=>'a';
     const data={rooms:[{id:'fixture',kind:'group'}]},room='fixture';
     const isGroupChat=row=>['group','circle'].includes(row?.kind);
     const avatar=(name,group,id)=>'<span class="chat-avatar" data-avatar-subject="'+id+'">'+name.slice(0,2)+'</span>';
@@ -23,7 +24,7 @@ try {
     window.renderSeries=(kind='group')=>{
       data.rooms[0].kind=kind;
       timeline.innerHTML='';
-      const rows=[['a',0],['a',60000],['a',120001],['b',120002],['a',120003],['a',120004]];
+      const rows=[['a',0],['a',20000],['a',120001],['b',120002],['a',120003],['a',120004]];
       rows.forEach(([sender,time],i)=>{
         const node=document.createElement('article');
         node.className='msg-message'+(sender==='a'?' is-own':'');
@@ -39,23 +40,20 @@ try {
     await page.locator('#fixture').evaluate(node=>{node.style.width='100%';});
     for(const kind of ['group','circle','direct']) {
       await page.evaluate(kind=>window.renderSeries(kind),kind);
-      assert.equal(await page.locator('.is-series-continuation').count(),1,'Only adjacent same-sender messages within 60 seconds group');
+      assert.equal(await page.locator('.is-series-continuation').count(),1,'Adjacent same-sender messages within same minute group');
       assert.equal(await page.locator('article[data-msg-id="1"]>header').isVisible(),false);
-      assert.equal(await page.locator('article[data-msg-id="2"]>header').isVisible(),kind!=='direct','61-second gap starts a new series in groups, direct hides author names');
+      assert.equal(await page.locator('article[data-msg-id="2"]>header').isVisible(),kind!=='direct','Different minute starts a new series in groups, direct hides author names');
       assert.equal(await page.locator('article>footer').count(),6,'All message times remain');
-      assert.equal(await page.locator('.msg-message.is-own .msg-sender-avatar').count(),0);
-      assert.equal(await page.locator('.msg-sender-avatar').count(),kind==='direct'?0:1);
+      assert.ok(await page.locator('.msg-message.is-own .msg-sender-avatar').count()>0,'Own messages display avatars outside bubble');
+      assert.ok(await page.locator('.msg-message:not(.is-own) .msg-sender-avatar').count()>0,'Other messages display avatars outside bubble');
       const positions=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().left));
-      const boxes=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>({own:node.classList.contains('is-own'),group:node.classList.contains('is-group-message'),visibility:getComputedStyle(node).contentVisibility,marginLeft:getComputedStyle(node).marginLeft})));
+      const boxes=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>({own:node.classList.contains('is-own'),group:node.classList.contains('is-group-message'),visibility:getComputedStyle(node).contentVisibility})));
       if(kind==='direct'){
         assert.ok(positions[0]>positions[3],'Direct own messages stay on the right');
         assert.ok(boxes.every(row=>row.visibility==='visible'&&!row.group));
-        assert.ok(boxes.filter(row=>row.own).every(row=>row.marginLeft!=='0px'));
-        assert.ok(boxes.filter(row=>!row.own).every(row=>row.marginLeft==='0px'));
       }else{
         assert.ok(positions[0]>positions[3],'Own group messages stay on the right');
-        assert.ok(boxes.filter(row=>row.own).every(row=>row.group&&row.marginLeft!=='44px'));
-        assert.ok(boxes.filter(row=>!row.own).every(row=>row.group&&row.marginLeft==='44px'));
+        assert.ok(boxes.every(row=>row.group));
       }
       await page.evaluate(()=>{
         document.querySelector('article[data-msg-id="0"]').remove();

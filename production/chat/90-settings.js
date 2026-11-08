@@ -1104,8 +1104,10 @@
           box.right,
           box.bottom,
         );
-      } else if (target.dataset.reaction)
+      } else if (target.dataset.reaction) {
+        if (typeof recordReactionUsage === 'function') recordReactionUsage(target.dataset.reaction);
         await request('react', { roomId: room, id: Number(target.dataset.reactionId), emoji: target.dataset.reaction });
+      }
       else if (target.dataset.relation) {
         const result = await request('relation', { roomId: room, action: target.dataset.relation });
         upsertRoom(result.room);

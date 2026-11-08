@@ -36,10 +36,13 @@ export function resolveTestDependency(name){
   throw Error('Missing test dependency '+name+'. Run npm ci.');
 }
 
-export function chromiumExecutable(){
-  if(process.env.CHROME_PATH)return process.env.CHROME_PATH;
-  const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  return process.env.CHECK_MODE!=='ci'&&process.platform==='darwin'&&existsSync(chrome)?chrome:undefined;
+export function chromiumExecutable(env=process.env){
+  if(env.CHROME_PATH)return env.CHROME_PATH;
+  if(visibleBrowser(env)){
+    const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+    return env.CHECK_MODE!=='ci'&&process.platform==='darwin'&&existsSync(chrome)?chrome:undefined;
+  }
+  return undefined;
 }
 export function visibleBrowser(env=process.env){
   const ci=env.CI==='true'||env.CI==='1'||env.CHECK_MODE==='ci';
@@ -57,10 +60,10 @@ export function checkWorkerCounts(env,cpuCount){
   if(visibleBrowser(env))return {parallel:1,browserParallel:1};
   return {parallel:Number(env.CHECK_PARALLEL||parallelDefault),browserParallel:Number(env.CHECK_BROWSER_PARALLEL||browserDefault)};
 }
-export function chromiumLaunchOptions(extra={}){
-  const headless=!visibleBrowser();
-  const slowMo=chromiumStepDelay();
-  const options={...extra,headless,executablePath:chromiumExecutable()};
+export function chromiumLaunchOptions(extra={},env=process.env){
+  const headless=!visibleBrowser(env);
+  const slowMo=chromiumStepDelay(env);
+  const options={...extra,headless,executablePath:chromiumExecutable(env)};
   if(slowMo)options.slowMo=slowMo;
   else delete options.slowMo;
   return options;

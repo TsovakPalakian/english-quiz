@@ -53,6 +53,98 @@
   function canEdit(message) {
     return message.canEdit ?? (isOwnMessage(message) && !message.examId);
   }
+  const defaultReactions = ['😄', '👍', '❤️', '😆', '🤯', '🤝', '🤨'];
+  const popularReactions = [
+    '💔', '👎', '👏', '🤔', '😱', '🎉', '🤩', '💩',
+    '🙏', '👌', '🕊️', '🤡', '🥱', '🥴', '😍', '🐳',
+    '❤️‍🔥', '🌚', '🌭', '💯', '⚡', '🍌', '🏆', '🍓',
+    '🔥', '👀', '🤭', '🤮', '🤬', '😔', '🥰', '😐'
+  ];
+  function getUserFrequentReactions() {
+    try {
+      const key = 'chat-reactions-usage:' + myAccountId();
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const freq = JSON.parse(raw);
+        const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).map(([e]) => e);
+        const set = new Set(sorted);
+        defaultReactions.forEach((d) => set.add(d));
+        return [...set].slice(0, 7);
+      }
+    } catch {}
+    return defaultReactions;
+  }
+  function recordReactionUsage(emoji) {
+    if (!emoji) return;
+    try {
+      const key = 'chat-reactions-usage:' + myAccountId();
+      const freq = JSON.parse(localStorage.getItem(key) || '{}');
+      freq[emoji] = (freq[emoji] || 0) + 1;
+      localStorage.setItem(key, JSON.stringify(freq));
+    } catch {}
+  }
+  function renderExpandedReactionPicker(node, message, id) {
+    const frequent = getUserFrequentReactions();
+    const set = new Set(frequent);
+    defaultReactions.forEach((d) => set.add(d));
+    const topGrid = [...set].slice(0, 16);
+    node.innerHTML =
+      '<div class="chat-reaction-picker">' +
+      '<div class="chat-reaction-search-bar">' +
+      icon('search') +
+      '<input type="search" placeholder="Search" aria-label="Search reactions">' +
+      '<div class="chat-reaction-filter-chips">' +
+      ['❤️', '👍', '👎', '🎉', '😄', '😢', '😡']
+        .map((chip) => '<span class="chat-reaction-chip" data-reaction-chip="' + chip + '">' + chip + '</span>')
+        .join('') +
+      '</div></div>' +
+      '<div class="chat-reaction-grid chat-reaction-frequent">' +
+      topGrid
+        .map(
+          (emoji) =>
+            '<button type="button" data-context-reaction="' +
+            escape(emoji) +
+            '" aria-label="React ' +
+            escape(emoji) +
+            '">' +
+            escape(emoji) +
+            '</button>',
+        )
+        .join('') +
+      '</div>' +
+      '<div class="chat-reaction-section-title">POPULAR</div>' +
+      '<div class="chat-reaction-grid chat-reaction-popular">' +
+      popularReactions
+        .map(
+          (emoji) =>
+            '<button type="button" data-context-reaction="' +
+            escape(emoji) +
+            '" aria-label="React ' +
+            escape(emoji) +
+            '">' +
+            escape(emoji) +
+            '</button>',
+        )
+        .join('') +
+      '</div></div>';
+    icons();
+    const input = node.querySelector('input');
+    input?.focus({ preventScroll: true });
+    input?.addEventListener('input', (event) => {
+      const q = event.target.value.trim().toLocaleLowerCase();
+      node.querySelectorAll('.chat-reaction-grid button').forEach((btn) => {
+        const text = btn.textContent.trim().toLocaleLowerCase();
+        btn.hidden = Boolean(q && !text.includes(q));
+      });
+    });
+    node.querySelectorAll('.chat-reaction-chip').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        if (!input) return;
+        input.value = chip.dataset.reactionChip;
+        input.dispatchEvent(new Event('input'));
+      });
+    });
+  }
   function messageMenu(message, x, y, fileId = '') {
     const selected = getSelection(),
       textNode = timeline.querySelector('[data-msg-id="' + message?.id + '"] .chat-message-text');
@@ -99,18 +191,21 @@
     node.dataset.fileId = fileId;
     node.innerHTML =
       '<div class="chat-context-reactions">' +
-      [0x1f44d, 0x2764, 0x1f602, 0x1f389, 0x1f525, 0x1f914, 0x1f44f]
+      getUserFrequentReactions()
         .map(
-          (code) =>
+          (emoji) =>
             '<button type="button" data-context-reaction="' +
-            emojiValue(code) +
+            escape(emoji) +
             '" aria-label="React ' +
-            emojiValue(code) +
+            escape(emoji) +
             '">' +
-            emojiValue(code) +
+            escape(emoji) +
             '</button>',
         )
         .join('') +
+      '<button type="button" class="chat-reaction-expand-btn" data-context-action="expand-reactions" title="More reactions" aria-label="More reactions">' +
+      icon('chevron-down') +
+      '</button>' +
       '</div>' +
       items
         .map(
@@ -395,10 +490,16 @@
     const message = contextMessage,
       id = contextRoom,
       fileId = el('msgContext').dataset.fileId;
+    if (target.dataset.contextAction === 'expand-reactions') {
+      renderExpandedReactionPicker(el('msgContext'), message, id);
+      return;
+    }
     closeContext();
     try {
       if (target.dataset.contextReaction) {
-        await request('react', { roomId: id, id: message.id, emoji: target.dataset.contextReaction });
+        const emoji = target.dataset.contextReaction;
+        recordReactionUsage(emoji);
+        await request('react', { roomId: id, id: message.id, emoji });
         return;
       }
       if (target.dataset.contextAction === 'quote') {
