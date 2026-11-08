@@ -2596,7 +2596,7 @@ test('loadAccountThemes resolves to null and skips network when unauthenticated 
   assert.deepEqual(authResult,{themes:[]});
   assert.deepEqual(fetched,['/api/me/themes']);
 });
-test('LearningMain.perform stops on paused personal items until explicit flushPersonal confirmation',async()=>{
+test('LearningMain.perform flushes personal items in background and proceeds with action without blocking',async()=>{
   const window={},saved=new Map([['learning-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[],actions=[];
   const scope={window,crypto,CustomEvent:class{},location:{pathname:'/',reload(){}},
     setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
@@ -2614,13 +2614,55 @@ test('LearningMain.perform stops on paused personal items until explicit flushPe
   assert.equal(sent.length,2);
   assert.equal(saved.has('learning-main-personal-pending-v3'),true);
   await window.LearningMain.perform(async()=>{actions.push('performed');});
-  assert.equal(actions.length,0,'Paused writes must not run action and must not silently retry');
-  assert.equal(sent.some(r=>r.path==='/api/me/theme'),false);
-  await window.LearningMain.flushPersonal();
-  assert.equal(sent.some(r=>r.path==='/api/me/theme'),true);
+  assert.deepEqual(actions,['performed'],'Action proceeds without blocking');
+  assert.equal(sent.some(r=>r.path==='/api/me/theme'),true,'Paused writes retried in background');
   assert.equal(saved.has('learning-main-personal-pending-v3'),false);
-  await window.LearningMain.perform(async()=>{actions.push('performed');});
-  assert.deepEqual(actions,['performed']);
+});
+
+test('Logout unconditionally clears pending operations and personal queue even when offline',async()=>{
+  const saved=new Map([
+    ['learning-main-pending-v3',JSON.stringify({actorId:'user1',path:'/api/cards/1',method:'PATCH',intent:'test',body:{mutationId:'p1'}})],
+    ['learning-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'dark',path:'/api/me/theme',method:'PUT',actorId:'user1',mutationId:'m1',paused:true,body:{}}])]
+  ]);
+  const window={},calls=[];
+  const scope={window,crypto,CustomEvent:class{},location:{reload(){}},
+    setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
+    localStorage:{getItem:k=>saved.get(k)||null,setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)},
+    document:{addEventListener(){},dispatchEvent(){},getElementById:()=>null},
+    fetch:async(path,options)=>{
+      calls.push({path,method:options?.method||'GET'});
+      if(path==='/api/me')return {ok:true,json:async()=>({user:{id:'user1'}})};
+      if(path==='/api/me/theme')throw new Error('network down');
+      if(path==='/api/logout')return {ok:true,json:async()=>({ok:true})};
+      return {ok:true,json:async()=>({})};
+    }};
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
+  await window.LearningMain.fetch('/api/me');
+  assert.equal(saved.has('learning-main-pending-v3'),true);
+  assert.equal(saved.has('learning-main-personal-pending-v3'),true);
+  await window.LearningMain.fetch('/api/logout',{method:'POST',body:'{}'});
+  assert.equal(calls.some(c=>c.path==='/api/logout'),true);
+  assert.equal(saved.has('learning-main-pending-v3'),false);
+  assert.equal(saved.has('learning-main-personal-pending-v3'),false);
+});
+
+test('DOMContentLoaded does not display an alertdialog modal when unconfirmed operations exist',async()=>{
+  const saved=new Map([
+    ['learning-main-pending-v3',JSON.stringify({actorId:'fixture',path:'/api/cards/fixture',method:'PATCH',intent:'test',body:{mutationId:'same-id'}})],
+    ['learning-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:false,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]
+  ]);
+  let modalOpened=false;
+  const banner={dataset:{compactNotices:'true'},hidden:true,setAttribute(){},showModal:()=>{modalOpened=true;banner.open=true;},close:()=>{banner.open=false;}};
+  const status={classList:{toggle(){}},textContent:''};
+  const listeners=new Map();
+  const window={},scope={window,crypto,sessionStorage:{removeItem(){}},
+    localStorage:{getItem:k=>saved.get(k)||null,removeItem:k=>saved.delete(k)},
+    document:{addEventListener:(type,fn)=>listeners.set(type,fn),getElementById:id=>({'learning-main-banner':banner,'learning-main-status':status}[id]||{addEventListener(){}})}};
+  runInNewContext(readFileSync(new URL('../client/main/main-bridge.js',import.meta.url),'utf8'),scope);
+  assert.equal(listeners.has('DOMContentLoaded'),true);
+  listeners.get('DOMContentLoaded')();
+  assert.equal(modalOpened,false,'No modal dialog opened on DOMContentLoaded');
+  assert.equal(banner.hidden,true,'Banner remains hidden');
 });
 
 test('Russian word lookup links existing catalog card without duplicate 409 conflict',async()=>{

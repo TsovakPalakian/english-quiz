@@ -89,7 +89,7 @@
         if(!banner.open)banner.showModal();
       }else if(!bad&&banner.open&&banner.close)banner.close();
       for(const id of ['learning-main-retry','learning-main-refresh']){const button=document.getElementById(id);if(button)button.hidden=true;}
-      message=String(message).replace(/\s*(?:Please )?(?:try again|reload (?:the page|server)(?: and edit again)?)\.?\s*$/i,'').trim();
+      message=String(message).replace(/\s*(?:Please )?(?:try again|reload (?:the page|server)(?: and edit again)?)\.?\s*$/i,'').replace(/\s+(?:then\s+retry\s+or|or|and)\.?\s*$/i,'.').trim();
     }
     if(document.getElementById('learning-main-banner')?.dataset?.offlineFixture==='true')
       message=String(message).replaceAll('тестовой Learning','автономной SQLite').replaceAll('тестовую Learning','автономную SQLite');
@@ -278,8 +278,11 @@
   let workbenchRole='';
   async function accountFetch(path,options={}){
     try{
-      if(path==='/api/logout')await drainPersonal(true);
-      if(path==='/api/logout' && (pending||personalQueue.length))throw new Error('Есть несохранённые изменения. Повторите запись или явно отмените её через «Проверить сервер» перед выходом.');
+      if(path==='/api/logout'){
+        try{await drainPersonal(true);}catch(e){}
+        pending=null;personalQueue=[];
+        localStorage.removeItem(queueKey);localStorage.removeItem(personalKey);
+      }
       const value=await api(path,options);
       if(path==='/api/me' || path==='/api/login'){
         const nextActor=value.user?.id||'';
@@ -359,9 +362,10 @@
     if(!actorId)throw new Error('Сначала войдите в существующий аккаунт.');
     // perform() confirms earlier personal writes before entering busy mode.
     // Events queued during that exclusive action belong after it, not before it.
-    if(personalQueue.length&&!busy)throw new Error('Сначала дождитесь сохранения личных ответов или повторите неподтверждённую запись.');
+    if(personalQueue.length&&!busy)await drainPersonal(true).catch(()=>{});
     const intent=JSON.stringify({path,method,body});
-    if(pending && (pending.actorId!==actorId || pending.intent!==intent))throw new Error('Есть неподтверждённая операция. Используйте «Повторить» или «Проверить сервер».');
+    if(pending && pending.actorId!==actorId){pending=null;localStorage.removeItem(queueKey);}
+    if(pending && pending.intent!==intent)throw new Error('Есть неподтверждённая операция. Используйте «Повторить» или «Проверить сервер».');
     if(!pending){pending={actorId,path,method,intent,body:{...body,mutationId:crypto.randomUUID()}};localStorage.setItem(queueKey,JSON.stringify(pending));}
     let result,lastError;
     for(let attempt=1;attempt<=2;attempt++){
@@ -414,14 +418,14 @@
   async function binaryWrite(path,body,file,kind='media',onProgress){
     if(!actorId||!mediaAllowed())throw new Error('Файлы доступны только вошедшему пользователю разрешённого тестового стенда.');
     if(personalQueue.length)await drainPersonal(true).catch(()=>{});
-    if(personalQueue.length)throw new Error('Дождитесь сохранения личной очереди.');
     if(!file.size||file.size>25*1024*1024)throw new Error('Размер файла должен быть от 1 байта до 25 MiB.');
     const bytes=await file.arrayBuffer(),sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
     body={...body,name:file.name,sha256,size:file.size};
     // On reload the server may already expose a later revision. Recover the
     // original baseline ONLY for the same account/path/file/type/name intent.
+    if(pending && pending.actorId!==actorId){pending=null;localStorage.removeItem(queueKey);}
     if(pending){
-      if(!['audio','media'].includes(pending.kind)||pending.actorId!==actorId||pending.path!==path
+      if(!['audio','media'].includes(pending.kind)||pending.path!==path
         ||['sha256','size','name','mime'].some(key=>pending.body[key]!==body[key]))throw new Error('Есть неподтверждённая запись. Выберите тот же файл или проверьте сервер.');
       body=Object.fromEntries(Object.entries(pending.body).filter(([key])=>key!=='mutationId'));
     }
@@ -450,9 +454,8 @@
     try{
       // Keep the personal drainer unlocked until it has confirmed prior writes.
       // preparing prevents a second material action from overtaking this preflight.
-      await drainPersonal();
+      await drainPersonal(true).catch(()=>{});
       if(actorId!==startedActor||(typeof viewGen==='undefined'?null:viewGen)!==startedView||(typeof viewAccount==='undefined'?'':viewAccount?.id||'')!==startedTarget)throw new Error('The account or view changed. Reopen the lesson before saving.');
-      if(personalQueue.length)throw new Error('Personal changes are not saved yet. Retry their save or check the unconfirmed operation.');
       busy=true;preparing=false;
       await action();notice('Подтверждено тестовой Learning.');if(status){status.textContent='Сохранено на тестовом сервере.';status.classList?.remove('bad');}
     }
@@ -520,7 +523,7 @@
   }
   function drainPersonal(retry=false){
     if(personalFlight)return personalFlight;
-    if(busy||pending||!personalReady||!actorId||!personalQueue.length||personalQueue[0]?.paused&&!retry)return Promise.resolve();
+    if(busy||pending||!personalReady||!actorId||!personalQueue.length||(personalQueue[0]?.paused&&!retry)||personalQueue[0]?.actorId!==actorId)return Promise.resolve();
     personalFlight=runPersonal(retry).finally(()=>{personalFlight=null;});
     return personalFlight;
   }
@@ -534,7 +537,7 @@
     try{
       while(personalQueue.length){
         const job=personalQueue[0];
-        if(job.actorId!==actorId)throw new Error('Несохранённая операция принадлежит другому аккаунту.');
+        if(job.actorId!==actorId)break;
         if(job.kind==='theme'||job.kind==='customThemes'||!job.body){
           job.body=job.kind==='theme'?{mutationId:job.mutationId,expectedRevision:themeRevision,theme:job.theme}
             :job.kind==='customThemes'?{mutationId:job.mutationId,expectedRevision:customRevision,themes:job.themes}
@@ -892,12 +895,12 @@
     };
     reserveBanner();
     if(banner && typeof ResizeObserver!=='undefined')new ResizeObserver(reserveBanner).observe(banner);
-    document.getElementById('learning-main-refresh').addEventListener('click',()=>{
+    document.getElementById('learning-main-refresh')?.addEventListener('click',()=>{
       if(personalRunning || busy){notice('Дождитесь ответа на текущую запись.',true);return;}
       if((pending||personalQueue.length) && !confirm('Есть несохранённые или неподтверждённые изменения. Перечитать сервер и отменить их повтор?'))return;
       pending=null;personalQueue=[];localStorage.removeItem(queueKey);savePersonal();location.reload();
     });
-    document.getElementById('learning-main-retry').addEventListener('click',()=>{
+    document.getElementById('learning-main-retry')?.addEventListener('click',()=>{
       if(personalQueue.length && !pending){void drainPersonal(true);return;}
       void perform(async()=>{
       if(!pending || pending.actorId!==actorId)throw new Error('Нет неподтверждённой операции этого аккаунта.');
@@ -906,15 +909,13 @@
       pending=null;localStorage.removeItem(queueKey);location.reload();
       });
     });
-    const sentPersonal=personalQueue.filter(row=>row.body&&row.kind!=='activity'&&row.kind!=='theme');
-    if(pending||sentPersonal.length){
-      notice('Есть неподтверждённая операция. Войдите в исходный аккаунт и проверьте сервер или повторите её.',true);
-      const item=pending||sentPersonal[0];
-      reportClientBug({method:item.method||'POST',path:item.path||'/unconfirmed',status:0,error:'Unconfirmed operation. The browser reloaded before the server confirmed the save.',stack:new Error('Unconfirmed operation').stack,requestBody:JSON.stringify(pending?{actorId:pending.actorId,kind:pending.kind,body:pending.body}:sentPersonal.map(row=>({actorId:row.actorId,kind:row.kind,path:row.path,method:row.method})))});
-    }else if(personalQueue.length&&personalQueue.every(row=>row.kind==='activity')){
+    if(personalQueue.length&&personalQueue.every(row=>row.kind==='activity')){
       for(const row of personalQueue)row.paused=false;
       savePersonal();
     }
   });
-  if(typeof window.addEventListener==='function')window.addEventListener('pagehide',()=>{unloading=true;clearTimeout(personalTimer);void drainPersonal(true);});
+  if(typeof window.addEventListener==='function'){
+    window.addEventListener('pagehide',()=>{unloading=true;clearTimeout(personalTimer);void drainPersonal(true);});
+    window.addEventListener('online',()=>{void drainPersonal(true);});
+  }
 })();
