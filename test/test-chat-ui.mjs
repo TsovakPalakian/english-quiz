@@ -626,9 +626,9 @@ try{
   yield "161. waitForFunction";
   await page.waitForFunction(()=>examFind(11)?.instanceStatus==='completed');
   assert.equal(http.filter(p=>p==='/api/exams').length,beforeExams+1,'Review publication refreshes exams without opening a dialog or reloading');
-  await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('teacher@example.com');const beforeLookups=commands.filter(c=>c==='lookup').length;await page.waitForTimeout(350);assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups,'Typing never queries the directory');
-    yield "162. #msgLookup / click";
-    await page.locator('#msgLookup').click();await page.locator('[data-contact-id]').click();assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups+1);
+  await page.locator('#msgContacts').click();const beforeLookups=commands.filter(c=>c==='lookup').length;await page.locator('#msgRoomSearch').fill('teacher@example.com');await page.waitForTimeout(350);assert.equal(commands.filter(c=>c==='lookup').length,beforeLookups+1,'Typing queries the directory live');
+    yield "162. [data-contact-id] / click";
+    await page.locator('[data-contact-id]').click();
   accessOverride={protected:false,state:'pending',requestedBy:student.id,canSend:false};event('room');await page.locator('#msgAccess').filter({hasText:'Waiting'}).waitFor();assert.equal(await page.locator('#msgCompose').isVisible(),true);assert.equal(await page.locator('#msgText').getAttribute('placeholder'),'Wait for this person to accept your message request.');
   accessOverride={protected:false,state:'pending',requestedBy:teacher,canAccept:true,canSend:true};event('room');
     yield "163. [data-relation=\"accept\"] / click";
@@ -723,9 +723,9 @@ try{
     yield "185. .chat-photo-editor / checks";
     await page.locator('.chat-photo-editor').waitFor();assert.ok(await page.locator('.chat-photo-editor').evaluate(n=>n.scrollWidth<=n.clientWidth));await Promise.resolve();const beforeCancel=http.filter(p=>p==='/api/messages/avatar').length;await page.locator('[data-crop-cancel]').click();assert.equal(http.filter(p=>p==='/api/messages/avatar').length,beforeCancel);
   yield "186. setViewportSize";
-  await page.setViewportSize({width:1664,height:1000});await page.evaluate(()=>window.enquizVisit('messages'));await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('@TEACHER');
+  await page.setViewportSize({width:1664,height:1000});await page.evaluate(()=>window.enquizVisit('messages'));await page.locator('#msgContacts').click();await page.locator('#msgRoomSearch').fill('@TEACHER');await page.waitForTimeout(350);
     yield "187. [data-contact-id] / checks";
-    await page.locator('[data-contact-id]').waitFor();await page.locator('#msgLookup').click();assert.equal(lastLookupQuery,'@TEACHER');assert.deepEqual(errors,[]);
+    await page.locator('[data-contact-id]').waitFor();assert.equal(lastLookupQuery,'@TEACHER');assert.deepEqual(errors,[]);
   await page.clock.resume();
   await page.evaluate(()=>{window.ContentCache.set('library:opened:allwords',true);allGroup='';window.enquizVisit('allwords');paintAllWords();});
   yield "188. [data-all-group=\"Chat\"] / click";

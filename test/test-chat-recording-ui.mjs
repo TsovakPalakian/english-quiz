@@ -59,7 +59,12 @@ try{
   const down=()=>button.dispatchEvent('pointerdown',{button:0,pointerId:1,clientX:900,clientY:800});
   const up=()=>button.dispatchEvent('pointerup',{button:0,pointerId:1,clientX:900,clientY:800});
   const move=()=>button.dispatchEvent('pointermove',{pointerId:1,clientX:800,clientY:800});
-  const start=async()=>{await down();await page.waitForFunction(()=>/Recording/.test(document.getElementById('msgSendState').textContent));await page.waitForTimeout(400);};
+  const start=async()=>{
+    await down();
+    await page.waitForFunction(()=>/Recording/.test(document.getElementById('msgSendState').textContent));
+    await page.waitForFunction(()=>!/00:00,0/.test(document.getElementById('msgSendState').textContent));
+    await page.waitForTimeout(300);
+  };
   const waitSent=async count=>{await page.waitForFunction(count=>document.querySelectorAll('.msg-message[data-msg-id]').length>=count,count);assert.equal(sent.length,count);};
   await start();await up();
     yield "03. checks";

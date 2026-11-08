@@ -163,7 +163,7 @@
               !blocked.has(p.id) &&
               !data.rooms.some((r) => String(r.peerId) === String(p.id) && r.archived) &&
               (!query ||
-                (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
+                (p.name + ' ' + p.role + ' ' + (p.login || '') + ' ' + (p.email || '') + ' ' + (p.searchQuery || '') + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.name.localeCompare(b.name));
         const classGroups = data.groups
@@ -262,7 +262,6 @@
         html;
     el('msgListTitle').textContent = listMode === 'contacts' ? 'Contacts' : 'Chats';
     el('msgRoomSearch').placeholder = listMode === 'contacts' ? 'Name, full email or login' : 'Chats, contacts';
-    el('msgLookup').hidden = listMode !== 'contacts' || !!contactGroupView;
     el('msgUnread').hidden = listMode === 'contacts';
     el('msgChats').classList.toggle('selected', listMode === 'chats');
     el('msgContacts').classList.toggle('selected', listMode === 'contacts');
@@ -300,7 +299,6 @@
         : 'Private conversation'
       : 'Choose a conversation';
     if (listMode === 'contacts') el('msgRoomSearch').placeholder = 'Name, email, login or @username';
-    el('msgLookup').textContent = 'Find by email, login or @username';
     const face = el('msgRoomAvatar'),
       subject = selected ? (isGroupChat(selected) ? selected.id : selected.peerId) : '',
       name = selected?.title || 'Messages';

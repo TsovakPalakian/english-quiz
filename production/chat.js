@@ -1147,7 +1147,7 @@
               !blocked.has(p.id) &&
               !data.rooms.some((r) => String(r.peerId) === String(p.id) && r.archived) &&
               (!query ||
-                (p.name + ' ' + p.role + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
+                (p.name + ' ' + p.role + ' ' + (p.login || '') + ' ' + (p.email || '') + ' ' + (p.searchQuery || '') + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.name.localeCompare(b.name));
         const classGroups = data.groups
@@ -1246,7 +1246,6 @@
         html;
     el('msgListTitle').textContent = listMode === 'contacts' ? 'Contacts' : 'Chats';
     el('msgRoomSearch').placeholder = listMode === 'contacts' ? 'Name, full email or login' : 'Chats, contacts';
-    el('msgLookup').hidden = listMode !== 'contacts' || !!contactGroupView;
     el('msgUnread').hidden = listMode === 'contacts';
     el('msgChats').classList.toggle('selected', listMode === 'chats');
     el('msgContacts').classList.toggle('selected', listMode === 'contacts');
@@ -1284,7 +1283,6 @@
         : 'Private conversation'
       : 'Choose a conversation';
     if (listMode === 'contacts') el('msgRoomSearch').placeholder = 'Name, email, login or @username';
-    el('msgLookup').textContent = 'Find by email, login or @username';
     const face = el('msgRoomAvatar'),
       subject = selected ? (isGroupChat(selected) ? selected.id : selected.peerId) : '',
       name = selected?.title || 'Messages';
@@ -5716,28 +5714,42 @@
     paintRooms();
     panel('left', true);
   }
-  el('msgLookup').onclick = async () => {
-    el('msgLookup').disabled = true;
+  let lookupTimer = null;
+  let lastLookupQuery = '';
+  async function performLiveLookup(rawQuery) {
+    const q = (rawQuery || '').trim();
+    if (listMode !== 'contacts' || q.length < 3 || q.toLocaleLowerCase() === lastLookupQuery) return;
+    lastLookupQuery = q.toLocaleLowerCase();
     try {
-      const result = await request('lookup', { query: el('msgRoomSearch').value });
-      if (!result.person) {
-        status('No account found.');
-        return;
+      const result = await request('lookup', { query: q });
+      if (!result?.person) return;
+      const person = { ...result.person, searchQuery: q };
+      const index = data.contacts.findIndex((p) => String(p.id) === String(person.id));
+      if (index >= 0) {
+        data.contacts[index] = { ...data.contacts[index], ...person };
+      } else {
+        data.contacts.push(person);
       }
-      if (!data.contacts.some((p) => String(p.id) === String(result.person.id))) data.contacts.push(result.person);
-      el('msgRoomSearch').value = result.person.name;
       paintRooms();
-      status('');
-    } catch (error) {
-      status(error.message);
-    } finally {
-      el('msgLookup').disabled = false;
+    } catch (_) {}
+  }
+  function scheduleLiveLookup() {
+    clearTimeout(lookupTimer);
+    if (listMode !== 'contacts') return;
+    const q = el('msgRoomSearch').value.trim();
+    if (q.length < 3) {
+      lastLookupQuery = '';
+      return;
     }
-  };
+    lookupTimer = setTimeout(() => {
+      performLiveLookup(q);
+    }, 300);
+  }
   el('msgRoomSearch').onkeydown = (event) => {
     if (event.key === 'Enter' && listMode === 'contacts') {
       event.preventDefault();
-      el('msgLookup').click();
+      clearTimeout(lookupTimer);
+      performLiveLookup(el('msgRoomSearch').value);
     }
   };
   async function domain(path, body) {
@@ -6704,7 +6716,10 @@
     showInfo(infoTab).catch((error) => status(error.message));
   };
   el('msgRoomInfo').onclick = el('msgInfo').onclick;
-  el('msgRoomSearch').oninput = paintRooms;
+  el('msgRoomSearch').oninput = () => {
+    paintRooms();
+    scheduleLiveLookup();
+  };
   el('msgUnread').onclick = () => {
     unreadOnly = !unreadOnly;
     el('msgUnread').setAttribute('aria-pressed', String(unreadOnly));

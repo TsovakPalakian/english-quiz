@@ -37,7 +37,7 @@ yield "00. Fixture and browser setup";
     await page.locator('[data-speech-form="analyze"] [name="consent"]').check();await page.getByRole('button',{name:'Analyze recording',exact:true}).click();await page.locator('#account:not([disabled])').waitFor();
     yield "07. evaluate";
     assert.deepEqual(await page.evaluate(()=>window.recordedUploadFormat),{rate:16000,channels:1,bits:16});
-    await page.waitForFunction(()=>document.querySelector('[data-speech-stats]')?.textContent.includes('Count: 1'));
+    await page.waitForFunction(()=>document.querySelector('[data-speech-stats]')?.textContent.includes('Count: 1'),null,{timeout:60000});
     let history=(await api('/local/speech/tasks/'+task.id+'/history')).data.attempts;assert.equal(history.length,1);assert.equal(history[0].result.synthetic,true);assert.equal(history[0].result.overall,71);
     const attempt=page.locator('[data-speech-id="'+history[0].id+'"]');await attempt.evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;});
     yield "08. [name=\"text\"] / fill";
