@@ -63,8 +63,8 @@
       if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
       if(groupDirectoryReady()&&!groupDirectory.error){
-        document.getElementById('groupDetailTeacherCount').textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
-        document.getElementById('groupDetailStudentCount').textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
+        document.getElementById('groupDetailTeacherCount').textContent='Teachers · '+groupDirectoryPeople([group],true).length;
+        document.getElementById('groupDetailStudentCount').textContent='Students · '+groupDirectoryPeople([group],false).length;
       }
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
@@ -104,7 +104,7 @@
           if (badge) badge.textContent = '0 errors';
           bars.innerHTML = '<div class="group-diag-bar is-clean" style="width:100%"></div>';
           legend.innerHTML = '<span class="group-diag-pill is-clean">● All clear</span>';
-          advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this subgroup.</p>';
+          advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this group.</p>';
           return;
         }
 

@@ -26566,8 +26566,8 @@ if(typeof window!=='undefined'){
       if(!group){status.textContent=classGroupsReady?'Group unavailable.':'Loading group…';return;}
       for(const [id,teachers] of [['groupDetailTeachers',true],['groupDetailStudents',false]])document.getElementById(id).innerHTML=groupDirectoryReady()&&!groupDirectory.error?groupPeopleHTML(groupDirectoryPeople([group],teachers)):'<p class="hint">'+(groupDirectory?.error?'Directory unavailable.':'Loading…')+'</p>';
       if(groupDirectoryReady()&&!groupDirectory.error){
-        document.getElementById('groupDetailTeacherCount').textContent=accountCount('Teachers',groupDirectoryPeople([group],true).length);
-        document.getElementById('groupDetailStudentCount').textContent=accountCount('Students',groupDirectoryPeople([group],false).length);
+        document.getElementById('groupDetailTeacherCount').textContent='Teachers · '+groupDirectoryPeople([group],true).length;
+        document.getElementById('groupDetailStudentCount').textContent='Students · '+groupDirectoryPeople([group],false).length;
       }
       const lessons=(lmLibrary?.materials||[]).filter(row=>group.lessonIds.includes(row.id)&&lmLessonVisibleToViewer(row));
       const metrics=groupExamMetrics(group);
@@ -26607,7 +26607,7 @@ if(typeof window!=='undefined'){
           if (badge) badge.textContent = '0 errors';
           bars.innerHTML = '<div class="group-diag-bar is-clean" style="width:100%"></div>';
           legend.innerHTML = '<span class="group-diag-pill is-clean">● All clear</span>';
-          advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this subgroup.</p>';
+          advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this group.</p>';
           return;
         }
 
@@ -26723,10 +26723,11 @@ if(typeof window!=='undefined'){
 
   function getGroupState(groupId, groupTitle) {
     if (!groupWidgetStates.has(groupId)) {
-      const year = 2026;
-      const monthIndex = 10; // November (0-based)
-      const selectedDate = '2026-11-05';
-      const initialMonthKey = '2026-11';
+      const now = new Date();
+      const year = now.getFullYear();
+      const monthIndex = now.getMonth();
+      const selectedDate = year + '-' + String(monthIndex + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const initialMonthKey = year + '-' + String(monthIndex + 1).padStart(2, '0');
       const monthCache = new Map();
       monthCache.set(initialMonthKey, {
         lessonDates: new Set(),
@@ -26787,6 +26788,9 @@ if(typeof window!=='undefined'){
   }
 
   function calculateAttendancePct(lessonDates, students, attendance) {
+    if (!lessonDates || !(lessonDates.size || lessonDates.length) || !students || !students.length || !attendance) {
+      return 0;
+    }
     let presents = 0;
     let marked = 0;
     for (const s of students) {
@@ -26798,7 +26802,7 @@ if(typeof window!=='undefined'){
       }
     }
     if (!marked) {
-      return 33;
+      return 0;
     }
     return Math.round((presents / marked) * 100);
   }
@@ -27368,9 +27372,14 @@ if(typeof window!=='undefined'){
       const tooltipAttr = tooltip ? (' data-gcw-tooltip="' + esc(tooltip) + '"') : '';
       const ariaLabel = tooltip ? tooltip.replace(/\n/g, ', ') : dateStr;
 
+      const now = new Date();
+      const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const isToday = dateStr === todayStr;
+
       let dayClasses = 'gcw-day';
       if (isScheduled || hasLesson) dayClasses += ' has-lesson';
       if (isSelected) dayClasses += ' is-selected';
+      if (isToday) dayClasses += ' is-today';
       if (roClass) dayClasses += roClass;
 
       const numColorClass = (isRed || isPaymentDeadline)
@@ -27385,6 +27394,9 @@ if(typeof window!=='undefined'){
 
       gridHtml += '<button type="button" class="' + dayClasses + '" data-gcw-date="' + dateStr + '"' + tooltipAttr + ' aria-label="' + esc(ariaLabel) + '">';
       gridHtml += '<span class="gcw-day-num' + numColorClass + '">' + d + '</span>';
+      if (isToday) {
+        gridHtml += '<span class="gcw-today-badge">Today</span>';
+      }
       if (dotsHtml) {
         gridHtml += '<div class="gcw-dots">' + dotsHtml + '</div>';
       }
@@ -27415,7 +27427,7 @@ if(typeof window!=='undefined'){
         let cells = '';
         for (const d of sortedLessonDates) {
           const st = stDates[d] || 'unmarked';
-          const sym = st === 'present' ? '✓' : st === 'absent' ? '✕' : '';
+          const sym = st === 'present' ? '✓' : st === 'absent' ? '✕' : (canEdit ? '+' : '');
           const cellClass = st === 'present' ? 'is-present' : st === 'absent' ? 'is-absent' : 'is-unmarked';
           const roClass = canEdit ? '' : ' is-readonly';
           cells += '<td><button type="button" class="gcw-cell-btn ' + cellClass + roClass + '" data-gcw-student="' + esc(stId) + '" data-gcw-date="' + esc(d) + '" aria-label="' + esc(s.name) + ' ' + d + ': ' + st + '">' + sym + '</button></td>';
@@ -27521,8 +27533,8 @@ if(typeof window!=='undefined'){
       '</div>' +
       '<div class="gcw-footer">' +
         '<div class="gcw-stats">' +
-          '<span class="gcw-badge">Lessons · <b>' + lessonCount + '</b></span>' +
-          '<span class="gcw-badge">Exams · <b>' + examCount + '</b></span>' +
+          '<span class="gcw-badge">Scheduled lessons · <b>' + lessonCount + '</b></span>' +
+          '<span class="gcw-badge">Scheduled exams · <b>' + examCount + '</b></span>' +
           '<span class="gcw-badge">Students · <b>' + studentCount + '</b></span>' +
           '<span class="gcw-badge">Attendance · <b>' + attendancePct + '%</b></span>' +
         '</div>' +

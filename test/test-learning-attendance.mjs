@@ -457,8 +457,8 @@ test('Client contracts: group calendar month cache isolation, real student bindi
   assert.ok(!calSrc.includes("'Denis', 'Igor', 'Olga'"), 'Calendar must not contain hardcoded Denis/Igor/Olga dummy students');
 
   // 3. Middle dot footer badges
-  assert.ok(calSrc.includes('Lessons · <b>'), 'Calendar footer must format Lessons with middle dot');
-  assert.ok(calSrc.includes('Exams · <b>'), 'Calendar footer must format Exams with middle dot');
+  assert.ok(calSrc.includes('Scheduled lessons · <b>'), 'Calendar footer must format Scheduled lessons with middle dot');
+  assert.ok(calSrc.includes('Scheduled exams · <b>'), 'Calendar footer must format Scheduled exams with middle dot');
   assert.ok(calSrc.includes('Students · <b>'), 'Calendar footer must format Students with middle dot');
   assert.ok(calSrc.includes('Attendance · <b>'), 'Calendar footer must format Attendance with middle dot');
 
