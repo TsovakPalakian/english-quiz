@@ -24959,7 +24959,11 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
 function lmPdfProgressEnd(){
   document.getElementById('lmPdfProgress')?.remove();
   document.getElementById('lmPdfNextUpload')?.remove();
+  document.getElementById('lmPdfDraftFloatingBar')?.remove();
+  document.getElementById('lmPdfManualToggle')?.remove();
+  document.querySelector('.lm-import-methods')?.classList.remove('is-reviewing-draft','show-manual-inputs');
   const drop=document.querySelector('[data-lesson-pdf-import]');if(drop)drop.hidden=false;
+  const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';
 }
 async function lmPdfPrepareCards(draft,active,onProgress=()=>{},selected=new Set(['words','phrases'])){
   const blocks=draft.blocks.filter(b=>b.pdfImport&&selected.has(b.tab)&&['vocab','phrase'].includes(b.type));
@@ -25653,6 +25657,9 @@ async function lmImportPdfDraft(file) {
   const isDocx = /\.docx$/i.test(file.name||'');
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
+  document.getElementById('lmPdfDraftFloatingBar')?.remove();
+  document.getElementById('lmPdfManualToggle')?.remove();
+  document.querySelector('.lm-import-methods')?.classList.remove('is-reviewing-draft','show-manual-inputs');
   const controller=new AbortController();lmPdfDraftRequest=controller;
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
@@ -25698,9 +25705,81 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     if(!active())return;
     const current=lmState;
     const dialog=document.createElement('dialog');dialog.id='lmPdfDraftDialog';dialog.className='lm-pdf-draft saas-card';dialog.setAttribute('open','');
-    const heading=document.createElement('h2');heading.textContent=isDocument ? 'Review lesson draft' : 'Review PDF lesson draft';dialog.append(heading);
-    const hint=document.createElement('p');hint.textContent=isDocument ? 'Select sections to import into this draft. Existing blocks and manual edits stay unchanged.' : 'Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';dialog.append(hint);
+    const headWrap=document.createElement('div');headWrap.className='lm-pdf-review-header';
+    const headText=document.createElement('div');
+    const heading=document.createElement('h2');heading.textContent=isDocument ? 'Review lesson draft' : 'Review PDF lesson draft';
+    const hint=document.createElement('p');hint.textContent=isDocument ? 'Select sections to import into this draft. Existing blocks and manual edits stay unchanged.' : 'Select additional sections for this draft. Existing blocks and manual edits stay unchanged. If the lesson title is empty, the PDF title is used. Words and phrases become full dictionary cards after applying. Verify AI-extracted page references against the PDF.';
+    headText.append(heading,hint);
+    const quickActions=document.createElement('div');quickActions.className='lm-pdf-quick-actions';
+    const quickCancel=document.createElement('button');quickCancel.type='button';quickCancel.className='lm-pdf-quick-cancel';quickCancel.setAttribute('aria-label','Cancel review');quickCancel.textContent='Cancel';
+    const quickApply=document.createElement('button');quickApply.type='button';quickApply.className='lm-pdf-quick-apply';quickApply.setAttribute('aria-label','Apply to draft');quickApply.textContent='✓ Apply to draft';
+    quickActions.append(quickCancel,quickApply);
+    headWrap.append(headText,quickActions);
+    dialog.append(headWrap);
     const budgetNote=document.createElement('p');budgetNote.id='lmPdfBlockBudget';dialog.append(budgetNote);
+
+    document.getElementById('lmPdfDraftFloatingBar')?.remove();
+    document.getElementById('lmPdfManualToggle')?.remove();
+    const floatingBar=document.createElement('div');floatingBar.id='lmPdfDraftFloatingBar';floatingBar.className='lm-pdf-floating-bar';
+    floatingBar.innerHTML=
+      '<div class="lm-pdf-floating-info">'+
+        '<span class="lm-pdf-floating-badge" id="lmPdfFloatingBadge">0 sections selected</span>'+
+        '<span class="lm-pdf-floating-text" id="lmPdfFloatingText">0 items ready to be applied to lesson draft</span>'+
+      '</div>'+
+      '<div class="lm-pdf-floating-actions">'+
+        '<button type="button" class="lm-pdf-floating-cancel" id="lmPdfFloatingCancel">Cancel</button>'+
+        '<button type="button" class="lm-pdf-floating-apply" id="lmPdfFloatingApply"><span>✓</span><span>Apply selected sections to draft</span></button>'+
+      '</div>';
+    document.body.append(floatingBar);
+    const floatCancelBtn=floatingBar.querySelector('#lmPdfFloatingCancel');
+    const floatApplyBtn=floatingBar.querySelector('#lmPdfFloatingApply');
+
+    function updateCounts(){
+      const selectedKeys=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
+      let totalItems=0;
+      if(selectedKeys.has('metadata')) totalItems+=1;
+      if(selectedKeys.has('overview')) totalItems+=1;
+      if(selectedKeys.has('pdf')) totalItems+=1;
+
+      if(selectedKeys.has('words')){
+        const checked=dialog.querySelectorAll('[data-pdf-word-card] [data-word-select]:checked').length;
+        const totalCards=dialog.querySelectorAll('[data-pdf-word-card]').length;
+        totalItems+=(totalCards>0?checked:(data.words||[]).length);
+      }
+      if(selectedKeys.has('phrases')){
+        const checked=dialog.querySelectorAll('[data-pdf-phrase-card] [data-phrase-select]:checked').length;
+        const totalCards=dialog.querySelectorAll('[data-pdf-phrase-card]').length;
+        totalItems+=(totalCards>0?checked:(data.phrases||[]).length);
+      }
+      if(selectedKeys.has('rules')){
+        const checked=dialog.querySelectorAll('[data-pdf-rule-card] [data-rule-select]:checked').length;
+        const totalCards=dialog.querySelectorAll('[data-pdf-rule-card]').length;
+        totalItems+=(totalCards>0?checked:(data.rules||[]).length);
+      }
+      if(selectedKeys.has('classwork')){
+        const checked=dialog.querySelectorAll('[data-pdf-classwork-card] [data-classwork-select]:checked').length;
+        const totalCards=dialog.querySelectorAll('[data-pdf-classwork-card]').length;
+        totalItems+=(totalCards>0?checked:(data.classwork||[]).length);
+      }
+      if(selectedKeys.has('homework')){
+        const checked=dialog.querySelectorAll('[data-pdf-homework-card] [data-homework-select]:checked').length;
+        const totalCards=dialog.querySelectorAll('[data-pdf-homework-card]').length;
+        totalItems+=(totalCards>0?checked:(data.homework||[]).length);
+      }
+
+      const selectedCount=selectedKeys.size;
+      const badge=floatingBar.querySelector('#lmPdfFloatingBadge');
+      if(badge) badge.textContent=`${selectedCount} section${selectedCount===1?'':'s'} selected`;
+      const text=floatingBar.querySelector('#lmPdfFloatingText');
+      if(text) text.textContent=`${totalItems} item${totalItems===1?'':'s'} ready to be applied to lesson draft`;
+      if(quickApply) quickApply.textContent=totalItems>0?`✓ Apply to draft (${totalItems})`:'✓ Apply to draft';
+      if(floatApplyBtn){
+        const labelSpan=floatApplyBtn.querySelector('span:last-child');
+        if(labelSpan) labelSpan.textContent=totalItems>0?`Apply selected sections to draft (${totalItems})`:'Apply selected sections to draft';
+      }
+    }
+    dialog.addEventListener('change',updateCounts);
+
     function paintPdfBlockBudget(){
       const selected=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
       const occupied=(current.blocks||[]).length;
@@ -25723,6 +25802,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         numBadge.classList.toggle('is-off',!input.checked);
         details.classList.toggle('is-section-off',!input.checked);
         paintPdfBlockBudget();
+        updateCounts();
       };
       input.onchange=syncState;
       numBadge.onclick=(e)=>{
@@ -26071,6 +26151,23 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
     const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
+    const guide=document.createElement('div');guide.className='lm-pdf-guide-banner';
+    guide.innerHTML='<span class="lm-pdf-guide-icon">💡</span><span><b>Draft preview ready:</b> Review the extracted sections above. Once you click <b>«Apply selected sections to draft»</b>, the lesson editor form below will be automatically filled with all content.</span>';
+    dialog.append(guide);
+
+    quickCancel.onclick=()=>cancel.click();
+    quickApply.onclick=()=>apply.click();
+    floatCancelBtn.onclick=()=>cancel.click();
+    floatApplyBtn.onclick=()=>apply.click();
+
+    const origDialogRemove=dialog.remove.bind(dialog);
+    dialog.remove=()=>{
+      floatingBar?.remove();
+      document.getElementById('lmPdfManualToggle')?.remove();
+      const importBox=document.querySelector('.lm-import-methods');
+      importBox?.classList.remove('is-reviewing-draft','show-manual-inputs');
+      origDialogRemove();
+    };
     dialog.addEventListener('cancel',event=>{if(apply.disabled){event.preventDefault();return;}controller.abort();lmPdfProgressEnd();dialog.remove();});
     apply.onclick=async()=>{
       window.scrollTo({top:0,behavior:'smooth'});
@@ -26080,6 +26177,8 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
+      quickApply.disabled=true;quickCancel.disabled=true;
+      floatApplyBtn.disabled=true;floatCancelBtn.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
@@ -26269,12 +26368,32 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
           window.scrollTo({top:0,behavior:'smooth'});
         },status);
       }catch(error){status.textContent=error.message;}
-      finally{apply.disabled=false;cancel.disabled=false;}
+      finally{
+        apply.disabled=false;cancel.disabled=false;
+        quickApply.disabled=false;quickCancel.disabled=false;
+        floatApplyBtn.disabled=false;floatCancelBtn.disabled=false;
+      }
     };
     const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
     if(mount&&mount.id==='lmPdfProgress'){mount.insertAdjacentElement('afterend',dialog);}
     else if(mount){mount.prepend(dialog);}
     else{document.body.append(dialog);}
+
+    const importMethods=document.querySelector('.lm-import-methods');
+    if(importMethods){
+      importMethods.classList.add('is-reviewing-draft');
+      const manualToggle=document.createElement('div');
+      manualToggle.id='lmPdfManualToggle';
+      manualToggle.className='lm-pdf-manual-collapsed';
+      manualToggle.innerHTML='<span>📄 <b>Manual script & alternate uploads</b> (hidden during review)</span><span class="lm-pdf-manual-toggle-text">Show options ▼</span>';
+      manualToggle.onclick=()=>{
+        importMethods.classList.toggle('show-manual-inputs');
+        const isShown=importMethods.classList.contains('show-manual-inputs');
+        manualToggle.querySelector('.lm-pdf-manual-toggle-text').textContent=isShown?'Hide options ▲':'Show options ▼';
+      };
+      dialog.after(manualToggle);
+    }
+    updateCounts();
     lmPdfProgress('Ready to review',Object.entries(groups).map(([key,rows])=>key[0].toUpperCase()+key.slice(1)+': '+rows.length),1,1);
     lmPdfImportStatus('Review the draft before applying it.',false);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not analyse this PDF.',true);}}
@@ -26298,6 +26417,9 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
   }
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
+  document.getElementById('lmPdfDraftFloatingBar')?.remove();
+  document.getElementById('lmPdfManualToggle')?.remove();
+  document.querySelector('.lm-import-methods')?.classList.remove('is-reviewing-draft','show-manual-inputs');
   const controller=new AbortController();lmPdfDraftRequest=controller;
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();

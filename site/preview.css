@@ -4448,6 +4448,232 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   color: var(--saas-text, #0f172a);
 }
 
+/* TASK-22: Floating Action Bar and Review Header for Lesson PDF Draft */
+.lm-pdf-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.lm-pdf-review-header h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--saas-text, #0f172a);
+}
+.lm-pdf-review-header p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--saas-text-muted, #64748b);
+}
+.lm-pdf-quick-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.lm-pdf-quick-cancel {
+  height: 34px !important;
+  padding: 0 14px !important;
+  border: 1px solid var(--saas-border, #cbd5e1) !important;
+  background: #ffffff !important;
+  color: var(--saas-text-muted, #64748b) !important;
+  border-radius: 6px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  margin: 0 !important;
+  transition: all 0.15s ease;
+}
+.lm-pdf-quick-cancel:hover {
+  background: var(--saas-subtle, #f8fafc) !important;
+  color: var(--saas-text, #0f172a) !important;
+}
+.lm-pdf-quick-apply {
+  height: 34px !important;
+  padding: 0 16px !important;
+  border: 1px solid var(--saas-brand, #0d9488) !important;
+  background: var(--saas-brand, #0d9488) !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  cursor: pointer;
+  margin: 0 !important;
+  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3) !important;
+  transition: all 0.15s ease;
+}
+.lm-pdf-quick-apply:hover {
+  background: #0f766e !important;
+}
+
+.lm-pdf-guide-banner {
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #0f766e;
+}
+.lm-pdf-guide-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.lm-pdf-manual-collapsed {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: var(--saas-subtle, #f8fafc);
+  border: 1px dashed var(--saas-border, #cbd5e1);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--saas-text-muted, #64748b);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.lm-pdf-manual-collapsed:hover {
+  background: #f1f5f9;
+}
+.lm-pdf-manual-toggle-text {
+  color: var(--saas-brand, #0d9488);
+  font-weight: 600;
+}
+
+.lm-pdf-floating-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--saas-border, #cbd5e1);
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, 0.1);
+  padding: 12px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 9999;
+  box-sizing: border-box;
+  animation: lmFadeSlideUp 0.2s ease-out;
+}
+@keyframes lmFadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.lm-pdf-floating-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lm-pdf-floating-badge {
+  background: #ccfbf1;
+  color: #0f766e;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #99f6e4;
+  white-space: nowrap;
+}
+.lm-pdf-floating-text {
+  font-size: 13.5px;
+  color: var(--saas-text, #334155);
+  font-weight: 500;
+}
+.lm-pdf-floating-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.lm-pdf-floating-cancel {
+  height: 42px;
+  padding: 0 18px;
+  background: #ffffff;
+  border: 1px solid var(--saas-border, #cbd5e1);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--saas-text-muted, #64748b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lm-pdf-floating-cancel:hover {
+  background: var(--saas-subtle, #f8fafc);
+  color: var(--saas-text, #0f172a);
+}
+.lm-pdf-floating-apply {
+  height: 42px;
+  padding: 0 24px;
+  background: var(--saas-brand, #0d9488);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(13, 148, 136, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+}
+.lm-pdf-floating-apply:hover {
+  background: #0f766e;
+}
+.lm-pdf-floating-apply:disabled,
+.lm-pdf-floating-cancel:disabled,
+.lm-pdf-quick-apply:disabled,
+.lm-pdf-quick-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lm-import-methods.is-reviewing-draft {
+  margin-bottom: 70px;
+}
+.lm-import-methods.is-reviewing-draft > label:not([data-lesson-pdf-import]),
+.lm-import-methods.is-reviewing-draft > textarea,
+.lm-import-methods.is-reviewing-draft > div:not(.lm-pdf-draft):not(.lm-pdf-progress):not(.lm-pdf-next-upload):not(.lm-pdf-manual-collapsed),
+.lm-import-methods.is-reviewing-draft > [data-lesson-pdf-import] {
+  display: none !important;
+}
+.lm-import-methods.is-reviewing-draft.show-manual-inputs > label:not([data-lesson-pdf-import]),
+.lm-import-methods.is-reviewing-draft.show-manual-inputs > textarea,
+.lm-import-methods.is-reviewing-draft.show-manual-inputs > div:not(.lm-pdf-draft):not(.lm-pdf-progress):not(.lm-pdf-next-upload):not(.lm-pdf-manual-collapsed),
+.lm-import-methods.is-reviewing-draft.show-manual-inputs > [data-lesson-pdf-import] {
+  display: block !important;
+}
+
+@media (max-width: 640px) {
+  .lm-pdf-floating-bar {
+    padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .lm-pdf-floating-text {
+    display: none;
+  }
+  .lm-pdf-floating-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .lm-pdf-floating-apply {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
 /* User Feedback & Bug Reporting Modal */
 .feedback-dialog { width: min(500px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); color: var(--ink); box-shadow: 0 20px 60px color-mix(in srgb, var(--ink) 25%, transparent), 0 0 1px var(--line); backdrop-filter: blur(16px); }
 .feedback-dialog::backdrop { background: color-mix(in srgb, var(--ink) 45%, transparent); backdrop-filter: blur(6px); }
