@@ -24998,14 +24998,20 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle)
   }
   let added=0;
   for(const [tab,blocks] of Object.entries(groups))if(selected.has(tab)){
-    if(tab === 'overview' && draft.blocks.some(b => b.tab === 'overview')){
-      const existing = draft.blocks.find(b => b.tab === 'overview');
+    if(tab === 'overview'){
+      const existing = draft.blocks.find(b => (b.tab || 'overview') === 'overview' && (b.type === 'text' || typeof b.html === 'string'));
       const newOverview = blocks[0];
-      if (existing && newOverview && newOverview.html && !existing.html.includes(newOverview.html)) {
-        existing.html = (existing.html || '') + '<hr style="margin:16px 0; border:none; border-top:1px dashed var(--line);">' + newOverview.html;
-        added++;
+      if (existing) {
+        const existingHtml = typeof existing.html === 'string' ? existing.html : '';
+        if (newOverview && newOverview.html && !existingHtml.includes(newOverview.html)) {
+          const hasContent = existingHtml.trim() !== '' && existingHtml.trim() !== '<p></p>';
+          existing.html = hasContent
+            ? existingHtml + '<hr style="margin:16px 0; border:none; border-top:1px dashed var(--line);">' + newOverview.html
+            : newOverview.html;
+          added++;
+        }
+        continue;
       }
-      continue;
     }
     for(const block of blocks){
       const key=block.pdfImport.key;

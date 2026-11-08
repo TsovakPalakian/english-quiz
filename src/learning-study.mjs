@@ -85,7 +85,7 @@ function lessonChanges(value){
   }
   return value;
 }
-export function validateAssessmentContent(content,type){
+export function validateAssessmentContent(content,type,allowIncomplete=false){
   if(!['quiz','exercise','task','text','cards','vocab'].includes(type))return;
   if(content.contentGroup!=null&&(type!=='task'||typeof content.contentGroup!=='boolean'))fail(400,'Invalid Content group.');
   if(content.assessed!=null&&typeof content.assessed!=='boolean')fail(400,'Invalid assessment setting.');
@@ -96,7 +96,8 @@ export function validateAssessmentContent(content,type){
     if(item.criteria!=null){
       if(typeof item.criteria!=='string'||item.criteria.length>3000)fail(400,'Invalid grading criteria.');
       const rows=item.criteria.split('\n').filter(line=>line.trim());
-      if(rows.length>20||rows.some(line=>{const bits=line.split('|'),points=Number(String(bits[1]).replace(',','.'));return bits.length!==2||!bits[0].trim()||!Number.isFinite(points)||points<=0||points>1e12;}))fail(400,'Use one criterion per line: Content | 3.');
+      if(rows.length>20)fail(400,'Invalid grading criteria.');
+      if(!allowIncomplete&&rows.some(line=>{const bits=line.split('|'),points=Number(String(bits[1]).replace(',','.'));return bits.length!==2||!bits[0].trim()||!Number.isFinite(points)||points<=0||points>1e12;}))fail(400,'Use one criterion per line: Content | 3.');
     }
   }
 }

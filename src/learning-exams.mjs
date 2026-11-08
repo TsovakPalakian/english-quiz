@@ -246,7 +246,7 @@ export class ExamService {
         const content = { ...part };
         try{prepareExamContent(content,part.type);}catch(error){fail(400,error.message);}
         if(content.items!=null&&(!Array.isArray(content.items)||content.items.some(item=>!item||typeof item!=='object'||Array.isArray(item))))fail(400,'Invalid questions.');
-        validateAssessmentContent(content,part.type);
+        validateAssessmentContent(content,part.type,!block.published);
         delete content.stageDefinition;
         delete content.studentSaved;
         if (partId == null) delete content.id;

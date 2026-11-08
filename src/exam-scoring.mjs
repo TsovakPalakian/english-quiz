@@ -14,8 +14,8 @@ export function examAnswerQuestions(parts){
   });
 }
 export function examElementMax(part){
-  const criteria=String(part.criteria||'').split('\n').filter(line=>line.includes('|'));
-  return criteria.length?criteria.reduce((sum,line)=>sum+number(line.split('|')[1]),0):number(part.maxPoints??(part.type==='task'?'':1));
+  const criteria=String(part.criteria||'').split('\n').map(line=>{const [label,points]=line.split('|');return {label:label?.trim(),max:number(points)};}).filter(row=>row.label&&Number.isFinite(row.max)&&row.max>0&&row.max<=1e12);
+  return criteria.length?Number(criteria.reduce((sum,row)=>sum+row.max,0).toFixed(10)):number(part.maxPoints??(part.type==='task'?'':1));
 }
 export function examTaskMax(parts,part,seen=new Set()){
   if(seen.has(part))return 0;seen.add(part);

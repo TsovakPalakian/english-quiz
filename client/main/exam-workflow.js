@@ -1,6 +1,20 @@
 // Exam-only presentation; lesson definitions and rendering delegate unchanged.
 function examPublishPointsGap(parts, scoring) {
   if (!scoring || typeof scoring.examGrading !== 'function') return null;
+  for (const part of parts || []) {
+    const items = ['task','text'].includes(part.type) ? [part] : (part.items || []);
+    for (const item of items) {
+      if (item && typeof item.criteria === 'string' && item.criteria.trim()) {
+        const rows = item.criteria.split('\n').filter(line => line.trim());
+        if (rows.length > 20 || rows.some(line => {
+          const bits = line.split('|'), points = Number(String(bits[1]).replace(',', '.'));
+          return bits.length !== 2 || !bits[0].trim() || !Number.isFinite(points) || points <= 0 || points > 1e12;
+        })) {
+          return { id: part.id, field: 'criteria', message: 'Use one criterion per line: Content | 3.' };
+        }
+      }
+    }
+  }
   for (const row of scoring.examGrading(parts || [])) {
     const source = row.part.scoringVersion >= 3 ? row.item : row.part;
     if (source.maxPoints == null || source.maxPoints === '' || !Number.isFinite(row.max) || row.max <= 0 || row.max > 1e12) {
@@ -15,6 +29,7 @@ function examPublishPointsField(root, gap) {
   const article = [...root.querySelectorAll('[data-block-id]')].find(node => node.dataset.blockId === String(gap.id));
   if (!article) return null;
   article.classList.remove('is-shut');
+  if (gap.field === 'criteria') return article.querySelector('[data-field="criteria"]');
   if (gap.itemIndex == null) return article.querySelector('[data-field="maxPoints"]');
   return [...article.querySelectorAll('[data-item-field="maxPoints"]')].find(node => node.dataset.item === String(gap.itemIndex)) || null;
 }
