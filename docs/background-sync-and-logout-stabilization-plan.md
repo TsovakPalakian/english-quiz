@@ -33,8 +33,8 @@
 Интерфейс пользователя должен быть полностью освобождён от любых технических окон, плашек, тостов и сообщений (Скриншот 8):
 1. **Снятие блокировки с выхода**: Метод `/api/logout` в [client/main/main-bridge.js#L281](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L281) безусловно очищает локальную очередь и позволяет завершить сессию.
 2. **Ликвидация модального диалога**: Удаление вызова `notice(..., true)` на `DOMContentLoaded` в [client/main/main-bridge.js#L896](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L896).
-3. **Разблокировка сохранения материалов**: Исключение проверки `if(personalQueue.length) throw new Error(...)` в [client/main/main-bridge.js#L440](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L440).
-4. **Автономная досылка**: Очередь тихо досылается в фоне без участия пользователя, с автоповтором по событию `online`. При несовпадении `actorId` чужая очередь сбрасывается.
+3. **Изоляция очереди личных данных**: Проверка `if(personalQueue.some(j=>!j.actorId||j.actorId===actorId))` предотвращает блокировку текущего пользователя чужими записями и сохраняет архитектурный контракт метода `perform()`.
+4. **Автономная досылка**: Очередь тихо досылается в фоне без участия пользователя, с автоповтором по событию `online`. При несовпадении `actorId` чужая очередь изолируется.
 
 ---
 
@@ -42,9 +42,9 @@
 
 - 🟩 Этап 1: Удаление блокирующей ошибки при вызове `/api/logout` в [client/main/main-bridge.js#L281](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L281).
 - 🟩 Этап 2: Удаление автоматического показа модального диалога на событии `DOMContentLoaded` в [client/main/main-bridge.js#L896](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L896).
-- 🟩 Этап 3: Снятие барьера `throw new Error('Personal changes are not saved yet...')` в [client/main/main-bridge.js#L440](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L440).
-- 🟩 Этап 4: Обеспечение автономной фоновой синхронизации по событию `online` и автоматического сброса очереди чужого аккаунта в [client/main/main-bridge.js#L508-L525](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L508-L525).
-- 🟩 Этап 5: Написание целевых модульных тестов в `test/test-learning-main.mjs` и визуального теста `test/test-clean-ui-background-sync.mjs`.
+- 🟩 Этап 3: Согласование проверки очереди текущего аккаунта в методе `perform()` в [client/main/main-bridge.js#L458-L460](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L458-L460) с контрактом `test/test-lesson-write-queue.mjs`.
+- 🟩 Этап 4: Обеспечение автономной фоновой синхронизации по событию `online` и изоляции очереди чужого аккаунта в [client/main/main-bridge.js#L508-L525](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L508-L525).
+- 🟩 Этап 5: Написание целевых модульных тестов в `test/test-learning-main.mjs`, верификация `test/test-lesson-write-queue.mjs` и визуального теста `test/test-clean-ui-background-sync.mjs`.
 
 ---
 

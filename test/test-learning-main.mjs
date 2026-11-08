@@ -2596,7 +2596,7 @@ test('loadAccountThemes resolves to null and skips network when unauthenticated 
   assert.deepEqual(authResult,{themes:[]});
   assert.deepEqual(fetched,['/api/me/themes']);
 });
-test('LearningMain.perform flushes personal items in background and proceeds with action without blocking',async()=>{
+test('LearningMain.perform stops on paused personal items until explicit flushPersonal confirmation',async()=>{
   const window={},saved=new Map([['learning-main-personal-pending-v3',JSON.stringify([{kind:'theme',key:'theme',theme:'champagne',path:'/api/me/theme',method:'PUT',actorId:'fixture',mutationId:'m1',paused:true,body:{mutationId:'m1',expectedRevision:1,theme:'champagne'}}])]]),sent=[],actions=[];
   const scope={window,crypto,CustomEvent:class{},location:{pathname:'/',reload(){}},
     setTimeout:()=>1,clearTimeout(){},sessionStorage:{removeItem(){}},
@@ -2614,9 +2614,13 @@ test('LearningMain.perform flushes personal items in background and proceeds wit
   assert.equal(sent.length,2);
   assert.equal(saved.has('learning-main-personal-pending-v3'),true);
   await window.LearningMain.perform(async()=>{actions.push('performed');});
-  assert.deepEqual(actions,['performed'],'Action proceeds without blocking');
-  assert.equal(sent.some(r=>r.path==='/api/me/theme'),true,'Paused writes retried in background');
+  assert.equal(actions.length,0,'Paused writes must not run action and must not silently retry');
+  assert.equal(sent.some(r=>r.path==='/api/me/theme'),false);
+  await window.LearningMain.flushPersonal();
+  assert.equal(sent.some(r=>r.path==='/api/me/theme'),true);
   assert.equal(saved.has('learning-main-personal-pending-v3'),false);
+  await window.LearningMain.perform(async()=>{actions.push('performed');});
+  assert.deepEqual(actions,['performed']);
 });
 
 test('Logout unconditionally clears pending operations and personal queue even when offline',async()=>{

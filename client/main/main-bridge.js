@@ -454,8 +454,9 @@
     try{
       // Keep the personal drainer unlocked until it has confirmed prior writes.
       // preparing prevents a second material action from overtaking this preflight.
-      await drainPersonal(true).catch(()=>{});
+      await drainPersonal();
       if(actorId!==startedActor||(typeof viewGen==='undefined'?null:viewGen)!==startedView||(typeof viewAccount==='undefined'?'':viewAccount?.id||'')!==startedTarget)throw new Error('The account or view changed. Reopen the lesson before saving.');
+      if(personalQueue.some(j=>!j.actorId||j.actorId===actorId))throw new Error('Personal changes are not saved yet. Retry their save or check the unconfirmed operation.');
       busy=true;preparing=false;
       await action();notice('Подтверждено тестовой Learning.');if(status){status.textContent='Сохранено на тестовом сервере.';status.classList?.remove('bad');}
     }

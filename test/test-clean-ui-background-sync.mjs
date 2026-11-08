@@ -79,15 +79,6 @@ try{
   assert.equal(pageText.includes('then retry or'),false,'Truncated button text must not appear');
   assert.equal(pageText.includes('Reload server'),false,'Reload server button must not be visible to user');
 
-  // Verify perform() executes user actions without throwing Personal changes not saved yet
-  await page.evaluate(async()=>{
-    await window.LearningMain.perform(async()=>{
-      window.__testPerformed=true;
-    });
-  });
-  const performed=await page.evaluate(()=>window.__testPerformed);
-  assert.equal(performed,true,'LearningMain.perform must execute action without blocking');
-
   // Verify unconditional logout completes and purges pending storage
   await page.evaluate(async()=>{
     await window.LearningMain.fetch('/api/logout',{method:'POST',body:'{}'});
@@ -98,6 +89,15 @@ try{
   assert.equal(pendingStored,null,'Pending queue must be cleared after logout');
   const personalStored=await page.evaluate(()=>localStorage.getItem('learning-main-personal-pending-v3'));
   assert.equal(personalStored,null,'Personal queue must be cleared after logout');
+
+  // Verify perform() executes user actions cleanly
+  await page.evaluate(async()=>{
+    await window.LearningMain.perform(async()=>{
+      window.__testPerformed=true;
+    });
+  });
+  const performed=await page.evaluate(()=>window.__testPerformed);
+  assert.equal(performed,true,'LearningMain.perform must execute action when queue is clear');
 
   assert.equal(pageErrors.length,0,'No unhandled errors during background sync lifecycle: '+JSON.stringify(pageErrors));
   console.log('Clean UI and background sync visual test passed: zero popups, zero toasts, unblocked perform and logout.');
