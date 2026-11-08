@@ -413,6 +413,12 @@ export class ChatRoom extends Store{
 
 export class ChatInbox extends Store{
   constructor(ctx,env){super(ctx,env);this.storageKind='inbox';this.sessionDeliveries=new WeakMap();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='events'").toArray().length)return;this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT UNIQUE NOT NULL,data TEXT NOT NULL);`);}
+  storeRoom(id,room){
+    if(!room)return;
+    const old=this.one('SELECT data FROM rooms WHERE id=?',id);
+    if(old&&(JSON.parse(old.data).revision||0)>(room.revision||0))return;
+    this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',id,this.seal(JSON.stringify(room),'data'));
+  }
   snapshot(){
     const profile=this.get('profile'),rooms=this.rows('SELECT data FROM rooms').map(r=>JSON.parse(r.data)).filter(r=>r.active!==false).sort((a,b)=>(b.lastMessage?.createdMs||0)-(a.lastMessage?.createdMs||0));
     for(const room of rooms)if(room.muteUntil!==undefined)room.muted=room.muteUntil===-1||room.muteUntil>Date.now();
@@ -557,13 +563,13 @@ export class ChatInbox extends Store{
         if(!this.one('SELECT id FROM rooms WHERE id=?',id))fail(403,'This group is unavailable.');
       }else fail(400,'Choose a conversation type.');
       const result=await chatCall(this.env,'CHAT_ROOM',id,'/summary',{actor});
-      if(result.room)this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',id,this.seal(JSON.stringify(result.room),'data'));
+      this.storeRoom(id,result.room);
       return {roomId:id,room:result.room};
     }
     const room=ref(body.roomId);if(!this.one('SELECT id FROM rooms WHERE id=?',room))fail(403,'Conversation unavailable.');
     if(!['history','send','read','delivered','mute','members','edit','delete','pin','react','relation','room-settings','clear-history'].includes(action))fail(400,'Invalid chat command.');
     const result=await chatCall(this.env,'CHAT_ROOM',room,'/'+action,{...body,actor});
-    if(result?.room)this.sql.exec('INSERT INTO rooms(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data',room,this.seal(JSON.stringify(result.room),'data'));
+    this.storeRoom(room,result?.room);
     return result;
   }
   async webSocketMessage(ws,raw){return trackTransferTask(this,()=>this.receiveWebSocketMessage(ws,raw));}

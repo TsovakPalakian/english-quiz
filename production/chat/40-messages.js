@@ -954,7 +954,7 @@
     if (cache?.loaded && !older && !refresh && !before) {
       paintMessages();
       timeline.scrollTop = timeline.scrollHeight;
-      scheduleRead();
+      scheduleRead(roomId, category);
       return;
     }
     const height = timeline.scrollHeight,
@@ -986,7 +986,7 @@
         ? top
         : timeline.scrollHeight;
     ack('delivered', roomId, category, result.messages.at(-1)?.id || 0);
-    scheduleRead();
+    scheduleRead(roomId, category);
     } finally { historyFlight--; }
   }
   async function openRoom(id) {
@@ -999,6 +999,7 @@
     if (recordGesture) cancelRecording();
     loading++;
     room = id;
+    const openedKind = kind;
     const activeRow = data.rooms.find((item) => item.id === id);
     const hadUnread = Boolean(activeRow?.unread && kind && (activeRow.unread[kind] || 0) > 0);
     if (activeRow?.unread && kind) {
@@ -1022,19 +1023,39 @@
     try {
       sessionStorage.setItem('enquiz-chat-room:' + account, room);
     } catch {}
-    await history();
-    if (hadUnread) markRead(true);
+    try {
+      await history();
+    } finally {
+      if (hadUnread) markRead(true, id, openedKind);
+    }
   }
   function chatCategoryReadThrough(rows) {
     return (rows || []).reduce((max, row) => Math.max(max, Number(row.id) || 0), 0);
+  }
+  function chatAckAdmission(entry, column, through, force) {
+    const pending = entry[column + 'Pending'] || 0,
+      done = entry[column] || 0,
+      covered = Math.max(done, pending);
+    if (through <= covered && (!force || pending)) return { action: 'skip' };
+    if (pending) return { action: 'queue', queued: Math.max(entry[column + 'Queued'] || 0, through) };
+    return { action: 'send' };
+  }
+  function chatAckRetry(entry, column) {
+    const queued = entry[column + 'Queued'] || 0;
+    return queued > (entry[column] || 0) ? queued : 0;
   }
   function ack(action, id, category, through, force) {
     if (!ready || !through) return;
     const k = id + ':' + category,
       entry = cursors.get(k) || {},
       column = action === 'read' ? 'read' : 'delivered';
-    if (!force && through <= Math.max(entry[column] || 0, entry[column + 'Pending'] || 0)) return;
-    if (force && entry[column + 'Pending']) return;
+    const admission = chatAckAdmission(entry, column, through, force);
+    if (admission.action === 'skip') return;
+    if (admission.action === 'queue') {
+      entry[column + 'Queued'] = admission.queued;
+      cursors.set(k, entry);
+      return;
+    }
     entry[column + 'Pending'] = through;
     cursors.set(k, entry);
     const row = data.rooms.find((item) => item.id === id);
@@ -1062,29 +1083,34 @@
       })
       .finally(() => {
         entry[column + 'Pending'] = 0;
+        const retry = chatAckRetry(entry, column);
+        entry[column + 'Queued'] = 0;
+        if (retry) ack(action, id, category, retry, true);
       });
   }
   function acknowledgeSnapshot() {
     for (const r of data.rooms) if (r.lastMessage) ack('delivered', r.id, r.lastMessage.category, r.lastMessage.id);
     markRead();
   }
-  function markRead(force = false) {
+  function markRead(force = false, roomId = room, category = kind) {
     if (
       !ready ||
       !active() ||
-      !room ||
+      !roomId ||
       document.visibilityState !== 'visible' ||
       rightMode === 'search' ||
-      (innerWidth <= 700 && prefs.left)
+      (!force && innerWidth <= 700 && prefs.left)
     )
       return;
-    const current = data.rooms.find((item) => item.id === room);
-    const through = Math.max(chatCategoryReadThrough(state()?.rows), Number(current?.lastMessage?.id) || 0);
-    ack('read', room, kind, through, force || (current?.unread?.[kind] || 0) > 0);
+    const current = data.rooms.find((item) => item.id === roomId);
+    const rows =
+      roomId === room && category === kind ? state()?.rows : historyCache.get(roomId + ':' + category)?.rows;
+    const through = Math.max(chatCategoryReadThrough(rows), Number(current?.lastMessage?.id) || 0);
+    ack('read', roomId, category, through, force || (current?.unread?.[category] || 0) > 0);
   }
-  function scheduleRead() {
+  function scheduleRead(roomId = room, category = kind) {
     clearTimeout(readTimer);
-    readTimer = setTimeout(markRead, 250);
+    readTimer = setTimeout(() => markRead(false, roomId, category), 250);
   }
   timeline.addEventListener('scroll', () => {
     scheduleRead();

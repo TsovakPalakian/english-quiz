@@ -1,9 +1,23 @@
+  function chatUnreadMerge(previous, incoming, revision, nextRevision) {
+    const base = { personal: previous?.personal || 0, learning: previous?.learning || 0 };
+    if (!incoming) return base;
+    if ((revision || 0) > (nextRevision || 0)) return base;
+    if ((revision || 0) < (nextRevision || 0))
+      return { personal: incoming.personal || 0, learning: incoming.learning || 0 };
+    return {
+      personal: Math.min(base.personal, incoming.personal || 0),
+      learning: Math.min(base.learning, incoming.learning || 0),
+    };
+  }
   function upsertRoom(row) {
     if (!row) return;
     const old = data.rooms.find((r) => r.id === row.id);
     if (old && (old.revision || 0) > (row.revision || 0)) return;
-    if (old) Object.assign(old, row);
-    else data.rooms.push(row);
+    if (old) {
+      const unread = chatUnreadMerge(old.unread, row.unread, old.revision, row.revision);
+      Object.assign(old, row);
+      old.unread = unread;
+    } else data.rooms.push(row);
     if (row.id === room) {
       const activeItem = old || row;
       if (activeItem.unread && kind) {

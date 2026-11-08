@@ -365,6 +365,26 @@ test('an open read recounts unread and a cursor already at the end still clears 
     assert.equal(cleared.room.unread.personal,0);assert.equal(cleared.room.unread.learning,2);
   }finally{await f.drain();f.close();}
 });
+test('a stale history summary does not restore unread after a read',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f);
+    const sent=await c.command('alice','send',{text:'one',clientKey:'stale-unread'});await f.drain();
+    const read=await c.command('bob','read',{category:'personal',through:sent.message.id});
+    assert.equal(read.room.unread.personal,0);
+    const room=f.env.CHAT_ROOM.get(c.id),current=room.summary(f.bob.id);
+    room.summary=()=>({...current,revision:current.revision-1,unread:{personal:139,learning:4}});
+    const history=await c.command('bob','history',{category:'personal'});
+    assert.equal(history.room.unread.personal,139);
+    const stored=(await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id);
+    assert.equal(stored.unread.personal,0);
+    assert.equal(stored.revision,current.revision);
+    room.summary=()=>({...current,revision:current.revision+1,unread:{personal:2,learning:0}});
+    await c.command('bob','history',{category:'personal'});
+    const newer=(await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id);
+    assert.equal(newer.unread.personal,2);
+    assert.equal(newer.revision,current.revision+1);
+  }finally{await f.drain();f.close();}
+});
 test('socket lifetime follows the account session and a revocation lookup error does not close it',async()=>{
   const now=1_700_000_000_000;
   assert.equal(chatSocketExpires(now+3*3600*1000,now),now+3*3600*1000);
@@ -1046,5 +1066,6 @@ test('Chat direct message sides, receipt styling and unread persistence invarian
 
   const durableJs = fs.readFileSync(path.resolve('src/chat-durable.mjs'), 'utf8');
   assert.match(durableJs, /if\(cursor===member\[column\]&&unread===member\['unread_'\+kind\]\)return \{read:true,unchanged:true,room:this\.summary\(actor\.id\)\};/);
-  assert.match(durableJs, /if\(result\?\.room\)this\.sql\.exec\('INSERT INTO rooms\(id,data\) VALUES\(\?,\?\) ON CONFLICT\(id\) DO UPDATE SET data=excluded\.data'/);
+  assert.match(durableJs, /if\(old&&\(JSON\.parse\(old\.data\)\.revision\|\|0\)>\(room\.revision\|\|0\)\)return;/);
+  assert.match(durableJs, /this\.storeRoom\(room,result\?\.room\)/);
 });

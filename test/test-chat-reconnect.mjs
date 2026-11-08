@@ -174,6 +174,33 @@ test('an open room reads through the last message of its category',()=>{
   const through=runInNewContext(extractFunction(messages,'chatCategoryReadThrough')+'\nchatCategoryReadThrough');
   assert.equal(through([{id:2},{id:'pending'},{id:9}]),9);
   assert.equal(through(),0);
-  assert.match(extractFunction(messages,'markRead'),/chatCategoryReadThrough\(state\(\)\?\.rows\)/);
+  assert.match(extractFunction(messages,'markRead'),/chatCategoryReadThrough\(rows\)/);
+  assert.match(extractFunction(messages,'openRoom'),/markRead\(true, id, openedKind\)/);
   assert.match(extractFunction(messages,'acknowledgeSnapshot'),/markRead\(\)/);
+});
+test('a later read is queued while an earlier read is pending',()=>{
+  const messages=readFileSync(new URL('../production/chat/40-messages.js',import.meta.url),'utf8');
+  const admit=runInNewContext(extractFunction(messages,'chatAckAdmission')+'\nchatAckAdmission');
+  const retry=runInNewContext(extractFunction(messages,'chatAckRetry')+'\nchatAckRetry');
+  assert.equal(admit({read:5},'read',5,false).action,'skip');
+  assert.equal(admit({read:5},'read',6,false).action,'send');
+  const queued=admit({read:1,readPending:4},'read',9,true);
+  assert.equal(queued.action,'queue');
+  assert.equal(queued.queued,9);
+  assert.equal(admit({read:1,readPending:9},'read',4,true).action,'skip');
+  assert.equal(retry({read:4,readQueued:9},'read'),9);
+  assert.equal(retry({read:9,readQueued:9},'read'),0);
+});
+test('the same room revision does not raise unread',()=>{
+  const rooms=readFileSync(new URL('../production/chat/30-rooms.js',import.meta.url),'utf8');
+  const merge=runInNewContext(extractFunction(rooms,'chatUnreadMerge')+'\nchatUnreadMerge');
+  const same=merge({personal:0,learning:2},{personal:139,learning:2},7,7);
+  assert.equal(same.personal,0);
+  assert.equal(same.learning,2);
+  const newer=merge({personal:0,learning:2},{personal:1,learning:2},7,8);
+  assert.equal(newer.personal,1);
+  assert.equal(newer.learning,2);
+  const older=merge({personal:4,learning:2},{personal:0,learning:2},8,7);
+  assert.equal(older.personal,4);
+  assert.equal(older.learning,2);
 });
