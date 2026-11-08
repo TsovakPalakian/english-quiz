@@ -17139,6 +17139,65 @@ const STUDIO_CONSTELLATIONS = [{
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  let avatarFetchedUserId = null;
+
+  function safeEsc(s) {
+    if (typeof esc === 'function') return esc(s);
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function updateAvatarElements(userId, avatarUrl, name, initials) {
+    const avatarContent = avatarUrl
+      ? '<img src="' + safeEsc(avatarUrl) + '" alt="' + safeEsc(name) + '">'
+      : '<span>' + safeEsc(initials) + '</span>';
+    document.querySelectorAll('.pill-avatar-img, .popover-avatar-img, .tabbar-avatar-circle').forEach(el => {
+      if (String(el.dataset.avatarSubject || '') === String(userId)) {
+        el.innerHTML = avatarContent;
+        el.classList.toggle('has-avatar-photo', !!avatarUrl);
+      }
+    });
+  }
+
+  function ensureUserAvatar(user) {
+    if (!user || !user.id) return Promise.resolve(null);
+    const isView = typeof viewAccount !== 'undefined' && !!viewAccount;
+    if (isView) return Promise.resolve(null);
+    const userId = String(user.id);
+    if (avatarFetchedUserId === userId) return Promise.resolve(null);
+    avatarFetchedUserId = userId;
+
+    if (typeof fetch !== 'function') return Promise.resolve(null);
+    return fetch('/api/messages/profile', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json();
+      })
+      .then((data) => {
+        if (!data || !data.profile) return null;
+        const freshUrl = data.profile.avatarUrl || '';
+        const name = user.name || user.login || 'User';
+        const initials = getUserInitials(name);
+
+        if (freshUrl) {
+          try { localStorage.setItem('enquiz-user-avatar:' + userId, freshUrl); } catch {}
+        } else {
+          try { localStorage.removeItem('enquiz-user-avatar:' + userId); } catch {}
+        }
+
+        user.avatarUrl = freshUrl;
+        if (typeof authUser !== 'undefined' && authUser && String(authUser.id) === userId) {
+          authUser.avatarUrl = freshUrl;
+        }
+        if (typeof profileViews !== 'undefined' && profileViews) {
+          profileViews[userId] = { ...profileViews[userId], ...data.profile };
+        }
+
+        updateAvatarElements(userId, freshUrl, name, initials);
+        return freshUrl;
+      })
+      .catch(() => null);
+  }
+
   function paintUserProfilePill() {
     const hosts = [
       document.getElementById('userProfilePillHost'),
@@ -17322,6 +17381,7 @@ const STUDIO_CONSTELLATIONS = [{
             }
           } else if (act === 'logout') {
             setUserStatus('offline');
+            avatarFetchedUserId = null;
             if (typeof performLogout === 'function') {
               performLogout();
             } else {
@@ -17355,6 +17415,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     if (typeof scheduleProfiles === 'function') scheduleProfiles();
     else if (typeof window.scheduleProfiles === 'function') window.scheduleProfiles();
+    ensureUserAvatar(user);
   }
 
   // Global listener for closing popover on outside click and Escape, plus Cmd+, / Ctrl+, shortcut
@@ -17426,9 +17487,9 @@ const STUDIO_CONSTELLATIONS = [{
   })();
 
   window.paintUserProfilePill = paintUserProfilePill;
+  window.ensureUserAvatar = ensureUserAvatar;
+  window.updateAvatarElements = updateAvatarElements;
   window.setUserStatus = setUserStatus;
-  window.getUserStatus = getUserStatus;
-  window.syncStatusDots = syncStatusDots;
   window.getUserStatus = getUserStatus;
   window.syncStatusDots = syncStatusDots;
   window.isLessonActive = isLessonActive;
