@@ -365,6 +365,23 @@ test('an open read recounts unread and a cursor already at the end still clears 
     assert.equal(cleared.room.unread.personal,0);assert.equal(cleared.room.unread.learning,2);
   }finally{await f.drain();f.close();}
 });
+test('an imported room baselines stale historical unread counters once',async()=>{
+  const f=fixture();try{
+    await f.boot();const id=directRoomId('alice','bob');
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct',title:'Private conversation'},members:[f.alice,f.bob]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[
+      {id:1,sender_id:'alice',sender_name:'Alice',category:'personal',body:'Read before import',client_key:'legacy-read',created_ms:Date.now()},
+      {id:2,sender_id:'alice',sender_name:'Alice',category:'learning',body:'Read alert before import',client_key:'legacy-alert',created_ms:Date.now()},
+    ],members:[{account_id:'alice',read_personal:0,read_learning:0},{account_id:'bob',read_personal:0,read_learning:0}],complete:true});
+    const summary=await chatCall(f.env,'CHAT_ROOM',id,'/summary',{actor:f.bob});
+    assert.deepEqual(summary.room.unread,{personal:0,learning:0});
+    const room=f.env.CHAT_ROOM.get(id);
+    assert.equal(room.one('SELECT read_personal FROM members WHERE id=?','bob').read_personal,1);
+    assert.equal(room.one('SELECT read_learning FROM members WHERE id=?','bob').read_learning,2);
+    await chatCall(f.env,'CHAT_ROOM',id,'/send',{actor:f.alice,category:'personal',text:'New message',clientKey:'new-after-baseline'});
+    assert.equal((await chatCall(f.env,'CHAT_ROOM',id,'/summary',{actor:f.bob})).room.unread.personal,1);
+  }finally{await f.drain();f.close();}
+});
 test('the latest history page marks that category read and search or older pages do not',async()=>{
   const f=fixture();try{
     const c=await managedChat(f);

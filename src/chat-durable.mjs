@@ -59,6 +59,14 @@ export class ChatRoom extends Store{
     this.sql.exec('DROP TRIGGER IF EXISTS message_search_insert;DROP TRIGGER IF EXISTS message_search_update;DROP TABLE IF EXISTS message_search;');
     this.flushing=null;
   }
+  async trusted(request){
+    await super.trusted(request);
+    if(!this.get('migrated')||this.get('imported-read-baseline-v2'))return;
+    this.tx(()=>{
+      this.sql.exec("UPDATE members SET read_personal=MAX(read_personal,COALESCE((SELECT MAX(id) FROM messages WHERE category='personal' AND id>members.joined),0)),delivered_personal=MAX(delivered_personal,COALESCE((SELECT MAX(id) FROM messages WHERE category='personal' AND id>members.joined),0)),unread_personal=0,read_learning=MAX(read_learning,COALESCE((SELECT MAX(id) FROM messages WHERE category='learning'),0)),delivered_learning=MAX(delivered_learning,COALESCE((SELECT MAX(id) FROM messages WHERE category='learning'),0)),unread_learning=0");
+      this.set('imported-read-baseline-v2',true);
+    });
+  }
   member(actor){
     if(!actor?.id||!this.get('room')?.active)fail(403,'This conversation is unavailable.');
     const actorId=String(actor.id);
