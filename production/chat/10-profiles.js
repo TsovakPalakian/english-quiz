@@ -114,7 +114,7 @@
           : '');
       node.title = group ? 'Group photo' : p ? (p.online ? 'Online' : 'Offline') : 'Status unavailable';
       node.classList.toggle('has-avatar-photo', !!url);
-      if (url && !node.closest('.brand-account')) {
+      if (url && !node.closest('.brand-account, .user-profile-pill-wrap, .user-profile-pill, .user-profile-popover, [data-mobile-profile-tab]')) {
         node.setAttribute('role', 'button');
         node.tabIndex = 0;
       } else {
@@ -335,6 +335,7 @@
       const node = event.target.closest('[data-avatar-subject].has-avatar-photo');
       if (!node || node.closest('.brand-account')) return;
       if (node.closest('#messages .msg-room, #messages [data-contact-id], #messages [data-chat-group]')) return;
+      if (node.closest('.user-profile-pill-wrap, .user-profile-pill, .user-profile-popover, [data-mobile-profile-tab]')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       if (node.closest('#msgRoomAvatar, #msgTimeline')) {
@@ -351,6 +352,7 @@
       const node = event.target.closest('[data-avatar-subject].has-avatar-photo');
       if (!node || node.closest('.brand-account') || !['Enter', ' '].includes(event.key)) return;
       if (node.closest('#messages .msg-room, #messages [data-contact-id], #messages [data-chat-group]')) return;
+      if (node.closest('.user-profile-pill-wrap, .user-profile-pill, .user-profile-popover, [data-mobile-profile-tab]')) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       if (node.closest('#msgRoomAvatar, #msgTimeline')) showInfo().catch(() => {});
