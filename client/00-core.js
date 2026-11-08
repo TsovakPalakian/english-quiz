@@ -777,7 +777,7 @@
       const data = window.GRAMMAR;
       const root = document.getElementById("tenseList");
       if (!data || !data.areas || !data.areas.length) {
-        let html = '<details class="resource-fold" id="grammarRulesFold" open><summary>Rules</summary><div class="fold-body">' +
+        let html = '<details class="resource-fold" id="grammarRulesFold"><summary>Rules</summary><div class="fold-body">' +
           tenseGroups.map((g) =>
             '<p class="tense-group">' + g.group + '</p>' +
             g.items.map((id) => '<button class="tense" type="button" data-tense="' + id + '"><b>' + tenses[id].name + '</b><span class="form">' + tenses[id].form + '</span></button>').join("")
@@ -787,13 +787,13 @@
         return;
       }
       let html = '<p class="g-map">A tense is a form. be going to, conditionals, modals, the passive and clauses are other parts of the system.</p>';
-      html += '<details class="resource-fold" id="grammarRulesFold" open><summary>Rules</summary><div class="fold-body"><div class="g-areas">' +
+      html += '<details class="resource-fold" id="grammarRulesFold"><summary>Rules</summary><div class="fold-body"><div class="g-areas">' +
         data.areas.map((area) =>
           '<button class="g-area tone-' + area.tone + '" type="button" data-area="' + area.id + '"><span class="g-badge">' + esc(area.badge) + '</span><b>' + esc(area.title) + '</b><span class="label">' + esc(area.blurb) + '</span></button>'
         ).join("") + '</div></div></details>';
       const comparisons = data.comparisons || [];
       if (comparisons.length) {
-        html += '<details class="resource-fold" id="grammarConfusedFold" open><summary>Often confused</summary><div class="fold-body">' +
+        html += '<details class="resource-fold" id="grammarConfusedFold"><summary>Often confused</summary><div class="fold-body">' +
           comparisons.map((item) =>
             '<button class="g-topic tone-' + (item.tone || "advanced") + '" type="button" data-compare="' + item.id + '"><b>' + esc(item.title) + '</b><span class="form">compare</span></button>'
           ).join("") + '</div></details>';

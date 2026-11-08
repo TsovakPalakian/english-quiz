@@ -139,7 +139,7 @@ try{
     assert.equal(await page.locator('[data-everyday-card]').count(),7);assert.equal(await page.locator('#everydayWordSearch').isVisible(),false);
   assert.deepEqual(await page.locator('#everydayWords .en').allTextContents(),['I','you','he','she','it','we','they']);await page.locator('[data-everyday-card="20001"]').click();
     yield "12. #made.on / checks";
-    await page.locator('#made.on').waitFor();assert.match(await page.locator('#madeView').innerText(),/I am ready/);assert.match(await page.locator('#madeView').innerText(),/Я готов/);assert.equal(await page.locator('#made [data-dict-add]').count(),0);
+    await page.locator('#made.on').waitFor();await page.locator('#madeView details summary').first().click();assert.match(await page.locator('#madeView').innerText(),/I am ready/);assert.match(await page.locator('#madeView').innerText(),/Я готов/);assert.equal(await page.locator('#made [data-dict-add]').count(),0);
     yield "13. #made [data-essential-study=\"card\"] / checks";
     assert.equal(await page.locator('#made [data-essential-study="card"]').count(),0);await page.locator('#made [data-nav-back]').click();await page.locator('#everydaytopic.on').waitFor();
   await page.waitForFunction(()=>accountReady);
