@@ -26713,10 +26713,13 @@ if(typeof window!=='undefined'){
     async function paintGroupDiagnostic(groupId) {
       const panel = document.getElementById('groupDetailDiagnostic');
       if (!panel) return;
+      panel.hidden = true;
+      panel.style.display = 'none';
       if (!isTeacher() || viewAccount || !groupId) {
-        panel.hidden = true;
         return;
       }
+      // Group Diagnostic Overview is temporarily hidden from page view
+      return;
       currentDiagGroupId = groupId;
       panel.hidden = false;
       const badge = document.getElementById('groupDiagTotalErrors');

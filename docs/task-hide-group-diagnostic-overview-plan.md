@@ -44,8 +44,8 @@ await pageT1.locator('#groupDetailDiagnostic').waitFor({state:'visible'});
 
 ## 4. Этапы реализации (Checklist)
 
-- ⬜ **Этап 1**: Согласование плана и мокапов («Скриншот 1» и «Скриншот 2») с пользователем.
-- ⬜ **Этап 2**: Внесение точечных изменений в [`client/53-group-directory.js`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/53-group-directory.js) и [`site/preview.html`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html) для скрытия панели `#groupDetailDiagnostic`.
-- ⬜ **Этап 3**: Сборка клиентских ассетов (`npm run build:preview`).
-- ⬜ **Этап 4**: Создание целевого теста [`test/test-hide-group-diagnostic.mjs`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-hide-group-diagnostic.mjs), проверяющего скрытость блока в DOM и рендере.
-- ⬜ **Этап 5**: Верификация прохождения тестов и сборки ассетов.
+- 🟩 **Этап 1**: Согласование плана и мокапов («Скриншот 1» и «Скриншот 2») с пользователем.
+- 🟩 **Этап 2**: Внесение точечных изменений в [`client/53-group-directory.js`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/53-group-directory.js) и [`site/preview.html`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html) для скрытия панели `#groupDetailDiagnostic`.
+- 🟩 **Этап 3**: Сборка клиентских ассетов (`npm run build:preview`).
+- 🟩 **Этап 4**: Создание целевого теста [`test/test-hide-group-diagnostic.mjs`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-hide-group-diagnostic.mjs), проверяющего скрытость блока в DOM и рендере.
+- 🟩 **Этап 5**: Верификация прохождения тестов и сборки ассетов.
