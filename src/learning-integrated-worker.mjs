@@ -693,7 +693,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
 
         return json({success:true,date:dateStr,studentId:actor.id,revision:doc.revision});
       }
-      if(path==='/api/groups/calendar.ics'&&method==='GET'){
+      if(path==='/api/groups/calendar.ics'&&['GET','HEAD'].includes(method)){
         const title=url.searchParams.get('title')||'English Lesson';
         const dateStr=url.searchParams.get('date')||'';
         const startTime=url.searchParams.get('time')||'18:30';
@@ -756,7 +756,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           'END:VCALENDAR'
         ].filter(Boolean);
 
-        return new Response(lines.join('\r\n'),{
+        return new Response(method==='HEAD'?null:lines.join('\r\n'),{
           headers:{
             'Content-Type':'text/calendar; charset=utf-8',
             'Content-Disposition':'inline; filename="lesson.ics"',
@@ -764,7 +764,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           }
         });
       }
-      if(path==='/api/groups/payment-deadline.ics'&&method==='GET'){
+      if(path==='/api/groups/payment-deadline.ics'&&['GET','HEAD'].includes(method)){
         const title=url.searchParams.get('title')||'Tuition Payment Due';
         const dateStr=url.searchParams.get('date')||'';
         const amount=url.searchParams.get('amount')||'';
@@ -819,7 +819,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           'END:VCALENDAR'
         ];
 
-        return new Response(lines.join('\r\n'),{
+        return new Response(method==='HEAD'?null:lines.join('\r\n'),{
           headers:{
             'Content-Type':'text/calendar; charset=utf-8',
             'Content-Disposition':'inline; filename="payment-deadline.ics"',

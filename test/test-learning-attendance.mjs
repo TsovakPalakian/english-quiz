@@ -358,6 +358,21 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     assert.ok(icsText.includes('DTSTART;TZID=Europe/Minsk:20261105T183000'), 'Must contain start time in Minsk timezone');
     assert.ok(icsText.includes('DTEND;TZID=Europe/Minsk:20261105T200000'), 'Must contain end time reflecting 90 min duration');
 
+    // 200 HEAD calendar.ics endpoint returns identical headers without body
+    const headCalResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/calendar.ics?groupId=1&date=2026-11-05&time=18:30&duration=90&period=month&title=B1%20Group&material=Grammar%20Unit%201', {
+        method: 'HEAD'
+      }),
+      env,
+      ctx
+    );
+    assert.equal(headCalResp.status, 200);
+    assert.ok(headCalResp.headers.get('Content-Type').includes('text/calendar'));
+    assert.equal(headCalResp.headers.get('Content-Disposition'), 'inline; filename="lesson.ics"');
+    assert.equal(headCalResp.headers.get('Cache-Control'), 'no-cache');
+    const headCalText = await headCalResp.text();
+    assert.equal(headCalText, '');
+
     // 200 GET payment-deadline.ics standard: 2d, 1d, 1h reminders
     const payIcsResp = await app.fetch(
       new Request('https://quiz.example/api/groups/payment-deadline.ics?groupId=1&date=2026-11-25&amount=240%20BYN&isEndMonth=false'),
@@ -369,6 +384,21 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     assert.ok(payIcsText.includes('TRIGGER:-P2D'), 'Standard deadline must contain 2d reminder');
     assert.ok(payIcsText.includes('TRIGGER:-P1D'), 'Standard deadline must contain 1d reminder');
     assert.ok(payIcsText.includes('TRIGGER:-PT1H'), 'Standard deadline must contain 1h reminder');
+
+    // 200 HEAD payment-deadline.ics returns identical headers without body (fixes Bug ID: 4543936f5f0a347326a7a8654e9f8c91)
+    const headPayResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/payment-deadline.ics?groupId=24&date=2026-11-26&title=Tuition%20Payment%20Due%20%C2%B7%20C2%20Group&isEndMonth=false&requisites=Bank%20transfer', {
+        method: 'HEAD'
+      }),
+      env,
+      ctx
+    );
+    assert.equal(headPayResp.status, 200);
+    assert.ok(headPayResp.headers.get('Content-Type').includes('text/calendar'));
+    assert.equal(headPayResp.headers.get('Content-Disposition'), 'inline; filename="payment-deadline.ics"');
+    assert.equal(headPayResp.headers.get('Cache-Control'), 'no-cache');
+    const headPayText = await headPayResp.text();
+    assert.equal(headPayText, '');
 
     // 200 GET payment-deadline.ics end of month: only same-day alert (no 2d or 1d)
     const endMonthResp = await app.fetch(
