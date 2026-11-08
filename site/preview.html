@@ -571,7 +571,15 @@
       <div class="meta"><button class="btn ghost" type="button" data-nav-back data-fallback="home">Back</button><h1>Groups</h1><button class="btn primary" type="button" id="groupNew" hidden>+ Add subgroup</button></div>
       <p class="sub">In date order.</p>
       <div>
-        <div id="groupControls" hidden><input id="groupSearch" type="search" aria-label="Search subgroups" placeholder="Search subgroups"></div>
+        <div id="groupControls" hidden>
+          <input id="groupSearch" type="search" aria-label="Search subgroups" placeholder="Search subgroups">
+          <select id="groupSort" class="saas-select" aria-label="Sort subgroups">
+            <option value="date-desc">Newest first</option>
+            <option value="date-asc">Oldest first</option>
+            <option value="name-asc">Name (A–Z)</option>
+            <option value="name-desc">Name (Z–A)</option>
+          </select>
+        </div>
         <div id="groupList"></div>
       </div>
     </section>

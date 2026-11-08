@@ -109,17 +109,34 @@
           if (err && err.status === 409 && typeof groupPull === "function") groupPull(true);
         });
     }
-    let groupViewLevel = '', examViewLevel = '', examViewGroup = null;
+    let groupViewLevel = '', groupSortOrder = 'date-desc', examViewLevel = '', examViewGroup = null;
     document.addEventListener('input',event=>{if(event.target.id==='groupSearch')paintGroups();});
+    document.addEventListener('change',event=>{if(event.target.id==='groupSort'){groupSortOrder=event.target.value;paintGroups();}});
+    function groupPluralLabel(singular, plural, count) {
+      return Number(count) === 1 ? singular : plural;
+    }
     function metricPairs(rows,compact=false){if(!authUser||viewAccount||!['ADMIN','DEVELOPER'].includes(authUser.role))return '';return '<span class="metric-pairs'+(compact?' metric-pairs--compact':'')+'">'+rows.map(([label,value])=>'<span>'+esc(compact?({'groups':'group','assigned works':'assigned','ready for review':'ready'}[label]||label):label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
     function levelButtons(rows,attribute) {
       const hasUnassigned = (classGroupsReady || !authUser) && rows.some(row=>accountGroupLevel(row)==='unassigned');
       const levels = hasUnassigned ? [...adminLevels,'unassigned'] : adminLevels;
-      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{const groups=rows.filter(row=>accountGroupLevel(row)===level),pairs=[['groups',groups.length],['students',groups.reduce((sum,g)=>sum+(g.studentCount||0),0)],['lessons',groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0)]];const empty=pairs.every(([,value])=>!value);return '<button class="file-card'+(empty?' is-empty':'')+'" type="button" '+attribute+'="'+level+'"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b><span class="label">'+metricPairs(pairs,true)+'</span></button>';}).join('')+'</div>';
+      return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{
+        const groups=rows.filter(row=>accountGroupLevel(row)===level);
+        const groupCount = groups.length;
+        const studentCount = groups.reduce((sum,g)=>sum+(g.studentCount||0),0);
+        const lessonCount = groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0);
+        const pairs=[
+          [groupPluralLabel('Group','Groups',groupCount),groupCount],
+          [groupPluralLabel('Student','Students',studentCount),studentCount],
+          [groupPluralLabel('Lesson','Lessons',lessonCount),lessonCount]
+        ];
+        const empty=pairs.every(([,value])=>!value);
+        const chevron = '<span class="card-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></span>';
+        return '<button class="file-card'+(empty?' is-empty':'')+'" type="button" '+attribute+'="'+level+'"><div class="card-top-row"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b>'+chevron+'</div><span class="label">'+metricPairs(pairs,true)+'</span></button>';
+      }).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
       const group=event.target.closest('[data-group-level]'), level=event.target.closest('[data-exam-level]'), subgroup=event.target.closest('[data-exam-group-view]');
-      if(group){pushHistory();groupViewLevel=group.dataset.groupLevel;const search=document.getElementById('groupSearch');if(search)search.value='';paintGroups();rememberPlace();}
+      if(group){pushHistory();groupViewLevel=group.dataset.groupLevel;const search=document.getElementById('groupSearch');if(search)search.value='';const sort=document.getElementById('groupSort');if(sort)sort.value=groupSortOrder||'date-desc';paintGroups();rememberPlace();}
       if(level){pushHistory();examViewLevel=level.dataset.examLevel;examViewGroup=null;examPaintList();rememberPlace();}
       if(subgroup){pushHistory();examViewGroup=subgroup.dataset.examGroupView;examPaintList();rememberPlace();}
     });
@@ -153,10 +170,21 @@
       syncRoleHomeControls();
       const allRows = classGroups.filter((group) => (canEditLessons() || canTuneStudentLessons() || !group.hidden) && teacherOwnsGroup(group)).slice().sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
       const controls=document.getElementById('groupControls');if(controls)controls.hidden=!groupViewLevel;
+      const sortEl = document.getElementById('groupSort');
+      if (sortEl && groupSortOrder && sortEl.value !== groupSortOrder) {
+        sortEl.value = groupSortOrder;
+      }
       const levelRows=groupViewLevel?allRows.filter(group=>accountGroupLevel(group)===groupViewLevel):allRows;
       if(!groupViewLevel){box.innerHTML=levelButtons(allRows,'data-group-level');return;}
       const query=document.getElementById('groupSearch')?.value.trim().toLocaleLowerCase()||'';
+      const sortOrder=(document.getElementById('groupSort')?.value)||groupSortOrder||'date-desc';
       const rows=levelRows.filter(group=>group.title.toLocaleLowerCase().includes(query));
+      rows.sort((a,b)=>{
+        if(sortOrder==='date-asc')return (a.date||'').localeCompare(b.date||'')||(Number(a.id)||0)-(Number(b.id)||0);
+        if(sortOrder==='name-asc')return (a.title||'').localeCompare(b.title||'')||(b.date||'').localeCompare(a.date||'');
+        if(sortOrder==='name-desc')return (b.title||'').localeCompare(a.title||'')||(b.date||'').localeCompare(a.date||'');
+        return (b.date||'').localeCompare(a.date||'')||(Number(b.id)||0)-(Number(a.id)||0);
+      });
       box.innerHTML = '<h2>Study groups</h2>'+rows.map((group) => {
         const count = group.lessonIds.filter((id) => visible.has(id)).length;
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
@@ -170,7 +198,7 @@
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
         const tools = canEditLessons() || canTuneStudentLessons() ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (hidden ? "Show" : "Hide") + '">' + eye + '</button>' + (canEditLessons() ? '<button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + '</button>' : '') + '</div>' : '';
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + (empty ? " is-empty" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([['students',group.studentCount||0],['lessons',count]],true)+(hidden||hiddenCount?'<span>'+esc(about)+'</span>':'') + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + (empty ? " is-empty" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([[groupPluralLabel('Student', 'Students', group.studentCount || 0), group.studentCount || 0], [groupPluralLabel('Lesson', 'Lessons', count), count]], true) + (hidden || hiddenCount ? '<span>' + esc(about) + '</span>' : '') + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function groupOpen(id) {

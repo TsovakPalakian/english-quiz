@@ -5103,9 +5103,14 @@ body:is(.guest-home,.guest-auth) .feedback-files-summary button {
   margin: 0 0 16px;
 }
 #groupList > .decks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
   gap: 16px;
 }
 #groupList .file-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   min-height: 96px;
   padding: 18px 20px;
   border-radius: var(--saas-radius-lg, 12px);
@@ -5113,35 +5118,234 @@ body:is(.guest-home,.guest-auth) .feedback-files-summary button {
   border: 1px solid var(--saas-border, #e2e8f0);
   box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
   transition: all 0.15s ease;
+  text-align: left;
+  cursor: pointer;
 }
 #groupList .file-card:hover {
   border-color: var(--saas-primary, #0d9488);
-  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(0,0,0,0.08));
+  box-shadow: var(--saas-shadow-card, 0 4px 12px rgba(13, 148, 136, 0.12));
   transform: translateY(-2px);
 }
-#groupList .day-row {
-  border: 1px solid var(--saas-border, #e2e8f0);
-  border-radius: var(--saas-radius-lg, 12px);
-  background: var(--saas-card, #ffffff);
-  box-shadow: var(--saas-shadow-xs, 0 1px 2px rgba(0,0,0,0.04));
-  padding: 8px 14px;
-  margin-bottom: 10px;
-  transition: all 0.15s ease;
+#groupList .file-card .card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 8px;
 }
-#groupList .day-row:hover {
+#groupList .file-card .card-top-row b {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--saas-text-primary, #1e293b);
+}
+#groupList .file-card .card-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--saas-text-muted, #94a3b8);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+#groupList .file-card:hover .card-chevron {
+  color: var(--saas-primary, #0d9488);
+  transform: translateX(3px);
+}
+#groupList .file-card .label {
+  width: 100%;
+  display: block;
+}
+#groupList .file-card .metric-pairs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-size: 12.5px;
+  color: var(--saas-text-muted, #64748b);
+  gap: 8px;
+}
+#groupList .file-card .metric-pairs > span {
+  white-space: nowrap;
+}
+#groupList .file-card .metric-pairs b {
+  font-weight: 700;
+  color: var(--saas-text-primary, #0f172a);
+}
+
+/* Group Controls (Search & Sort) */
+#groupControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+#groupControls[hidden] {
+  display: none !important;
+}
+#groupSearch {
+  max-width: 320px;
+  height: 40px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: var(--saas-radius-md, 8px);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  font-size: 14px;
+  background: var(--saas-card, #ffffff);
+  box-sizing: border-box;
+}
+#groupSort {
+  height: 40px;
+  min-height: 40px;
+  min-width: 160px;
+  width: auto;
+  padding: 0 34px 0 14px;
+  border-radius: var(--saas-radius-md, 8px);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  background: var(--saas-card, #ffffff);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--saas-text-body, #334155);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  box-sizing: border-box;
+}
+#groupSort:hover {
   border-color: var(--saas-primary, #0d9488);
-  box-shadow: var(--saas-shadow-card, 0 3px 10px rgba(0,0,0,0.06));
+}
+#groupSort:focus {
+  outline: none;
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: 0 0 0 3px var(--saas-focus-ring, rgba(13, 148, 136, 0.15));
+}
+
+/* Subgroup Rows (Distinct button.day & independent .day-tools) */
+#groupList .day-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-bottom: 10px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 #groupList .day-row .day {
-  padding: 6px 8px;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 2px 14px;
+  align-items: center;
+  text-align: left;
+  padding: 12px 16px;
+  margin-bottom: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+#groupList .day-row .day:hover {
+  border-color: var(--saas-primary, #0d9488);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.05);
 }
 #groupList .day-row .day .date {
-  border-radius: 8px;
-  background: var(--saas-card-muted, #f8fafc);
+  grid-row: 1 / span 2;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  background: var(--saas-card-muted, #f1f5f9);
   border: 1px solid var(--saas-border, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--saas-primary, #0d9488);
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1;
+  margin: 0;
+}
+#groupList .day-row .day .date small {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--saas-text-muted, #64748b);
+  margin-top: 2px;
+}
+#groupList .day-row .day > b {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--saas-text-primary, #1e293b);
+  margin: 0;
+}
+#groupList .day-row .day .about {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: var(--saas-text-muted, #64748b);
+  font-size: 13px;
+  margin-top: 2px;
+}
+#groupList .day-row .day .about .metric-pairs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+#groupList .day-row .day .about .metric-pairs > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+#groupList .day-row .day .about .metric-pairs b {
+  color: var(--saas-text-primary, #0f172a);
+  font-weight: 700;
+}
+#groupList .day-row .day-tools {
+  display: flex;
+  flex-direction: column;
   width: 44px;
-  height: 44px;
-  margin-right: 12px;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--card);
+}
+#groupList .day-row .day-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  min-height: 32px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: var(--saas-primary, #0d9488);
+  transition: background 0.15s ease;
+}
+#groupList .day-row .day-tools button.day-edit,
+#groupList .day-row .day-tools button.day-del {
+  border-top: 1px solid var(--line);
+}
+#groupList .day-row .day-tools button.day-del {
+  color: var(--bad, #e11d48);
+}
+#groupList .day-row .day-tools button:hover {
+  background: rgba(0,0,0,0.04);
+}
+#groupList .day-row .day-tools svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Group Detail Destination Hub */
