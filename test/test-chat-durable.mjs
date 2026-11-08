@@ -140,8 +140,8 @@ test('chat preferences persist per account, archive suppresses unread and cannot
     const a=(await c.command('alice','snapshot')).rooms.find(r=>r.id===c.id),b=(await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id);
     assert.equal(a.archived,true);assert.equal(a.pinOrder,1);assert.equal(a.sound,'common-toad');assert.ok(!b.archived);assert.equal((await c.command('alice','snapshot')).total,0);
     await c.command('bob','send',{text:'still archived',clientKey:'managed-2'});await f.drain();
-    assert.equal((await c.command('alice','snapshot')).total,0);assert.equal((await c.command('alice','history')).messages.length,2);
-    await c.command('alice','room-settings',{archived:false});await f.drain();assert.equal((await c.command('alice','snapshot')).total,2);
+    assert.equal((await c.command('alice','snapshot')).total,0);assert.equal(f.env.CHAT_ROOM.get(c.id).summary('alice').unread.personal,2);assert.equal((await c.command('alice','history')).messages.length,2);
+    await c.command('alice','room-settings',{archived:false});await f.drain();assert.equal((await c.command('alice','snapshot')).total,0);
   }finally{await f.drain();f.close();}
 });
 test('mute deadlines expire without writing and invalid preferences are rejected atomically',async()=>{
@@ -363,6 +363,34 @@ test('an open read recounts unread and a cursor already at the end still clears 
     assert.equal(staleCursor.unchanged,true);
     const cleared=await c.command('bob','read',{category:'personal',through:second.message.id});
     assert.equal(cleared.room.unread.personal,0);assert.equal(cleared.room.unread.learning,2);
+  }finally{await f.drain();f.close();}
+});
+test('the latest history page marks that category read and search or older pages do not',async()=>{
+  const f=fixture();try{
+    const c=await managedChat(f);
+    const first=await c.command('alice','send',{text:'one',clientKey:'hist-read-1'});await f.drain();
+    const searched=await c.command('bob','history',{category:'personal',q:'one'});
+    assert.equal(searched.messages.length,1);
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,1);
+    await c.command('bob','history',{category:'personal',before:first.message.id+1});
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,1);
+    const opened=await c.command('bob','history',{category:'personal'});
+    assert.equal(opened.room.unread.personal,0);
+    assert.equal(opened.readThrough>=first.message.id,true);
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,0);
+    const second=await c.command('alice','send',{text:'two',clientKey:'hist-read-2'});await f.drain();
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,1);
+    await c.command('bob','history',{category:'personal',before:second.message.id});
+    assert.equal((await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id).unread.personal,1);
+    await chatCall(f.env,'CHAT_ROOM',c.id,'/import',{messages:[{sender_id:'alice',sender_name:'Alice',category:'learning',body:'Lesson',client_key:'hist-learn',created_ms:Date.now()}]});await f.drain();
+    const personal=await c.command('bob','history',{category:'personal'});
+    assert.equal(personal.room.unread.personal,0);
+    assert.equal(personal.room.unread.learning,1);
+    const learning=await c.command('bob','history',{category:'learning'});
+    assert.equal(learning.room.unread.learning,0);
+    assert.equal(learning.room.unread.personal,0);
+    const stored=(await c.command('bob','snapshot')).rooms.find(r=>r.id===c.id);
+    assert.equal(stored.unread.personal,0);assert.equal(stored.unread.learning,0);
   }finally{await f.drain();f.close();}
 });
 test('a stale history summary does not restore unread after a read',async()=>{
@@ -733,6 +761,7 @@ test('Edit, delete, pin and reactions persist with per-viewer permissions, searc
   const f=fixture();try{await f.boot();const {alice,bob,env}=f,{roomId}=await chatCall(env,'CHAT_INBOX','alice','/command',{action:'open',body:{kind:'direct',accountId:'bob'}});
     await chatCall(env,'CHAT_ROOM',roomId,'/file/register',{actor:alice,file:{id:'audio',name:'audio.wav',mime:'audio/wav',size:44,storageKey:'chat/files/audio'}});
     const {message}=await chatCall(env,'CHAT_ROOM',roomId,'/send',{actor:alice,text:'Original words',files:['audio'],clientKey:'editable'});await f.drain();
+    assert.equal((await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).total,1);
     assert.equal((await chatCall(env,'CHAT_ROOM',roomId,'/history',{actor:bob})).messages[0].canEdit,false);
     await assert.rejects(chatCall(env,'CHAT_ROOM',roomId,'/edit',{actor:bob,id:message.id,text:'Stolen'}),e=>e.status===403);
     const edited=await chatCall(env,'CHAT_ROOM',roomId,'/edit',{actor:alice,id:message.id,text:'Improved words',expectedEditedMs:0});await f.drain();assert.ok(edited.message.editedMs);
@@ -740,7 +769,7 @@ test('Edit, delete, pin and reactions persist with per-viewer permissions, searc
     await assert.rejects(chatCall(env,'CHAT_ROOM',roomId,'/edit',{actor:alice,id:message.id,text:'Stale',expectedEditedMs:0}),e=>e.status===409);
     await chatCall(env,'CHAT_ROOM',roomId,'/pin',{actor:bob,id:message.id});assert.equal((await chatCall(env,'CHAT_ROOM',roomId,'/summary',{actor:alice})).room.pinned.id,message.id);
     await chatCall(env,'CHAT_ROOM',roomId,'/react',{actor:bob,id:message.id,emoji:'\u{1f44d}'});await f.drain();const reactions=(await chatCall(env,'CHAT_ROOM',roomId,'/history',{actor:bob})).messages[0].reactions;assert.equal(reactions[0].mine,true);assert.equal((await chatCall(env,'CHAT_ROOM',roomId,'/history',{actor:alice})).messages[0].reactions[0].mine,false);
-    assert.equal((await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).total,1,'Edits and reactions do not add unread messages');
+    assert.equal((await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).total,0,'Edits and reactions do not add unread messages');
     await chatCall(env,'CHAT_ROOM',roomId,'/delete',{actor:alice,id:message.id});await f.drain();const deleted=(await chatCall(env,'CHAT_ROOM',roomId,'/history',{actor:bob})).messages[0];assert.equal(deleted.deleted,true);assert.deepEqual(deleted.files,[]);assert.equal((await chatCall(env,'CHAT_INBOX','bob','/snapshot',{})).total,0);assert.equal((await chatCall(env,'CHAT_ROOM',roomId,'/summary',{actor:bob})).room.pinned,null);
     await assert.rejects(chatCall(env,'CHAT_ROOM',roomId,'/file',{actor:alice,id:'audio'}),e=>e.status===404);await assert.rejects(chatCall(env,'CHAT_ROOM',roomId,'/forward/source',{actor:bob,id:message.id}),e=>e.status===403);
   }finally{await f.drain();f.close();}

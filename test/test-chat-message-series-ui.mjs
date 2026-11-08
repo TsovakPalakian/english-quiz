@@ -48,6 +48,11 @@ try {
       assert.ok(await page.locator('.msg-message:not(.is-own) .msg-sender-avatar').count()>0,'Other messages display avatars outside bubble');
       const positions=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().left));
       const boxes=await page.locator('.msg-message').evaluateAll(nodes=>nodes.map(node=>({own:node.classList.contains('is-own'),group:node.classList.contains('is-group-message'),visibility:getComputedStyle(node).contentVisibility})));
+      const host=await page.locator('#fixture').boundingBox();
+      const ownBox=await page.locator('.msg-message.is-own').first().boundingBox();
+      const otherBox=await page.locator('.msg-message:not(.is-own)').first().boundingBox();
+      assert.ok(ownBox.x+ownBox.width>host.x+host.width*0.7,'Own bubble sits on the right half');
+      assert.ok(otherBox.x<host.x+host.width*0.45,'Other bubble sits on the left half');
       if(kind==='direct'){
         assert.ok(positions[0]>positions[3],'Direct own messages stay on the right');
         assert.ok(boxes.every(row=>row.visibility==='visible'&&!row.group));

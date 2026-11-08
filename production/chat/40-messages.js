@@ -726,6 +726,7 @@
     });
   });
   function mergeNode(m, group = true) {
+    const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : ''));
     let node =
       timeline.querySelector('[data-msg-id="' + CSS.escape(String(m.id)) + '"]') ||
       (m.clientKey ? timeline.querySelector('[data-client-key="' + CSS.escape(m.clientKey) + '"]') : null);
@@ -739,6 +740,7 @@
       m.replyText,
       m.replySender,
       m.sender,
+      m.senderId,
       m.createdMs,
       m.examId,
       m.assignmentActive,
@@ -751,6 +753,7 @@
         data.rooms.find((r) => r.id === room)?.pinned?.id === m.id,
     ]);
     if (node?.dataset.content === content) {
+      node.classList?.toggle('is-own', own);
       const receipt = node.querySelector('.msg-receipt'),
         face = chatReceiptFace(m);
       if (
@@ -781,7 +784,6 @@
     if (node.innerHTML !== html) {
       node.innerHTML = html;
     }
-    const own = typeof isOwnMessage === 'function' ? isOwnMessage(m) : (String(m?.senderId) === String(typeof account !== 'undefined' ? account : ''));
     node.className =
       'msg-message' +
       (own ? ' is-own' : '') +

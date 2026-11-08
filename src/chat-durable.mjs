@@ -207,7 +207,12 @@ export class ChatRoom extends Store{
       if(rows.length===51||batch.length<100)break;cursor=batch.at(-1).id;
     }while(true);
     const page=rows.slice(0,50);if(!after)page.reverse();
-    return {messages:page.map(row=>this.message(row,actor.id)),more:rows.length>50,readThrough:member['read_'+kind],room:this.summary(actor.id)};
+    let readThrough=member['read_'+kind],roomSummary=null;
+    if(!before&&!after&&!q){
+      const tail=this.one("SELECT COALESCE(MAX(id),0) id FROM messages WHERE category=? AND (id>? OR category='learning')",kind,member.joined).id;
+      if(tail){roomSummary=this.read(actor,{category:kind,through:tail}).room;readThrough=this.member(actor)['read_'+kind];}
+    }
+    return {messages:page.map(row=>this.message(row,actor.id)),more:rows.length>50,readThrough,room:roomSummary||this.summary(actor.id)};
   }
   forwardSource(actor,id,study=false){
     const member=this.member(actor),row=this.one('SELECT * FROM messages WHERE id=?',integer(id));

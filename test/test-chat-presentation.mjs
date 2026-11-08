@@ -41,7 +41,7 @@ test('chat names use public roles, preserve group titles and do not invent inter
 });
 test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
   const message={id:1,text:'hello',senderId:'me',createdMs:1,delivered:true};
-  const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions,false]);
+  const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.senderId,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions,false]);
   let writes=0,scans=0;
   const receipt={getAttribute:()=> 'Delivered',setAttribute(){writes++;},classList:{toggle(){writes++;},contains:cls=>cls==='is-delivered'},set innerHTML(value){writes++;},set title(value){writes++;}};
   const node={dataset:{content,msgId:'1'},querySelector:()=>receipt};
@@ -49,6 +49,24 @@ test('unchanged receipts do not rebuild icons or mutate the timeline',()=>{
   const merge=runInNewContext(extractFunction(source,'chatReceiptFace')+'\n'+extractFunction(source,'mergeNode')+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',CSS:{escape:String},icon:()=>{scans++;return '';},icons:()=>scans++});
   for(let i=0;i<100;i++)merge(message);
   assert.equal(writes,0);assert.equal(scans,0);
+});
+test('repeated paint puts the sender bubble on the own side and leaves another sender on the left',()=>{
+  function paint(message,classes){
+    const content=JSON.stringify([message.id,message.text,message.format,message.files,message.forwarded,message.replyTo,message.replyText,message.replySender,message.sender,message.senderId,message.createdMs,message.examId,message.assignmentActive,message.pending,message.failed,message.deleted,message.editedMs,message.reactions,false]);
+    let writes=0;
+    const receipt={getAttribute:()=>'Sent',setAttribute(){writes++;},classList:{toggle(){writes++;},contains:()=>false},set innerHTML(value){writes++;},set title(value){writes++;}};
+    const node={dataset:{content,msgId:String(message.id)},querySelector:()=>receipt,classList:{toggle(name,on){if(on)classes.add(name);else classes.delete(name);},contains:name=>classes.has(name)}};
+    const timeline={querySelector:()=>node,querySelectorAll:()=>[node]};
+    const merge=runInNewContext(extractFunction(source,'chatReceiptFace')+'\n'+extractFunction(source,'mergeNode')+'\nmergeNode',{timeline,data:{rooms:[]},room:'fixture',account:'me',CSS:{escape:String},icon:()=>'',icons(){writes++;}});
+    merge(message);
+    return writes;
+  }
+  const own=new Set(['msg-message']);
+  const other=new Set(['msg-message','is-own']);
+  assert.equal(paint({id:2,text:'mine',senderId:'me',sender:'Me',createdMs:2},own),0);
+  assert.equal(own.has('is-own'),true);
+  assert.equal(paint({id:3,text:'theirs',senderId:'other',sender:'Other',createdMs:3},other),0);
+  assert.equal(other.has('is-own'),false);
 });
 test('icon rendering coalesces a burst of updates into one animation frame',()=>{
   let scans=0;const callbacks=[];
