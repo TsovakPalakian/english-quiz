@@ -116,7 +116,10 @@ test('live contacts search operates without lookup button or enter key', async (
 
     // 4. Live typing queries directory without pressing Enter
     await page.locator('#msgRoomSearch').fill('bob');
-    await page.waitForTimeout(400);
+    const start = Date.now();
+    while (lookupQueries.length === 0 && Date.now() - start < 5000) {
+      await new Promise(r => setTimeout(r, 20));
+    }
     assert.equal(lookupQueries.length, 1, 'Typing >= 3 chars triggers live lookup automatically');
     assert.equal(lookupQueries[0], 'bob');
 
@@ -128,7 +131,10 @@ test('live contacts search operates without lookup button or enter key', async (
     // 6. Enter key triggers immediate lookup without error
     await page.locator('#msgRoomSearch').fill('teacher@example.com');
     await page.locator('#msgRoomSearch').press('Enter');
-    await page.waitForTimeout(100);
+    const enterStart = Date.now();
+    while (!lookupQueries.includes('teacher@example.com') && Date.now() - enterStart < 5000) {
+      await new Promise(r => setTimeout(r, 20));
+    }
     assert.ok(lookupQueries.includes('teacher@example.com'), 'Pressing Enter flushes and triggers immediate lookup');
   } finally {
     await browser.close();

@@ -42,7 +42,8 @@ try{
       await page.goto(preview.url);await page.locator('#registerForm').waitFor({state:'visible'});
     }
     if(kind==='student'){
-      let registerCalls=0;
+      let registerCalls=0,releaseRegistration;
+      const registrationHold=new Promise(r=>{releaseRegistration=r;});
       await page.route('**/api/auth/otp/request',route=>route.fulfill({json:{email:'student@example.invalid'}}));
       await page.route('**/api/register',async route=>{
         registerCalls++;
@@ -50,7 +51,7 @@ try{
         assert.equal(body.invite,'fixture-student');assert.equal(body.name,'Student');
         assert.equal(body.emailCode,'123456');
         assert.equal('role' in body,false);
-        await new Promise(r=>setTimeout(r,150));
+        await registrationHold;
         return route.fulfill({json:{status:'pending'}});
       });
       await page.locator('#registerForm [name="login"]').fill('fixture_student');
@@ -68,6 +69,7 @@ try{
       await submitBtn.click();
       assert.equal(await submitBtn.evaluate(el=>el.disabled),true,'Submit button is disabled while registration request is in flight');
       await submitBtn.click({force:true});
+      releaseRegistration();
       await page.locator('#loginForm').waitFor({state:'visible'});
       assert.equal(registerCalls,1,'Concurrent/duplicate submission is blocked while request is in flight');
       assert.equal(await page.evaluate(()=>sessionStorage.getItem('enquiz-invite')),null);
