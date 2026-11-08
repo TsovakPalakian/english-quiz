@@ -298,7 +298,11 @@
         }
       }
     } else if (isScheduled) {
-      showGcwRedAlert(anchorEl, 'No lesson available for this date', canEdit ? onCancelDate : null);
+      if (canEdit) {
+        showLessonSchedulerModal(groupId, dateStr, state, container);
+      } else {
+        showGcwRedAlert(anchorEl, 'No lesson available for this date', onCancelDate);
+      }
     } else if (isPaymentDeadline) {
       if (canEdit) {
         showPaymentDeadlineModal(groupId, dateStr, state, container);
@@ -1725,20 +1729,27 @@
     dialog.id = 'gcwSchedulerDialog';
     dialog.className = 'gcw-scheduler-dialog';
 
+    let grp = null;
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    const groupLessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+
     let materialsHtml = '<option value="">(None / Draft material)</option>';
     if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
       for (const mat of lmLibrary.materials) {
-        if (!mat.hidden && (Number(mat.groupId) === Number(groupId) || !mat.groupId)) {
+        const isGroupLesson = groupLessonIds.includes(String(mat.id)) || Number(mat.groupId) === Number(groupId);
+        if (!mat.hidden && isGroupLesson) {
           const isSel = String(mat.id) === String(currentMaterialId) ? ' selected' : '';
           materialsHtml += '<option value="' + esc(mat.id) + '"' + isSel + '>' + esc(mat.title || 'Lesson ' + mat.id) + '</option>';
         }
       }
     }
 
-    const students = getGroupStudents(groupId);
-    const studentsPreviewText = students.length > 0
-      ? students.map(s => s.name || s.login).join(', ')
-      : 'All group students';
+    const tzName = (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Minsk';
 
     let html = '';
     html += '<div class="gcw-scheduler-head">';
@@ -1748,13 +1759,17 @@
 
     html += '<div class="gcw-scheduler-body">';
     html += '<div class="gcw-field-group">';
-    html += '<label>Lesson Date</label>';
-    html += '<div style="font-size:14px; font-weight:600; color:var(--ink);">' + esc(weekdayName) + ', ' + esc(dateStr) + '</div>';
+    html += '<label for="gcwSchedDateBtn">Lesson Date <span style="display:inline-block; padding:2px 6px; font-size:10px; font-weight:700; background:#e0f2fe; color:#0369a1; border-radius:4px; margin-left:6px;">Click to change</span></label>';
+    html += '<button type="button" class="gcw-date-picker-btn" id="gcwSchedDateBtn" title="Click to choose a date from calendar">';
+    html += '<span id="gcwSchedDateText">' + esc(weekdayName) + ', ' + esc(dateStr) + '</span>';
+    html += '<span aria-hidden="true">📅</span>';
+    html += '</button>';
     html += '</div>';
 
     html += '<div class="gcw-field-group">';
     html += '<label for="gcwSchedMaterial">Learning Material</label>';
     html += '<select id="gcwSchedMaterial">' + materialsHtml + '</select>';
+    html += '<div id="gcwSchedMaterialHint" style="color:var(--bad, #dc2626); font-size:12px; margin-top:4px; display:none;">⚠️ Please select a learning material to schedule a lesson.</div>';
     html += '</div>';
 
     html += '<div class="gcw-field-group">';
@@ -1775,12 +1790,12 @@
 
     const initialEndTime = formatEndTime(currentStartTime, currentDuration);
     html += '<div class="gcw-time-preview" id="gcwTimePreview">';
-    html += 'Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(initialEndTime) + '</strong> (' + currentDuration + ' min)';
+    html += '<span>🕒</span> <span>Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(initialEndTime) + '</strong> (' + currentDuration + ' min)</span>';
     html += '</div>';
 
     html += '<div class="gcw-tz-preview-box">';
-    html += '<div class="gcw-tz-title">Student Timezone & Sync Preview</div>';
-    html += '<div>Synchronized with: <b>' + esc(studentsPreviewText) + '</b></div>';
+    html += '<div class="gcw-tz-title">Group Timezone & Sync Preview</div>';
+    html += '<div>Timezone: <b>' + esc(tzName) + ' (Teacher / Group Timezone)</b></div>';
     html += '<div class="gcw-tz-hint">Mode: Automatic "In Class" status will activate during this scheduled window.</div>';
     html += '</div>';
 
@@ -1834,8 +1849,44 @@
       const endT = formatEndTime(currentStartTime, currentDuration);
       const prevEl = dialog.querySelector('#gcwTimePreview');
       if (prevEl) {
-        prevEl.innerHTML = 'Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(endT) + '</strong> (' + currentDuration + ' min)';
+        prevEl.innerHTML = '<span>🕒</span> <span>Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(endT) + '</strong> (' + currentDuration + ' min)</span>';
       }
+    }
+
+    const dateBtn = dialog.querySelector('#gcwSchedDateBtn');
+    if (dateBtn) {
+      dateBtn.onclick = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(dateBtn, dateStr, (newDate) => {
+            if (!newDate || newDate === dateStr) return;
+            dateStr = newDate;
+            const newDObj = new Date(dateStr + 'T00:00:00');
+            weekdayName = newDObj.toLocaleDateString('en-US', { weekday: 'long' });
+            monthName = newDObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const dateText = dialog.querySelector('#gcwSchedDateText');
+            if (dateText) dateText.textContent = weekdayName + ', ' + dateStr;
+
+            selectedDays.clear();
+            selectedDays.add(newDObj.getDay());
+            dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
+              const day = Number(chip.dataset.day);
+              if (selectedDays.has(day)) chip.classList.add('is-active');
+              else chip.classList.remove('is-active');
+            });
+
+            const text = getDaysText();
+            const mLabel = dialog.querySelector('#gcwRadioMonthLabel');
+            if (mLabel) mLabel.textContent = 'Current Month (every ' + text + ' in ' + monthName + ')';
+            const yLabel = dialog.querySelector('#gcwRadioYearLabel');
+            if (yLabel) yLabel.textContent = 'Academic Year (every ' + text + ' Sep 1 – May 31)';
+
+            const custStart = dialog.querySelector('#gcwCustStart');
+            if (custStart) custStart.value = dateStr;
+            const custEnd = dialog.querySelector('#gcwCustEnd');
+            if (custEnd) custEnd.value = dateStr;
+          });
+        }
+      };
     }
 
     dialog.querySelectorAll('.gcw-duration-btn').forEach(btn => {
@@ -1913,29 +1964,52 @@
     });
 
     const saveBtn = dialog.querySelector('[data-action="save"]');
+    const matSelect = dialog.querySelector('#gcwSchedMaterial');
+    const matHint = dialog.querySelector('#gcwSchedMaterialHint');
+    function updateMaterialValidation() {
+      const hasMat = Boolean(matSelect && matSelect.value);
+      if (saveBtn) {
+        saveBtn.disabled = !hasMat;
+        saveBtn.title = hasMat ? '' : 'Please select a learning material to schedule a lesson';
+      }
+      if (matHint) {
+        matHint.style.display = hasMat ? 'none' : 'block';
+      }
+      if (matSelect) {
+        matSelect.style.borderColor = hasMat ? '' : 'var(--bad, #dc2626)';
+      }
+    }
+    if (matSelect) {
+      matSelect.addEventListener('change', updateMaterialValidation);
+      updateMaterialValidation();
+    }
+
     if (saveBtn) {
       saveBtn.onclick = async () => {
+        const matSelectEl = dialog.querySelector('#gcwSchedMaterial');
+        const selectedMatId = matSelectEl ? matSelectEl.value : '';
+        if (!selectedMatId) {
+          updateMaterialValidation();
+          return;
+        }
         saveBtn.disabled = true;
-        const matSelect = dialog.querySelector('#gcwSchedMaterial');
-        const selectedMatId = matSelect ? matSelect.value : '';
         const selectedPeriod = dialog.querySelector('input[name="gcwPeriod"]:checked')?.value || 'single';
         const custStart = dialog.querySelector('#gcwCustStart')?.value || dateStr;
         const custEnd = dialog.querySelector('#gcwCustEnd')?.value || dateStr;
 
         const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey, selectedDays);
 
-        if (!monthData.scheduleData) monthData.scheduleData = {};
-
         targetDates.forEach(d => {
-          if (d.startsWith(monthKey + '-')) {
-            monthData.lessonDates.add(d);
-            monthData.scheduleData[d] = {
-              startTime: currentStartTime,
-              durationMinutes: currentDuration,
-              materialId: selectedMatId || null,
-              period: selectedPeriod
-            };
-          }
+          const dMonthKey = d.slice(0, 7);
+          const targetMonthData = getMonthData(state, dMonthKey);
+          if (!targetMonthData.scheduleData) targetMonthData.scheduleData = {};
+          targetMonthData.lessonDates.add(d);
+          targetMonthData.scheduleData[d] = {
+            startTime: currentStartTime,
+            durationMinutes: currentDuration,
+            materialId: selectedMatId || null,
+            period: selectedPeriod
+          };
         });
 
         const hadPreviousSchedule = Boolean(existing.startTime);

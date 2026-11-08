@@ -1133,13 +1133,15 @@
     }
     function examRenderCalendar() {
       let pop = document.getElementById("examCal");
+      const hostDialog = examCalAnchor ? examCalAnchor.closest('dialog[open]') : null;
+      const targetParent = hostDialog || document.body;
       if (!pop) {
         pop = document.createElement("div");
         pop.id = "examCal";
         pop.className = "exam-cal";
         pop.setAttribute("role", "dialog");
         pop.setAttribute("aria-label", "Choose a date");
-        document.body.appendChild(pop);
+        targetParent.appendChild(pop);
         pop.addEventListener("pointerdown", (event) => event.stopPropagation());
         pop.addEventListener("click", (event) => {
           const btn = event.target.closest("[data-cal]");
@@ -1158,6 +1160,8 @@
           }
           examRenderCalendar();
         });
+      } else if (pop.parentElement !== targetParent) {
+        targetParent.appendChild(pop);
       }
       const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
       const y = examCalView.y;
