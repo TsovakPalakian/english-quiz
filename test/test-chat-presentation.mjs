@@ -68,6 +68,12 @@ test('repeated paint puts the sender bubble on the own side and leaves another s
   assert.equal(paint({id:3,text:'theirs',senderId:'other',sender:'Other',createdMs:3},other),0);
   assert.equal(other.has('is-own'),false);
 });
+test('the signed-in profile identifies own messages even when a stale cache account exists',()=>{
+  const core=readFileSync(new URL('../production/chat/00-core.js',import.meta.url),'utf8');
+  const line=core.split('\n').find(value=>value.includes('const myAccountId'))?.trim();assert.ok(line);
+  const own=runInNewContext(line+'\nmyAccountId',{account:'stale-account',data:{profile:{id:'current-account'}},signedIn:()=>({id:'session-account'}),String});
+  assert.equal(own(),'current-account');
+});
 test('icon rendering coalesces a burst of updates into one animation frame',()=>{
   let scans=0;const callbacks=[];
   const section={querySelectorAll:()=>[]};

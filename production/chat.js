@@ -168,7 +168,7 @@
     readTimer,
     listMode = 'chats',
     emojiMode = '';
-  const myAccountId = () => String(account || signedIn()?.id || data?.profile?.id || '');
+  const myAccountId = () => String(data?.profile?.id || signedIn()?.id || account || '');
   const isOwnMessage = (m) => {
     if (!m) return false;
     const me = myAccountId();
