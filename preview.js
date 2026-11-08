@@ -13613,7 +13613,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     function refreshAccountsCount() {
       const actor = authUser?.id;
-      if (!isTeacher() || viewAccount) {
+      const isStaff = !viewAccount && !!authUser && ['ADMIN', 'DEVELOPER'].includes(authUser.role) && typeof isTeacher === 'function' && isTeacher();
+      if (!isStaff) {
         accountsCountActor = ''; accountsCountAt = 0; accountsCountFlight = null;
         paintAccountsCount(0); return;
       }
@@ -13623,12 +13624,17 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
       if (accountsCountFlight || Date.now() - accountsCountAt < 30000) return;
       const requestedAt=Date.now();
-      const flight = Promise.all([accountFetch('/api/admin/registrations'),accountFetch('/api/admin/changes')]).then(([data,changes]) => {
-        if (authUser?.id !== actor || viewAccount || !isTeacher()) return;
+      const flight = Promise.all([
+        accountFetch('/api/admin/registrations', { quietBug: true }),
+        accountFetch('/api/admin/changes', { quietBug: true })
+      ]).then(([data,changes]) => {
+        if (authUser?.id !== actor || viewAccount || !isTeacher() || !['ADMIN', 'DEVELOPER'].includes(authUser?.role)) return;
         if(accountsCountAt>requestedAt)return;
         paintAccountsCount([...(data.registrations||[]),...(changes.changes||[])].filter(row => row.status === 'pending' && accountVisible(row)).length);
         accountsCountAt = Date.now();
-      }).catch(() => {}).finally(() => { if (accountsCountFlight === flight) accountsCountFlight = null; });
+      }).catch(() => {
+        accountsCountAt = Date.now();
+      }).finally(() => { if (accountsCountFlight === flight) accountsCountFlight = null; });
       accountsCountFlight = flight;
     }
     function paintAccount() {
@@ -27705,8 +27711,8 @@ if(typeof window!=='undefined'){
       lines.push(customRequisites || monthData.paymentRequisites || 'Bank transfer / Card / ERIP: BY00 ALFA 0000 0000 0000 0000 0000 0000 (Recipient: English Study)');
       lines.push('');
       lines.push('👉 Add payment deadline to your calendar:');
-      lines.push('• Google Calendar: ' + gCalUrl.toString());
-      lines.push('• Download .ics Reminder: ' + icsUrl);
+      lines.push(`• [📅 Add to Google Calendar](${gCalUrl.toString()})`);
+      lines.push(`• [📥 Download .ics Reminder](${icsUrl})`);
       lines.push('');
       if (isEndMonth) {
         lines.push('🔔 Note: Since the last lesson falls on the last day of the month, the bill is issued on the 1st of the next month with same-day notice.');
@@ -27760,7 +27766,7 @@ if(typeof window!=='undefined'){
           <td style="padding:8px 6px; text-align:center;">${tuition.attendedCount} / ${tuition.totalLessons}</td>
           <td style="padding:8px 6px; text-align:center;">${tuition.autoAmount} ${currency}</td>
           <td style="padding:8px 6px;">
-            <input type="number" class="gcw-manual-amt-input" data-student-id="${esc(s.id)}" value="${esc(tuition.manualAmount)}" placeholder="${tuition.autoAmount}" style="width:80px; height:32px; padding:4px 8px; font-size:13px;">
+            <input type="number" class="gcw-manual-amt-input" data-student-id="${esc(s.id)}" value="${esc(tuition.manualAmount)}" placeholder="${tuition.autoAmount}" title="Enter custom total amount or leave blank to use Auto Amount" style="width:80px; height:32px; padding:4px 8px; font-size:13px; text-align:center;">
           </td>
           <td style="padding:8px 6px; text-align:center;">${paidBadge}</td>
         </tr>`;
@@ -27801,15 +27807,23 @@ if(typeof window!=='undefined'){
         </div>
         <div class="gcw-field-group">
           <label>Student Invoices & Attendance Calculation</label>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.4; display:flex; align-items:flex-start; gap:6px; margin-bottom:8px;">
+            <span>💡</span>
+            <div>
+              <b>Manual Amount:</b> overrides the total invoice amount for that student (custom discount or flat rate). Leave empty to use the auto-calculated amount.
+            </div>
+          </div>
           <div style="overflow-x:auto;">
             <table style="width:100%; border-collapse:collapse; font-size:13px;">
               <thead>
                 <tr style="border-bottom:2px solid var(--saas-border, #e2e8f0); color:var(--mute, #64748b);">
                   <th style="text-align:left; padding:6px;">Student</th>
-                  <th style="padding:6px;">Attended</th>
-                  <th style="padding:6px;">Auto Amount</th>
-                  <th style="padding:6px;">Manual Amount</th>
-                  <th style="padding:6px;">Status</th>
+                  <th style="padding:6px; text-align:center;">Attended</th>
+                  <th style="padding:6px; text-align:center;">Auto Amount</th>
+                  <th style="padding:6px; text-align:center;">
+                    Manual Amount <span class="gcw-info-hint" title="Overrides total sum for this student. Leave blank to use Auto Amount." style="cursor:help; font-size:11px; font-weight:700; background:#e2e8f0; color:#475569; border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; margin-left:4px;">i</span>
+                  </th>
+                  <th style="padding:6px; text-align:center;">Status</th>
                 </tr>
               </thead>
               <tbody>

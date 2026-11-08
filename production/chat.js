@@ -1660,7 +1660,20 @@
     }
     const source = text.textContent,
       matches = [];
+    for (const match of source.matchAll(/\[([^\]\r\n]+)\]\(((?:https?:\/\/|www\.)[^\s\)]+)\)/gu)) {
+      const label = match[1];
+      const rawUrl = match[2];
+      let url;
+      try {
+        url = new URL(rawUrl.startsWith('www.') ? 'https://' + rawUrl : rawUrl);
+      } catch {
+        continue;
+      }
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
+      matches.push({ start: match.index, end: match.index + match[0].length, url, label, isMarkdown: true });
+    }
     for (const match of source.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>]+/giu)) {
+      if (matches.some((m) => match.index >= m.start && match.index < m.end)) continue;
       let label = match[0].replace(/[.,;:!?"']+$/g, '');
       for (const [open, close] of [
         ['(', ')'],
@@ -1675,8 +1688,9 @@
         continue;
       }
       if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) continue;
-      matches.push({ start: match.index, end: match.index + label.length, url });
+      matches.push({ start: match.index, end: match.index + label.length, url, isMarkdown: false });
     }
+    matches.sort((a, b) => a.start - b.start);
     // DOM ranges preserve text colors even when a URL spans multiple formatting runs.
     for (const match of [...matches].reverse()) {
       const start = nodes.find((n) => n.end > match.start),
@@ -1689,11 +1703,23 @@
       link.href = match.url.href;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.append(range.extractContents());
+      if (match.isMarkdown) {
+        link.className = 'chat-action-btn';
+        range.deleteContents();
+        link.textContent = match.label;
+      } else {
+        link.append(range.extractContents());
+      }
       range.insertNode(link);
     }
     const gen = generation;
-    for (const url of [...new Map(matches.map((m) => [m.url.href, m.url])).values()].slice(0, 3)) {
+    const previewCandidates = [...new Map(matches.map((m) => [m.url.href, m.url])).values()].filter((url) => {
+      if (url.pathname.startsWith('/api/')) return false;
+      if (/\.(ics|ical|csv|json|xml|txt)$/i.test(url.pathname)) return false;
+      if (url.hostname.includes('calendar.google.com')) return false;
+      return true;
+    });
+    for (const url of previewCandidates.slice(0, 3)) {
       const card = document.createElement('a');
       card.className = 'chat-preview';
       card.href = url.href;
@@ -1712,7 +1738,11 @@
           domain('/preview', { url: url.href }).catch(() => null),
         );
       previewCache.get(url.href).then((result) => {
-        if (!result || !card.isConnected || gen !== generation) return;
+        if (!card.isConnected || gen !== generation) return;
+        if (!result || (!result.title && !result.description && !result.image)) {
+          card.remove();
+          return;
+        }
         const copy = card.querySelector('.chat-preview-copy');
         copy.querySelector('strong').textContent = previewText(result.title, 200) || url.hostname;
         if (result.description) {

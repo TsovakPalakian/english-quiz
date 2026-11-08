@@ -195,6 +195,7 @@
     if(status===0&&path==='/api/cards/lookup')return;
     // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.
     if(status===409&&(path==='/api/groups'||/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path)))return;
+    if(status===403&&['/api/admin/changes','/api/admin/registrations','/api/admin/users'].includes(path)&&(entry.error==='Teachers only.'||entry.error?.includes?.('Teachers only')))return;
     try{
       let timeZone='UTC';
       try{timeZone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';}catch{}

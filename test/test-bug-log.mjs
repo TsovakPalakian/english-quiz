@@ -245,3 +245,17 @@ test('normal lookup word misses returning 404 are ignored by recordHttpBug and s
   assert.deepEqual(result,{ignored:true});
   assert.equal(db.rows.length,0);
 });
+test('unauthorized teacher admin endpoint requests returning 403 are ignored by saveBug',async()=>{
+  resetBugStoreForTests();
+  const db=memory();
+  for(const path of ['/api/admin/changes','/api/admin/registrations','/api/admin/users']){
+    const res1=await saveBug(db,{method:'GET',path,status:403,error:'Teachers only.',account:{id:'s1',login:'yesterpalakian',role:'USER'}});
+    assert.deepEqual(res1,{ignored:true});
+    const res2=await saveBug(db,{method:'GET',path,status:403,error:'Forbidden',account:{id:'s1',login:'yesterpalakian',role:'USER'}});
+    assert.deepEqual(res2,{ignored:true});
+  }
+  assert.equal(db.rows.length,0);
+  const serverError=await saveBug(db,{method:'GET',path:'/api/admin/changes',status:500,error:'Server error',account:{id:'s1',login:'yesterpalakian',role:'USER'}});
+  assert.notDeepEqual(serverError,{ignored:true});
+  assert.equal(db.rows.length,1);
+});

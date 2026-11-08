@@ -380,7 +380,8 @@
     }
     function refreshAccountsCount() {
       const actor = authUser?.id;
-      if (!isTeacher() || viewAccount) {
+      const isStaff = !viewAccount && !!authUser && ['ADMIN', 'DEVELOPER'].includes(authUser.role) && typeof isTeacher === 'function' && isTeacher();
+      if (!isStaff) {
         accountsCountActor = ''; accountsCountAt = 0; accountsCountFlight = null;
         paintAccountsCount(0); return;
       }
@@ -390,12 +391,17 @@
       }
       if (accountsCountFlight || Date.now() - accountsCountAt < 30000) return;
       const requestedAt=Date.now();
-      const flight = Promise.all([accountFetch('/api/admin/registrations'),accountFetch('/api/admin/changes')]).then(([data,changes]) => {
-        if (authUser?.id !== actor || viewAccount || !isTeacher()) return;
+      const flight = Promise.all([
+        accountFetch('/api/admin/registrations', { quietBug: true }),
+        accountFetch('/api/admin/changes', { quietBug: true })
+      ]).then(([data,changes]) => {
+        if (authUser?.id !== actor || viewAccount || !isTeacher() || !['ADMIN', 'DEVELOPER'].includes(authUser?.role)) return;
         if(accountsCountAt>requestedAt)return;
         paintAccountsCount([...(data.registrations||[]),...(changes.changes||[])].filter(row => row.status === 'pending' && accountVisible(row)).length);
         accountsCountAt = Date.now();
-      }).catch(() => {}).finally(() => { if (accountsCountFlight === flight) accountsCountFlight = null; });
+      }).catch(() => {
+        accountsCountAt = Date.now();
+      }).finally(() => { if (accountsCountFlight === flight) accountsCountFlight = null; });
       accountsCountFlight = flight;
     }
     function paintAccount() {

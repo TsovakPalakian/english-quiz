@@ -8,15 +8,16 @@ const source = readFileSync(new URL('../preview.js', import.meta.url), 'utf8');
 const code = 'let accountsCountActor = "", accountsCountAt = 0, accountsCountFlight = null;\n' +
   extractFunctions(source, 'paintAccountsCount', 'refreshAccountsCount');
 
-function fixture(fetch){
+function fixture(fetch, initialAuth = {id:'teacher',role:'ADMIN'}){
   const labels=[{nodeType:3,textContent:'Accounts'},{nodeType:3,textContent:'Accounts'}];
   const tab={textContent:''};
   const context=vm.createContext({
-    authUser:{id:'teacher'},
+    authUser:initialAuth,
     viewAccount:null,
     isTeacher:()=>true,
     accountVisible:row=>!row.hidden&&!row.revoked,
     accountFetch:fetch,
+    Date,
     document:{
       querySelectorAll:()=>labels.map(node=>({childNodes:[node]})),
       querySelector:()=>tab
@@ -40,7 +41,7 @@ test('Accounts and Approval requests count both pending types and retain labels 
 
 test('a response from the previous account cannot repaint current account counters',async()=>{
  const pending=[],f=fixture(path=>new Promise(resolve=>pending.push({path,resolve})));
- vm.runInContext('refreshAccountsCount()',f.context);vm.runInContext("authUser={id:'other'};refreshAccountsCount()",f.context);
+ vm.runInContext('refreshAccountsCount()',f.context);vm.runInContext("authUser={id:'other',role:'ADMIN'};refreshAccountsCount()",f.context);
  for(const p of pending.slice(2))p.resolve({registrations:[],changes:[]});await vm.runInContext('accountsCountFlight',f.context);
  for(const p of pending.slice(0,2))p.resolve({registrations:[{status:'pending'}],changes:[{status:'pending'}]});await new Promise(resolve=>setImmediate(resolve));assert.equal(f.tab.textContent,'Approval requests');
 });
@@ -60,4 +61,45 @@ test('Accounts card metrics deduplicate people, groups, lessons and exams and re
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(accountGroupMetrics(groups))',context)),{groups:2,teachers:1,students:1,lessons:2,exams:2});
  assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(accountGroupMetrics([]))',context)),{groups:0,teachers:0,students:0,lessons:0,exams:0});
  const html=vm.runInContext('accountMetricsHTML([])',context);for(const label of ['groups','teachers','students','lessons','exams'])assert.ok(html.includes('>'+label+'<'));assert.ok(!html.includes('· 0'));
+});
+
+test('refreshAccountsCount blocks requests when authUser role is USER or viewAccount is active', async () => {
+  const calls = [];
+  const f = fixture(async (path, opts) => { calls.push({path, opts}); return {}; }, {id:'student', role:'USER'});
+  await f.refresh();
+  assert.equal(calls.length, 0);
+  assert.equal(f.tab.textContent, 'Approval requests');
+
+  f.context.authUser = {id:'teacher', role:'ADMIN'};
+  f.context.viewAccount = {id:'student', role:'USER'};
+  await f.refresh();
+  assert.equal(calls.length, 0);
+});
+
+test('refreshAccountsCount passes quietBug: true to registrations and changes requests', async () => {
+  const calls = [];
+  const f = fixture(async (path, opts) => {
+    calls.push({path, opts});
+    return path.endsWith('registrations') ? {registrations:[]} : {changes:[]};
+  });
+  await f.refresh();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].path, '/api/admin/registrations');
+  assert.equal(calls[0].opts?.quietBug, true);
+  assert.equal(calls[1].path, '/api/admin/changes');
+  assert.equal(calls[1].opts?.quietBug, true);
+});
+
+test('refreshAccountsCount throttles retry after request error', async () => {
+  let attempts = 0;
+  const f = fixture(async () => {
+    attempts += 1;
+    throw Object.assign(new Error('Teachers only.'), {status: 403});
+  });
+  await f.refresh();
+  assert.equal(attempts, 2);
+
+  vm.runInContext('refreshAccountsCount()', f.context);
+  assert.equal(vm.runInContext('accountsCountFlight', f.context), null);
+  assert.equal(attempts, 2);
 });
