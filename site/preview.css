@@ -2926,6 +2926,9 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
     padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
     justify-content: space-around;
   }
+  .tabbar .nav-group-title {
+    display: none !important;
+  }
   .tabbar button {
     flex: 1 0 auto;
     min-width:54px;
@@ -3409,6 +3412,7 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
   color: var(--saas-text-muted, var(--mute));
   padding: 12px 12px 4px;
 }
+.tabbar .nav-group-title,
 .nav-group-title[data-nav-role="staff"][hidden],
 .nav-group-title[data-developer-only][hidden] {
   display: none !important;
@@ -4755,20 +4759,24 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 .feedback-status { margin-top: 10px; font-size: 13px; text-align: center; }
 .feedback-status.error { color: var(--bad); }
 .feedback-status.success { color: var(--ok); font-weight: 500; }
-.feedback-floating-btn { position: fixed; bottom: 20px; right: 20px; z-index: 95; height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; border-radius: 20px; background: color-mix(in srgb, var(--card) 90%, transparent); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 4px 16px color-mix(in srgb, var(--ink) 14%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); cursor: pointer; font-size: 13px; font-weight: 600; transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
-.feedback-floating-btn:hover { transform: translateY(-2px); background: var(--acc-s); color: var(--acc); border-color: var(--acc); box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 20%, transparent); }
+.feedback-floating-btn { position: fixed; bottom: 20px; right: 20px; z-index: 95; height: 38px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; border-radius: 20px; opacity: 0.55; background: color-mix(in srgb, var(--card) 45%, transparent); color: var(--ink); border: 1px solid color-mix(in srgb, var(--line) 70%, transparent); box-shadow: 0 4px 16px color-mix(in srgb, var(--ink) 10%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); cursor: pointer; font-size: 13px; font-weight: 600; transition: opacity 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.feedback-floating-btn:hover,
+.feedback-floating-btn:focus-visible { opacity: 1; transform: translateY(-2px); background: var(--acc-s); color: var(--acc); border-color: var(--acc); box-shadow: 0 6px 20px color-mix(in srgb, var(--ink) 20%, transparent); }
 @media (max-width: 600px) { .feedback-floating-btn { bottom: 16px; right: 16px; height: 34px; padding: 0 10px; font-size: 12px; } .feedback-dialog { padding: 18px; } }
 
 /* Guest Night Sky Correlation for Feedback Button & Dialog */
 body:is(.guest-home,.guest-auth) .feedback-floating-btn {
-  background: rgba(14, 26, 38, 0.84);
+  opacity: 0.55;
+  background: rgba(14, 26, 38, 0.55);
   color: #edf2f3;
-  border: 1px solid rgba(82, 112, 128, 0.65);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(82, 112, 128, 0.5);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
-body:is(.guest-home,.guest-auth) .feedback-floating-btn:hover {
+body:is(.guest-home,.guest-auth) .feedback-floating-btn:hover,
+body:is(.guest-home,.guest-auth) .feedback-floating-btn:focus-visible {
+  opacity: 1;
   background: rgba(22, 40, 58, 0.95);
   color: #ffd885;
   border-color: rgba(255, 216, 133, 0.6);
@@ -4823,8 +4831,8 @@ body:is(.guest-home,.guest-auth) .feedback-files-summary {
 body:is(.guest-home,.guest-auth) .feedback-files-summary button {
   color: #ffd885;
 }
-:root[data-high-visibility="1"] .feedback-floating-btn { background: #000000 !important; color: #ffffff !important; border: 2px solid #ffffff !important; }
-:root[data-high-visibility="1"] body:is(.guest-home,.guest-auth) .feedback-floating-btn { background: #000000 !important; color: #ffffff !important; border: 2px solid #ffffff !important; }
+:root[data-high-visibility="1"] .feedback-floating-btn { background: #000000 !important; color: #ffffff !important; border: 2px solid #ffffff !important; opacity: 1 !important; }
+:root[data-high-visibility="1"] body:is(.guest-home,.guest-auth) .feedback-floating-btn { background: #000000 !important; color: #ffffff !important; border: 2px solid #ffffff !important; opacity: 1 !important; }
 
 /* -------------------------------------------------------------
    SaaS Design System Components & Utilities
