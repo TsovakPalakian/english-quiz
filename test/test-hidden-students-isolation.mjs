@@ -277,9 +277,11 @@ test('Visual UI: Teacher sees Students · 3 while Developer sees Students · 6 o
     assert.ok(!cardTextTeacher.includes('Students · 6'), `Teacher must NOT see Students · 6, saw: ${cardTextTeacher}`);
     assert.ok(cardTextTeacher.includes('Lessons · 21'), `Teacher must see Lessons · 21, saw: ${cardTextTeacher}`);
 
-    // Take verified screenshot matching approved design
+    // Take verified screenshot matching approved design when local artifact directory exists
     const dir = '/Users/tsovakpalakian/.gemini/antigravity/brain/fe4597bd-fc87-4746-ab6c-b3c6050eb075';
-    await b1Card.screenshot({path: `${dir}/screenshot-2-proposed-teacher-group-card.png`});
+    if (existsSync(dir)) {
+      await b1Card.screenshot({path: `${dir}/screenshot-2-proposed-teacher-group-card.png`});
+    }
 
     // 2. Check as Developer
     currentRole = 'DEVELOPER';

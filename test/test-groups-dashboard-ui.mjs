@@ -70,29 +70,39 @@ try{
   const b1Card = page.locator('#groupList [data-group-level="B1"]');
   await b1Card.waitFor();
 
-  // B1 singular check: Group · 1, Student · 1, Lesson · 1
-  const b1Texts = await b1Card.locator('.metric-pairs > span').allTextContents();
-  assert.deepEqual(b1Texts, ['Group · 1', 'Student · 1', 'Lesson · 1'], 'Singular counts render singular labels in Title Case');
+  // B1 singular check: Group: 1, Student: 1, Lesson: 1 in vertical column
+  const b1Labels = await b1Card.locator('.metric-pairs > span > span').allTextContents();
+  const b1Values = await b1Card.locator('.metric-pairs > span > b').allTextContents();
+  assert.deepEqual(b1Labels, ['Group', 'Student', 'Lesson'], 'Singular counts render singular labels in Title Case');
+  assert.deepEqual(b1Values, ['1', '1', '1'], 'Singular metric counts match expected values');
 
-  // A1 plural check: Groups · 3, Students · 3 (1+2+0), Lessons · 3 (1+2+0)
+  // A1 plural check: Groups: 3, Students: 3 (1+2+0), Lessons: 3 (1+2+0) in vertical column
   const a1Card = page.locator('#groupList [data-group-level="A1"]');
-  const a1Texts = await a1Card.locator('.metric-pairs > span').allTextContents();
-  assert.deepEqual(a1Texts, ['Groups · 3', 'Students · 3', 'Lessons · 3'], 'Plural counts render plural labels in Title Case');
+  const a1Labels = await a1Card.locator('.metric-pairs > span > span').allTextContents();
+  const a1Values = await a1Card.locator('.metric-pairs > span > b').allTextContents();
+  assert.deepEqual(a1Labels, ['Groups', 'Students', 'Lessons'], 'Plural counts render plural labels in Title Case');
+  assert.deepEqual(a1Values, ['3', '3', '3'], 'Plural metric counts match expected values');
 
   // Check card-top-row and card-chevron
   assert.equal(await b1Card.locator('.card-top-row b').innerText(), 'B1');
   assert.equal(await b1Card.locator('.card-chevron svg').count(), 1, 'Level card includes chevron svg');
 
-  // Symmetrical 3-metric layout check
+  // Vertical column with space-between rows layout check
   const layout = await a1Card.locator('.metric-pairs').evaluate(el => {
     const style = window.getComputedStyle(el);
+    const row = el.querySelector('span');
+    const rowStyle = row ? window.getComputedStyle(row) : null;
     return {
       display: style.display,
-      justifyContent: style.justifyContent
+      flexDirection: style.flexDirection,
+      rowDisplay: rowStyle?.display,
+      rowJustifyContent: rowStyle?.justifyContent
     };
   });
   assert.equal(layout.display, 'flex', 'metric-pairs is flex layout');
-  assert.equal(layout.justifyContent, 'space-between', 'metric-pairs distributes metrics evenly');
+  assert.equal(layout.flexDirection, 'column', 'metric-pairs is vertical column layout');
+  assert.equal(layout.rowDisplay, 'flex', 'metric-pairs rows are flex layout');
+  assert.equal(layout.rowJustifyContent, 'space-between', 'metric-pairs rows distribute label and value to edges');
 
   // 3. Open Level A1 and test Subgroup list controls
   await a1Card.click();

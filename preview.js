@@ -22031,6 +22031,7 @@ const STUDIO_CONSTELLATIONS = [{
       return Number(count) === 1 ? singular : plural;
     }
     function metricPairs(rows,compact=false){if(!authUser||viewAccount||!['ADMIN','DEVELOPER'].includes(authUser.role))return '';return '<span class="metric-pairs'+(compact?' metric-pairs--compact':'')+'">'+rows.map(([label,value])=>'<span>'+esc(compact?({'groups':'group','assigned works':'assigned','ready for review':'ready'}[label]||label):label)+' · <b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
+    function levelMetricPairs(rows){if(!authUser||viewAccount||!['ADMIN','DEVELOPER'].includes(authUser.role))return '';return '<span class="metric-pairs metric-pairs--level">'+rows.map(([label,value])=>'<span><span>'+esc(label)+'</span><b>'+esc(String(value))+'</b></span>').join('')+'</span>';}
     function levelButtons(rows,attribute) {
       const hasUnassigned = (classGroupsReady || !authUser) && rows.some(row=>accountGroupLevel(row)==='unassigned');
       const levels = hasUnassigned ? [...adminLevels,'unassigned'] : adminLevels;
@@ -22049,7 +22050,7 @@ const STUDIO_CONSTELLATIONS = [{
         ];
         const empty=pairs.every(([,value])=>!value);
         const chevron = '<span class="card-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></span>';
-        return '<button class="file-card'+(empty?' is-empty':'')+'" type="button" '+attribute+'="'+level+'"><div class="card-top-row"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b>'+chevron+'</div><span class="label">'+metricPairs(pairs,true)+'</span></button>';
+        return '<button class="file-card'+(empty?' is-empty':'')+'" type="button" '+attribute+'="'+level+'"><div class="card-top-row"><b>'+esc(level==='unassigned'?'Unassigned':level)+'</b>'+chevron+'</div><span class="label">'+levelMetricPairs(pairs)+'</span></button>';
       }).join('')+'</div>';
     }
     document.addEventListener('click',event=>{
