@@ -125,3 +125,22 @@ test('notifyTelegram sanitizes error cause when network failure persists',async(
   );
   assert.equal(attempts,2);
 });
+
+test('notifyTelegram formats timeout errors (DOMException code 23) clearly as timeout',async()=>{
+  let attempts=0;
+  await assert.rejects(
+    notifyTelegram('Test notification',env,{
+      maxRetries:2,baseDelayMs:1,timeoutMs:1000,
+      fetchImpl:async()=>{
+        attempts++;
+        const err=new DOMException('The operation was aborted due to timeout','TimeoutError');
+        throw err;
+      }
+    }),
+    error=>{
+      assert.equal(error.message,'Telegram notification could not be delivered: timeout.');
+      return true;
+    }
+  );
+  assert.equal(attempts,2);
+});

@@ -133,6 +133,7 @@ jobs:
         with:
           node-version: '24'
       - name: Send final Telegram result
+        continue-on-error: true
         run: node ops/telegram-notify.mjs
         env:
           CI_ATTACH_LOGS: 'true'

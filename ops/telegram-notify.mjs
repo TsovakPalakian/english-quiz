@@ -29,7 +29,8 @@ export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.
       return;
     }catch(err){
       if(err.message?.startsWith('Telegram rejected')){throw err;}
-      const rawCause=err?.cause?.code||err?.code||err?.message||'';
+      const isTimeout=err?.name==='TimeoutError'||err?.code===23||err?.code==='ETIMEDOUT';
+      const rawCause=isTimeout?'timeout':(err?.cause?.code||err?.code||err?.message||'');
       const sanitizedCause=rawCause?': '+String(rawCause).replace(token,'[REDACTED]'):'';
       lastError=Error('Telegram notification could not be delivered'+sanitizedCause+'.');
       if(attempt<maxRetries){
