@@ -6,17 +6,34 @@ import {join} from 'node:path';
 const require=createRequire(import.meta.url);
 export function checkMode(args=[],env=process.env){
   let mode=env.CHECK_MODE||'local';const filters=[];
+  let shuffle=env.CHECK_SHUFFLE==='1'||env.CHECK_SHUFFLE==='true';
+  let seed=env.CHECK_SEED?Number(env.CHECK_SEED):undefined;
   for(let i=0;i<args.length;i++){
     const arg=args[i];
     if(arg==='--mode'){
       if(!args[i+1]||args[i+1].startsWith('-'))throw Error('--mode requires local or ci.');
       mode=args[++i];
     }else if(arg.startsWith('--mode='))mode=arg.slice(7);
+    else if(arg==='--shuffle')shuffle=true;
+    else if(arg==='--seed'){
+      if(!args[i+1]||args[i+1].startsWith('-'))throw Error('--seed requires a positive integer.');
+      seed=Number(args[++i]);
+      shuffle=true;
+    }else if(arg.startsWith('--seed=')){
+      seed=Number(arg.slice(7));
+      shuffle=true;
+    }
     else if(arg.startsWith('-'))throw Error('Unknown check option: '+arg);
     else filters.push(arg);
   }
   if(!['local','ci'].includes(mode))throw Error('CHECK_MODE must be local or ci.');
-  return {mode,filters};
+  if(seed!==undefined&&(!Number.isSafeInteger(seed)||seed<0))throw Error('CHECK_SEED must be a non-negative integer.');
+  const result={mode,filters};
+  if(shuffle){
+    result.shuffle=true;
+    if(seed!==undefined)result.seed=seed;
+  }
+  return result;
 }
 
 export function resolveTestDependency(name){

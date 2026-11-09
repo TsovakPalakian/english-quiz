@@ -70,10 +70,13 @@ test('local backend UI saves to SQLite and enforces review workflow without prod
     const replay=await call('/local/quizzes/'+created.id+'/revise',revisionBody,'teacher');assert.equal(replay.data.id,revised.data.id);
     assert.equal((await call('/local/quizzes/'+revised.data.id,null,'teacher')).data.quiz.reviewer,null);
     await choose('student');await nav('word');await page.locator('#context').selectOption('personal');
+    await page.waitForFunction(()=>document.querySelector('#context')?.value==='personal'&&!document.querySelector('#context')?.disabled);
     await page.locator('[data-item="'+created.id+'"]').waitFor({state:'attached'});await reveal(created.id);
     assert.equal(await page.locator('[data-item="'+created.id+'"] [data-action="edit"]').count(),0);
     await Promise.resolve();
-    await page.setViewportSize({width:390,height:844});await page.locator('[data-item="'+created.id+'"]').scrollIntoViewIfNeeded();
+    await page.setViewportSize({width:390,height:844});
+    await page.locator('[data-item="'+created.id+'"]').waitFor({state:'attached'});await reveal(created.id);
+    await page.locator('[data-item="'+created.id+'"]').scrollIntoViewIfNeeded();
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     await Promise.resolve();
     assert.ok(requests.every(r=>r.startsWith(url)),'Local requests only');assert.deepEqual(errors,[]);

@@ -9,7 +9,11 @@ test('test mode comes from a validated flag or environment; filters remain filte
   assert.deepEqual(checkMode(['--mode=ci','auth'],{}),{mode:'ci',filters:['auth']});
   assert.deepEqual(checkMode(['--mode','local'],{CHECK_MODE:'ci'}),{mode:'local',filters:[]});
   assert.deepEqual(checkMode([],{CHECK_MODE:'ci'}),{mode:'ci',filters:[]});
-  for(const args of [['--mode'],['--mode='],['--mode=remote'],['--unknown']])assert.throws(()=>checkMode(args,{}));
+  assert.deepEqual(checkMode(['--shuffle'],{}),{mode:'local',filters:[],shuffle:true});
+  assert.deepEqual(checkMode(['--seed=42'],{}),{mode:'local',filters:[],shuffle:true,seed:42});
+  assert.deepEqual(checkMode(['--seed','99'],{}),{mode:'local',filters:[],shuffle:true,seed:99});
+  assert.deepEqual(checkMode([],{CHECK_SHUFFLE:'1',CHECK_SEED:'77'}),{mode:'local',filters:[],shuffle:true,seed:77});
+  for(const args of [['--mode'],['--mode='],['--mode=remote'],['--unknown'],['--seed'],['--seed=-1']])assert.throws(()=>checkMode(args,{}));
 });
 test('ci uses bundled Chromium unless the user explicitly provides a browser path',()=>{
   const previous={mode:process.env.CHECK_MODE,chrome:process.env.CHROME_PATH};

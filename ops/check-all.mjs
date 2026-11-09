@@ -7,7 +7,26 @@ import {checkMode,checkWorkerCounts,chromiumStepDelay,visibleBrowser} from './ch
 
 let settings;
 try{settings=checkMode(process.argv.slice(2));}catch(error){console.error(error.message);process.exit(2);}
-const {mode,filters}=settings;
+const {mode,filters,shuffle,seed:configuredSeed}=settings;
+let seed=configuredSeed;
+if(shuffle&&seed===undefined){
+  seed=Math.floor(Math.random()*2147483647);
+}
+function createPrng(s){
+  let state=(s>>>0)||1;
+  return ()=>{
+    state=(state*1664525+1013904223)>>>0;
+    return state/4294967296;
+  };
+}
+function shuffleList(list,prng){
+  const res=list.slice();
+  for(let i=res.length-1;i>0;i--){
+    const j=Math.floor(prng()*(i+1));
+    [res[i],res[j]]=[res[j],res[i]];
+  }
+  return res;
+}
 const env={...process.env,CHECK_MODE:mode,...(mode==='ci'?{CI:'true'}:{})};
 const exclusions=new Map();
 const all=readdirSync('test').filter(name=>/^test-.*\.mjs$/.test(name)).sort();
@@ -22,7 +41,7 @@ if(!Number.isSafeInteger(timeout)||timeout<1||!Number.isSafeInteger(parallel)||p
   process.exit(2);
 }
 const stepDelay=chromiumStepDelay(env);
-console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+'; fast workers: '+parallel+'; browser workers: '+browserParallel+'; screenshots: disabled.'+(visibleBrowser(env)?(' Visible Chrome'+(stepDelay?', step delay '+stepDelay+' ms.':'.')):''));
+console.log('Check mode: '+mode+'; automatic scripts: '+scripts.length+(shuffle?' (shuffled, seed: '+seed+')':'')+'; fast workers: '+parallel+'; browser workers: '+browserParallel+'; screenshots: disabled.'+(visibleBrowser(env)?(' Visible Chrome'+(stepDelay?', step delay '+stepDelay+' ms.':'.')):''));
 
 function run(command,args){
   return new Promise(resolve=>{
@@ -75,8 +94,8 @@ const WEIGHTS=new Map([
   ['test-preparation-pipeline-ui.mjs',5],['test-learning-main.mjs',4],['test-d1-study.mjs',3]
 ]);
 const sortByWeight=list=>list.slice().sort((a,b)=>(WEIGHTS.get(b)||1)-(WEIGHTS.get(a)||1)||a.localeCompare(b));
-const fastScripts=sortByWeight(scripts.filter(name=>!browser(name)));
-const browserScripts=sortByWeight(scripts.filter(browser));
+const fastScripts=shuffle?shuffleList(scripts.filter(name=>!browser(name)),createPrng(seed)):sortByWeight(scripts.filter(name=>!browser(name)));
+const browserScripts=shuffle?shuffleList(scripts.filter(browser),createPrng(seed+1)):sortByWeight(scripts.filter(browser));
 const fast=[...(filters.length?[]:[['vitest',()=>run(process.execPath,[fileURLToPath(new URL('../node_modules/vitest/vitest.mjs',import.meta.url)),'run'])]]),...fastScripts.map(job)];
 const results=[];
 const totalJobs=fast.length+browserScripts.length;
