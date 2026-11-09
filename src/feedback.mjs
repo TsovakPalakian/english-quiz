@@ -141,6 +141,93 @@ export async function setFeedbackBreadcrumbsLimit(db, limit) {
   return val;
 }
 
+export async function getTelegramRecipients(db) {
+  if (!db) return [];
+  try {
+    const rows = await db.read("SELECT value_json FROM catalog_documents WHERE namespace='feedback-settings' AND key='telegram_recipients'");
+    if (!rows.length) return [];
+    const parsed = JSON.parse(rows[0].value_json);
+    if (!Array.isArray(parsed?.recipients)) return [];
+    return parsed.recipients.filter(r => r && typeof r === 'object' && /^-?\d+$/.test(String(r.chatId || '')));
+  } catch {
+    return [];
+  }
+}
+
+export async function setTelegramRecipients(db, recipients) {
+  if (!db) return [];
+  if (!Array.isArray(recipients)) throw new StudyError(400, 'Recipients must be an array.');
+
+  const sanitized = [];
+  const seenChatIds = new Set();
+
+  for (const item of recipients) {
+    if (!item || typeof item !== 'object') continue;
+    const chatId = String(item.chatId || '').trim();
+    if (!/^-?\d+$/.test(chatId)) {
+      throw new StudyError(400, `Invalid numeric Chat ID: "${chatId}"`);
+    }
+    if (seenChatIds.has(chatId)) continue;
+    seenChatIds.add(chatId);
+
+    const label = String(item.label || '').trim().slice(0, 100);
+    const status = item.status === 'disabled' ? 'disabled' : 'active';
+    const id = String(item.id || ('tg_' + Math.random().toString(36).slice(2, 10)));
+    const now = Date.now();
+    const createdAt = Number(item.createdAt) || now;
+    const updatedAt = now;
+
+    sanitized.push({
+      id,
+      chatId,
+      label,
+      status,
+      createdAt,
+      updatedAt
+    });
+  }
+
+  await db.atomic([
+    statement(
+      "INSERT INTO catalog_documents(namespace, key, value_json) VALUES('feedback-settings', 'telegram_recipients', ?) ON CONFLICT(namespace, key) DO UPDATE SET value_json=excluded.value_json",
+      [JSON.stringify({ recipients: sanitized, updatedAt: Date.now() })]
+    )
+  ]);
+
+  return sanitized;
+}
+
+export async function testTelegramRecipient(env, chatId, {fetchImpl = globalThis.fetch} = {}) {
+  const token = env?.TELEGRAM_BOT_TOKEN;
+  if (!token || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+    throw new StudyError(400, 'Telegram bot token is not configured on the server.');
+  }
+  const chat = String(chatId || '').trim();
+  if (!/^-?\d+$/.test(chat)) {
+    throw new StudyError(400, 'Invalid numeric Telegram Chat ID.');
+  }
+
+  const text = `🔔 Lumiscia Telegram Alert Test\n\nThis is a verification ping from Lumiscia Developer Console.\nChat ID: ${chat}\nTimestamp: ${new Date().toISOString()}`;
+
+  const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      chat_id: chat,
+      text,
+      disable_web_page_preview: true
+    }),
+    signal: AbortSignal.timeout(15000)
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const desc = errorData?.description || `HTTP ${res.status}`;
+    throw new StudyError(400, `Telegram rejected test message: ${desc}`);
+  }
+  return true;
+}
+
 export function sortAttachmentsByType(attachments) {
   if (!Array.isArray(attachments)) return [];
   const typePriority = mime => {
@@ -363,10 +450,32 @@ export async function resolveFeedback(db, id, resolved = true) {
   return rows.length > 0 && rows[0].resolved === isResolved;
 }
 
-export async function notifyFeedbackTelegram(env, entry, {fetchImpl = globalThis.fetch} = {}) {
+export async function notifyFeedbackTelegram(env, entry, {fetchImpl = globalThis.fetch, db} = {}) {
   const token = env?.TELEGRAM_BOT_TOKEN;
-  const chat = env?.TELEGRAM_CHAT_ID;
-  if (!token || !chat || !/^\d+:[A-Za-z0-9_-]+$/.test(token) || !/^-?\d+$/.test(chat)) {
+  if (!token || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+    return false;
+  }
+
+  let targetChats = [];
+  if (db) {
+    try {
+      const stored = await getTelegramRecipients(db);
+      targetChats = stored
+        .filter(r => r.status === 'active' && /^-?\d+$/.test(String(r.chatId || '')))
+        .map(r => String(r.chatId));
+    } catch (_) {
+      targetChats = [];
+    }
+  }
+
+  if (targetChats.length === 0) {
+    const fallbackChat = env?.TELEGRAM_CHAT_ID;
+    if (fallbackChat && /^-?\d+$/.test(fallbackChat)) {
+      targetChats = [fallbackChat];
+    }
+  }
+
+  if (targetChats.length === 0) {
     return false;
   }
 
@@ -390,18 +499,28 @@ export async function notifyFeedbackTelegram(env, entry, {fetchImpl = globalThis
   captionLines.push(`ID: ${entry.id}`);
   const caption = captionLines.filter(Boolean).join('\n');
 
-  try {
-    if (entry.screenshot && entry.screenshot.startsWith('data:image/')) {
-      const match = entry.screenshot.match(/^data:([^;]+);base64,(.+)$/);
-      if (match) {
-        const mime = match[1] || 'image/jpeg';
-        const base64 = match[2];
-        const binary = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-        const ext = mime.includes('webp') ? 'webp' : mime.includes('png') ? 'png' : 'jpg';
+  let anySuccess = false;
 
+  const hasScreenshot = entry.screenshot && entry.screenshot.startsWith('data:image/');
+  let photoData = null;
+
+  if (hasScreenshot) {
+    const match = entry.screenshot.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      const mime = match[1] || 'image/jpeg';
+      const base64 = match[2];
+      const binary = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const ext = mime.includes('webp') ? 'webp' : mime.includes('png') ? 'png' : 'jpg';
+      photoData = { mime, binary, ext };
+    }
+  }
+
+  for (const chat of targetChats) {
+    try {
+      if (photoData) {
         const form = new FormData();
         form.set('chat_id', chat);
-        form.set('photo', new Blob([binary], {type: mime}), `screenshot.${ext}`);
+        form.set('photo', new Blob([photoData.binary], {type: photoData.mime}), `screenshot.${photoData.ext}`);
         form.set('caption', caption.slice(0, 1024));
 
         const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendPhoto`, {
@@ -409,24 +528,26 @@ export async function notifyFeedbackTelegram(env, entry, {fetchImpl = globalThis
           body: form,
           signal: AbortSignal.timeout(15000)
         });
-        return res.ok;
+        if (res.ok) anySuccess = true;
+      } else {
+        const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            chat_id: chat,
+            text: caption.slice(0, 4000),
+            disable_web_page_preview: true
+          }),
+          signal: AbortSignal.timeout(15000)
+        });
+        if (res.ok) anySuccess = true;
       }
+    } catch (_) {
+      // Individual chat failure shouldn't abort sending to other recipients
     }
-
-    const res = await fetchImpl(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        chat_id: chat,
-        text: caption.slice(0, 4000),
-        disable_web_page_preview: true
-      }),
-      signal: AbortSignal.timeout(15000)
-    });
-    return res.ok;
-  } catch (_) {
-    return false;
   }
+
+  return anySuccess;
 }
 
 function safeJsonParse(val, fallback) {

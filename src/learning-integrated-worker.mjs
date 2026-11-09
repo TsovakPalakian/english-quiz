@@ -40,7 +40,7 @@ import {essayCopilot} from './learning-essay-copilot.mjs';
 import {ErrorBankService} from './learning-error-bank.mjs';
 import {LearningSpeechScenariosService} from './learning-speech-scenarios.mjs';
 import {listBugHeads,listBugs,listBugsByIds,recordHttpBug,resolveBug,saveBug} from './bug-log.mjs';
-import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit,defaultFeedbackLimitForRole,getUserFeedbackLimit,setUserFeedbackLimit,listUserFeedbackLimits,getFeedbackBreadcrumbsLimit,setFeedbackBreadcrumbsLimit,DEFAULT_ROLE_FEEDBACK_LIMITS,DEFAULT_BREADCRUMBS_LIMIT} from './feedback.mjs';
+import {saveFeedback,listFeedback,countFeedback,resolveFeedback,notifyFeedbackTelegram,checkFeedbackRateLimit,defaultFeedbackLimitForRole,getUserFeedbackLimit,setUserFeedbackLimit,listUserFeedbackLimits,getFeedbackBreadcrumbsLimit,setFeedbackBreadcrumbsLimit,getTelegramRecipients,setTelegramRecipients,testTelegramRecipient,DEFAULT_ROLE_FEEDBACK_LIMITS,DEFAULT_BREADCRUMBS_LIMIT} from './feedback.mjs';
 import {analyzerAiIssue} from './analyzer-client.js';
 import {chatCall} from './chat-durable.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
@@ -1192,7 +1192,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           contact:body.contact,
           context:body.context
         });
-        ctx?.waitUntil?.(notifyFeedbackTelegram(env,saved).catch(()=>{}));
+        ctx?.waitUntil?.(notifyFeedbackTelegram(env,saved,{db}).catch(()=>{}));
         return json({ok:true,id:saved.id});
       }
       if(path==='/api/feedback'&&method==='GET'){
@@ -1235,6 +1235,32 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const db=studyDatabase(env);
         const breadcrumbsLimit=await setFeedbackBreadcrumbsLimit(db,body.breadcrumbsLimit);
         return json({ok:true,breadcrumbsLimit});
+      }
+      if(path==='/api/feedback/telegram-recipients'&&method==='GET'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer access required.');
+        const db=studyDatabase(env);
+        const recipients=await getTelegramRecipients(db);
+        return json({recipients,fallbackChatId:env?.TELEGRAM_CHAT_ID||''});
+      }
+      if(path==='/api/feedback/telegram-recipients'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer access required.');
+        const raw=await request.text();if(raw.length>10000)throw new StudyError(413,'Request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        const db=studyDatabase(env);
+        const recipients=await setTelegramRecipients(db,body?.recipients);
+        return json({ok:true,recipients});
+      }
+      if(path==='/api/feedback/telegram-test'&&method==='POST'){
+        const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
+        if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer access required.');
+        const raw=await request.text();if(raw.length>1000)throw new StudyError(413,'Request too large.');
+        let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
+        const chatId=String(body?.chatId||'').trim();
+        if(!/^-?\d+$/.test(chatId))throw new StudyError(400,'Valid numeric Telegram Chat ID is required.');
+        const result=await testTelegramRecipient(env,chatId);
+        return json({ok:result});
       }
       if(path==='/api/feedback/limit'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');

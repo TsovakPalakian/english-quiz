@@ -131,9 +131,9 @@
       if (groupDeleteBtn) { groupDelete(groupDeleteBtn.dataset.groupDelete); return; }
       const bugTabBtn = e.target.closest("button[data-bug-tab]");
       if (bugTabBtn) {
-        bugTab = ['done', 'feedback'].includes(bugTabBtn.dataset.bugTab) ? bugTabBtn.dataset.bugTab : "open";
+        bugTab = ['done', 'feedback', 'telegram'].includes(bugTabBtn.dataset.bugTab) ? bugTabBtn.dataset.bugTab : "open";
         document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
-        if (bugCache && bugTab !== 'feedback') paintBugs(bugCache);
+        if (bugCache && !['feedback', 'telegram'].includes(bugTab)) paintBugs(bugCache);
         else paintBugs();
         return;
       }

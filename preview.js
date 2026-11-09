@@ -4909,9 +4909,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (groupDeleteBtn) { groupDelete(groupDeleteBtn.dataset.groupDelete); return; }
       const bugTabBtn = e.target.closest("button[data-bug-tab]");
       if (bugTabBtn) {
-        bugTab = ['done', 'feedback'].includes(bugTabBtn.dataset.bugTab) ? bugTabBtn.dataset.bugTab : "open";
+        bugTab = ['done', 'feedback', 'telegram'].includes(bugTabBtn.dataset.bugTab) ? bugTabBtn.dataset.bugTab : "open";
         document.querySelectorAll("[data-bug-tab]").forEach((btn) => btn.classList.toggle("on", btn === bugTabBtn));
-        if (bugCache && bugTab !== 'feedback') paintBugs(bugCache);
+        if (bugCache && !['feedback', 'telegram'].includes(bugTab)) paintBugs(bugCache);
         else paintBugs();
         return;
       }
@@ -18286,6 +18286,248 @@ const STUDIO_CONSTELLATIONS = [{
       }
     }
 
+    function paintTelegramRecipientsView(box, initialRecipients, fallbackChatId) {
+      let recipients = Array.isArray(initialRecipients) ? [...initialRecipients] : [];
+      let editingId = null;
+
+      function render() {
+        const fallbackDisplay = fallbackChatId ? `<code>${esc(fallbackChatId)}</code> (from env)` : 'Not configured';
+        const isEditing = Boolean(editingId);
+        const editingItem = isEditing ? recipients.find(r => r.id === editingId) : null;
+
+        box.innerHTML = `
+          <div class="card" style="padding:18px; display:flex; flex-direction:column; gap:16px; border:1px solid var(--line);">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <b style="font-size:16px; display:flex; align-items:center; gap:8px;">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#26a5e4"><path d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z" fill="#26a5e4"/><path d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z" fill="#ffffff"/></svg>
+                  Telegram Notification Recipients
+                </b>
+                <small style="color:var(--ink-sub); display:block; margin-top:3px; font-size:12.5px;">
+                  Configure Telegram accounts and groups that receive automated notifications for bug reports, user feedback, and error alerts.
+                </small>
+              </div>
+              <span style="padding:3px 10px; border-radius:6px; background:var(--bg-sub, #f1f5f9); font-size:11px; font-weight:600; color:var(--ink-sub, #64748b);">Developer Console</span>
+            </div>
+
+            <div class="info-callout" style="padding:10px 14px; border-radius:6px; background:#eff6ff; border-left:3px solid #3b82f6; font-size:12px; color:#1e40af; display:flex; align-items:center; gap:8px;">
+              <span>💡</span>
+              <span><strong>Delivery Rule:</strong> Private recipients must launch the bot first via <code>/start</code> in Telegram. For group channels, add the bot to the group with message sending permissions.</span>
+            </div>
+
+            <form id="telegramRecipientForm" style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; padding:12px; background:var(--bg-sub, #f8fafc); border-radius:8px; border:1px solid var(--line);">
+              <div style="width:200px;">
+                <label for="telegramChatIdInput" style="display:block; font-size:11.5px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Telegram Chat ID</label>
+                <input type="text" id="telegramChatIdInput" placeholder="1308341417 or -100..." style="width:100%; height:32px; padding:0 10px; border-radius:6px; border:1px solid var(--line); font:inherit; font-size:12.5px; background:var(--bg); color:var(--ink); box-sizing:border-box;" value="${esc(editingItem ? editingItem.chatId : '')}" required>
+              </div>
+              <div style="flex:1; min-width:180px;">
+                <label for="telegramLabelInput" style="display:block; font-size:11.5px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Recipient Name / Label</label>
+                <input type="text" id="telegramLabelInput" placeholder="Alex (Lead), QA Channel" style="width:100%; height:32px; padding:0 10px; border-radius:6px; border:1px solid var(--line); font:inherit; font-size:12.5px; background:var(--bg); color:var(--ink); box-sizing:border-box;" value="${esc(editingItem ? editingItem.label : '')}">
+              </div>
+              <div style="width:120px;">
+                <label for="telegramStatusSelect" style="display:block; font-size:11.5px; font-weight:500; color:var(--ink-sub); margin-bottom:4px;">Status</label>
+                <select id="telegramStatusSelect" style="width:100%; height:32px; padding:0 10px; border-radius:6px; border:1px solid var(--line); font:inherit; font-size:12.5px; background:var(--bg); color:var(--ink); box-sizing:border-box;">
+                  <option value="active" ${(!editingItem || editingItem.status === 'active') ? 'selected' : ''}>Active</option>
+                  <option value="disabled" ${(editingItem && editingItem.status === 'disabled') ? 'selected' : ''}>Disabled</option>
+                </select>
+              </div>
+              <button type="submit" class="btn primary" id="telegramSubmitBtn" style="white-space:nowrap; height:32px; padding:0 12px; font-size:12.5px; font-weight:500;">
+                ${isEditing ? '✓ Save Recipient' : '+ Add Recipient'}
+              </button>
+              ${isEditing ? '<button type="button" class="btn ghost" id="telegramCancelEditBtn" style="height:32px; padding:0 12px; font-size:12.5px;">Cancel</button>' : ''}
+            </form>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <small style="font-weight:600; color:var(--ink-sub); text-transform:uppercase; letter-spacing:0.5px; font-size:11px;">
+                  Configured Recipients (<span id="telegramRecipientsCount">${recipients.length}</span>)
+                </small>
+                <small style="color:var(--ink-sub); font-size:12px;">Fallback ID: ${fallbackDisplay}</small>
+              </div>
+
+              <div style="border:1px solid var(--line); border-radius:8px; overflow:hidden;">
+                <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                  <thead>
+                    <tr style="background:var(--bg-sub, #f8fafc);">
+                      <th style="text-align:left; padding:9px 12px; color:var(--ink-sub); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--line);">Label</th>
+                      <th style="text-align:left; padding:9px 12px; color:var(--ink-sub); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--line);">Chat ID</th>
+                      <th style="text-align:left; padding:9px 12px; color:var(--ink-sub); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--line);">Type</th>
+                      <th style="text-align:left; padding:9px 12px; color:var(--ink-sub); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--line);">Status</th>
+                      <th style="text-align:right; padding:9px 12px; color:var(--ink-sub); font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--line);">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="telegramRecipientsTableBody">
+                    ${recipients.length === 0 ? `
+                      <tr>
+                        <td colspan="5" style="text-align:center; padding:20px; color:var(--ink-sub);">
+                          No Telegram recipients configured yet. The fallback ID from environment is used.
+                        </td>
+                      </tr>
+                    ` : recipients.map(r => {
+                      const isGroup = String(r.chatId || '').startsWith('-');
+                      const isActive = r.status === 'active';
+                      return `
+                        <tr data-recipient-row="${esc(r.id)}">
+                          <td style="padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle;">
+                            <strong>${esc(r.label || 'Unnamed Recipient')}</strong>
+                          </td>
+                          <td style="padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle;">
+                            <code>${esc(r.chatId)}</code>
+                          </td>
+                          <td style="padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle;">
+                            <span class="badge ${isGroup ? 'group' : 'user'}" style="padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:${isGroup ? '#f3e8ff' : '#e0f2fe'}; color:${isGroup ? '#7e22ce' : '#0369a1'};">
+                              ${isGroup ? 'Group' : 'Private Chat'}
+                            </span>
+                          </td>
+                          <td style="padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle;">
+                            <span class="badge ${isActive ? 'active' : 'inactive'}" style="padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:${isActive ? 'var(--success-bg, #dcfce7)' : 'var(--bg-sub, #f1f5f9)'}; color:${isActive ? '#065f46' : 'var(--ink-sub, #64748b)'};">
+                              ${isActive ? '● Active' : '○ Disabled'}
+                            </span>
+                          </td>
+                          <td style="text-align:right; padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;">
+                            <button type="button" class="btn small ghost" data-tg-action="test" data-chat-id="${esc(r.chatId)}" style="height:26px; padding:0 8px; font-size:11.5px; border:1px solid var(--line); border-radius:4px; cursor:pointer;" title="Send test ping">🔔 Test</button>
+                            <button type="button" class="btn small ghost" data-tg-action="edit" data-id="${esc(r.id)}" style="height:26px; padding:0 8px; font-size:11.5px; border:1px solid var(--line); border-radius:4px; cursor:pointer; margin-left:4px;">✏ Edit</button>
+                            <button type="button" class="btn small danger" data-tg-action="remove" data-id="${esc(r.id)}" style="height:26px; padding:0 8px; font-size:11.5px; background:var(--danger-bg, #fee2e2); color:var(--danger, #dc2626); border:1px solid #fecaca; border-radius:4px; cursor:pointer; margin-left:4px;">✕ Remove</button>
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+
+        bindEvents();
+      }
+
+      function bindEvents() {
+        const form = box.querySelector('#telegramRecipientForm');
+        if (form) {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const chatIdInput = box.querySelector('#telegramChatIdInput');
+            const labelInput = box.querySelector('#telegramLabelInput');
+            const statusSelect = box.querySelector('#telegramStatusSelect');
+
+            const chatId = (chatIdInput?.value || '').trim();
+            const label = (labelInput?.value || '').trim();
+            const status = statusSelect?.value === 'disabled' ? 'disabled' : 'active';
+
+            if (!/^-?\d+$/.test(chatId)) {
+              feedbackNotice('Please enter a valid numeric Telegram Chat ID (e.g. 1308341417 or -100...).', true);
+              return;
+            }
+
+            let updatedList;
+            if (editingId) {
+              updatedList = recipients.map(r => r.id === editingId ? { ...r, chatId, label, status, updatedAt: Date.now() } : r);
+            } else {
+              if (recipients.some(r => r.chatId === chatId)) {
+                feedbackNotice('Recipient with this Chat ID already exists.', true);
+                return;
+              }
+              const newRecipient = {
+                id: 'tg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                chatId,
+                label,
+                status,
+                createdAt: Date.now(),
+                updatedAt: Date.now()
+              };
+              updatedList = [...recipients, newRecipient];
+            }
+
+            const submitBtn = box.querySelector('#telegramSubmitBtn');
+            if (submitBtn) submitBtn.disabled = true;
+
+            accountFetch('/api/feedback/telegram-recipients', {
+              method: 'POST',
+              body: JSON.stringify({ recipients: updatedList })
+            }).then(res => {
+              recipients = res.recipients || updatedList;
+              const wasEditing = Boolean(editingId);
+              editingId = null;
+              feedbackNotice(wasEditing ? 'Telegram recipient updated.' : 'Telegram recipient added.');
+              render();
+            }).catch(err => {
+              feedbackNotice(err.message, true);
+              if (submitBtn) submitBtn.disabled = false;
+            });
+          });
+        }
+
+        const cancelBtn = box.querySelector('#telegramCancelEditBtn');
+        if (cancelBtn) {
+          cancelBtn.addEventListener('click', () => {
+            editingId = null;
+            render();
+          });
+        }
+
+        box.querySelectorAll('[data-tg-action="edit"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            editingId = btn.dataset.id;
+            render();
+            box.querySelector('#telegramChatIdInput')?.focus();
+          });
+        });
+
+        box.querySelectorAll('[data-tg-action="remove"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const idToRemove = btn.dataset.id;
+            const target = recipients.find(r => r.id === idToRemove);
+            const label = target?.label || target?.chatId || 'this recipient';
+            if (!confirm('Remove ' + label + ' from Telegram recipients?')) return;
+
+            btn.disabled = true;
+            const updatedList = recipients.filter(r => r.id !== idToRemove);
+
+            accountFetch('/api/feedback/telegram-recipients', {
+              method: 'POST',
+              body: JSON.stringify({ recipients: updatedList })
+            }).then(res => {
+              recipients = res.recipients || updatedList;
+              if (editingId === idToRemove) editingId = null;
+              feedbackNotice('Telegram recipient removed.');
+              render();
+            }).catch(err => {
+              feedbackNotice(err.message, true);
+              btn.disabled = false;
+            });
+          });
+        });
+
+        box.querySelectorAll('[data-tg-action="test"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const chatId = btn.dataset.chatId;
+            const origText = btn.innerHTML;
+            btn.disabled = true;
+            btn.textContent = '⏳ Testing...';
+
+            accountFetch('/api/feedback/telegram-test', {
+              method: 'POST',
+              body: JSON.stringify({ chatId })
+            }).then(() => {
+              btn.textContent = '✓ Sent!';
+              feedbackNotice('Test message delivered to Chat ID ' + chatId);
+              setTimeout(() => {
+                btn.innerHTML = origText;
+                btn.disabled = false;
+              }, 3000);
+            }).catch(err => {
+              feedbackNotice(err.message, true);
+              btn.innerHTML = origText;
+              btn.disabled = false;
+            });
+          });
+        });
+      }
+
+      render();
+    }
+
     function paintBugs(preset) {
       const box = document.getElementById("bugList");
       if (!box) return;
@@ -18308,6 +18550,16 @@ const STUDIO_CONSTELLATIONS = [{
       const onBugs = () => (document.querySelector("section.on") || {}).id === "bugs";
       if (Array.isArray(preset)) { draw(preset); return; }
       if (!isDeveloper()) return;
+      if (bugTab === "telegram") {
+        box.innerHTML = '<p class="sub">Loading Telegram recipients...</p>';
+        accountFetch('/api/feedback/telegram-recipients').then(data => {
+          if (!onBugs() || bugTab !== "telegram") return;
+          paintTelegramRecipientsView(box, data && data.recipients, data && data.fallbackChatId);
+        }).catch(err => {
+          if (onBugs() && bugTab === "telegram") box.innerHTML = '<p class="sub">Failed to load Telegram recipients: ' + esc(err.message) + '</p>';
+        });
+        return;
+      }
       if (bugTab === "feedback") {
         box.innerHTML = '<p class="sub">Loading user feedback...</p>';
         const isResolvedQuery = feedbackStatusTab === "resolved" ? "1" : "0";
