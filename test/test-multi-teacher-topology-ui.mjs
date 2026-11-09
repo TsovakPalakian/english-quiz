@@ -1115,12 +1115,26 @@ await scenarioSubtests("multi-teacher-topology-ui", async function*(){
       await pageT1.locator('[data-group-open="101"]').click();
       await pageT1.locator('#groupdetail.on').waitFor();
 
-      // Diagnostic panel is visible for assigned teacher
-      await pageT1.locator('#groupDetailDiagnostic').waitFor({state:'visible'});
-      await pageT1.waitForFunction(()=>document.getElementById('groupDiagTotalErrors')?.textContent==='3 errors');
-      assert.equal(await pageT1.locator('#groupDiagTotalErrors').textContent(), '3 errors');
-      assert.ok(await pageT1.locator('#groupDiagBars .group-diag-bar-segment').count() >= 2);
-      assert.match(await pageT1.locator('#groupDiagAdvice').textContent(), /Recommended: 10-minute focused contrastive analysis/);
+      // Diagnostic panel remains hidden in UI on group detail page for teachers
+      assert.ok(await pageT1.locator('#groupDetailDiagnostic').isHidden(), 'Diagnostic heatmap must remain hidden on group detail page');
+
+      // Teacher 101_1 has authorized access to Group 101 diagnostic data via API
+      const diagData = await pageT1.evaluate(async () => {
+        const res = await fetch('/api/error-bank?action=subgroup-diagnostic&groupId=101');
+        return { ok: res.ok, status: res.status, body: await res.json() };
+      });
+      assert.equal(diagData.ok, true, 'Authorized teacher must receive 200 OK from diagnostic API');
+      assert.equal(diagData.status, 200);
+      assert.equal(diagData.body.totalErrors, 3);
+      assert.match(diagData.body.recommendation, /Recommended: 10-minute focused contrastive analysis/);
+
+      // IDOR protection: Teacher 101_1 cannot access unassigned group diagnostic data (e.g. Group 102)
+      const unauthorizedDiag = await pageT1.evaluate(async () => {
+        const res = await fetch('/api/error-bank?action=subgroup-diagnostic&groupId=102');
+        return { ok: res.ok, status: res.status, body: await res.json() };
+      });
+      assert.equal(unauthorizedDiag.status, 403, 'Unauthorized teacher must receive 403 Forbidden for unassigned group');
+      assert.match(unauthorizedDiag.body.error, /Forbidden/);
 
       // Student cannot see teacher heatmap
       const student=allStudents.find(s=>s.login==='student_101_1');
