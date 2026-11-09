@@ -173,6 +173,8 @@
     if (!m) return false;
     const me = myAccountId();
     if (me && String(m?.senderId ?? '') === me) return true;
+    if (me && String(m?.sender ?? '') === me) return true;
+    if (data?.profile?.name && m?.sender && String(m.sender) === String(data.profile.name)) return true;
     return Boolean(m?.pending);
   };
   const chatCacheKey = () => 'english-chat-snapshot:' + account;
@@ -205,18 +207,20 @@
       }
     }
   };
-  const writeChatCache = async (snapshot) => {
-    if (!account || !snapshot) return;
+  const writeChatCache = async (snapshot = data) => {
+    const target = snapshot || data;
+    if (!account || !target) return;
     const payload = {
       at: Date.now(),
-      seq: snapshot.seq || 0,
-      rooms: snapshot.rooms || [],
-      contacts: snapshot.contacts || [],
-      groups: snapshot.groups || [],
-      folders: snapshot.folders || [],
-      unread: snapshot.unread || { personal: 0, learning: 0 },
-      total: snapshot.total || 0,
-      profiles: { ...(typeof profileViews !== 'undefined' ? profileViews : {}), ...(snapshot.profiles || {}) },
+      seq: target.seq || 0,
+      profile: target.profile || data?.profile || null,
+      rooms: target.rooms || [],
+      contacts: target.contacts || [],
+      groups: target.groups || [],
+      folders: target.folders || [],
+      unread: target.unread || { personal: 0, learning: 0 },
+      total: target.total || 0,
+      profiles: { ...(typeof profileViews !== 'undefined' ? profileViews : {}), ...(target.profiles || {}) },
     };
     try {
       const db = await chatCacheDb();
@@ -236,6 +240,7 @@
     if (!cached || !Array.isArray(cached.rooms)) return false;
     data = {
       rooms: cached.rooms,
+      profile: cached.profile || null,
       contacts: cached.contacts || [],
       groups: cached.groups || [],
       folders: cached.folders || [],
@@ -243,6 +248,7 @@
       total: cached.total || 0,
       seq: cached.seq || 0,
     };
+    if (cached.profile?.id && !account) account = String(cached.profile.id);
     if (cached.profiles && typeof cached.profiles === 'object') Object.assign(profileViews, cached.profiles);
     seq = Math.max(seq, cached.seq || 0);
     return true;
@@ -2539,7 +2545,7 @@
     try {
       await history();
     } finally {
-      if (hadUnread) markRead(true, id, openedKind);
+      markRead(true, id, openedKind);
     }
   }
   function chatCategoryReadThrough(rows) {

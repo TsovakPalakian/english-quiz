@@ -1058,7 +1058,7 @@
     try {
       await history();
     } finally {
-      if (hadUnread) markRead(true, id, openedKind);
+      markRead(true, id, openedKind);
     }
   }
   function chatCategoryReadThrough(rows) {

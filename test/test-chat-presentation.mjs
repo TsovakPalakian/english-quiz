@@ -105,3 +105,36 @@ test('chat previews shorten words and unbroken text without altering messages',(
   assert.equal(preview('one two three four five six seven eight'),'one two three four five six…');
   assert.equal(preview('short message'),'short message');assert.equal(preview('  short\nmessage  '),'short message');assert.ok(preview('x'.repeat(100)).length<=65);
 });
+test('isOwnMessage recognizes messages by senderId, sender account, or profile name',()=>{
+  const code=extractFunction(source,'myAccountId')+'\n'+extractFunction(source,'isOwnMessage')+'\nisOwnMessage';
+  const ctx={
+    data:{profile:{id:'user-42',name:'Tsovak Palakian'}},
+    account:'user-42',
+    signedIn:()=>({id:'user-42'}),
+    String,
+    Boolean
+  };
+  const isOwn=runInNewContext(code,ctx);
+  assert.equal(isOwn({senderId:'user-42',sender:'Other'}),true);
+  assert.equal(isOwn({senderId:'diff-id',sender:'Tsovak Palakian'}),true);
+  assert.equal(isOwn({senderId:'diff-id',sender:'Jane Doe'}),false);
+  assert.equal(isOwn({pending:true}),true);
+});
+test('chat cache persists and restores the authenticated profile object',()=>{
+  const core=readFileSync(new URL('../production/chat/00-core.js',import.meta.url),'utf8');
+  assert.ok(core.includes('profile: target.profile || data?.profile || null'));
+  assert.ok(core.includes('profile: cached.profile || null'));
+  const code=extractFunction(source,'applyChatCache')+'\napplyChatCache';
+  let data={rooms:[]},profileViews={},account='',seq=0;
+  const ctx={data,profileViews,account,seq,Object,Array,Math,String};
+  const apply=runInNewContext(code,ctx);
+  const restored=apply({rooms:[{id:'room-1'}],profile:{id:'acc-99',name:'Student'},seq:10});
+  assert.equal(restored,true);
+  assert.equal(ctx.data.profile.id,'acc-99');
+  assert.equal(ctx.data.profile.name,'Student');
+  assert.equal(ctx.account,'acc-99');
+});
+test('openRoom unconditionally marks room read upon opening to prevent re-appearing unread counters',()=>{
+  const messages=readFileSync(new URL('../production/chat/40-messages.js',import.meta.url),'utf8');
+  assert.match(messages,/await history\(\);\s*\}\s*finally\s*\{\s*markRead\(true, id, openedKind\);/);
+});
