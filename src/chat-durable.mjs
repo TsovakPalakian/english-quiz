@@ -76,25 +76,25 @@ export class ChatRoom extends Store{
   }
   member(actor){
     if(!actor?.id||!this.get('room')?.active)fail(403,'This conversation is unavailable.');
-    const actorId=String(actor.id);
-    let row=this.one('SELECT * FROM members WHERE id=? AND active=1',actorId);
+    const actorId=String(actor.id),actorLogin=String(actor.login||''),actorName=String(actor.name||'');
+    let row=this.one('SELECT * FROM members WHERE (id=? OR (length(?)>0 AND id=?) OR (length(?)>0 AND name=?)) AND active=1',actorId,actorLogin,actorLogin,actorName,actorName);
     if(!row&&staff(actor)&&this.get('room').kind==='group'){
       const last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
       this.sql.exec('INSERT INTO members(id,name,role,read_personal,read_learning) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET active=1,name=excluded.name,role=excluded.role,joined=0',actorId,publicName(actor),actor.role,last,last);
       row=this.one('SELECT * FROM members WHERE id=?',actorId);
     }
-    if(!row)fail(403,'This is a private conversation.');return {...row,joined:this.visibilityFloor(actorId,row.joined)};
+    if(!row)fail(403,'This is a private conversation.');return {...row,joined:this.visibilityFloor(row.id,row.joined)};
   }
   visibilityFloor(account,joined=0){return Math.max(joined,this.get('cleared:'+String(account),0),this.get('cleared:everyone',0));}
   settings(account){const acc=String(account),value=this.get('settings:'+acc,{}),legacy=this.one('SELECT muted FROM members WHERE id=?',acc);return {...value,muted:value.muteUntil===undefined?!!legacy?.muted:value.muteUntil===-1||value.muteUntil>Date.now()};}
   summary(account){
-    const acc=String(account),m=this.one('SELECT * FROM members WHERE id=? AND active=1',acc),room=this.get('room');if(!m||!room?.active)return null;
-    const peer=room.kind==='direct'?this.one('SELECT id,name,role FROM members WHERE id<>? LIMIT 1',acc):null;
-    const floor=this.visibilityFloor(acc,m.joined),settings=this.settings(acc);
+    const acc=String(account),m=this.one('SELECT * FROM members WHERE (id=? OR name=?) AND active=1',acc,acc),room=this.get('room');if(!m||!room?.active)return null;
+    const peer=room.kind==='direct'?this.one('SELECT id,name,role FROM members WHERE id<>? LIMIT 1',m.id):null;
+    const floor=this.visibilityFloor(m.id,m.joined),settings=this.settings(m.id);
     const last=this.one("SELECT * FROM messages WHERE deleted=0 AND (id>? OR category='learning') ORDER BY id DESC LIMIT 1",floor);
     const counts=this.get('counts',{personal:0,learning:0});
-    const pins=this.pins(acc);
-    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(acc),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
+    const pins=this.pins(m.id);
+    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(m.id),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
   }
   access(account){
     const room=this.get('room'),acc=String(account);
@@ -122,18 +122,21 @@ export class ChatRoom extends Store{
   pinned(account){const list=this.pins(account);return list.length?list[list.length-1]:null;}
   message(row,account){
     const acc=String(account);
-    const cursors=this.rows('SELECT read_'+row.category+' read,delivered_'+row.category+' delivered FROM members WHERE active=1 AND id<>?',acc);
+    const member=this.one('SELECT id,joined FROM members WHERE (id=? OR name=?) AND active=1',acc,acc);
+    const memberId=member?member.id:acc;
+    const cursors=this.rows('SELECT read_'+row.category+' read,delivered_'+row.category+' delivered FROM members WHERE active=1 AND id<>? AND id<>?',acc,memberId);
     const roomKind=this.get('room')?.kind,group=roomKind==='group'||roomKind==='circle';
     const readValues=cursors.map(p=>p.read||0),deliveredValues=cursors.map(p=>p.delivered||0),memberCount=cursors.length;
     const readCount=readValues.filter(v=>v>=row.id).length,deliveredCount=deliveredValues.filter(v=>v>=row.id).length;
     const readAll=memberCount>0&&Math.min(...readValues)>=row.id,deliveredAll=memberCount>0&&Math.min(...deliveredValues)>=row.id;
-    const member=this.one('SELECT joined FROM members WHERE id=?',acc);if(member)member.joined=this.visibilityFloor(acc,member.joined);
-    const reply=row.reply?this.one("SELECT body,name,category,deleted FROM messages WHERE id=? AND (id>? OR category='learning')",row.reply,member?.joined||0):null;
+    const floor=this.visibilityFloor(memberId,member?.joined||0);
+    const reply=row.reply?this.one("SELECT body,name,category,deleted FROM messages WHERE id=? AND (id>? OR category='learning')",row.reply,floor):null;
     if(reply&&!reply.deleted&&!reply.body)reply.body=this.get('files:'+row.reply,[]).map(file=>file.name).join(', ')||'Message';
     if(reply&&!reply.deleted){const quote=this.get('quote:'+row.id);if(quote)reply.body=quote;}
     const files=this.get('files:'+row.id,[]),forward=this.get('forward:'+row.id);
     const peers=this.rows('SELECT id,role FROM members WHERE active=1'),sender=peers.find(p=>p.id===row.sender);
-    return {id:row.id,senderId:row.sender,sender:row.name,category:row.category,text:row.deleted?'Message deleted':row.body,deleted:!!row.deleted,editedMs:row.edited_ms,canEdit:!row.deleted&&!row.exam_id&&row.sender===account,canStudyReply:!row.deleted&&row.category==='learning'&&row.sender!==account&&staff(sender),reactions:row.deleted?[]:Object.entries(this.get('reactions:'+row.id,{})).map(([emoji,ids])=>({emoji,count:ids.length,mine:ids.includes(account)})),format:!row.deleted&&row.format?JSON.parse(row.format):null,files:row.deleted?[]:files,forwarded:row.deleted?null:forward?.label||null,forwardTo:forward?.recipientId||null,createdMs:row.created_ms,created:Math.floor(row.created_ms/1000),clientKey:row.client_key,replyTo:row.deleted?null:row.reply,replyText:reply?.deleted?'Message deleted':reply?.body,replySender:reply?.name,replyCategory:reply?.category,examId:row.deleted?null:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:readAll,delivered:group?deliveredCount>0:deliveredAll,readSome:group?readCount>0:readAll,readCount:group?readCount:readAll?memberCount:0,memberCount};
+    const isOwn=row.sender===acc||row.sender===memberId;
+    return {id:row.id,senderId:row.sender,sender:row.name,category:row.category,text:row.deleted?'Message deleted':row.body,deleted:!!row.deleted,editedMs:row.edited_ms,canEdit:!row.deleted&&!row.exam_id&&isOwn,canStudyReply:!row.deleted&&row.category==='learning'&&!isOwn&&staff(sender),reactions:row.deleted?[]:Object.entries(this.get('reactions:'+row.id,{})).map(([emoji,ids])=>({emoji,count:ids.length,mine:ids.includes(acc)||ids.includes(memberId)})),format:!row.deleted&&row.format?JSON.parse(row.format):null,files:row.deleted?[]:files,forwarded:row.deleted?null:forward?.label||null,forwardTo:forward?.recipientId||null,createdMs:row.created_ms,created:Math.floor(row.created_ms/1000),clientKey:row.client_key,replyTo:row.deleted?null:row.reply,replyText:reply?.deleted?'Message deleted':reply?.body,replySender:reply?.name,replyCategory:reply?.category,examId:row.deleted?null:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:readAll,delivered:group?deliveredCount>0:deliveredAll,readSome:group?readCount>0:readAll,readCount:group?readCount:readAll?memberCount:0,memberCount};
   }
   emit(key,type,extra={},recipients=null){
     const room=this.get('room');
@@ -345,23 +348,23 @@ export class ChatRoom extends Store{
     const last=this.one("SELECT COALESCE(MAX(id),0) id FROM messages WHERE category=? AND id<=? AND (id>? OR category='learning')",kind,through,member.joined).id;
     if(delivered){if(through<=member[column]||last<=member[column])return {read:true,unchanged:true};}
     else{
-      const cursor=Math.max(member[column],last),unread=this.one("SELECT COUNT(*) n FROM messages WHERE deleted=0 AND category=? AND sender<>? AND id>? AND (id>? OR category='learning')",kind,actor.id,cursor,member.joined).n;
+      const cursor=Math.max(member[column],last),unread=this.one("SELECT COUNT(*) n FROM messages WHERE deleted=0 AND category=? AND sender<>? AND sender<>? AND id>? AND (id>? OR category='learning')",kind,member.id,String(actor.id),cursor,member.joined).n;
       if(cursor===member[column]&&unread===member['unread_'+kind])return {read:true,unchanged:true,room:this.summary(actor.id)};
       this.tx(()=>{
-        this.sql.exec('UPDATE members SET '+column+'=?,delivered_'+kind+'=MAX(delivered_'+kind+',?),unread_'+kind+'=? WHERE id=?',cursor,cursor,unread,actor.id);
+        this.sql.exec('UPDATE members SET '+column+'=?,delivered_'+kind+'=MAX(delivered_'+kind+',?),unread_'+kind+'=? WHERE id=?',cursor,cursor,unread,member.id);
         if(cursor>member[column]){
           const readers=this.rows('SELECT id,read_'+kind+' read,delivered_'+kind+' delivered FROM members WHERE active=1');
-          const recipients=new Set([actor.id,...this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],cursor).map(m=>m.sender)]);
-          this.emit('read:'+actor.id+':'+kind+':'+cursor,'receipt',{receipt:{category:kind,readers}},recipients);
-        }else this.emit('read:'+actor.id+':'+kind+':'+cursor+':unread:'+this.get('revision',0),'room',{},new Set([actor.id]));
-      });this.deliver();return {read:true,room:this.summary(actor.id)};
+          const recipients=new Set([member.id,...this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],cursor).map(m=>m.sender)]);
+          this.emit('read:'+member.id+':'+kind+':'+cursor,'receipt',{receipt:{category:kind,readers}},recipients);
+        }else this.emit('read:'+member.id+':'+kind+':'+cursor+':unread:'+this.get('revision',0),'room',{},new Set([member.id]));
+      });this.deliver();return {read:true,room:this.summary(member.id)};
     }
     this.tx(()=>{
-      this.sql.exec('UPDATE members SET '+column+'=? WHERE id=?',last,actor.id);
+      this.sql.exec('UPDATE members SET '+column+'=? WHERE id=?',last,member.id);
       const readers=this.rows('SELECT id,read_'+kind+' read,delivered_'+kind+' delivered FROM members WHERE active=1');
-      const recipients=new Set([actor.id,...this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],last).map(m=>m.sender)]);
-      this.emit('delivered:'+actor.id+':'+kind+':'+last,'receipt',{receipt:{category:kind,readers}},recipients);
-    });this.deliver();return {read:true,room:this.summary(actor.id)};
+      const recipients=new Set([member.id,...this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],last).map(m=>m.sender)]);
+      this.emit('delivered:'+member.id+':'+kind+':'+last,'receipt',{receipt:{category:kind,readers}},recipients);
+    });this.deliver();return {read:true,room:this.summary(member.id)};
   }
   roomSettings(actor,body){
     const allowed=['roomId','actor','archived','pinOrder','muteUntil','sound','personalHidden'];if(Object.keys(body).some(key=>!allowed.includes(key)))fail(400,'Invalid chat setting.');

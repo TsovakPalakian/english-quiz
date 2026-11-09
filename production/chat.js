@@ -982,27 +982,32 @@
       if (socket === ws) status('Unable to connect. Your draft is saved.');
     };
   }
-  function chatUnreadMerge(previous, incoming, revision, nextRevision) {
+  function chatUnreadMerge(previous, incoming, revision, nextRevision, isCurrentRoom = false) {
     const base = { personal: previous?.personal || 0, learning: previous?.learning || 0 };
+    if (isCurrentRoom && typeof kind === 'string' && kind) base[kind] = 0;
     if (!incoming) return base;
     if ((revision || 0) > (nextRevision || 0)) return base;
-    if ((revision || 0) < (nextRevision || 0))
-      return { personal: incoming.personal || 0, learning: incoming.learning || 0 };
+    if ((revision || 0) < (nextRevision || 0)) {
+      const res = { personal: incoming.personal || 0, learning: incoming.learning || 0 };
+      if (isCurrentRoom && typeof kind === 'string' && kind) res[kind] = 0;
+      return res;
+    }
     return {
-      personal: Math.min(base.personal, incoming.personal || 0),
-      learning: Math.min(base.learning, incoming.learning || 0),
+      personal: isCurrentRoom && kind === 'personal' ? 0 : Math.min(base.personal, incoming.personal || 0),
+      learning: isCurrentRoom && kind === 'learning' ? 0 : Math.min(base.learning, incoming.learning || 0),
     };
   }
   function upsertRoom(row) {
     if (!row) return;
     const old = data.rooms.find((r) => r.id === row.id);
     if (old && (old.revision || 0) > (row.revision || 0)) return;
+    const isCurrent = Boolean(row.id && row.id === room);
     if (old) {
-      const unread = chatUnreadMerge(old.unread, row.unread, old.revision, row.revision);
+      const unread = chatUnreadMerge(old.unread, row.unread, old.revision, row.revision, isCurrent);
       Object.assign(old, row);
       old.unread = unread;
     } else data.rooms.push(row);
-    if (row.id === room) {
+    if (isCurrent) {
       const activeItem = old || row;
       if (activeItem.unread && kind) {
         activeItem.unread[kind] = 0;
@@ -1768,7 +1773,22 @@
     }
   }
   function chatReceiptMarks(messageId, readers, actor, group) {
-    const peers = (readers || []).filter((r) => String(r.id) !== String(actor));
+    const user = typeof signedIn === 'function' ? signedIn() : null;
+    const prof = typeof data !== 'undefined' ? data?.profile : null;
+    const acc = typeof account !== 'undefined' ? account : '';
+    const myId = typeof myAccountId === 'function' ? myAccountId() : '';
+    const authorIds = new Set(
+      [
+        String(actor || ''),
+        String(myId || ''),
+        String(prof?.id || ''),
+        String(prof?.login || ''),
+        String(acc || ''),
+        String(user?.id || ''),
+        String(user?.login || ''),
+      ].filter(Boolean),
+    );
+    const peers = (readers || []).filter((r) => !authorIds.has(String(r.id)));
     const memberCount = peers.length;
     const readCount = peers.filter((r) => (r.read || 0) >= messageId).length;
     const deliveredCount = peers.filter((r) => (r.delivered || 0) >= messageId).length;
@@ -2624,7 +2644,11 @@
     const current = data.rooms.find((item) => item.id === roomId);
     const rows =
       roomId === room && category === kind ? state()?.rows : historyCache.get(roomId + ':' + category)?.rows;
-    const through = Math.max(chatCategoryReadThrough(rows), Number(current?.lastMessage?.id) || 0);
+    const through = Math.max(
+      chatCategoryReadThrough(rows),
+      Number(current?.lastId) || 0,
+      Number(current?.lastMessage?.id) || 0,
+    );
     ack('read', roomId, category, through, force || (current?.unread?.[category] || 0) > 0);
   }
   function scheduleRead(roomId = room, category = kind) {

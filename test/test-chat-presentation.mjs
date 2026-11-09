@@ -138,3 +138,55 @@ test('openRoom unconditionally marks room read upon opening to prevent re-appear
   const messages=readFileSync(new URL('../production/chat/40-messages.js',import.meta.url),'utf8');
   assert.match(messages,/await history\(\);\s*\}\s*finally\s*\{\s*markRead\(true, id, openedKind\);/);
 });
+test('chatReceiptMarks accurately filters author across numeric ID and string login and produces two checkmarks',()=>{
+  const code=extractFunction(source,'chatReceiptMarks')+'\n'+extractFunction(source,'chatReceiptFace')+'\n({chatReceiptMarks,chatReceiptFace})';
+  const ctx={
+    data:{profile:{id:'9',login:'teacher_yester'}},
+    account:'teacher_yester',
+    signedIn:()=>({id:'9',login:'teacher_yester'}),
+    myAccountId:()=>'9',
+    String,
+    Math,
+    Set,
+    Boolean
+  };
+  const {chatReceiptMarks,chatReceiptFace}=runInNewContext(code,ctx);
+  const readers=[
+    {id:'9',read:0,delivered:0},
+    {id:'10',read:25,delivered:25}
+  ];
+  const readMarks=chatReceiptMarks(20,readers,'teacher_yester',false);
+  assert.equal(readMarks.read,true);
+  assert.equal(readMarks.delivered,true);
+  const readFace=chatReceiptFace(readMarks);
+  assert.equal(readFace.mark,'check-check');
+  assert.equal(readFace.label,'Read');
+
+  const unreadMarks=chatReceiptMarks(30,readers,'teacher_yester',false);
+  assert.equal(unreadMarks.read,false);
+  const unreadFace=chatReceiptFace(unreadMarks);
+  assert.equal(unreadFace.mark,'check');
+  assert.equal(unreadFace.label,'Sent');
+});
+test('chatUnreadMerge preserves local 0 for active room when server sends higher revision',()=>{
+  const code=extractFunction(source,'chatUnreadMerge')+'\nchatUnreadMerge';
+  const merge=runInNewContext(code,{Math,kind:'personal'});
+  const currentUnread={personal:0,learning:0};
+  const incomingUnread={personal:14,learning:0};
+  const merged=merge(currentUnread,incomingUnread,1,2,true);
+  assert.equal(merged.personal,0);
+  assert.equal(merged.learning,0);
+
+  const nonActive=merge(currentUnread,incomingUnread,1,2,false);
+  assert.equal(nonActive.personal,14);
+});
+test('chatReceiptMarks runs cleanly in bare context without data or account globals',()=>{
+  const code=extractFunction(source,'chatReceiptMarks')+'\nchatReceiptMarks';
+  const marks=runInNewContext(code,{Set,String,Math,Boolean});
+  const readers=[{id:'user-1',read:5,delivered:5},{id:'user-2',read:10,delivered:10}];
+  const res=marks(5,readers,'user-1',false);
+  assert.equal(res.read,true);
+  assert.equal(res.memberCount,1);
+});
+
+

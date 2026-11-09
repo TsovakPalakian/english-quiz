@@ -1,24 +1,29 @@
-  function chatUnreadMerge(previous, incoming, revision, nextRevision) {
+  function chatUnreadMerge(previous, incoming, revision, nextRevision, isCurrentRoom = false) {
     const base = { personal: previous?.personal || 0, learning: previous?.learning || 0 };
+    if (isCurrentRoom && typeof kind === 'string' && kind) base[kind] = 0;
     if (!incoming) return base;
     if ((revision || 0) > (nextRevision || 0)) return base;
-    if ((revision || 0) < (nextRevision || 0))
-      return { personal: incoming.personal || 0, learning: incoming.learning || 0 };
+    if ((revision || 0) < (nextRevision || 0)) {
+      const res = { personal: incoming.personal || 0, learning: incoming.learning || 0 };
+      if (isCurrentRoom && typeof kind === 'string' && kind) res[kind] = 0;
+      return res;
+    }
     return {
-      personal: Math.min(base.personal, incoming.personal || 0),
-      learning: Math.min(base.learning, incoming.learning || 0),
+      personal: isCurrentRoom && kind === 'personal' ? 0 : Math.min(base.personal, incoming.personal || 0),
+      learning: isCurrentRoom && kind === 'learning' ? 0 : Math.min(base.learning, incoming.learning || 0),
     };
   }
   function upsertRoom(row) {
     if (!row) return;
     const old = data.rooms.find((r) => r.id === row.id);
     if (old && (old.revision || 0) > (row.revision || 0)) return;
+    const isCurrent = Boolean(row.id && row.id === room);
     if (old) {
-      const unread = chatUnreadMerge(old.unread, row.unread, old.revision, row.revision);
+      const unread = chatUnreadMerge(old.unread, row.unread, old.revision, row.revision, isCurrent);
       Object.assign(old, row);
       old.unread = unread;
     } else data.rooms.push(row);
-    if (row.id === room) {
+    if (isCurrent) {
       const activeItem = old || row;
       if (activeItem.unread && kind) {
         activeItem.unread[kind] = 0;

@@ -281,7 +281,22 @@
     }
   }
   function chatReceiptMarks(messageId, readers, actor, group) {
-    const peers = (readers || []).filter((r) => String(r.id) !== String(actor));
+    const user = typeof signedIn === 'function' ? signedIn() : null;
+    const prof = typeof data !== 'undefined' ? data?.profile : null;
+    const acc = typeof account !== 'undefined' ? account : '';
+    const myId = typeof myAccountId === 'function' ? myAccountId() : '';
+    const authorIds = new Set(
+      [
+        String(actor || ''),
+        String(myId || ''),
+        String(prof?.id || ''),
+        String(prof?.login || ''),
+        String(acc || ''),
+        String(user?.id || ''),
+        String(user?.login || ''),
+      ].filter(Boolean),
+    );
+    const peers = (readers || []).filter((r) => !authorIds.has(String(r.id)));
     const memberCount = peers.length;
     const readCount = peers.filter((r) => (r.read || 0) >= messageId).length;
     const deliveredCount = peers.filter((r) => (r.delivered || 0) >= messageId).length;
@@ -1137,7 +1152,11 @@
     const current = data.rooms.find((item) => item.id === roomId);
     const rows =
       roomId === room && category === kind ? state()?.rows : historyCache.get(roomId + ':' + category)?.rows;
-    const through = Math.max(chatCategoryReadThrough(rows), Number(current?.lastMessage?.id) || 0);
+    const through = Math.max(
+      chatCategoryReadThrough(rows),
+      Number(current?.lastId) || 0,
+      Number(current?.lastMessage?.id) || 0,
+    );
     ack('read', roomId, category, through, force || (current?.unread?.[category] || 0) > 0);
   }
   function scheduleRead(roomId = room, category = kind) {
