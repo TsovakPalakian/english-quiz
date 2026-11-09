@@ -61,11 +61,18 @@ export class ChatRoom extends Store{
   }
   async trusted(request){
     await super.trusted(request);
-    if(!this.get('migrated')||this.get('imported-read-baseline-v2'))return;
+    if(!this.get('migrated')||this.get('imported-read-baseline-v3'))return;
+    let shouldDeliver=false;
     this.tx(()=>{
       this.sql.exec("UPDATE members SET read_personal=MAX(read_personal,COALESCE((SELECT MAX(id) FROM messages WHERE category='personal' AND id>members.joined),0)),delivered_personal=MAX(delivered_personal,COALESCE((SELECT MAX(id) FROM messages WHERE category='personal' AND id>members.joined),0)),unread_personal=0,read_learning=MAX(read_learning,COALESCE((SELECT MAX(id) FROM messages WHERE category='learning'),0)),delivered_learning=MAX(delivered_learning,COALESCE((SELECT MAX(id) FROM messages WHERE category='learning'),0)),unread_learning=0");
       this.set('imported-read-baseline-v2',true);
+      this.set('imported-read-baseline-v3',true);
+      if(this.get('room')){
+        this.emit('baseline:'+this.get('revision',0),'room');
+        shouldDeliver=true;
+      }
     });
+    if(shouldDeliver)this.deliver();
   }
   member(actor){
     if(!actor?.id||!this.get('room')?.active)fail(403,'This conversation is unavailable.');
@@ -189,9 +196,14 @@ export class ChatRoom extends Store{
       }
       if(body.complete){
         if(body.initial&&this.get('counts')?.personal)this.set('consent',{state:'accepted'});
-        if(body.initial)for(const member of body.members||[])this.sql.exec('UPDATE members SET joined=?,read_personal=?,read_learning=?,delivered_personal=?,delivered_learning=?,muted=? WHERE id=?',member.joined_seq||0,member.read_personal||0,member.read_learning||0,member.read_personal||0,member.read_learning||0,member.muted||0,member.account_id);
+        if(body.initial){
+          for(const member of body.members||[])this.sql.exec('UPDATE members SET joined=?,read_personal=?,read_learning=?,delivered_personal=?,delivered_learning=?,muted=? WHERE id=?',member.joined_seq||0,member.read_personal||0,member.read_learning||0,member.read_personal||0,member.read_learning||0,member.muted||0,member.account_id);
+          this.sql.exec("UPDATE members SET read_personal=MAX(read_personal,COALESCE((SELECT MAX(id) FROM messages WHERE category='personal' AND id>members.joined),0)),delivered_personal=MAX(delivered_personal,COALESCE((SELECT MAX(id) FROM messages WHERE category='personal' AND id>members.joined),0)),unread_personal=0,read_learning=MAX(read_learning,COALESCE((SELECT MAX(id) FROM messages WHERE category='learning'),0)),delivered_learning=MAX(delivered_learning,COALESCE((SELECT MAX(id) FROM messages WHERE category='learning'),0)),unread_learning=0");
+          this.set('imported-read-baseline-v2',true);
+          this.set('imported-read-baseline-v3',true);
+        }
         this.set('migrated',true);
-        for(const member of this.rows('SELECT * FROM members'))for(const kind of ['personal','learning'])this.sql.exec('UPDATE members SET unread_'+kind+'=? WHERE id=?',this.one("SELECT COUNT(*) n FROM messages WHERE deleted=0 AND category=? AND sender<>? AND id>? AND (id>? OR category='learning')",kind,member.id,member['read_'+kind],member.joined).n,member.id);
+        for(const member of this.rows('SELECT * FROM members'))for(const kind of ['personal','learning'])this.sql.exec('UPDATE members SET unread_'+kind+'=? WHERE id=?',body.initial?0:this.one("SELECT COUNT(*) n FROM messages WHERE deleted=0 AND category=? AND sender<>? AND id>? AND (id>? OR category='learning')",kind,member.id,member['read_'+kind],member.joined).n,member.id);
         this.emit('import','room');
       }
     });this.deliver();return {imported:true};
@@ -426,6 +438,26 @@ export class ChatRoom extends Store{
 
 export class ChatInbox extends Store{
   constructor(ctx,env){super(ctx,env);this.storageKind='inbox';this.sessionDeliveries=new WeakMap();if(env.ACCOUNT_TRANSFER_ROLE==='source'&&this.sql.exec("SELECT name FROM sqlite_master WHERE name='events'").toArray().length)return;this.sql.exec(`CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);CREATE TABLE IF NOT EXISTS rooms(id TEXT PRIMARY KEY,data TEXT NOT NULL);CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY AUTOINCREMENT,event_key TEXT UNIQUE NOT NULL,data TEXT NOT NULL);`);}
+  async trusted(request){
+    await super.trusted(request);
+    if(this.get('inbox-imported-read-baseline-v1'))return;
+    let updated=false;
+    this.tx(()=>{
+      for(const row of this.rows('SELECT id, data FROM rooms')){
+        if(!row.data)continue;
+        let room;
+        try{room=JSON.parse(row.data);}catch{continue;}
+        if((room.unread?.personal||0)>0||(room.unread?.learning||0)>0){
+          room.unread={personal:0,learning:0};
+          room.revision=(room.revision||0)+1;
+          this.sql.exec('UPDATE rooms SET data=? WHERE id=?',this.seal(JSON.stringify(room),'data'),row.id);
+          updated=true;
+        }
+      }
+      this.set('inbox-imported-read-baseline-v1',true);
+    });
+    if(updated)this.broadcast({type:'snapshot',data:this.snapshot()});
+  }
   storeRoom(id,room){
     if(!room)return;
     const old=this.one('SELECT data FROM rooms WHERE id=?',id);

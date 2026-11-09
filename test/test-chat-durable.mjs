@@ -373,13 +373,141 @@ test('an imported room baselines stale historical unread counters once',async()=
       {id:1,sender_id:'alice',sender_name:'Alice',category:'personal',body:'Read before import',client_key:'legacy-read',created_ms:Date.now()},
       {id:2,sender_id:'alice',sender_name:'Alice',category:'learning',body:'Read alert before import',client_key:'legacy-alert',created_ms:Date.now()},
     ],members:[{account_id:'alice',read_personal:0,read_learning:0},{account_id:'bob',read_personal:0,read_learning:0}],complete:true});
+    await f.drain();
     const summary=await chatCall(f.env,'CHAT_ROOM',id,'/summary',{actor:f.bob});
     assert.deepEqual(summary.room.unread,{personal:0,learning:0});
     const room=f.env.CHAT_ROOM.get(id);
     assert.equal(room.one('SELECT read_personal FROM members WHERE id=?','bob').read_personal,1);
     assert.equal(room.one('SELECT read_learning FROM members WHERE id=?','bob').read_learning,2);
+    const bobInbox=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    assert.deepEqual(bobInbox.unread,{personal:0,learning:0});
+    assert.equal(bobInbox.total,0);
+    const inboxRoom=bobInbox.rooms.find(r=>r.id===id);
+    assert.deepEqual(inboxRoom.unread,{personal:0,learning:0});
     await chatCall(f.env,'CHAT_ROOM',id,'/send',{actor:f.alice,category:'personal',text:'New message',clientKey:'new-after-baseline'});
+    await f.drain();
     assert.equal((await chatCall(f.env,'CHAT_ROOM',id,'/summary',{actor:f.bob})).room.unread.personal,1);
+    const bobInboxAfter=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    assert.equal(bobInboxAfter.unread.personal,1);
+    assert.equal(bobInboxAfter.total,1);
+  }finally{await f.drain();f.close();}
+});
+test('an existing imported room with stale unread count in CHAT_INBOX is normalized to 0 on snapshot and subsequent messages increment unread',async()=>{
+  const f=fixture();try{
+    await f.boot();const id=directRoomId('alice','bob');
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct',title:'Private conversation'},members:[f.alice,f.bob]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[{id:10,sender_id:'alice',sender_name:'Alice',category:'personal',body:'Old message',client_key:'old-10',created_ms:Date.now()-10000}],members:[{account_id:'alice',read_personal:10,read_learning:0},{account_id:'bob',read_personal:10,read_learning:0}],complete:true});
+    await f.drain();
+
+    const inbox=f.env.CHAT_INBOX.get('bob');
+    inbox.sql.exec("DELETE FROM meta WHERE key='inbox-imported-read-baseline-v1'");
+    const currentRoom=JSON.parse(inbox.one('SELECT data FROM rooms WHERE id=?',id).data);
+    inbox.sql.exec('UPDATE rooms SET data=? WHERE id=?',JSON.stringify({...currentRoom,unread:{personal:44,learning:0}}),id);
+    assert.equal(inbox.get('inbox-imported-read-baseline-v1'),null);
+
+    const snapshot=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    assert.equal(inbox.get('inbox-imported-read-baseline-v1'),true);
+    assert.deepEqual(snapshot.unread,{personal:0,learning:0});
+    assert.equal(snapshot.total,0);
+    const roomInSnapshot=snapshot.rooms.find(r=>r.id===id);
+    assert.deepEqual(roomInSnapshot.unread,{personal:0,learning:0});
+    assert.equal(roomInSnapshot.revision,currentRoom.revision+1);
+
+    await chatCall(f.env,'CHAT_ROOM',id,'/send',{actor:f.alice,category:'personal',text:'Hello after baseline',clientKey:'msg-after-baseline'});
+    await f.drain();
+
+    const updatedSnapshot=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    assert.deepEqual(updatedSnapshot.unread,{personal:1,learning:0});
+    assert.equal(updatedSnapshot.total,1);
+    const updatedRoom=updatedSnapshot.rooms.find(r=>r.id===id);
+    assert.deepEqual(updatedRoom.unread,{personal:1,learning:0});
+    assert.equal(updatedRoom.lastMessage.text,'Hello after baseline');
+  }finally{await f.drain();f.close();}
+});
+test('ChatRoom baseline v3 runs on legacy migrated room, increments revision and delivers zero unread to CHAT_INBOX',async()=>{
+  const f=fixture();try{
+    await f.boot();const id=directRoomId('alice','bob');
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct',title:'Private conversation'},members:[f.alice,f.bob]});
+    const room=f.env.CHAT_ROOM.get(id);
+    room.sql.exec("INSERT INTO messages(id,sender,name,category,body,client_key,created_ms) VALUES(1,'alice','Alice','personal','Legacy text','legacy-1',1000)");
+    room.sql.exec("UPDATE members SET read_personal=0,unread_personal=1 WHERE id='bob'");
+    room.set('migrated',true);
+    room.set('imported-read-baseline-v2',true);
+    room.sql.exec("DELETE FROM meta WHERE key='imported-read-baseline-v3'");
+    assert.equal(room.get('imported-read-baseline-v3'),null);
+
+    const summary=await chatCall(f.env,'CHAT_ROOM',id,'/summary',{actor:f.bob});
+    await f.drain();
+    assert.equal(room.get('imported-read-baseline-v3'),true);
+    assert.deepEqual(summary.room.unread,{personal:0,learning:0});
+    assert.equal(room.one('SELECT read_personal FROM members WHERE id=?','bob').read_personal,1);
+    assert.equal(room.one('SELECT unread_personal FROM members WHERE id=?','bob').unread_personal,0);
+
+    const bobInbox=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    const inboxRoom=bobInbox.rooms.find(r=>r.id===id);
+    assert.ok(inboxRoom);
+    assert.deepEqual(inboxRoom.unread,{personal:0,learning:0});
+  }finally{await f.drain();f.close();}
+});
+test('ChatInbox baseline broadcasts snapshot to active WebSockets and normalizes multi-room 44 unread badge',async()=>{
+  const f=fixture();try{
+    await f.boot();const id1=directRoomId('alice','bob'),id2='group:1';
+    await chatCall(f.env,'CHAT_ROOM',id1,'/configure',{room:{id:id1,kind:'direct',title:'Jane Doe'},members:[f.alice,f.bob]});
+    await chatCall(f.env,'CHAT_ROOM',id1,'/import',{initial:true,messages:[{id:5,sender_id:'alice',sender_name:'Jane',category:'personal',body:'Prior direct',client_key:'pk-5',created_ms:Date.now()-5000}],members:[{account_id:'alice',read_personal:5,read_learning:0},{account_id:'bob',read_personal:5,read_learning:0}],complete:true});
+    await chatCall(f.env,'CHAT_ROOM',id2,'/configure',{room:{id:id2,kind:'group',groupId:1,title:'A1'},members:[f.alice,f.bob,f.teacher]});
+    await chatCall(f.env,'CHAT_ROOM',id2,'/import',{initial:true,messages:[{id:6,sender_id:'teacher',sender_name:'Teacher',category:'learning',body:'Prior group',client_key:'pk-6',created_ms:Date.now()-4000}],members:[{account_id:'alice',read_personal:0,read_learning:6},{account_id:'bob',read_personal:0,read_learning:6}],complete:true});
+    await f.drain();
+
+    const inbox=f.env.CHAT_INBOX.get('bob');
+    inbox.sql.exec("DELETE FROM meta WHERE key='inbox-imported-read-baseline-v1'");
+    const room1=JSON.parse(inbox.one('SELECT data FROM rooms WHERE id=?',id1).data);
+    const room2=JSON.parse(inbox.one('SELECT data FROM rooms WHERE id=?',id2).data);
+    inbox.sql.exec('UPDATE rooms SET data=? WHERE id=?',JSON.stringify({...room1,unread:{personal:23,learning:0}}),id1);
+    inbox.sql.exec('UPDATE rooms SET data=? WHERE id=?',JSON.stringify({...room2,unread:{personal:11,learning:10}}),id2);
+
+    f.env.MEDIA={head:async()=>null};
+    const liveSocket={messages:[],closes:[],deserializeAttachment:()=>({sessionId:'s'.repeat(32),expires:Date.now()+60000}),send(value){this.messages.push(JSON.parse(value));},close(code){this.closes.push(code);}};
+    inbox.ctx.getWebSockets().push(liveSocket);
+
+    const snapshot=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    await f.drain();
+
+    assert.equal(inbox.get('inbox-imported-read-baseline-v1'),true);
+    assert.deepEqual(snapshot.unread,{personal:0,learning:0});
+    assert.equal(snapshot.total,0);
+
+    const snap1=snapshot.rooms.find(r=>r.id===id1);
+    const snap2=snapshot.rooms.find(r=>r.id===id2);
+    assert.deepEqual(snap1.unread,{personal:0,learning:0});
+    assert.equal(snap1.revision,room1.revision+1);
+    assert.deepEqual(snap2.unread,{personal:0,learning:0});
+    assert.equal(snap2.revision,room2.revision+1);
+
+    const broadcast=liveSocket.messages.find(m=>m.type==='snapshot');
+    assert.ok(broadcast,'Live connected WebSocket must receive snapshot broadcast');
+    assert.deepEqual(broadcast.data.unread,{personal:0,learning:0});
+    assert.equal(broadcast.data.total,0);
+  }finally{await f.drain();f.close();}
+});
+test('ChatInbox baseline normalizes unread counters when encryption key is enabled',async()=>{
+  const f=fixture();f.env.CHAT_ENCRYPTION_KEY=btoa('e'.repeat(32));try{
+    await f.boot();const id=directRoomId('alice','bob');
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct',title:'Encrypted conversation'},members:[f.alice,f.bob]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,messages:[{id:1,sender_id:'alice',sender_name:'Alice',category:'personal',body:'Secret msg',client_key:'sec-1',created_ms:Date.now()-1000}],members:[{account_id:'alice',read_personal:1,read_learning:0},{account_id:'bob',read_personal:1,read_learning:0}],complete:true});
+    await f.drain();
+
+    const inbox=f.env.CHAT_INBOX.get('bob');
+    inbox.sql.exec("DELETE FROM meta WHERE key='inbox-imported-read-baseline-v1'");
+    const currentRoom=JSON.parse(inbox.rows('SELECT data FROM rooms WHERE id=?',id)[0].data);
+    inbox.sql.exec('UPDATE rooms SET data=? WHERE id=?',inbox.seal(JSON.stringify({...currentRoom,unread:{personal:15,learning:5}}),'data'),id);
+
+    const snapshot=await chatCall(f.env,'CHAT_INBOX','bob','/command',{action:'snapshot'});
+    assert.equal(inbox.get('inbox-imported-read-baseline-v1'),true);
+    assert.deepEqual(snapshot.unread,{personal:0,learning:0});
+    assert.equal(snapshot.total,0);
+    const roomInSnapshot=snapshot.rooms.find(r=>r.id===id);
+    assert.deepEqual(roomInSnapshot.unread,{personal:0,learning:0});
+    assert.ok(inbox.sql.exec('SELECT data FROM rooms WHERE id=?',id).toArray()[0].data.startsWith('chatenc:'),'Rooms table must remain encrypted');
   }finally{await f.drain();f.close();}
 });
 test('the latest history page marks that category read and search or older pages do not',async()=>{
