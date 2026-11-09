@@ -69,16 +69,16 @@
 
 ## 3. Контрольный чек-лист (Checklist)
 
-- ⬜ **Этап 1**: Трехколоночная компоновка шапки: переключение даты по центру, кнопка `📅 Set group schedule` справа для вкладки `Calendar` (Скриншот 18, Скриншот 20).
-- ⬜ **Этап 2**: Скрытие кнопок `📅 Set group schedule` и `Today` на вкладках `Attendance` и `Statistics` (Скриншот 15, Скриншот 16).
-- ⬜ **Этап 3**: Растягивание сообщений Study alerts на всю ширину ленты в [`production/chat.css`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat.css) (Скриншот 17).
-- ⬜ **Этап 4**: Автофокус, центрирование скролла и визуальная подсветка целевой даты урока на вкладке `Attendance` (Скриншот 15).
-- ⬜ **Этап 5**: Исправление ошибки `mData.lessonDates.includes` на `mData.lessonDates.add` в `showSetGroupScheduleModal` и `showLessonSchedulerModal`.
-- ⬜ **Этап 6**: Исправление аргументов `saveGroupAttendanceData(groupId, state, container)` на строках 2275, 2549 и 2820.
-- ⬜ **Этап 7**: Модальное окно подтверждения удаления расписания (Скриншот 12) и мгновенная live-перерисовка календарной сетки с уведомлением (Скриншот 13).
-- ⬜ **Этап 8**: Конфиденциальная доставка счетов: внедрение `window.sendDirectChatMessage(accountId, text, options)` в [`production/chat/90-settings.js`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js), исключение разбивки по студентам из общего чата группы и добавление кнопки `[ ✅ I have paid ]` (Скриншот 21).
-- ⬜ **Этап 9**: Автоматическое растягивание поля банковских реквизитов на вкладке `Payment Requisites` без вертикального скроллбара и обрезки строк (Скриншот 22).
-- ⬜ **Этап 10**: Сборка ассетов `npm run build:preview`, запуск целевых тестов и обновление документа верификации [`docs/guide-task-35-calendar-management.md`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/guide-task-35-calendar-management.md).
+- 🟩 **Этап 1**: Реализация утвержденной двухуровневой шапки (Вариант C): дата и навигация месяца по центру на верхнем уровне, переключатели вкладок и кнопки действий строкой ниже (Скриншот 25, Скриншот 27).
+- 🟩 **Этап 2**: Скрытие кнопок `📅 Set group schedule` и `Today` на вкладках `Attendance` и `Statistics` (Скриншот 15, Скриншот 16).
+- 🟩 **Этап 3**: Растягивание сообщений Study alerts на всю ширину ленты в [`production/chat.css`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat.css) (Скриншот 17).
+- 🟩 **Этап 4**: Автофокус, центрирование скролла и визуальная подсветка целевой даты урока на вкладке `Attendance` (Скриншот 15).
+- 🟩 **Этап 5**: Исправление ошибки `mData.lessonDates.includes` на `mData.lessonDates.add` в `showSetGroupScheduleModal` и `showLessonSchedulerModal`.
+- 🟩 **Этап 6**: Исправление аргументов `saveGroupAttendanceData(groupId, state, container)` на строках 2275, 2549 и 2820.
+- 🟩 **Этап 7**: Диалог подтверждения удаления расписания (Скриншот 12) и мгновенная live-перерисовка календарной сетки с уведомлением (Скриншот 13).
+- 🟩 **Этап 8**: Конфиденциальная доставка счетов: внедрение `window.sendDirectChatMessage(accountId, text, options)` в [`production/chat/90-settings.js`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/chat/90-settings.js), исключение разбивки по студентам из общего чата группы и добавление кнопки `[ ✅ I have paid ]` (Скриншот 21).
+- 🟩 **Этап 9**: Автоматическое растягивание поля банковских реквизитов на вкладке `Payment Requisites` без вертикального скроллбара и обрезки строк (Скриншот 22).
+- 🟩 **Этап 10**: Сборка ассетов `npm run build:preview`, запуск целевых тестов и обновление документа верификации [`docs/guide-task-35-calendar-management.md`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/guide-task-35-calendar-management.md).
 
 ---
 

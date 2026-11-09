@@ -104,7 +104,7 @@ body.chat-active #selpop{z-index:1300}
 #messages .msg-message:not(.is-own)>.msg-sender-avatar{left:-46px;right:auto}
 #messages .msg-message.is-own>.msg-sender-avatar{right:-46px;left:auto}
 @media(max-width:700px){#messages .chat-timeline{padding:10px 48px}#messages .msg-message,#messages .msg-message.is-group-message{max-width:85%}}
-#messages .msg-message.is-learning{border-left:3px solid var(--acc)}
+#messages .msg-message.is-learning{border-left:3px solid var(--acc);width:100%;max-width:100%;align-self:stretch;box-sizing:border-box}
 .msg-message header{display:flex;gap:8px;align-items:center;color:var(--acc);font-size:12px;margin-bottom:4px}
 #messages .msg-message p{white-space:pre-wrap;overflow-wrap:anywhere}
 #messages .chat-message-pin{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:4px 0 0;padding:0;border:0;border-radius:6px;background:var(--acc-s);color:var(--acc)}

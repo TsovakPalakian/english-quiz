@@ -20,6 +20,18 @@
   const groupWidgetStates = new Map();
 
   function getMonthData(state, monthKey) {
+    if (!state || typeof state !== 'object') {
+      return {
+        lessonDates: new Set(),
+        attendance: {},
+        paymentDeadline: '',
+        paymentRequisites: '',
+        studentPayments: {},
+        scheduleData: {},
+        revision: 0,
+        loaded: false
+      };
+    }
     if (!state.monthCache) state.monthCache = new Map();
     if (!state.monthCache.has(monthKey)) {
       state.monthCache.set(monthKey, {
@@ -405,8 +417,13 @@
 
   async function saveGroupAttendanceData(groupId, state, container) {
     saveAttendanceChain = saveAttendanceChain.catch(() => {}).then(async () => {
-      const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
-      const monthData = getMonthData(state, monthKey);
+      let actualState = state;
+      if (typeof state === 'number' || !state || !state.monthCache) {
+        actualState = groupWidgetStates.get(groupId) || groupWidgetStates.get(Number(groupId)) || state;
+      }
+      if (!actualState || typeof actualState !== 'object') return;
+      const monthKey = actualState.year + '-' + String(actualState.monthIndex + 1).padStart(2, '0');
+      const monthData = getMonthData(actualState, monthKey);
       const filteredDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
       const filteredAttendance = {};
       if (monthData.attendance && typeof monthData.attendance === 'object') {
@@ -729,6 +746,19 @@
       : 'Click date to open activities';
     journalHtml += '<p class="gcw-hint">' + hintText + '</p>';
     const sortedLessonDates = Array.from(monthLessonDates).sort();
+    const now = new Date();
+    const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+    let targetFocusDate = '';
+    if (sortedLessonDates.includes(todayStr)) {
+      targetFocusDate = todayStr;
+    } else {
+      const pastDates = sortedLessonDates.filter(d => d < todayStr);
+      if (pastDates.length > 0) {
+        targetFocusDate = pastDates[pastDates.length - 1];
+      } else if (sortedLessonDates.length > 0) {
+        targetFocusDate = sortedLessonDates[0];
+      }
+    }
     if (!sortedLessonDates.length) {
       journalHtml += '<p class="hint" style="color:var(--saas-text-muted, var(--mute, #71717a)); padding:16px;">No lessons scheduled for ' + monthName + ' ' + year + '. Click calendar dates to schedule lessons.</p>';
     } else {
@@ -736,7 +766,11 @@
       journalHtml += '<th class="gcw-th-student">Student</th>';
       for (const d of sortedLessonDates) {
         const shortDate = d.slice(8) + '.' + d.slice(5, 7);
-        journalHtml += '<th class="gcw-th-date"><button type="button" class="gcw-date-header-btn" data-gcw-open-date="' + esc(d) + '" title="Open activity for ' + shortDate + '">' + shortDate + '</button></th>';
+        const isFocused = (d === targetFocusDate);
+        const thClass = 'gcw-th-date' + (isFocused ? ' is-focused-date' : '');
+        const btnClass = 'gcw-date-header-btn' + (isFocused ? ' is-focused' : '');
+        const focusedAttr = isFocused ? ' data-gcw-focused-date="true"' : '';
+        journalHtml += '<th class="' + thClass + '"><button type="button" class="' + btnClass + '" data-gcw-open-date="' + esc(d) + '"' + focusedAttr + ' title="Open activity for ' + shortDate + '">' + shortDate + '</button></th>';
       }
       journalHtml += '</tr></thead><tbody>';
 
@@ -749,7 +783,9 @@
           const sym = st === 'present' ? '✓' : st === 'absent' ? '✕' : (canEdit ? '+' : '');
           const cellClass = st === 'present' ? 'is-present' : st === 'absent' ? 'is-absent' : 'is-unmarked';
           const roClass = canEdit ? '' : ' is-readonly';
-          cells += '<td><button type="button" class="gcw-cell-btn ' + cellClass + roClass + '" data-gcw-student="' + esc(stId) + '" data-gcw-date="' + esc(d) + '" aria-label="' + esc(s.name) + ' ' + d + ': ' + st + '">' + sym + '</button></td>';
+          const isFocused = (d === targetFocusDate);
+          const tdColClass = isFocused ? ' td-focused-col' : '';
+          cells += '<td class="' + tdColClass + '"><button type="button" class="gcw-cell-btn ' + cellClass + roClass + '" data-gcw-student="' + esc(stId) + '" data-gcw-date="' + esc(d) + '" aria-label="' + esc(s.name) + ' ' + d + ': ' + st + '">' + sym + '</button></td>';
         }
         journalHtml += '<tr>';
         journalHtml += '<td class="gcw-td-student">' + esc(s.name || s.login) + '</td>';
@@ -827,19 +863,23 @@
 
     container.innerHTML =
       '<div class="gcw-header">' +
-        '<div class="gcw-tabs" role="tablist">' +
-          '<button class="gcw-tab' + (state.activeTab === 'calendar' ? ' is-active' : '') + '" type="button" data-gcw-tab="calendar" role="tab" aria-selected="' + (state.activeTab === 'calendar') + '">Calendar</button>' +
-          '<button class="gcw-tab' + (state.activeTab === 'attendance' ? ' is-active' : '') + '" type="button" data-gcw-tab="attendance" role="tab" aria-selected="' + (state.activeTab === 'attendance') + '">Attendance</button>' +
-          '<button class="gcw-tab' + (state.activeTab === 'statistics' ? ' is-active' : '') + '" type="button" data-gcw-tab="statistics" role="tab" aria-selected="' + (state.activeTab === 'statistics') + '">Statistics</button>' +
+        '<div class="gcw-tier-top">' +
+          '<div class="gcw-month-nav" tabindex="0" role="region" aria-label="Calendar month navigation">' +
+            '<button class="gcw-nav-arrow" type="button" data-gcw-nav="prev" aria-label="Previous month">←</button>' +
+            '<span class="gcw-month-label">' + monthName + ' ' + year + '</span>' +
+            '<button class="gcw-nav-arrow" type="button" data-gcw-nav="next" aria-label="Next month">→</button>' +
+          '</div>' +
         '</div>' +
-        '<div class="gcw-month-nav" tabindex="0" role="region" aria-label="Calendar month navigation">' +
-          '<button class="gcw-nav-arrow" type="button" data-gcw-nav="prev" aria-label="Previous month">←</button>' +
-          '<span class="gcw-month-label">' + monthName + ' ' + year + '</span>' +
-          '<button class="gcw-nav-arrow" type="button" data-gcw-nav="next" aria-label="Next month">→</button>' +
-        '</div>' +
-        '<div class="gcw-header-spacer">' +
-          (canEdit ? '<button class="gcw-set-schedule-btn" type="button" data-gcw-action="set-group-schedule" aria-label="Set group schedule">📅 Set group schedule</button>' : '') +
-          '<button class="gcw-today-btn" type="button" data-gcw-nav="today" aria-label="Go to current month">Today</button>' +
+        '<div class="gcw-tier-bottom">' +
+          '<div class="gcw-tabs" role="tablist">' +
+            '<button class="gcw-tab' + (state.activeTab === 'calendar' ? ' is-active' : '') + '" type="button" data-gcw-tab="calendar" role="tab" aria-selected="' + (state.activeTab === 'calendar') + '">Calendar</button>' +
+            '<button class="gcw-tab' + (state.activeTab === 'attendance' ? ' is-active' : '') + '" type="button" data-gcw-tab="attendance" role="tab" aria-selected="' + (state.activeTab === 'attendance') + '">Attendance</button>' +
+            '<button class="gcw-tab' + (state.activeTab === 'statistics' ? ' is-active' : '') + '" type="button" data-gcw-tab="statistics" role="tab" aria-selected="' + (state.activeTab === 'statistics') + '">Statistics</button>' +
+          '</div>' +
+          '<div class="gcw-header-spacer"' + (state.activeTab !== 'calendar' ? ' style="display:none;"' : '') + '>' +
+            (canEdit ? '<button class="gcw-set-schedule-btn" type="button" data-gcw-action="set-group-schedule" aria-label="Set group schedule">📅 Set group schedule</button>' : '') +
+            '<button class="gcw-today-btn" type="button" data-gcw-nav="today" aria-label="Go to current month">Today</button>' +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<div class="gcw-view-panel" data-gcw-panel="calendar"' + (state.activeTab !== 'calendar' ? ' hidden' : '') + '>' +
@@ -863,6 +903,18 @@
       '<p class="hint" data-gcw-status style="margin-top:10px; color:var(--ok, #10b981); font-size:12px; display:none;"></p>';
 
     bindGroupCalendarEvents(container, groupId, state, canEdit);
+
+    if (state.activeTab === 'attendance') {
+      const focusedBtn = container.querySelector('[data-gcw-focused-date="true"]');
+      if (focusedBtn) {
+        setTimeout(() => {
+          focusedBtn.focus({ preventScroll: true });
+          if (typeof focusedBtn.scrollIntoView === 'function') {
+            focusedBtn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+          }
+        }, 50);
+      }
+    }
 
     if (hadFocus) {
       const target = focusSelector ? container.querySelector(focusSelector) : null;
@@ -1005,7 +1057,7 @@
       gCalUrl.searchParams.set('details', `Payment due for ${monthName}.\nRequisites:\n${requisitesText}`);
       gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
 
-      // Private delivery to each student with pending tuition (matching Screenshot 11)
+      // Private delivery to each student with pending tuition (matching Screenshot 11 and Screenshot 21)
       for (const s of students) {
         const tuition = calculateStudentTuition(groupId, state, s.id);
         const studentName = s.name || s.login || 'Student';
@@ -1025,7 +1077,7 @@
           `• [📅 Add to Google Calendar](${gCalUrl.toString()})`,
           `• [📥 Download .ics Reminder](${icsUrl})`,
           '',
-          `👉 Confirm Payment: Click «✅ I have paid (${tuition.finalAmount} ${currency})» in the Group Calendar widget to notify the teacher.`
+          `• [✅ I have paid (${tuition.finalAmount} ${currency})](${origin}/?action=confirm-payment&groupId=${groupId}&month=${monthKey}&studentId=${s.id})`
         ].join('\n');
 
         if (typeof window.sendDirectChatMessage === 'function') {
@@ -1035,29 +1087,23 @@
         }
       }
 
-      // Also deliver group invoice summary to group chat as fallback
+      // Group invoice announcement without leaking individual student financials
       const lines = [
         '💳 TUITION INVOICE & PAYMENT DETAILS',
         'Group: ' + groupTitle,
         'Billing Month: ' + monthName,
         'Payment Deadline: ' + effectiveDeadline + ' ' + effectiveTime + (isEndMonth ? ' (Issued on 1st of next month)' : ''),
         '',
-        'Student Breakdown (Attendance-based):'
+        '📢 Individual invoices and attendance breakdowns have been dispatched privately to each student in their Study alerts chat.',
+        '',
+        'Payment Requisites:',
+        requisitesText,
+        '',
+        '👉 Add payment deadline to your calendar:',
+        `• [📅 Add to Google Calendar](${gCalUrl.toString()})`,
+        `• [📥 Download .ics Reminder](${icsUrl})`,
+        ''
       ];
-
-      students.forEach(s => {
-        const tuition = calculateStudentTuition(groupId, state, s.id);
-        lines.push(`• ${s.name || s.login}: ${tuition.finalAmount} ${currency} (${tuition.attendedCount} / ${tuition.totalLessons} lessons attended${tuition.manualAmount !== '' ? ', custom amount' : ''}) [${tuition.isPaid ? 'Paid' : 'Pending'}]`);
-      });
-
-      lines.push('');
-      lines.push('Payment Requisites:');
-      lines.push(requisitesText);
-      lines.push('');
-      lines.push('👉 Add payment deadline to your calendar:');
-      lines.push(`• [📅 Add to Google Calendar](${gCalUrl.toString()})`);
-      lines.push(`• [📥 Download .ics Reminder](${icsUrl})`);
-      lines.push('');
       if (isEndMonth) {
         lines.push('🔔 Note: Since the last lesson falls on the last day of the month, the bill is issued on the 1st of the next month with same-day notice.');
       } else if (Array.isArray(remindersList) && remindersList.length > 0) {
@@ -1292,11 +1338,12 @@
 
     // Auto-expanding textarea
     const reqTextarea = dialog.querySelector('#gcwModalRequisites');
+    const adjustHeight = () => {
+      if (!reqTextarea) return;
+      reqTextarea.style.height = 'auto';
+      reqTextarea.style.height = Math.max(140, reqTextarea.scrollHeight + 8) + 'px';
+    };
     if (reqTextarea) {
-      const adjustHeight = () => {
-        reqTextarea.style.height = 'auto';
-        reqTextarea.style.height = (reqTextarea.scrollHeight + 4) + 'px';
-      };
       reqTextarea.oninput = adjustHeight;
       setTimeout(adjustHeight, 0);
     }
@@ -1308,7 +1355,12 @@
         dialog.querySelectorAll('.gcw-payment-panel').forEach(p => p.classList.remove('is-active'));
         tabBtn.classList.add('is-active');
         const targetPanel = dialog.querySelector(`.gcw-payment-panel[data-panel="${tabBtn.dataset.tab}"]`);
-        if (targetPanel) targetPanel.classList.add('is-active');
+        if (targetPanel) {
+          targetPanel.classList.add('is-active');
+          if (tabBtn.dataset.tab === 'requisites') {
+            setTimeout(adjustHeight, 10);
+          }
+        }
       };
     });
 
@@ -2252,11 +2304,12 @@
         targetDates.forEach((d, idx) => {
           const mKey = d.slice(0, 7);
           const mData = getMonthData(state, mKey);
-          if (!mData.lessonDates) mData.lessonDates = [];
-          if (!mData.lessonDates.includes(d)) {
-            mData.lessonDates.push(d);
-            mData.lessonDates.sort();
+          if (!mData.lessonDates) {
+            mData.lessonDates = new Set();
+          } else if (Array.isArray(mData.lessonDates)) {
+            mData.lessonDates = new Set(mData.lessonDates);
           }
+          mData.lessonDates.add(d);
           if (!mData.scheduleData) mData.scheduleData = {};
           let assignedMat = null;
           if (seqMaterials && groupMaterials.length > 0) {
@@ -2270,9 +2323,7 @@
           };
         });
 
-        const curMonthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
-        const curData = getMonthData(state, curMonthKey);
-        await saveGroupAttendanceData(groupId, state.monthIndex, curData);
+        await saveGroupAttendanceData(groupId, state, container);
 
         const firstDate = targetDates[0];
         const alertMaterialTitle = (seqMaterials && groupMaterials.length > 0) ? groupMaterials[0].title : 'Group Course Lessons';
@@ -2517,39 +2568,99 @@
 
     const removeBtn = dialog.querySelector('[data-action="remove-confirm"]');
     if (removeBtn) {
-      removeBtn.onclick = async () => {
+      removeBtn.onclick = () => {
         const custStartVal = dialog.querySelector('#gcwRemoveCustStart')?.value;
         const custEndVal = dialog.querySelector('#gcwRemoveCustEnd')?.value;
         const targetDates = computeRemovalDates(currentPeriod, custStartVal, custEndVal);
+        if (!targetDates.length) {
+          alert('No dates match the selected removal criteria.');
+          return;
+        }
 
-        targetDates.forEach(d => {
-          const dMonthKey = d.slice(0, 7);
-          const targetMonthData = getMonthData(state, dMonthKey);
-          if (targetMonthData.lessonDates) {
-            if (targetMonthData.lessonDates instanceof Set) {
-              targetMonthData.lessonDates.delete(d);
-            } else if (Array.isArray(targetMonthData.lessonDates)) {
-              targetMonthData.lessonDates = targetMonthData.lessonDates.filter(x => x !== d);
-            }
-          }
-          if (targetMonthData.scheduleData && targetMonthData.scheduleData[d]) {
-            delete targetMonthData.scheduleData[d];
-          }
-          if (targetMonthData.attendance) {
-            for (const stId of Object.keys(targetMonthData.attendance)) {
-              if (targetMonthData.attendance[stId] && targetMonthData.attendance[stId][d] !== undefined) {
-                delete targetMonthData.attendance[stId][d];
-              }
-            }
-          }
+        const existingConfirm = document.getElementById('gcwConfirmRemovalDialog');
+        if (existingConfirm) existingConfirm.remove();
+        const confirmDialog = document.createElement('dialog');
+        confirmDialog.id = 'gcwConfirmRemovalDialog';
+        confirmDialog.className = 'gcw-scheduler-dialog gcw-confirm-dialog';
+        confirmDialog.innerHTML = `
+          <div class="gcw-scheduler-head" style="border-bottom: 2px solid #fee2e2;">
+            <h3 style="color:#b91c1c; display:flex; align-items:center; gap:8px;">
+              <span>⚠️</span> Confirm Removal from Schedule
+            </h3>
+            <button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>
+          </div>
+          <div class="gcw-scheduler-body" style="padding:18px 20px;">
+            <p style="font-size:14px; color:#1e293b; margin:0 0 12px; font-weight:600;">
+              Are you sure you want to remove ${targetDates.length} lesson(s) from the schedule?
+            </p>
+            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px; color:#991b1b; font-size:13px; line-height:1.5;">
+              <b>Warning:</b> This will remove the selected dates from the calendar and permanently delete all student attendance records for these sessions.
+            </div>
+            <div style="margin-top:12px; font-size:12px; color:#64748b; max-height:100px; overflow-y:auto; background:#f8fafc; padding:8px 12px; border-radius:6px; border:1px solid #e2e8f0;">
+              <b>Dates to remove (${targetDates.length}):</b><br>
+              ${targetDates.slice(0, 10).join(', ')}${targetDates.length > 10 ? ' and ' + (targetDates.length - 10) + ' more' : ''}
+            </div>
+          </div>
+          <div class="gcw-scheduler-foot" style="display:flex; justify-content:flex-end; gap:10px;">
+            <button type="button" class="btn ghost" data-action="cancel">Cancel</button>
+            <button type="button" class="btn danger" data-action="confirm-delete" style="background:#dc2626; color:#ffffff; font-weight:600;">Yes, Remove Lessons</button>
+          </div>
+        `;
+        document.body.appendChild(confirmDialog);
+
+        const closeConfirm = () => {
+          if (typeof confirmDialog.close === 'function') confirmDialog.close();
+          confirmDialog.remove();
+        };
+
+        confirmDialog.querySelectorAll('[data-action="close"], [data-action="cancel"]').forEach(b => {
+          b.onclick = closeConfirm;
         });
 
-        const curMonthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
-        const curData = getMonthData(state, curMonthKey);
-        await saveGroupAttendanceData(groupId, state.monthIndex, curData);
+        const doDeleteBtn = confirmDialog.querySelector('[data-action="confirm-delete"]');
+        if (doDeleteBtn) {
+          doDeleteBtn.onclick = async () => {
+            doDeleteBtn.disabled = true;
+            targetDates.forEach(d => {
+              const dMonthKey = d.slice(0, 7);
+              const targetMonthData = getMonthData(state, dMonthKey);
+              if (targetMonthData.lessonDates) {
+                if (targetMonthData.lessonDates instanceof Set) {
+                  targetMonthData.lessonDates.delete(d);
+                } else if (Array.isArray(targetMonthData.lessonDates)) {
+                  targetMonthData.lessonDates = targetMonthData.lessonDates.filter(x => x !== d);
+                }
+              }
+              if (targetMonthData.scheduleData && targetMonthData.scheduleData[d]) {
+                delete targetMonthData.scheduleData[d];
+              }
+              if (targetMonthData.attendance) {
+                for (const stId of Object.keys(targetMonthData.attendance)) {
+                  if (targetMonthData.attendance[stId] && targetMonthData.attendance[stId][d] !== undefined) {
+                    delete targetMonthData.attendance[stId][d];
+                  }
+                }
+              }
+            });
 
-        closeDialog();
-        window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
+            closeConfirm();
+            closeDialog();
+
+            await saveGroupAttendanceData(groupId, state, container);
+            window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
+
+            const statusNode = container.querySelector('[data-gcw-status]');
+            if (statusNode) {
+              statusNode.textContent = `✓ Removed ${targetDates.length} lesson(s) from schedule`;
+              statusNode.style.display = 'block';
+              statusNode.style.color = 'var(--ok, #10b981)';
+              setTimeout(() => { if (statusNode) statusNode.style.display = 'none'; }, 4000);
+            }
+          };
+        }
+
+        if (typeof confirmDialog.showModal === 'function') confirmDialog.showModal();
+        else confirmDialog.setAttribute('open', '');
       };
     }
 
@@ -2788,11 +2899,12 @@
         const dMonthKey = dateStr.slice(0, 7);
         const targetMonthData = getMonthData(state, dMonthKey);
         if (!targetMonthData.scheduleData) targetMonthData.scheduleData = {};
-        if (!targetMonthData.lessonDates) targetMonthData.lessonDates = [];
-        if (!targetMonthData.lessonDates.includes(dateStr)) {
-          targetMonthData.lessonDates.push(dateStr);
-          targetMonthData.lessonDates.sort();
+        if (!targetMonthData.lessonDates) {
+          targetMonthData.lessonDates = new Set();
+        } else if (Array.isArray(targetMonthData.lessonDates)) {
+          targetMonthData.lessonDates = new Set(targetMonthData.lessonDates);
         }
+        targetMonthData.lessonDates.add(dateStr);
         targetMonthData.scheduleData[dateStr] = {
           startTime: currentStartTime,
           durationMinutes: currentDuration,
@@ -2817,7 +2929,7 @@
         if (typeof dialog.close === 'function') dialog.close();
         dialog.remove();
 
-        await saveGroupAttendanceData(groupId, state.monthIndex, targetMonthData);
+        await saveGroupAttendanceData(groupId, state, container);
         window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
 
         void postLessonAlertToChat(groupId, state.groupTitle || 'Group', dateStr, currentStartTime, currentDuration, selectedPeriod, selectedMaterialTitle, isReschedule);
@@ -3343,4 +3455,34 @@
       };
     }
   }
+
+  document.addEventListener('click', async (e) => {
+    const link = e.target.closest('a[href*="action=confirm-payment"]');
+    if (!link) return;
+    e.preventDefault();
+    try {
+      const url = new URL(link.href, window.location.origin);
+      const gId = url.searchParams.get('groupId');
+      const mKey = url.searchParams.get('month');
+      const stId = url.searchParams.get('studentId') || ((typeof authUser !== 'undefined' && authUser) ? String(authUser.id) : '');
+      if (gId && mKey && stId) {
+        const state = groupWidgetStates.get(Number(gId)) || groupWidgetStates.get(String(gId));
+        if (state) {
+          const mData = getMonthData(state, mKey);
+          if (!mData.studentPayments) mData.studentPayments = {};
+          if (!mData.studentPayments[stId]) mData.studentPayments[stId] = {};
+          mData.studentPayments[stId].paid = true;
+          mData.studentPayments[stId].paidAt = new Date().toISOString();
+          await saveGroupAttendanceData(gId, state);
+          const container = document.getElementById('groupCalendarWidget');
+          if (container) paintGroupCalendarWidget(container, gId, state);
+        }
+        link.textContent = '✓ Payment confirmed';
+        link.style.background = '#dcfce7';
+        link.style.borderColor = '#16a34a';
+        link.style.color = '#15803d';
+        link.style.pointerEvents = 'none';
+      }
+    } catch {}
+  });
 })();

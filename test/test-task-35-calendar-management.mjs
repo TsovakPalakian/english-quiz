@@ -512,3 +512,185 @@ test('TASK-35: Report to chat specializes output by active tab (Calendar, Attend
   assert.ok(clientCalendarJs.includes('Attendance Rankings:'), 'client includes Attendance Rankings section');
   assert.ok(previewJs.includes('Attendance Rankings:'), 'preview includes Attendance Rankings section');
 });
+
+test('TASK-35: Two-tier header structure, tab isolation, and bug remediation contracts', () => {
+  const chatCss = readFileSync('production/chat.css', 'utf8');
+  const chatSettingsJs = readFileSync('production/chat/90-settings.js', 'utf8');
+  const chatBundledJs = readFileSync('production/chat.js', 'utf8');
+
+  // Tier 1 and Tier 2 header classes
+  assert.ok(clientCalendarJs.includes('gcw-tier-top'), 'client includes gcw-tier-top');
+  assert.ok(previewJs.includes('gcw-tier-top'), 'preview includes gcw-tier-top');
+  assert.ok(clientCalendarJs.includes('gcw-tier-bottom'), 'client includes gcw-tier-bottom');
+  assert.ok(previewJs.includes('gcw-tier-bottom'), 'preview includes gcw-tier-bottom');
+  assert.ok(previewCss.includes('.gcw-tier-top'), 'css includes .gcw-tier-top');
+  assert.ok(previewCss.includes('.gcw-tier-bottom'), 'css includes .gcw-tier-bottom');
+
+  // Attendance autofocus classes
+  assert.ok(clientCalendarJs.includes('is-focused-date'), 'client includes is-focused-date');
+  assert.ok(previewJs.includes('is-focused-date'), 'preview includes is-focused-date');
+  assert.ok(clientCalendarJs.includes('td-focused-col'), 'client includes td-focused-col');
+  assert.ok(previewJs.includes('td-focused-col'), 'preview includes td-focused-col');
+  assert.ok(previewCss.includes('.is-focused-date'), 'css includes .is-focused-date');
+  assert.ok(previewCss.includes('.td-focused-col'), 'css includes .td-focused-col');
+
+  // Removal confirmation dialog
+  assert.ok(clientCalendarJs.includes('gcwConfirmRemovalDialog'), 'client includes gcwConfirmRemovalDialog');
+  assert.ok(previewJs.includes('gcwConfirmRemovalDialog'), 'preview includes gcwConfirmRemovalDialog');
+  assert.ok(clientCalendarJs.includes('Confirm Removal from Schedule'), 'client includes removal confirmation heading');
+  assert.ok(previewJs.includes('Confirm Removal from Schedule'), 'preview includes removal confirmation heading');
+
+  // Study alerts 100% width
+  assert.ok(chatCss.includes('#messages .msg-message.is-learning{border-left:3px solid var(--acc);width:100%;max-width:100%'), 'chat css has 100% width for is-learning');
+
+  // window.sendDirectChatMessage
+  assert.ok(chatSettingsJs.includes('window.sendDirectChatMessage'), 'chat 90-settings defines sendDirectChatMessage');
+  assert.ok(chatBundledJs.includes('window.sendDirectChatMessage'), 'chat bundled js defines sendDirectChatMessage');
+
+  // Requisites auto-expand min-height 140px
+  assert.ok(previewCss.includes('min-height: 140px;'), 'css includes min-height: 140px for auto-expand textarea');
+  assert.ok(clientCalendarJs.includes('Math.max(140'), 'client auto-expand uses Math.max(140)');
+});
+
+test('TASK-35: Playwright UI visual test for Two-Tier Header (Variant C) and Tab Isolation', async () => {
+  const browser = await launchChromium(chromium);
+  try {
+    const page = await browser.newPage({ viewport: { width: 920, height: 400 } });
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    const fixtureHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    ${previewCss}
+    body { padding: 24px; background: #eef2f6; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="gcw-header">
+    <div class="gcw-tier-top">
+      <div class="gcw-month-nav" tabindex="0" role="region" aria-label="Calendar month navigation">
+        <button class="gcw-nav-arrow" type="button" data-gcw-nav="prev">←</button>
+        <span class="gcw-month-label">November 2026</span>
+        <button class="gcw-nav-arrow" type="button" data-gcw-nav="next">→</button>
+      </div>
+    </div>
+    <div class="gcw-tier-bottom">
+      <div class="gcw-tabs" role="tablist">
+        <button class="gcw-tab is-active" type="button" data-gcw-tab="calendar">Calendar</button>
+        <button class="gcw-tab" type="button" data-gcw-tab="attendance">Attendance</button>
+        <button class="gcw-tab" type="button" data-gcw-tab="statistics">Statistics</button>
+      </div>
+      <div class="gcw-header-spacer">
+        <button class="gcw-set-schedule-btn" type="button" data-gcw-action="set-group-schedule">📅 Set group schedule</button>
+        <button class="gcw-today-btn" type="button" data-gcw-nav="today">Today</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    await page.setContent(fixtureHtml, { waitUntil: 'load' });
+    assert.equal(pageErrors.length, 0, `Page errors: ${pageErrors.join(', ')}`);
+
+    const tierTop = await page.$('.gcw-tier-top');
+    assert.ok(tierTop, 'Tier top element rendered');
+
+    const monthNav = await page.$('.gcw-tier-top > .gcw-month-nav');
+    assert.ok(monthNav, 'Centered month nav rendered inside tier top');
+
+    const tierBottom = await page.$('.gcw-tier-bottom');
+    assert.ok(tierBottom, 'Tier bottom element rendered');
+
+    const tabs = await page.$$('.gcw-tier-bottom > .gcw-tabs > .gcw-tab');
+    assert.equal(tabs.length, 3, 'Three tabs rendered in tier bottom');
+
+    const setScheduleBtn = await page.$('.gcw-tier-bottom .gcw-set-schedule-btn');
+    assert.ok(setScheduleBtn, 'Set group schedule button rendered in tier bottom right');
+
+    const todayBtn = await page.$('.gcw-tier-bottom .gcw-today-btn');
+    assert.ok(todayBtn, 'Today button rendered in tier bottom right');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('TASK-35: Playwright UI visual test for Attendance Tab date autofocus and Removal Confirmation Modal', async () => {
+  const browser = await launchChromium(chromium);
+  try {
+    const page = await browser.newPage({ viewport: { width: 800, height: 600 } });
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    const fixtureHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    ${previewCss}
+    body { padding: 20px; background: #ffffff; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="gcw-journal-wrap">
+    <table class="gcw-table">
+      <thead>
+        <tr>
+          <th class="gcw-th-student">Student</th>
+          <th class="gcw-th-date"><button class="gcw-date-header-btn">01.11</button></th>
+          <th class="gcw-th-date is-focused-date"><button class="gcw-date-header-btn is-focused" data-gcw-focused-date="true">08.11</button></th>
+          <th class="gcw-th-date"><button class="gcw-date-header-btn">15.11</button></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="gcw-td-student">Student 1</td>
+          <td><button class="gcw-cell-btn is-present">✓</button></td>
+          <td class="td-focused-col"><button class="gcw-cell-btn is-present">✓</button></td>
+          <td><button class="gcw-cell-btn is-absent">✕</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <dialog id="gcwConfirmRemovalDialog" class="gcw-scheduler-dialog gcw-confirm-dialog" open style="display:block; position:relative; margin-top:20px;">
+    <div class="gcw-scheduler-head" style="border-bottom: 2px solid #fee2e2;">
+      <h3 style="color:#b91c1c;"><span>⚠️</span> Confirm Removal from Schedule</h3>
+      <button type="button" class="gcw-choice-close-btn" data-action="close">✕</button>
+    </div>
+    <div class="gcw-scheduler-body" style="padding:18px 20px;">
+      <p style="font-weight:600;">Are you sure you want to remove 3 lesson(s) from the schedule?</p>
+      <div style="background:#fef2f2; border:1px solid #fecaca; padding:12px; color:#991b1b;">
+        <b>Warning:</b> This will remove the selected dates from the calendar and permanently delete all student attendance records.
+      </div>
+    </div>
+    <div class="gcw-scheduler-foot">
+      <button type="button" class="btn danger" data-action="confirm-delete">Yes, Remove Lessons</button>
+    </div>
+  </dialog>
+</body>
+</html>`;
+
+    await page.setContent(fixtureHtml, { waitUntil: 'load' });
+    assert.equal(pageErrors.length, 0, `Page errors: ${pageErrors.join(', ')}`);
+
+    const focusedTh = await page.$('.gcw-th-date.is-focused-date');
+    assert.ok(focusedTh, 'Focused date header cell is rendered');
+
+    const focusedCol = await page.$('td.td-focused-col');
+    assert.ok(focusedCol, 'Focused date column cell is highlighted');
+
+    const confirmModal = await page.$('#gcwConfirmRemovalDialog');
+    assert.ok(confirmModal, 'Confirm removal modal dialog is rendered');
+
+    const confirmTitle = await page.$('#gcwConfirmRemovalDialog h3');
+    const titleText = await confirmTitle.textContent();
+    assert.ok(titleText.includes('Confirm Removal from Schedule'), 'Confirm modal title matches');
+  } finally {
+    await browser.close();
+  }
+});

@@ -6845,6 +6845,37 @@
       return result;
     }
   };
+  window.sendDirectChatMessage = async function(accountId, text, options) {
+    if (!signedIn() && typeof checkAuth === 'function') {
+      try { await checkAuth(); } catch {}
+    }
+    if (!signedIn()) return;
+    if (!ready) {
+      connect();
+      await new Promise((resolve) => {
+        let attempts = 0;
+        const check = () => {
+          if (ready || attempts > 20) return resolve();
+          attempts++;
+          setTimeout(check, 100);
+        };
+        check();
+      });
+    }
+    const accId = /^[0-9]+$/.test(String(accountId)) ? Number(accountId) : accountId;
+    const openRes = await request('open', { kind: 'direct', accountId: accId });
+    if (openRes && openRes.roomId) {
+      const category = (options && options.category) || 'learning';
+      const clientKey = 'direct-' + String(accId) + '-' + Date.now();
+      const result = await request('send', {
+        roomId: openRes.roomId,
+        category,
+        clientKey,
+        text
+      });
+      return result;
+    }
+  };
   el('msgProfile').onclick = settings;
   el('msgSettings').onclick = settings;
   el('msgNew').onclick = newChat;

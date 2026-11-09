@@ -6824,22 +6824,36 @@ details[data-review-key] > summary {
   outline-offset: 2px;
 }
 .gcw-header {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   margin-bottom: 24px;
-  gap: 16px;
 }
-.gcw-header > .gcw-tabs {
-  justify-self: start;
+.gcw-tier-top {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.gcw-tier-top > .gcw-month-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--saas-border, #e2e8f0);
+  padding: 4px 14px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+.gcw-tier-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.gcw-tier-bottom > .gcw-tabs {
   margin-bottom: 0;
 }
-.gcw-header > .gcw-month-nav {
-  justify-self: center;
-  grid-column: 2;
-}
-.gcw-header > .gcw-header-spacer {
-  justify-self: end;
+.gcw-tier-bottom > .gcw-header-spacer {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -7184,7 +7198,7 @@ details[data-review-key] > summary {
 }
 .gcw-auto-expand-textarea {
   width: 100%;
-  min-height: 90px;
+  min-height: 140px;
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.5;
@@ -7195,6 +7209,17 @@ details[data-review-key] > summary {
   box-sizing: border-box;
   resize: vertical;
   font-family: inherit;
+}
+.gcw-th-date.is-focused-date {
+  background: var(--pri-light, #e0f2fe);
+  border-bottom: 2px solid var(--pri, #0284c7);
+}
+.gcw-date-header-btn.is-focused {
+  font-weight: 700;
+  color: var(--pri, #0284c7);
+}
+td.td-focused-col {
+  background: rgba(2, 132, 199, 0.04);
 }
 .gcw-info-callout {
   background: #f0fdf4;
@@ -7232,36 +7257,28 @@ details[data-review-key] > summary {
 }
 @media (max-width: 700px) {
   .gcw-header {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    align-items: center;
-    gap: 12px;
+    gap: 10px;
     margin-bottom: 18px;
   }
-  .gcw-header > .gcw-month-nav {
-    grid-column: 1;
-    grid-row: 1;
-    justify-self: start;
+  .gcw-tier-bottom {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
   }
-  .gcw-header > .gcw-header-spacer {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-  .gcw-header > .gcw-tabs {
-    grid-column: 1 / -1;
-    grid-row: 2;
+  .gcw-tier-bottom > .gcw-tabs {
     display: flex;
     width: 100%;
     margin-bottom: 0;
     box-sizing: border-box;
   }
-  .gcw-header > .gcw-tabs > .gcw-tab {
+  .gcw-tier-bottom > .gcw-tabs > .gcw-tab {
     flex: 1;
     text-align: center;
     padding: 7px 6px;
     font-size: 13px;
+  }
+  .gcw-tier-bottom > .gcw-header-spacer {
+    justify-content: flex-end;
   }
 }
 .gcw-month-nav {
