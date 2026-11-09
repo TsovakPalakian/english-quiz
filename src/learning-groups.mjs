@@ -37,7 +37,7 @@ function signedIn(actor){
 }
 
 export class GroupService{
-  constructor(db){this.db=db;}
+  constructor(db,accounts=null){this.db=db;this.accounts=accounts;}
   ensure(){
     // Request wrappers are rebuilt per call; the schema check belongs to the binding.
     const key=this.db?.binding||this.db;
@@ -91,6 +91,19 @@ export class GroupService{
       ]);
     }
   }
+  async allowedStudentIds(actor){
+    const isDeveloper = actor?.role === 'DEVELOPER';
+    if (this.accounts && typeof this.accounts.prepare === 'function') {
+      try {
+        const query = "SELECT id FROM users WHERE role = 'USER' AND COALESCE(active, 1) = 1 AND COALESCE(is_personal_data_revoked, 0) = 0" + (isDeveloper ? "" : " AND COALESCE(hidden, 0) = 0");
+        const stmt = this.accounts.prepare(query);
+        const res = typeof stmt.all === 'function' ? await stmt.all() : (stmt.bind ? await stmt.bind().all() : null);
+        const list = Array.isArray(res) ? res : (res && res.results ? res.results : []);
+        return new Set(list.map(r => String(r.id)));
+      } catch {}
+    }
+    return null;
+  }
   async list(actor){
     signedIn(actor);
     await this.seed();
@@ -105,17 +118,37 @@ export class GroupService{
       ORDER BY x.position,x.lesson_id`,[teacher?1:0,actor.id,actor.id]);
     const hidden=await materialVisibility(this.db,actor.id);
     await ensureAccountArchive(this.db);
+    const isDeveloper = actor?.role === 'DEVELOPER';
+    const allowedAccountIds = await this.allowedStudentIds(actor);
     const hasUsers = (await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).length > 0;
-    const studentCounts = await this.db.read(
-      hasUsers
-        ? `SELECT group_id, COUNT(*) AS total FROM class_group_students
-           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
-           AND EXISTS(SELECT 1 FROM users u WHERE u.id = class_group_students.account_id AND u.role = 'USER' AND COALESCE(u.active, 1) = 1 AND COALESCE(u.is_personal_data_revoked, 0) = 0 AND COALESCE(u.hidden, 0) = 0)
-           GROUP BY group_id`
-        : `SELECT group_id, COUNT(*) AS total FROM class_group_students
-           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
-           GROUP BY group_id`
-    );
+    let studentCounts;
+    if (allowedAccountIds) {
+      const rows = await this.db.read(
+        `SELECT group_id, account_id FROM class_group_students
+         WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)`
+      );
+      const counts = new Map();
+      for (const row of rows) {
+        if (allowedAccountIds.has(String(row.account_id))) {
+          counts.set(row.group_id, (counts.get(row.group_id) || 0) + 1);
+        }
+      }
+      studentCounts = Array.from(counts.entries()).map(([group_id, total]) => ({ group_id, total }));
+    } else if (hasUsers) {
+      studentCounts = await this.db.read(
+        `SELECT group_id, COUNT(*) AS total FROM class_group_students
+         WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
+         AND EXISTS(SELECT 1 FROM users u WHERE u.id = class_group_students.account_id AND u.role = 'USER' AND COALESCE(u.active, 1) = 1 AND COALESCE(u.is_personal_data_revoked, 0) = 0 AND (COALESCE(u.hidden, 0) = 0 OR ? = 1))
+         GROUP BY group_id`,
+        [isDeveloper ? 1 : 0]
+      );
+    } else {
+      studentCounts = await this.db.read(
+        `SELECT group_id, COUNT(*) AS total FROM class_group_students
+         WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
+         GROUP BY group_id`
+      );
+    }
     const exams=await this.db.read('SELECT group_id,exam_id FROM class_group_exams');
     if((!teacher||actor.managedStudent)&&(await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='exam_instances'")).length){
       const columns=await this.db.read('PRAGMA table_info(exam_instances)');
@@ -143,15 +176,29 @@ export class GroupService{
   async members(actor){
     signedIn(actor);if(!reviewer(actor))fail(403,'Teachers only.');await this.seed();
     await ensureAccountArchive(this.db);
+    const isDeveloper = actor?.role === 'DEVELOPER';
+    const allowedAccountIds = await this.allowedStudentIds(actor);
     const hasUsers = (await this.db.read("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")).length > 0;
-    const rows = await this.db.read(
-      hasUsers
-        ? `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
-           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
-           AND EXISTS(SELECT 1 FROM users u WHERE u.id = class_group_students.account_id AND u.role = 'USER' AND COALESCE(u.active, 1) = 1 AND COALESCE(u.is_personal_data_revoked, 0) = 0 AND COALESCE(u.hidden, 0) = 0)`
-        : `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
-           WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)`
-    );
+    let rows;
+    if (allowedAccountIds) {
+      const allRows = await this.db.read(
+        `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
+         WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)`
+      );
+      rows = allRows.filter(r => allowedAccountIds.has(String(r.accountId)));
+    } else if (hasUsers) {
+      rows = await this.db.read(
+        `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
+         WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)
+         AND EXISTS(SELECT 1 FROM users u WHERE u.id = class_group_students.account_id AND u.role = 'USER' AND COALESCE(u.active, 1) = 1 AND COALESCE(u.is_personal_data_revoked, 0) = 0 AND (COALESCE(u.hidden, 0) = 0 OR ? = 1))`,
+        [isDeveloper ? 1 : 0]
+      );
+    } else {
+      rows = await this.db.read(
+        `SELECT account_id AS accountId, group_id AS groupId FROM class_group_students
+         WHERE NOT EXISTS(SELECT 1 FROM account_archives a WHERE a.account_id = class_group_students.account_id)`
+      );
+    }
     if(actor.role==='DEVELOPER')return rows;
     const allowed=new Set(await teacherGroupIds(this.db,actor));
     return rows.filter(row=>allowed.has(Number(row.groupId)));

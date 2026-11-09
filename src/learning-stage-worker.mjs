@@ -311,8 +311,8 @@ export default {async fetch(request,env){
     if(path==='/api/me/cards/new')return json(await p.createOwnCard(actor,value));
     if(path==='/api/me/cards')return json(await s.linkCard(actor,value));
     if(own)return json(await s.unlinkCard(actor,cardKey(decodeURIComponent(own[1])),value));
-    if(path==='/api/groups'&&method==='GET')return json({groups:await new GroupService(db).list(actor)});
-    if(path==='/api/groups'&&method==='POST')return json(await new GroupService(db).save(actor,value));
+    if(path==='/api/groups'&&method==='GET')return json({groups:await new GroupService(db,env.DB).list(actor)});
+    if(path==='/api/groups'&&method==='POST')return json(await new GroupService(db,env.DB).save(actor,value));
     if(path==='/api/exams/work'&&method==='GET')return json({work:await new ExamService(db).listWork(actor,url.searchParams.get('student')||'')});
     if(path==='/api/exams/work'&&method==='POST')return json(await new ExamService(db).saveWork(actor,value));
     if(path==='/api/exams'&&method==='GET')return json({exams:await new ExamService(db).list(actor)});

@@ -22037,7 +22037,10 @@ const STUDIO_CONSTELLATIONS = [{
       return '<div class="decks">' + levels.filter(level=>canEditLessons()||rows.some(row=>accountGroupLevel(row)===level)).map(level=>{
         const groups=rows.filter(row=>accountGroupLevel(row)===level);
         const groupCount = groups.length;
-        const studentCount = groups.reduce((sum,g)=>sum+(g.studentCount||0),0);
+        const studentCount = groups.reduce((sum,g)=>{
+          const live = (typeof groupLiveStudentCount === 'function' && !isDeveloper()) ? groupLiveStudentCount(g) : undefined;
+          return sum + (live !== undefined ? live : (g.studentCount || 0));
+        },0);
         const lessonCount = groups.reduce((sum,g)=>sum+(g.lessonIds?.length||0),0);
         const pairs=[
           [groupPluralLabel('Group','Groups',groupCount),groupCount],
@@ -22105,7 +22108,9 @@ const STUDIO_CONSTELLATIONS = [{
         const hiddenCount = viewAccount ? group.lessonIds.filter(id => { const lesson = lmLibrary?.materials?.find(row => row.id === id); return !lesson || !lesson.published || lmLessonHidden(lesson); }).length : 0;
         const chip = lmDateChip(group.date);
         const hidden = viewAccount ? group.personalHidden : group.hidden;
-        const empty = (group.studentCount || 0) === 0 && count === 0;
+        const live = (typeof groupLiveStudentCount === 'function' && !isDeveloper()) ? groupLiveStudentCount(group) : undefined;
+        const studentCount = live !== undefined ? live : (group.studentCount || 0);
+        const empty = studentCount === 0 && count === 0;
         const about = hidden ? (viewAccount ? "Hidden for this student" : "Hidden") : (viewAccount && hiddenCount ? "Hidden " + hiddenCount + " / " + group.lessonIds.length + " lessons" : count + " lessons");
         const eye = hidden
           ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
@@ -22113,7 +22118,7 @@ const STUDIO_CONSTELLATIONS = [{
         const trash = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg>';
         const pencil = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg>';
         const tools = canEditLessons() || canTuneStudentLessons() ? '<div class="day-tools"><button class="day-hide' + (hidden ? " is-on" : "") + '" type="button" data-group-hide="' + esc(group.id) + '" aria-label="' + (hidden ? "Show" : "Hide") + '">' + eye + '</button>' + (canEditLessons() ? '<button class="day-edit" type="button" data-group-edit="' + esc(group.id) + '" aria-label="Edit group" title="Edit group">' + pencil + '</button><button class="day-del" type="button" data-group-delete="' + esc(group.id) + '" aria-label="Delete group">' + trash + '</button>' : '') + '</div>' : '';
-        return '<div class="day-row' + (hidden ? " is-hidden" : "") + (empty ? " is-empty" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([[groupPluralLabel('Student', 'Students', group.studentCount || 0), group.studentCount || 0], [groupPluralLabel('Lesson', 'Lessons', count), count]], true) + (hidden || hiddenCount ? '<span>' + esc(about) + '</span>' : '') + "</span></button>" + tools + "</div>";
+        return '<div class="day-row' + (hidden ? " is-hidden" : "") + (empty ? " is-empty" : "") + '"><button class="day" type="button" data-group-open="' + esc(group.id) + '"><span class="date"><b>' + esc(chip.day) + "</b><small>" + esc(chip.month) + "</small></span><b>" + esc(group.title) + '</b><span class="label about">' + metricPairs([[groupPluralLabel('Student', 'Students', studentCount), studentCount], [groupPluralLabel('Lesson', 'Lessons', count), count]], true) + (hidden || hiddenCount ? '<span>' + esc(about) + '</span>' : '') + "</span></button>" + tools + "</div>";
       }).join("");
     }
     function groupOpen(id) {
@@ -26652,13 +26657,13 @@ if(typeof window!=='undefined'){
       const ids=new Set(groups.map(group=>String(group.id)));
       const accounts=new Set(teachers?groupDirectory.assignments.filter(row=>ids.has(String(row.groupId))).flatMap(row=>(row.teacherIds||[]).map(String)):groupDirectory.members.filter(row=>ids.has(String(row.groupId))).map(row=>String(row.accountId)));
       const allowedTeacherRoles=['ADMIN','DEVELOPER','TEACHER','LEAD_INSTRUCTOR'];
-      return groupDirectory.users.filter(user=>accounts.has(String(user.id))&&(teachers?allowedTeacherRoles.includes(user.role):(user.role==='USER'&&!user.hidden))).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
+      return groupDirectory.users.filter(user=>accounts.has(String(user.id))&&(teachers?allowedTeacherRoles.includes(user.role):(user.role==='USER'&&(!user.hidden||(typeof isDeveloper==='function'&&isDeveloper()))))).sort((a,b)=>(a.name||a.login||'').localeCompare(b.name||b.login||'')||(a.login||'').localeCompare(b.login||''));
     }
     function groupLiveStudentCount(group){
       if(!authUser||viewAccount||!isTeacher())return undefined;
       if(!groupDirectoryReady()||groupDirectory.error)return undefined;
       const members=new Set(groupDirectory.members.filter(row=>String(row.groupId)===String(group.id)).map(row=>String(row.accountId)));
-      return new Set(groupDirectory.users.filter(user=>members.has(String(user.id))&&user.role==='USER'&&user.active!==false&&user.active!==0&&!user.hidden&&!user.revoked).map(user=>String(user.id))).size;
+      return new Set(groupDirectory.users.filter(user=>members.has(String(user.id))&&user.role==='USER'&&user.active!==false&&user.active!==0&&(!user.hidden||(typeof isDeveloper==='function'&&isDeveloper()))&&!user.revoked).map(user=>String(user.id))).size;
     }
     function refreshGroupStudentCounts(){
       if(!isTeacher()||viewAccount)return;
@@ -26667,11 +26672,13 @@ if(typeof window!=='undefined'){
       const current=document.querySelector('section.on')?.id;
       if(current==='days')paintLmDays();
       if(current==='exams')examPaintList();
+      if(current==='groups')paintGroups();
       return pending.then(()=>{
         if(key!==groupDirectoryKey())return;
         const page=document.querySelector('section.on')?.id;
         if(page==='days')paintLmDays();
         if(page==='exams')examPaintList();
+        if(page==='groups')paintGroups();
       });
     }
     function groupPeopleHTML(users) {
@@ -31872,7 +31879,9 @@ if(typeof window!=='undefined'){
       text('homeGroupTitle',group?.title||'No group assigned');
       const lessons=group&&(typeof lmLibrary!=='undefined'?lmLibrary?.materials:[])?.filter(row=>group.lessonIds?.includes(row.id)&&lmLessonVisibleToViewer(row))||[];
       const metrics=document.getElementById('homeGroupMetrics');
-      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span class="saas-badge saas-badge-muted">'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
+      const liveStudentCount=(typeof groupLiveStudentCount==='function'&&!isDeveloper())?groupLiveStudentCount(group):undefined;
+      const studentCount=liveStudentCount!==undefined?liveStudentCount:(group?.studentCount||0);
+      if(metrics)metrics.innerHTML=group?[['student',studentCount],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span class="saas-badge saas-badge-muted">'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
       const today=new Date(),date=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
       const next=lessons.filter(row=>row.published&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&row.date>=date).sort((a,b)=>a.date.localeCompare(b.date))[0];
       text('homeNextLessonLabel',next?next.date.split('-').reverse().join('.'):'\u2014');

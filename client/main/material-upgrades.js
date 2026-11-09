@@ -216,7 +216,11 @@ const materialListBefore=examPaintList;
 function examNeedsReview(exam){return exam.instanceStatus==='ready'||!exam.instanceStatus&&examVisibleBlocks(exam).some(block=>['submitted','reviewing'].includes(block.doc?.assessmentState));}
 function examSummary(rows,groups,compact=false){
   const works=rows.filter(exam=>exam.instanceStatus==='active'),templates=rows.filter(exam=>!exam.instanceStatus);
-  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+(group.studentCount||0),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact).replace(/ · <b>0<\/b>/g,'').replace(/(assigned(?: works)?|ready(?: for review)?) · <b>/g,'$1 · <b class="exam-attention-count">');
+  const getGrpStudents=(g)=>{
+    const live=(typeof groupLiveStudentCount==='function'&&!isDeveloper())?groupLiveStudentCount(g):undefined;
+    return live!==undefined?live:(g.studentCount||0);
+  };
+  return metricPairs([...(groups?[['group',groups.length],['students',groups.reduce((sum,group)=>sum+getGrpStudents(group),0)]]:[]),['exam',canEditLessons()?templates.length:rows.length],...(canEditLessons()?[['assigned works',works.length]]:[]),['ready for review',rows.filter(examNeedsReview).length],['completed',rows.filter(exam=>exam.instanceStatus==='completed').length]],compact).replace(/ · <b>0<\/b>/g,'').replace(/(assigned(?: works)?|ready(?: for review)?) · <b>/g,'$1 · <b class="exam-attention-count">');
 }
 examPaintList=function(){
   const student=authUser?.role==='USER'&&!viewAccount;

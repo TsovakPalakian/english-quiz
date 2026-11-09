@@ -66,7 +66,7 @@ export function messagesWorker({mode='test',baseWorker=base,authenticate=current
       if (path==='/api/groups/manage') {
         if(Object.keys(value).some(key=>!['action','id','expectedRevision','title','examId'].includes(key)))throw new StudyError(400,'Invalid group request.');
         await service.assign(actor,{targetKind:'group',targetId:value.id,examId:value.examId,action:value.action==='exam'?'assign':'unassign',expectedRevision:value.expectedRevision,clientKey:'group:'+value.id+':'+value.expectedRevision+':'+value.action+':'+value.examId});
-        return json({groups:await new GroupService(db).list(actor)});
+        return json({groups:await new GroupService(db,env.DB).list(actor)});
       }
       if (request.method==='GET') {
         if (path==='/api/messages') return json(await service.summary(actor));

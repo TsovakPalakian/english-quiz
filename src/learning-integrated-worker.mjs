@@ -635,15 +635,15 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           const target=new URL(request.url);target.pathname='/api/admin/users';target.search='';
           const response=await accountWorker.fetch(new Request(target,{headers:request.headers}),accountEnv,ctx);if(!response.ok)return response;
           const users=await response.json(),ids=new Set((users.users||[]).filter(user=>user.role==='USER').map(user=>user.id));
-          return json({members:(await new GroupService(studyDatabase(env)).members(actor)).filter(member=>ids.has(member.accountId))});
+          return json({members:(await new GroupService(studyDatabase(env),accountEnv.DB).members(actor)).filter(member=>ids.has(member.accountId))});
         }
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Writes disabled.');
         let value;try{value=JSON.parse(await boundedText(request,4096,'Group request too large.'));}catch{throw new StudyError(400,'Invalid group request.');}
         if(!value||typeof value!=='object'||Array.isArray(value))throw new StudyError(400,'Invalid group request.');
-        if(path==='/api/groups/manage')return json(await new GroupService(studyDatabase(env)).manage(actor,value));
+        if(path==='/api/groups/manage')return json(await new GroupService(studyDatabase(env),accountEnv.DB).manage(actor,value));
         const found=await authorizeManaged(accountEnv,actor,value.accountId);if(found.error)return found.error;
         if(found.row.role!=='USER')throw new StudyError(400,'Only students can be assigned to a group.');
-        return json(await new GroupService(studyDatabase(env)).assignStudent(actor,value.accountId,value.groupId,value.seeEarlier===true));
+        return json(await new GroupService(studyDatabase(env),accountEnv.DB).assignStudent(actor,value.accountId,value.groupId,value.seeEarlier===true));
       }
       if(path==='/api/groups/absence'&&method==='POST'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
@@ -1262,7 +1262,7 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const found=await authorizeManaged(accountEnv,actor,url.searchParams.get('for'));if(found.error)return found.error;
         if(pairManageDenied(actor,found.row.login,'read'))throw new StudyError(403,'You cannot do that.');
         const target={id:found.row.id,role:actor.role,managedStudent:found.row.role==='USER'},db=studyDatabase(env);
-        return json(path==='/api/groups'?{groups:await new GroupService(db).list(target)}:{exams:await new ExamService(db).list(target)});
+        return json(path==='/api/groups'?{groups:await new GroupService(db,accountEnv.DB).list(target)}:{exams:await new ExamService(db).list(target)});
       }
       if(managedAccess&&method==='PATCH'){
         if(env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');

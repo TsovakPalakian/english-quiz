@@ -126,7 +126,9 @@
       text('homeGroupTitle',group?.title||'No group assigned');
       const lessons=group&&(typeof lmLibrary!=='undefined'?lmLibrary?.materials:[])?.filter(row=>group.lessonIds?.includes(row.id)&&lmLessonVisibleToViewer(row))||[];
       const metrics=document.getElementById('homeGroupMetrics');
-      if(metrics)metrics.innerHTML=group?[['student',group.studentCount||0],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span class="saas-badge saas-badge-muted">'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
+      const liveStudentCount=(typeof groupLiveStudentCount==='function'&&!isDeveloper())?groupLiveStudentCount(group):undefined;
+      const studentCount=liveStudentCount!==undefined?liveStudentCount:(group?.studentCount||0);
+      if(metrics)metrics.innerHTML=group?[['student',studentCount],['lesson',lessons.length],['exam',group.examIds?.length||0]].filter(([,count])=>count>0).map(([name,count])=>'<span class="saas-badge saas-badge-muted">'+count+' '+name+(count===1?'':'s')+'</span>').join(''):'';
       const today=new Date(),date=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
       const next=lessons.filter(row=>row.published&&/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&row.date>=date).sort((a,b)=>a.date.localeCompare(b.date))[0];
       text('homeNextLessonLabel',next?next.date.split('-').reverse().join('.'):'\u2014');
