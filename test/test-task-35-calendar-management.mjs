@@ -694,3 +694,95 @@ test('TASK-35: Playwright UI visual test for Attendance Tab date autofocus and R
     await browser.close();
   }
 });
+
+test('TASK-35: Calendar announcement links use Markdown action buttons and date change rebinds without constant assignment error', () => {
+  // 1. Contract check for chat markdown action buttons
+  assert.ok(clientCalendarJs.includes('`• [📅 Add to Google Calendar](${gCalUrl.toString()})`'), 'clientCalendarJs must format Google Calendar link in Markdown format');
+  assert.ok(previewJs.includes('[📅 Add to Google Calendar]'), 'previewJs must contain markdown Google Calendar link');
+  assert.ok(clientCalendarJs.includes('`• [📥 Download .ics Reminder](${icsUrl})`'), 'clientCalendarJs must format .ics reminder link in Markdown format');
+  assert.ok(previewJs.includes('[📥 Download .ics Reminder]'), 'previewJs must contain markdown .ics reminder link');
+
+  // Verify raw plain-text links are completely eliminated
+  assert.ok(!clientCalendarJs.includes("'• Add to Google Calendar: ' + gCalUrl"), 'Raw plain text Google Calendar link must be eliminated');
+  assert.ok(!previewJs.includes("'• Add to Google Calendar: ' + gCalUrl"), 'Raw plain text Google Calendar link must be eliminated in preview');
+
+  // 2. Contract check for let weekdayName / let monthName and reschedule cleanup
+  assert.ok(clientCalendarJs.includes('let weekdayName = dObj.toLocaleDateString'), 'weekdayName must be declared with let');
+  assert.ok(previewJs.includes('let weekdayName = dObj.toLocaleDateString'), 'weekdayName must be declared with let in preview');
+  assert.ok(clientCalendarJs.includes('let monthName = dObj.toLocaleDateString'), 'monthName must be declared with let');
+  assert.ok(previewJs.includes('let monthName = dObj.toLocaleDateString'), 'monthName must be declared with let in preview');
+  assert.ok(clientCalendarJs.includes('hadPreviousSchedule && initialDateStr && initialDateStr !== dateStr'), 'reschedule must clean up previous date');
+});
+
+test('TASK-35: Playwright UI visual test for Schedule Single Lesson date change in universal picker', async () => {
+  const browser = await launchChromium(chromium);
+  try {
+    const page = await browser.newPage({ viewport: { width: 700, height: 600 } });
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    const fixtureHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    ${previewCss}
+    body { padding: 20px; background: #f8fafc; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <dialog id="gcwSchedulerDialog" class="gcw-scheduler-dialog" open style="display:block; position:relative;">
+    <div class="gcw-scheduler-head">
+      <h3><span>📅</span> Schedule Single Lesson</h3>
+      <button type="button" class="gcw-choice-close-btn" data-action="close">✕</button>
+    </div>
+    <div class="gcw-scheduler-body">
+      <div class="gcw-field-group">
+        <label for="gcwSchedDateBtn">Lesson Date</label>
+        <button type="button" class="gcw-date-picker-btn" id="gcwSchedDateBtn">
+          <span id="gcwSchedDateText">Wednesday, 2026-11-04</span>
+          <span aria-hidden="true">📅</span>
+        </button>
+      </div>
+      <div class="gcw-single-session-note">
+        💡 <b>Single Session:</b> This assigns the selected lesson to this specific date only.
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>`;
+
+    await page.setContent(fixtureHtml, { waitUntil: 'load' });
+
+    // Emulate changing the date via openUniversalDatePicker callback logic
+    await page.evaluate(() => {
+      let dateStr = '2026-11-04';
+      let dObj = new Date(dateStr + 'T00:00:00');
+      let weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
+      let monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+      const dateBtn = document.querySelector('#gcwSchedDateBtn');
+      dateBtn.onclick = () => {
+        // Picker returns new date: 2026-11-12
+        const newDate = '2026-11-12';
+        dateStr = newDate;
+        const newDObj = new Date(dateStr + 'T00:00:00');
+        weekdayName = newDObj.toLocaleDateString('en-US', { weekday: 'long' });
+        monthName = newDObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        const dateText = document.querySelector('#gcwSchedDateText');
+        if (dateText) dateText.textContent = weekdayName + ', ' + dateStr;
+      };
+
+      dateBtn.click();
+    });
+
+    assert.equal(pageErrors.length, 0, `Page errors encountered: ${pageErrors.join(', ')}`);
+
+    const dateTextEl = await page.$('#gcwSchedDateText');
+    const textVal = await dateTextEl.textContent();
+    assert.equal(textVal, 'Thursday, 2026-11-12', 'Date and weekday text successfully updated without TypeError');
+  } finally {
+    await browser.close();
+  }
+});

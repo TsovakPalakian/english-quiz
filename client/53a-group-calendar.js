@@ -2015,8 +2015,8 @@
         'Period: ' + periodLabel,
         '',
         '👉 Students, please add this lesson to your calendar so you do not miss it:',
-        '• Add to Google Calendar: ' + gCalUrl.toString(),
-        '• Download .ics (Apple / Outlook / Mobile Calendar): ' + icsUrl,
+        `• [📅 Add to Google Calendar](${gCalUrl.toString()})`,
+        `• [📥 Download .ics Reminder](${icsUrl})`,
         '',
         '🔔 Reminders are preconfigured to notify you 1 hour and 15 minutes before the lesson.'
       ].filter(l => l !== null);
@@ -2677,6 +2677,7 @@
     const existingModal = document.getElementById('gcwSchedulerDialog');
     if (existingModal) existingModal.remove();
 
+    const initialDateStr = dateStr;
     const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
     const monthData = getMonthData(state, monthKey);
     if (!monthData.scheduleData) monthData.scheduleData = {};
@@ -2687,9 +2688,9 @@
     let currentPeriod = existing.period || 'month';
     let currentMaterialId = existing.materialId || '';
 
-    const dObj = new Date(dateStr + 'T00:00:00');
-    const weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
-    const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    let dObj = new Date(dateStr + 'T00:00:00');
+    let weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
+    let monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     const weekdaysDef = [
       { day: 1, label: 'Mo', name: 'Monday' },
@@ -2913,7 +2914,23 @@
         };
 
         const hadPreviousSchedule = Boolean(existing.startTime);
-        const isReschedule = hadPreviousSchedule && (existing.startTime !== currentStartTime || existing.durationMinutes !== currentDuration);
+        const isReschedule = hadPreviousSchedule && (existing.startTime !== currentStartTime || existing.durationMinutes !== currentDuration || initialDateStr !== dateStr);
+
+        if (hadPreviousSchedule && initialDateStr && initialDateStr !== dateStr) {
+          const oldMonthKey = initialDateStr.slice(0, 7);
+          const oldMonthData = getMonthData(state, oldMonthKey);
+          if (oldMonthData) {
+            if (oldMonthData.lessonDates) {
+              if (oldMonthData.lessonDates instanceof Set) oldMonthData.lessonDates.delete(initialDateStr);
+              else if (Array.isArray(oldMonthData.lessonDates)) {
+                oldMonthData.lessonDates = oldMonthData.lessonDates.filter(d => d !== initialDateStr);
+              }
+            }
+            if (oldMonthData.scheduleData) {
+              delete oldMonthData.scheduleData[initialDateStr];
+            }
+          }
+        }
 
         let selectedMaterialTitle = '';
         if (selectedMatId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {

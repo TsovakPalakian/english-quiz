@@ -827,6 +827,106 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           }
         });
       }
+      if(path==='/api/groups/schedule.ics'&&['GET','HEAD'].includes(method)){
+        const groupId=url.searchParams.get('groupId')||'';
+        const monthKey=url.searchParams.get('month')||url.searchParams.get('monthKey')||'';
+        const customTitle=url.searchParams.get('title')||'Group Schedule';
+        if(!groupId)throw new StudyError(400,'groupId is required.');
+        if(!monthKey)throw new StudyError(400,'month is required.');
+
+        const db=studyDatabase(env);
+        const [row]=await db.read(
+          "SELECT value_json FROM catalog_documents WHERE namespace = 'group-attendance' AND key = ?",
+          [String(groupId)+':'+String(monthKey)]
+        );
+
+        let lessonDates=[];
+        let scheduleData={};
+        let groupTitle=customTitle;
+        if(row&&row.value_json){
+          try{
+            const parsed=JSON.parse(row.value_json);
+            if(Array.isArray(parsed.lessonDates))lessonDates=parsed.lessonDates;
+            if(parsed.scheduleData&&typeof parsed.scheduleData==='object')scheduleData=parsed.scheduleData;
+          }catch{}
+        }
+
+        try{
+          const [gRow]=await db.read('SELECT title FROM class_groups WHERE id = ? AND deleted_at IS NULL',[Number(groupId)]);
+          if(gRow?.title)groupTitle=gRow.title;
+        }catch{}
+
+        const now=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
+        const events=[];
+        const filteredDates=lessonDates.filter(d=>typeof d==='string'&&d.startsWith(monthKey+'-')).sort();
+
+        if(filteredDates.length===0){
+          const dtClean=monthKey.replace(/-/g,'')+'01';
+          events.push(
+            'BEGIN:VEVENT',
+            `UID:group-${groupId}-${monthKey}-none@englishquiz`,
+            `DTSTAMP:${now}`,
+            `DTSTART;VALUE=DATE:${dtClean}`,
+            `DTEND;VALUE=DATE:${dtClean}`,
+            `SUMMARY:Group Schedule · ${groupTitle}`,
+            `DESCRIPTION:Group schedule for ${groupTitle} (${monthKey}). No specific lessons scheduled yet.`,
+            'END:VEVENT'
+          );
+        }else{
+          for(const d of filteredDates){
+            const sched=scheduleData[d]||{};
+            const startTime=sched.startTime||'18:30';
+            const durMin=Number(sched.durationMinutes)||60;
+            const dtClean=d.replace(/-/g,'');
+            const [sh,sm]=startTime.split(':').map(Number);
+            const endTotal=(isNaN(sh)?18:sh)*60+(isNaN(sm)?30:sm)+durMin;
+            const eh=Math.floor(endTotal/60)%24;
+            const em=endTotal%60;
+            const stStr=String(isNaN(sh)?18:sh).padStart(2,'0')+String(isNaN(sm)?30:sm).padStart(2,'0')+'00';
+            const etStr=String(eh).padStart(2,'0')+String(em).padStart(2,'0')+'00';
+            const uid=`group-${groupId}-${d}-${stStr}@englishquiz`;
+
+            events.push(
+              'BEGIN:VEVENT',
+              `UID:${uid}`,
+              `DTSTAMP:${now}`,
+              `DTSTART;TZID=Europe/Minsk:${dtClean}T${stStr}`,
+              `DTEND;TZID=Europe/Minsk:${dtClean}T${etStr}`,
+              `SUMMARY:English Lesson · ${groupTitle}`,
+              `DESCRIPTION:Scheduled group lesson for ${groupTitle}.\\nReminders set for 1 hour and 15 minutes before the lesson.`,
+              'BEGIN:VALARM',
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Reminder: Lesson in 1 hour',
+              'TRIGGER:-PT60M',
+              'END:VALARM',
+              'BEGIN:VALARM',
+              'ACTION:DISPLAY',
+              'DESCRIPTION:Reminder: Lesson in 15 minutes',
+              'TRIGGER:-PT15M',
+              'END:VALARM',
+              'END:VEVENT'
+            );
+          }
+        }
+
+        const lines=[
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//EnglishQuiz//GroupSchedule//EN',
+          'CALSCALE:GREGORIAN',
+          'METHOD:PUBLISH',
+          ...events,
+          'END:VCALENDAR'
+        ];
+
+        return new Response(method==='HEAD'?null:lines.join('\r\n'),{
+          headers:{
+            'Content-Type':'text/calendar; charset=utf-8',
+            'Content-Disposition':`inline; filename="group-${groupId}-schedule-${monthKey}.ics"`,
+            'Cache-Control':'no-cache'
+          }
+        });
+      }
       if(path==='/api/groups/attendance'&&['GET','POST','DELETE'].includes(method)){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Teachers only.');

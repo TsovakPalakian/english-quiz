@@ -412,6 +412,71 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     assert.ok(!endMonthText.includes('TRIGGER:-P1D'), 'End of month deadline must NOT contain 1d reminder');
     assert.ok(endMonthText.includes('TRIGGER:-PT1H'), 'End of month deadline must contain same-day 1h reminder');
 
+    // 400 validation on schedule.ics missing parameters
+    const noGroupSched = await app.fetch(new Request('https://quiz.example/api/groups/schedule.ics?month=2026-11'), env, ctx);
+    assert.equal(noGroupSched.status, 400);
+    const noMonthSched = await app.fetch(new Request('https://quiz.example/api/groups/schedule.ics?groupId=1'), env, ctx);
+    assert.equal(noMonthSched.status, 400);
+
+    // 200 GET schedule.ics with lessons and reminders (fixes Bug ID: 69228c43e763c56e997ebf21c168ab99)
+    await f.db.atomic([{
+      sql: "INSERT OR REPLACE INTO catalog_documents (namespace, key, value_json) VALUES ('group-attendance', ?, ?)",
+      args: [
+        {type: 'text', value: '1:2026-11'},
+        {type: 'text', value: JSON.stringify({
+          lessonDates: ['2026-11-04', '2026-11-11'],
+          scheduleData: {
+            '2026-11-04': {startTime: '19:00', durationMinutes: 90}
+          }
+        })}
+      ]
+    }]);
+
+    const schedResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/schedule.ics?groupId=1&month=2026-11&title=B1%20Group'),
+      env,
+      ctx
+    );
+    assert.equal(schedResp.status, 200);
+    assert.ok(schedResp.headers.get('Content-Type').includes('text/calendar'));
+    assert.equal(schedResp.headers.get('Content-Disposition'), 'inline; filename="group-1-schedule-2026-11.ics"');
+    assert.equal(schedResp.headers.get('Cache-Control'), 'no-cache');
+    const schedText = await schedResp.text();
+    assert.ok(schedText.includes('PRODID:-//EnglishQuiz//GroupSchedule//EN'));
+    assert.ok(schedText.includes('DTSTART;TZID=Europe/Minsk:20261104T190000'));
+    assert.ok(schedText.includes('DTEND;TZID=Europe/Minsk:20261104T203000'));
+    assert.ok(schedText.includes('SUMMARY:English Lesson · B1 Group'));
+    assert.ok(schedText.includes('TRIGGER:-PT60M'));
+    assert.ok(schedText.includes('TRIGGER:-PT15M'));
+    assert.ok(schedText.includes('DTSTART;TZID=Europe/Minsk:20261111T183000'));
+    assert.ok(schedText.includes('DTEND;TZID=Europe/Minsk:20261111T193000'));
+
+    // 200 HEAD schedule.ics returns identical headers with empty body
+    const headSchedResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/schedule.ics?groupId=1&month=2026-11&title=B1%20Group', {
+        method: 'HEAD'
+      }),
+      env,
+      ctx
+    );
+    assert.equal(headSchedResp.status, 200);
+    assert.ok(headSchedResp.headers.get('Content-Type').includes('text/calendar'));
+    assert.equal(headSchedResp.headers.get('Content-Disposition'), 'inline; filename="group-1-schedule-2026-11.ics"');
+    assert.equal(headSchedResp.headers.get('Cache-Control'), 'no-cache');
+    const headSchedText = await headSchedResp.text();
+    assert.equal(headSchedText, '');
+
+    // 200 GET schedule.ics with empty schedule returns fallback month event
+    const emptySchedResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/schedule.ics?groupId=1&month=2026-12&title=B1%20Group'),
+      env,
+      ctx
+    );
+    assert.equal(emptySchedResp.status, 200);
+    const emptySchedText = await emptySchedResp.text();
+    assert.ok(emptySchedText.includes('DTSTART;VALUE=DATE:20261201'));
+    assert.ok(emptySchedText.includes('SUMMARY:Group Schedule · B1 Group'));
+
     // 200 POST /api/groups/absence allows student to record absence and optional reason
     identity = student;
     const absResp = await app.fetch(
