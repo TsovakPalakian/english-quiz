@@ -27654,6 +27654,7 @@ if(typeof window!=='undefined'){
           '<button class="gcw-nav-arrow" type="button" data-gcw-nav="next" aria-label="Next month">→</button>' +
         '</div>' +
         '<div class="gcw-header-spacer">' +
+          (canEdit ? '<button class="gcw-set-schedule-btn" type="button" data-gcw-action="set-group-schedule" aria-label="Set group schedule">📅 Set group schedule</button>' : '') +
           '<button class="gcw-today-btn" type="button" data-gcw-nav="today" aria-label="Go to current month">Today</button>' +
         '</div>' +
       '</div>' +
@@ -27785,7 +27786,7 @@ if(typeof window!=='undefined'){
     };
   }
 
-  async function postPaymentInvoiceToChat(groupId, groupTitle, state, deadlineDate, customRequisites) {
+  async function postPaymentInvoiceToChat(groupId, groupTitle, state, deadlineDate, customRequisites, deadlineTime, remindersList, isAnchorToCycleEnd) {
     try {
       if (typeof window.ensureMessages === 'function') {
         await window.ensureMessages();
@@ -27805,35 +27806,69 @@ if(typeof window!=='undefined'){
       const isEndMonth = Boolean(lastLessonDate && lastLessonDate === lastDayOfMonth);
 
       const effectiveDeadline = (isEndMonth && !deadlineDate) ? (m === 12 ? (y + 1) + '-01-01' : y + '-' + String(m + 1).padStart(2, '0') + '-01') : (deadlineDate || monthData.paymentDeadline || (monthKey + '-25'));
+      const effectiveTime = deadlineTime || monthData.paymentDeadlineTime || '18:00';
+      const requisitesText = customRequisites || monthData.paymentRequisites || 'Bank: Alfa-Bank CJSC · IBAN: BY00 ALFA 0000 0000 0000 0000\nRecipient: English Study Academy · Purpose: Tuition for ' + monthName + '\nERIP: Education & Development > English Study > Invoice ID: #ST-GRP-42';
 
       const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
-      const icsUrl = `${origin}/api/groups/payment-deadline.ics?groupId=${encodeURIComponent(groupId)}&date=${encodeURIComponent(effectiveDeadline)}&title=${encodeURIComponent('Tuition Payment Due · ' + groupTitle)}&isEndMonth=${isEndMonth}&requisites=${encodeURIComponent(customRequisites || monthData.paymentRequisites || '')}`;
+      const icsUrl = `${origin}/api/groups/payment-deadline.ics?groupId=${encodeURIComponent(groupId)}&date=${encodeURIComponent(effectiveDeadline)}&title=${encodeURIComponent('Tuition Payment Due · ' + groupTitle)}&isEndMonth=${isEndMonth}&requisites=${encodeURIComponent(requisitesText)}`;
 
       const dtClean = effectiveDeadline.replace(/-/g, '');
+      const timeClean = effectiveTime.replace(/:/g, '') + '00';
       const gCalUrl = new URL('https://calendar.google.com/calendar/render');
       gCalUrl.searchParams.set('action', 'TEMPLATE');
       gCalUrl.searchParams.set('text', `Tuition Payment Due · ${groupTitle}`);
-      gCalUrl.searchParams.set('dates', `${dtClean}T100000/${dtClean}T120000`);
-      gCalUrl.searchParams.set('details', `Payment due for ${monthName}.\nRequisites:\n${customRequisites || monthData.paymentRequisites || 'Bank transfer / Card / ERIP'}`);
+      gCalUrl.searchParams.set('dates', `${dtClean}T${timeClean}/${dtClean}T${timeClean}`);
+      gCalUrl.searchParams.set('details', `Payment due for ${monthName}.\nRequisites:\n${requisitesText}`);
       gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
 
+      // Private delivery to each student with pending tuition (matching Screenshot 11)
+      for (const s of students) {
+        const tuition = calculateStudentTuition(groupId, state, s.id);
+        const studentName = s.name || s.login || 'Student';
+        const personalMsg = [
+          `⚠️ Tuition Payment Reminder · Study alerts`,
+          `Hello, ${studentName}! This is a reminder regarding tuition for ${monthName}.`,
+          '',
+          `• Deadline: ${effectiveDeadline} ${effectiveTime}`,
+          `• Total Due: ${tuition.finalAmount} ${currency}`,
+          `• Classes Completed: ${tuition.attendedCount} of ${tuition.totalLessons}${lastLessonDate ? ' (ended ' + lastLessonDate + ')' : ''}`,
+          `• Status: ${tuition.isPaid ? 'Paid' : 'Pending'}`,
+          '',
+          'Payment Requisites:',
+          requisitesText,
+          '',
+          '👉 Add payment deadline to your calendar:',
+          `• [📅 Add to Google Calendar](${gCalUrl.toString()})`,
+          `• [📥 Download .ics Reminder](${icsUrl})`,
+          '',
+          `👉 Confirm Payment: Click «✅ I have paid (${tuition.finalAmount} ${currency})» in the Group Calendar widget to notify the teacher.`
+        ].join('\n');
+
+        if (typeof window.sendDirectChatMessage === 'function') {
+          try {
+            await window.sendDirectChatMessage(s.id, personalMsg, { category: 'learning' });
+          } catch {}
+        }
+      }
+
+      // Also deliver group invoice summary to group chat as fallback
       const lines = [
         '💳 TUITION INVOICE & PAYMENT DETAILS',
         'Group: ' + groupTitle,
         'Billing Month: ' + monthName,
-        'Payment Deadline: ' + effectiveDeadline + (isEndMonth ? ' (Issued on 1st of next month)' : ''),
+        'Payment Deadline: ' + effectiveDeadline + ' ' + effectiveTime + (isEndMonth ? ' (Issued on 1st of next month)' : ''),
         '',
         'Student Breakdown (Attendance-based):'
       ];
 
       students.forEach(s => {
         const tuition = calculateStudentTuition(groupId, state, s.id);
-        lines.push(`• ${s.name || s.login}: ${tuition.finalAmount} ${currency} (${tuition.attendedCount} / ${tuition.totalLessons} lessons attended${tuition.manualAmount !== '' ? ', custom amount' : ''})`);
+        lines.push(`• ${s.name || s.login}: ${tuition.finalAmount} ${currency} (${tuition.attendedCount} / ${tuition.totalLessons} lessons attended${tuition.manualAmount !== '' ? ', custom amount' : ''}) [${tuition.isPaid ? 'Paid' : 'Pending'}]`);
       });
 
       lines.push('');
       lines.push('Payment Requisites:');
-      lines.push(customRequisites || monthData.paymentRequisites || 'Bank transfer / Card / ERIP: BY00 ALFA 0000 0000 0000 0000 0000 0000 (Recipient: English Study)');
+      lines.push(requisitesText);
       lines.push('');
       lines.push('👉 Add payment deadline to your calendar:');
       lines.push(`• [📅 Add to Google Calendar](${gCalUrl.toString()})`);
@@ -27841,6 +27876,9 @@ if(typeof window!=='undefined'){
       lines.push('');
       if (isEndMonth) {
         lines.push('🔔 Note: Since the last lesson falls on the last day of the month, the bill is issued on the 1st of the next month with same-day notice.');
+      } else if (Array.isArray(remindersList) && remindersList.length > 0) {
+        const remStrs = remindersList.map(r => `${r.value} ${r.unit.toLowerCase()}`).join(', ');
+        lines.push(`🔔 Reminder alerts scheduled: ${remStrs} before deadline.`);
       } else {
         lines.push('🔔 Reminder alerts are preconfigured at 2 days, 1 day, and 1 hour before the payment deadline.');
       }
@@ -27849,7 +27887,7 @@ if(typeof window!=='undefined'){
 
       const messageText = lines.join('\n');
       if (typeof window.sendGroupChatMessage === 'function') {
-        await window.sendGroupChatMessage(groupId, messageText);
+        await window.sendGroupChatMessage(groupId, messageText, { category: 'learning' });
       }
     } catch {
       // Non-blocking dispatch
@@ -27865,106 +27903,182 @@ if(typeof window!=='undefined'){
     const students = getGroupStudents(groupId);
     const currency = monthData.currency || 'BYN';
     const currentPrice = Number(monthData.pricePerLesson) || 30;
-    const currentRequisites = monthData.paymentRequisites || 'Bank transfer / Card / ERIP: BY00 ALFA 0000 0000 0000 0000 0000 0000 (Recipient: English Study)';
-    const currentDeadline = monthData.paymentDeadline || dateStr;
+    const dObj = new Date(state.year, state.monthIndex, 1);
+    const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const currentRequisites = monthData.paymentRequisites || `Bank: Alfa-Bank CJSC · IBAN: BY00 ALFA 0000 0000 0000 0000\nRecipient: English Study Academy · Purpose: Tuition for ${monthName}\nERIP: Education & Development > English Study > Invoice ID: #ST-GRP-42`;
+    const currentDeadline = monthData.paymentDeadline || (dateStr || (monthKey + '-25'));
+    const currentDeadlineTime = monthData.paymentDeadlineTime || '18:00';
+    const isAnchorChecked = monthData.anchorToCycleEnd !== false;
 
     const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
     const lastLessonDate = sortedLessonDates[sortedLessonDates.length - 1] || '';
-    const [y, m] = monthKey.split('-').map(Number);
-    const daysInMonth = new Date(y, m, 0).getDate();
-    const lastDayOfMonth = monthKey + '-' + String(daysInMonth).padStart(2, '0');
-    const isEndMonth = Boolean(lastLessonDate && lastLessonDate === lastDayOfMonth);
+    let lastLessonBadgeText = 'No lessons scheduled';
+    if (lastLessonDate) {
+      const [ly, lm, ld] = lastLessonDate.split('-').map(Number);
+      const lObj = new Date(ly, lm - 1, ld);
+      const shortMonth = lObj.toLocaleDateString('en-US', { month: 'short' });
+      const lastSched = (monthData.scheduleData && monthData.scheduleData[lastLessonDate]) || null;
+      const lastTime = lastSched && lastSched.startTime ? ` · ${lastSched.startTime}` : ' · 19:30';
+      lastLessonBadgeText = `Last Lesson: ${ld} ${shortMonth}${lastTime}`;
+    }
+
+    let rules = (Array.isArray(monthData.paymentReminders) && monthData.paymentReminders.length > 0)
+      ? JSON.parse(JSON.stringify(monthData.paymentReminders))
+      : [
+          { value: 3, unit: 'Days' },
+          { value: 1, unit: 'Days' },
+          { value: 4, unit: 'Hours' },
+          { value: 1, unit: 'Hours' }
+        ];
+
+    function formatRuleTarget(deadlineDate, deadlineTime, val, unit) {
+      if (!deadlineDate) return '';
+      const [y, m, d] = deadlineDate.split('-').map(Number);
+      const [hh, mm] = (deadlineTime || '18:00').split(':').map(Number);
+      const dt = new Date(y, m - 1, d, hh || 0, mm || 0);
+      if (isNaN(dt.getTime())) return `${val} ${unit} prior`;
+      const num = Number(val) || 0;
+      if (unit === 'Weeks') dt.setDate(dt.getDate() - (num * 7));
+      else if (unit === 'Days') dt.setDate(dt.getDate() - num);
+      else if (unit === 'Hours') dt.setHours(dt.getHours() - num);
+      const shortM = dt.toLocaleDateString('en-US', { month: 'short' });
+      const dayNum = dt.getDate();
+      const timeStr = String(dt.getHours()).padStart(2, '0') + ':' + String(dt.getMinutes()).padStart(2, '0');
+      return `${dayNum} ${shortM} · ${timeStr}`;
+    }
 
     const dialog = document.createElement('dialog');
     dialog.id = 'gcwPaymentModal';
-    dialog.className = 'gcw-scheduler-dialog';
+    dialog.className = 'gcw-scheduler-dialog gcw-payment-dialog';
 
-    let studentRowsHtml = '';
-    students.forEach(s => {
-      const tuition = calculateStudentTuition(groupId, state, s.id);
-      const paidBadge = tuition.isPaid
-        ? '<span style="color:var(--ok, #16a34a); font-weight:700;">✅ Paid</span>'
-        : '<span style="color:var(--mute, #94a3b8);">⏳ Pending</span>';
-      studentRowsHtml += `
-        <tr style="border-bottom:1px solid var(--saas-border, #e2e8f0);">
-          <td style="padding:8px 6px;"><b>${esc(s.name || s.login)}</b></td>
-          <td style="padding:8px 6px; text-align:center;">${tuition.attendedCount} / ${tuition.totalLessons}</td>
-          <td style="padding:8px 6px; text-align:center;">${tuition.autoAmount} ${currency}</td>
-          <td style="padding:8px 6px;">
-            <input type="number" class="gcw-manual-amt-input" data-student-id="${esc(s.id)}" value="${esc(tuition.manualAmount)}" placeholder="${tuition.autoAmount}" title="Enter custom total amount or leave blank to use Auto Amount" style="width:80px; height:32px; padding:4px 8px; font-size:13px; text-align:center;">
-          </td>
-          <td style="padding:8px 6px; text-align:center;">${paidBadge}</td>
-        </tr>`;
-    });
-
-    let noticeHtml = '';
-    if (isEndMonth) {
-      noticeHtml = `<div style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:8px; font-size:12px;">
-        ℹ️ The final lesson of the month is on the last day (${lastLessonDate}). By rule, invoices are issued on the 1st of next month with notification strictly on that day (no 2-day or 1-day advance warnings).
-      </div>`;
-    } else {
-      noticeHtml = `<div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:10px 12px; border-radius:8px; font-size:12px;">
-        🔔 Standard deadline: advance reminders will be set for 2 days, 1 day, and 1 hour before the payment date.
-      </div>`;
-    }
-
-    let html = `
+    const html = `
       <div class="gcw-scheduler-head">
-        <h3>Tuition Invoicing & Payment Deadline</h3>
+        <h3><span>💳</span> Tuition Deadline & Payment Management</h3>
         <button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>
       </div>
-      <div class="gcw-scheduler-body" style="max-height:65vh; overflow-y:auto;">
-        ${noticeHtml}
-        <div class="gcw-field-group">
-          <label for="gcwModalDeadlineDate">Payment Deadline Date</label>
-          <div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:8px;">
-            <input type="text" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}" placeholder="YYYY-MM-DD" style="flex:1;" readonly>
-            <button type="button" class="btn icon-btn gcw-cal-btn" id="gcwModalDeadlineDateBtn" title="Choose date" aria-label="Choose date" style="min-width:38px; height:38px; padding:0 8px;">📅</button>
+
+      <!-- Clean Tab Navigation (Screenshot 8, 9, 10) -->
+      <div class="gcw-payment-tabs">
+        <button type="button" class="gcw-payment-tab is-active" data-tab="deadline">
+          <span>⏰</span> Deadline & Reminders
+        </button>
+        <button type="button" class="gcw-payment-tab" data-tab="invoices">
+          <span>📋</span> Student Invoices
+          <span class="gcw-tab-badge" id="gcwInvoicesTabBadge"></span>
+        </button>
+        <button type="button" class="gcw-payment-tab" data-tab="requisites">
+          <span>🏦</span> Payment Requisites
+        </button>
+      </div>
+
+      <div class="gcw-scheduler-body" style="padding:16px 20px; max-height:65vh; overflow-y:auto;">
+        <!-- TAB 1: Deadline & Reminders (Screenshot 8) -->
+        <div class="gcw-payment-panel is-active" data-panel="deadline">
+          <div class="gcw-grid-two">
+            <div class="gcw-field-group">
+              <label for="gcwModalDeadlineDate">Payment Deadline Date</label>
+              <div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:8px;">
+                <input type="text" id="gcwModalDeadlineDate" value="${esc(currentDeadline)}" placeholder="YYYY-MM-DD" style="flex:1;" readonly>
+                <button type="button" class="btn icon-btn gcw-cal-btn" id="gcwModalDeadlineDateBtn" title="Choose date" aria-label="Choose date" style="min-width:38px; height:38px; padding:0 8px;">📅</button>
+              </div>
+            </div>
+            <div class="gcw-field-group">
+              <label for="gcwModalDeadlineTime">Deadline Exact Time</label>
+              <input type="time" id="gcwModalDeadlineTime" class="gcw-time-input" value="${esc(currentDeadlineTime)}">
+            </div>
+          </div>
+
+          <!-- Smart Anchor to Last Lesson -->
+          <div class="gcw-anchor-card">
+            <div class="gcw-anchor-left">
+              <input type="checkbox" id="gcwModalAnchorToggle" ${isAnchorChecked ? 'checked' : ''} style="accent-color:#16a34a; width:16px; height:16px; margin:0;">
+              <label for="gcwModalAnchorToggle" class="gcw-anchor-text" style="cursor:pointer; margin:0;">
+                <b>Anchor to cycle end:</b> Withhold invoices & alerts until final lesson completes.
+              </label>
+            </div>
+            <span class="gcw-anchor-badge">${esc(lastLessonBadgeText)}</span>
+          </div>
+
+          <!-- Dynamic Reminders List (Any quantity, any period) -->
+          <div class="gcw-reminders-section">
+            <div class="gcw-reminders-header">
+              <span><span>🔔</span> Reminder Intervals (Any Quantity & Period)</span>
+              <button type="button" class="gcw-add-reminder-btn" id="gcwAddReminderBtn"><span>+</span> Add Reminder</button>
+            </div>
+            <div class="gcw-rule-list" id="gcwReminderRuleList"></div>
           </div>
         </div>
-        <div class="gcw-field-group">
-          <label for="gcwModalPricePerLesson">Price Per Lesson (${currency})</label>
-          <input type="number" id="gcwModalPricePerLesson" value="${currentPrice}" min="0" step="1">
-        </div>
-        <div class="gcw-field-group">
-          <label for="gcwModalRequisites">Payment Requisites</label>
-          <textarea id="gcwModalRequisites" rows="2" style="padding:8px 10px; font-size:13px; border-radius:8px; border:1px solid var(--saas-border, #cbd5e1);">${esc(currentRequisites)}</textarea>
-        </div>
-        <div class="gcw-field-group">
-          <label>Student Invoices & Attendance Calculation</label>
-          <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.4; display:flex; align-items:flex-start; gap:6px; margin-bottom:8px;">
+
+        <!-- TAB 2: Student Invoices (Screenshot 9) -->
+        <div class="gcw-payment-panel" data-panel="invoices">
+          <div class="gcw-summary-banner">
+            <div class="gcw-stat-col">
+              <span class="gcw-stat-label">Total Invoiced</span>
+              <span class="gcw-stat-value" id="gcwTotalInvoiced">0 ${currency}</span>
+            </div>
+            <div class="gcw-stat-col">
+              <span class="gcw-stat-label">Collected</span>
+              <span class="gcw-stat-value green" id="gcwTotalCollected">0 ${currency}</span>
+            </div>
+            <div class="gcw-stat-col">
+              <span class="gcw-stat-label">Pending</span>
+              <span class="gcw-stat-value amber" id="gcwTotalPending">0 ${currency}</span>
+            </div>
+          </div>
+
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.4; display:flex; align-items:flex-start; gap:6px;">
             <span>💡</span>
             <div>
               <b>Manual Amount:</b> overrides the total invoice amount for that student (custom discount or flat rate). Leave empty to use the auto-calculated amount.
             </div>
           </div>
+
           <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <table class="gcw-invoices-table">
               <thead>
-                <tr style="border-bottom:2px solid var(--saas-border, #e2e8f0); color:var(--mute, #64748b);">
-                  <th style="text-align:left; padding:6px;">Student</th>
-                  <th style="padding:6px; text-align:center;">Attended</th>
-                  <th style="padding:6px; text-align:center;">Auto Amount</th>
-                  <th style="padding:6px; text-align:center;">
+                <tr>
+                  <th>Student</th>
+                  <th style="text-align:center;">Attended</th>
+                  <th style="text-align:center;">Auto Calc</th>
+                  <th style="text-align:center;">
                     Manual Amount <span class="gcw-info-hint" title="Overrides total sum for this student. Leave blank to use Auto Amount." style="cursor:help; font-size:11px; font-weight:700; background:#e2e8f0; color:#475569; border-radius:50%; width:16px; height:16px; display:inline-flex; align-items:center; justify-content:center; margin-left:4px;">i</span>
                   </th>
-                  <th style="padding:6px; text-align:center;">Status</th>
+                  <th style="text-align:center;">Status</th>
                 </tr>
               </thead>
-              <tbody>
-                ${studentRowsHtml}
-              </tbody>
+              <tbody id="gcwInvoicesTableBody"></tbody>
             </table>
+          </div>
+
+          <div class="gcw-private-note">
+            <span>🔒</span>
+            <span><b>Private Delivery:</b> Invoices and personal bills will be dispatched strictly to each student's direct Study alerts chat.</span>
+          </div>
+        </div>
+
+        <!-- TAB 3: Payment Requisites (Screenshot 10) -->
+        <div class="gcw-payment-panel" data-panel="requisites">
+          <div class="gcw-field-group">
+            <label for="gcwModalRequisites">
+              <span>Payment Requisites & Bank Information</span>
+              <span class="gcw-label-hint">Auto-expands to fit text</span>
+            </label>
+            <textarea id="gcwModalRequisites" class="gcw-auto-expand-textarea" rows="4">${esc(currentRequisites)}</textarea>
+          </div>
+
+          <div class="gcw-info-callout">
+            💡 <b>Auto-Included:</b> These requisites are attached directly to each private invoice and reminder alert sent to students in their Study alerts chat.
           </div>
         </div>
       </div>
+
       <div class="gcw-scheduler-foot" style="display:flex; justify-content:space-between; align-items:center;">
         <div>
-          ${monthData.paymentDeadline ? '<button type="button" class="btn ghost stop" data-action="clear-deadline" style="color:var(--bad, #dc2626);">Clear Deadline</button>' : ''}
+          ${monthData.paymentDeadline ? '<button type="button" class="btn danger-text" data-action="clear-deadline" style="color:var(--bad, #dc2626); background:transparent; border:none; font-weight:600; cursor:pointer;">Clear Deadline</button>' : ''}
         </div>
         <div style="display:flex; gap:10px;">
           <button type="button" class="btn ghost" data-action="close">Cancel</button>
-          <button type="button" class="btn primary" data-action="save">Save & Post Invoices to Chat</button>
+          <button type="button" class="btn primary" data-action="save"><span>🔒</span> Save & Send Invoices Privately</button>
         </div>
       </div>`;
 
@@ -27973,11 +28087,14 @@ if(typeof window!=='undefined'){
 
     const deadlineInput = dialog.querySelector('#gcwModalDeadlineDate');
     const deadlineBtn = dialog.querySelector('#gcwModalDeadlineDateBtn');
+    const deadlineTimeInput = dialog.querySelector('#gcwModalDeadlineTime');
+
     if (deadlineBtn && deadlineInput) {
       const openPicker = () => {
         if (window.openUniversalDatePicker) {
           window.openUniversalDatePicker(deadlineBtn, deadlineInput.value, (newDate) => {
             deadlineInput.value = newDate;
+            renderRules();
           });
         }
       };
@@ -27985,6 +28102,165 @@ if(typeof window!=='undefined'){
       deadlineInput.onclick = openPicker;
     }
 
+    if (deadlineTimeInput) {
+      deadlineTimeInput.onchange = () => renderRules();
+    }
+
+    // Auto-expanding textarea
+    const reqTextarea = dialog.querySelector('#gcwModalRequisites');
+    if (reqTextarea) {
+      const adjustHeight = () => {
+        reqTextarea.style.height = 'auto';
+        reqTextarea.style.height = (reqTextarea.scrollHeight + 4) + 'px';
+      };
+      reqTextarea.oninput = adjustHeight;
+      setTimeout(adjustHeight, 0);
+    }
+
+    // Tab switching
+    dialog.querySelectorAll('.gcw-payment-tab').forEach(tabBtn => {
+      tabBtn.onclick = () => {
+        dialog.querySelectorAll('.gcw-payment-tab').forEach(t => t.classList.remove('is-active'));
+        dialog.querySelectorAll('.gcw-payment-panel').forEach(p => p.classList.remove('is-active'));
+        tabBtn.classList.add('is-active');
+        const targetPanel = dialog.querySelector(`.gcw-payment-panel[data-panel="${tabBtn.dataset.tab}"]`);
+        if (targetPanel) targetPanel.classList.add('is-active');
+      };
+    });
+
+    // Render Dynamic Reminders
+    function renderRules() {
+      const listEl = dialog.querySelector('#gcwReminderRuleList');
+      if (!listEl) return;
+      listEl.innerHTML = rules.map((r, idx) => `
+        <div class="gcw-rule-row" data-rule-index="${idx}">
+          <div class="gcw-rule-left">
+            <span>Remind before deadline:</span>
+            <input type="number" class="gcw-rule-num" value="${r.value}" min="1" data-field="value">
+            <select class="gcw-rule-unit" data-field="unit">
+              <option value="Days"${r.unit === 'Days' ? ' selected' : ''}>Days</option>
+              <option value="Hours"${r.unit === 'Hours' ? ' selected' : ''}>Hours</option>
+              <option value="Weeks"${r.unit === 'Weeks' ? ' selected' : ''}>Weeks</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="gcw-rule-target-date">${esc(formatRuleTarget(deadlineInput.value, deadlineTimeInput.value, r.value, r.unit))}</span>
+            <button type="button" class="gcw-delete-rule-btn" data-rule-delete="${idx}" aria-label="Delete reminder">✕</button>
+          </div>
+        </div>
+      `).join('');
+
+      listEl.querySelectorAll('.gcw-delete-rule-btn').forEach(btn => {
+        btn.onclick = () => {
+          const i = Number(btn.dataset.ruleDelete);
+          rules.splice(i, 1);
+          renderRules();
+        };
+      });
+
+      listEl.querySelectorAll('input, select').forEach(el => {
+        el.onchange = () => {
+          const row = el.closest('.gcw-rule-row');
+          if (!row) return;
+          const i = Number(row.dataset.ruleIndex);
+          if (el.dataset.field === 'value') {
+            rules[i].value = Math.max(1, Number(el.value) || 1);
+          } else if (el.dataset.field === 'unit') {
+            rules[i].unit = el.value;
+          }
+          renderRules();
+        };
+      });
+    }
+
+    const addReminderBtn = dialog.querySelector('#gcwAddReminderBtn');
+    if (addReminderBtn) {
+      addReminderBtn.onclick = () => {
+        rules.push({ value: 1, unit: 'Days' });
+        renderRules();
+      };
+    }
+    renderRules();
+
+    // Invoices and financial calculation
+    function updateInvoicesDisplay() {
+      let totalInvoiced = 0;
+      let totalCollected = 0;
+      let totalPending = 0;
+      let paidCount = 0;
+      let pendingCount = 0;
+
+      let rowsHtml = '';
+      students.forEach(s => {
+        const tuition = calculateStudentTuition(groupId, state, s.id);
+        totalInvoiced += tuition.finalAmount;
+        if (tuition.isPaid) {
+          totalCollected += tuition.finalAmount;
+          paidCount++;
+        } else {
+          totalPending += tuition.finalAmount;
+          pendingCount++;
+        }
+
+        const statusBadge = tuition.isPaid
+          ? `<button type="button" class="gcw-badge-paid" data-toggle-paid="${esc(s.id)}" title="Click to mark as Pending" style="cursor:pointer; border:1px solid #a7f3d0; background:#ecfdf5;">✅ Paid</button>`
+          : `<button type="button" class="gcw-badge-pending" data-toggle-paid="${esc(s.id)}" title="Click to mark as Paid" style="cursor:pointer; border:1px solid #fde68a; background:#fffbeb;">⏳ Pending</button>`;
+
+        rowsHtml += `
+          <tr>
+            <td><b>${esc(s.name || s.login)}</b></td>
+            <td style="text-align:center;">${tuition.attendedCount} / ${tuition.totalLessons}</td>
+            <td style="text-align:center;">${tuition.autoAmount} ${currency}</td>
+            <td style="text-align:center;">
+              <input type="number" class="gcw-amt-input gcw-manual-amt-input" data-student-id="${esc(s.id)}" value="${esc(tuition.manualAmount)}" placeholder="${tuition.autoAmount}" title="Enter custom total amount or leave blank to use Auto Amount" style="width:80px; height:32px; padding:4px 8px; font-size:13px; text-align:center; border:1px solid var(--saas-border, #cbd5e1); border-radius:6px;">
+            </td>
+            <td style="text-align:center;">${statusBadge}</td>
+          </tr>`;
+      });
+
+      const tbody = dialog.querySelector('#gcwInvoicesTableBody');
+      if (tbody) tbody.innerHTML = rowsHtml;
+
+      const totInvEl = dialog.querySelector('#gcwTotalInvoiced');
+      if (totInvEl) totInvEl.textContent = `${totalInvoiced} ${currency}`;
+
+      const colEl = dialog.querySelector('#gcwTotalCollected');
+      if (colEl) colEl.textContent = `${totalCollected} ${currency} (${paidCount} Paid)`;
+
+      const pendEl = dialog.querySelector('#gcwTotalPending');
+      if (pendEl) pendEl.textContent = `${totalPending} ${currency} (${pendingCount} Due)`;
+
+      const tabBadge = dialog.querySelector('#gcwInvoicesTabBadge');
+      if (tabBadge) tabBadge.textContent = `${pendingCount} due`;
+
+      // Manual amount editing
+      dialog.querySelectorAll('.gcw-manual-amt-input').forEach(input => {
+        input.oninput = () => {
+          const stId = input.dataset.studentId;
+          const val = input.value.trim();
+          if (!monthData.studentPayments) monthData.studentPayments = {};
+          if (!monthData.studentPayments[stId]) monthData.studentPayments[stId] = {};
+          monthData.studentPayments[stId].manualAmount = val === '' ? null : Number(val);
+          updateInvoicesDisplay();
+        };
+      });
+
+      // Toggle paid status
+      dialog.querySelectorAll('[data-toggle-paid]').forEach(btn => {
+        btn.onclick = () => {
+          const stId = btn.dataset.togglePaid;
+          if (!monthData.studentPayments) monthData.studentPayments = {};
+          if (!monthData.studentPayments[stId]) monthData.studentPayments[stId] = {};
+          const currPaid = Boolean(monthData.studentPayments[stId].paid);
+          monthData.studentPayments[stId].paid = !currPaid;
+          monthData.studentPayments[stId].paidAt = !currPaid ? new Date().toISOString() : null;
+          updateInvoicesDisplay();
+        };
+      });
+    }
+    updateInvoicesDisplay();
+
+    // Close handler
     dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
       btn.onclick = () => {
         if (typeof dialog.close === 'function') dialog.close();
@@ -27992,10 +28268,12 @@ if(typeof window!=='undefined'){
       };
     });
 
+    // Clear deadline handler
     const clearBtn = dialog.querySelector('[data-action="clear-deadline"]');
     if (clearBtn) {
       clearBtn.onclick = async () => {
         monthData.paymentDeadline = '';
+        monthData.paymentDeadlineTime = '';
         if (typeof dialog.close === 'function') dialog.close();
         dialog.remove();
         await saveGroupAttendanceData(groupId, state, container);
@@ -28003,17 +28281,21 @@ if(typeof window!=='undefined'){
       };
     }
 
+    // Save handler
     const saveBtn = dialog.querySelector('[data-action="save"]');
     if (saveBtn) {
       saveBtn.onclick = async () => {
         saveBtn.disabled = true;
-        const newDeadline = dialog.querySelector('#gcwModalDeadlineDate')?.value || currentDeadline;
-        const newPrice = Number(dialog.querySelector('#gcwModalPricePerLesson')?.value) || currentPrice;
+        const newDeadline = deadlineInput.value || currentDeadline;
+        const newDeadlineTime = deadlineTimeInput.value || '18:00';
         const newReq = dialog.querySelector('#gcwModalRequisites')?.value || currentRequisites;
+        const isAnchor = dialog.querySelector('#gcwModalAnchorToggle')?.checked !== false;
 
         monthData.paymentDeadline = newDeadline;
-        monthData.pricePerLesson = newPrice;
+        monthData.paymentDeadlineTime = newDeadlineTime;
         monthData.paymentRequisites = newReq;
+        monthData.anchorToCycleEnd = isAnchor;
+        monthData.paymentReminders = rules;
 
         if (!monthData.studentPayments) monthData.studentPayments = {};
         dialog.querySelectorAll('.gcw-manual-amt-input').forEach(input => {
@@ -28029,7 +28311,7 @@ if(typeof window!=='undefined'){
         await saveGroupAttendanceData(groupId, state, container);
         paintGroupCalendarWidget(container, groupId, state);
 
-        void postPaymentInvoiceToChat(groupId, state.groupTitle || 'Group', state, newDeadline, newReq);
+        void postPaymentInvoiceToChat(groupId, state.groupTitle || 'Group', state, newDeadline, newReq, newDeadlineTime, rules, isAnchor);
       };
     }
 
@@ -28348,7 +28630,7 @@ if(typeof window!=='undefined'){
         menuHtml += '<button type="button" class="gcw-menu-item" data-action="payment-dialog">💳 View tuition bill</button>';
       }
     } else {
-      menuHtml += '<button type="button" class="gcw-menu-item" data-action="schedule">📅 Plan & schedule lesson</button>';
+      menuHtml += '<button type="button" class="gcw-menu-item" data-action="schedule">📅 Schedule lesson</button>';
       if (lessons.length > 0) {
         menuHtml += '<button type="button" class="gcw-menu-item" data-action="open-lesson">📖 Open lesson (' + esc(lessons[0].title) + ')</button>';
       } else {
@@ -28403,12 +28685,12 @@ if(typeof window!=='undefined'){
       } else if (action === 'toggle-scheduled') {
         state.selectedDate = dateStr;
         if (isScheduled) {
-          monthData.lessonDates.delete(dateStr);
+          showRemoveScheduleModal(groupId, dateStr, state, container);
         } else {
           monthData.lessonDates.add(dateStr);
+          saveGroupAttendanceData(groupId, state.monthIndex, monthData);
+          paintGroupCalendarWidget(container, groupId, state);
         }
-        saveGroupAttendanceData(groupId, state, container);
-        paintGroupCalendarWidget(container, groupId, state);
       } else if (action === 'payment-deadline') {
         state.selectedDate = dateStr;
         showPaymentDeadlineModal(groupId, dateStr, state, container);
@@ -28513,6 +28795,589 @@ if(typeof window!=='undefined'){
     }
   }
 
+  function showSetGroupScheduleModal(groupId, state, container) {
+    const existingModal = document.getElementById('gcwSetGroupScheduleDialog');
+    if (existingModal) existingModal.remove();
+
+    let currentStartTime = '18:30';
+    let currentDuration = 60;
+    let currentPeriod = 'month';
+
+    const weekdaysDef = [
+      { day: 1, label: 'Mo', name: 'Monday' },
+      { day: 2, label: 'Tu', name: 'Tuesday' },
+      { day: 3, label: 'We', name: 'Wednesday' },
+      { day: 4, label: 'Th', name: 'Thursday' },
+      { day: 5, label: 'Fr', name: 'Friday' },
+      { day: 6, label: 'Sa', name: 'Saturday' },
+      { day: 0, label: 'Su', name: 'Sunday' }
+    ];
+    const selectedDays = new Set([1, 3]);
+
+    const dRef = new Date(state.year, state.monthIndex, 1);
+    const monthName = dRef.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    let grp = null;
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    const groupLessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+    const groupMaterials = [];
+    if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+      for (const mat of lmLibrary.materials) {
+        const isGroupLesson = groupLessonIds.includes(String(mat.id)) || Number(mat.groupId) === Number(groupId);
+        if (!mat.hidden && isGroupLesson) {
+          groupMaterials.push(mat);
+        }
+      }
+    }
+
+    const tzName = (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Minsk';
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwSetGroupScheduleDialog';
+    dialog.className = 'gcw-scheduler-dialog';
+
+    let html = '';
+    html += '<div class="gcw-scheduler-head">';
+    html += '<h3><span>📅</span> Set Group Schedule</h3>';
+    html += '<button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>';
+    html += '</div>';
+
+    html += '<div class="gcw-scheduler-body">';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Days of the Week</label>';
+    html += '<div class="gcw-weekday-chips-row">';
+    weekdaysDef.forEach(w => {
+      const isAct = selectedDays.has(w.day) ? ' is-active' : '';
+      html += '<button type="button" class="gcw-day-chip' + isAct + '" data-day="' + w.day + '" title="' + esc(w.name) + '">' + esc(w.label) + '</button>';
+    });
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label for="gcwGroupSchedStartTime">Start Time</label>';
+    html += '<input type="time" id="gcwGroupSchedStartTime" value="' + esc(currentStartTime) + '">';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Duration</label>';
+    html += '<div class="gcw-duration-group">';
+    [45, 60, 90, 120].forEach(dur => {
+      const activeClass = dur === currentDuration ? ' is-active' : '';
+      html += '<button type="button" class="gcw-duration-btn' + activeClass + '" data-dur="' + dur + '">' + dur + ' min</button>';
+    });
+    html += '</div>';
+    html += '<div class="gcw-custom-duration-wrap">';
+    html += '<label for="gcwGroupCustomDurInput">Custom:</label>';
+    html += '<input type="number" id="gcwGroupCustomDurInput" class="gcw-custom-duration-input" placeholder="' + currentDuration + '" min="15" max="360" step="5">';
+    html += '<span>min</span>';
+    html += '</div>';
+    html += '</div>';
+
+    const initialEndTime = formatEndTime(currentStartTime, currentDuration);
+    html += '<div class="gcw-time-preview" id="gcwGroupTimePreview">';
+    html += '<span>🕒</span> <span>Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(initialEndTime) + '</strong> (' + currentDuration + ' min)</span>';
+    html += '</div>';
+
+    html += '<div class="gcw-tz-preview-box">';
+    html += '<div class="gcw-tz-title">Group Timezone & Sync Preview</div>';
+    html += '<div>Timezone: <b>' + esc(tzName) + ' (Teacher / Group Timezone)</b></div>';
+    html += '<div class="gcw-tz-hint">Mode: Automatic "In Class" status will activate during this scheduled window.</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Schedule Recurrence Period</label>';
+    html += '<div class="gcw-period-options">';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwGroupPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> <span id="gcwGroupRadioMonthLabel">Current Month (' + esc(monthName) + ')</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwGroupPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> <span>Academic Year (Sep 1 – May 31)</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwGroupPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> <span>Custom Period</span></label>';
+    html += '</div>';
+    const defStart = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0') + '-01';
+    html += '<div id="gcwGroupCustomBox" style="display:none; gap:10px; margin-top:8px;">';
+    html += '<label style="flex:1;">From' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwGroupCustStart" value="' + esc(defStart) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwGroupCustStartBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
+    html += '<label style="flex:1;">To' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwGroupCustEnd" value="' + esc(defStart) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwGroupCustEndBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label><input type="checkbox" id="gcwSequentialMaterials" checked style="margin-right:6px; accent-color:var(--pri, #0284c7);"> Sequentially distribute course lessons across dates</label>';
+    html += '<div style="font-size:12px; color:var(--mute, #64748b); margin-top:4px;">' + (groupMaterials.length ? (groupMaterials.length + ' available materials in group course will be assigned one by one to scheduled dates.') : 'No materials linked yet; dates will be scheduled as standard group sessions.') + '</div>';
+    html += '</div>';
+
+    html += '</div>'; // gcw-scheduler-body
+
+    html += '<div class="gcw-scheduler-foot">';
+    html += '<button type="button" class="btn ghost" data-action="close">Cancel</button>';
+    html += '<button type="button" class="btn primary" data-action="save">Save Group Schedule</button>';
+    html += '</div>';
+
+    dialog.innerHTML = html;
+    document.body.appendChild(dialog);
+
+    function updatePreview() {
+      const timeIn = dialog.querySelector('#gcwGroupSchedStartTime');
+      currentStartTime = timeIn ? timeIn.value : currentStartTime;
+      const endT = formatEndTime(currentStartTime, currentDuration);
+      const prevEl = dialog.querySelector('#gcwGroupTimePreview');
+      if (prevEl) {
+        prevEl.innerHTML = '<span>🕒</span> <span>Class window: <strong>' + esc(currentStartTime) + ' – ' + esc(endT) + '</strong> (' + currentDuration + ' min)</span>';
+      }
+    }
+
+    dialog.querySelectorAll('.gcw-duration-btn').forEach(btn => {
+      btn.onclick = () => {
+        dialog.querySelectorAll('.gcw-duration-btn').forEach(b => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        currentDuration = Number(btn.dataset.dur) || 60;
+        const custIn = dialog.querySelector('#gcwGroupCustomDurInput');
+        if (custIn) custIn.value = '';
+        updatePreview();
+      };
+    });
+
+    const custDurInput = dialog.querySelector('#gcwGroupCustomDurInput');
+    if (custDurInput) {
+      custDurInput.oninput = () => {
+        const val = parseInt(custDurInput.value, 10);
+        if (val && val >= 15 && val <= 360) {
+          dialog.querySelectorAll('.gcw-duration-btn').forEach(b => b.classList.remove('is-active'));
+          currentDuration = val;
+          updatePreview();
+        }
+      };
+    }
+
+    dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
+      chip.onclick = () => {
+        const day = Number(chip.dataset.day);
+        if (selectedDays.has(day)) {
+          if (selectedDays.size > 1) {
+            selectedDays.delete(day);
+            chip.classList.remove('is-active');
+          }
+        } else {
+          selectedDays.add(day);
+          chip.classList.add('is-active');
+        }
+      };
+    });
+
+    const timeInput = dialog.querySelector('#gcwGroupSchedStartTime');
+    if (timeInput) timeInput.onchange = updatePreview;
+
+    const customBox = dialog.querySelector('#gcwGroupCustomBox');
+    dialog.querySelectorAll('input[name="gcwGroupPeriod"]').forEach(r => {
+      r.onchange = () => {
+        currentPeriod = r.value;
+        if (customBox) {
+          customBox.style.display = currentPeriod === 'custom' ? 'flex' : 'none';
+        }
+      };
+    });
+
+    const startBtn = dialog.querySelector('#gcwGroupCustStartBtn');
+    if (startBtn) {
+      startBtn.onclick = () => {
+        const custStart = dialog.querySelector('#gcwGroupCustStart');
+        const curVal = custStart ? custStart.value : defStart;
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(startBtn, curVal, (newDate) => {
+            if (newDate && custStart) custStart.value = newDate;
+          });
+        }
+      };
+    }
+
+    const endBtn = dialog.querySelector('#gcwGroupCustEndBtn');
+    if (endBtn) {
+      endBtn.onclick = () => {
+        const custEnd = dialog.querySelector('#gcwGroupCustEnd');
+        const curVal = custEnd ? custEnd.value : defStart;
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(endBtn, curVal, (newDate) => {
+            if (newDate && custEnd) custEnd.value = newDate;
+          });
+        }
+      };
+    }
+
+    const closeDialog = () => {
+      dialog.close();
+      dialog.remove();
+    };
+
+    dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
+      btn.onclick = closeDialog;
+    });
+
+    function computeTargetDates(period, customStart, customEnd) {
+      const dates = [];
+      let startD, endD;
+      if (period === 'month') {
+        startD = new Date(state.year, state.monthIndex, 1);
+        endD = new Date(state.year, state.monthIndex + 1, 0);
+      } else if (period === 'academic_year') {
+        const y = state.year;
+        const m = state.monthIndex + 1;
+        startD = new Date(y, m - 1, 1);
+        const endYear = m >= 9 ? y + 1 : y;
+        endD = new Date(endYear, 4, 31);
+      } else {
+        startD = customStart ? new Date(customStart + 'T00:00:00') : new Date(state.year, state.monthIndex, 1);
+        endD = customEnd ? new Date(customEnd + 'T00:00:00') : new Date(state.year, state.monthIndex + 1, 0);
+      }
+      const cur = new Date(startD);
+      while (cur <= endD) {
+        if (selectedDays.has(cur.getDay())) {
+          const ds = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+          dates.push(ds);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
+
+    const saveBtn = dialog.querySelector('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        const custStartVal = dialog.querySelector('#gcwGroupCustStart')?.value;
+        const custEndVal = dialog.querySelector('#gcwGroupCustEnd')?.value;
+        const targetDates = computeTargetDates(currentPeriod, custStartVal, custEndVal);
+        if (!targetDates.length) {
+          alert('No dates match the selected days of the week.');
+          return;
+        }
+
+        const seqMaterials = dialog.querySelector('#gcwSequentialMaterials')?.checked;
+
+        targetDates.forEach((d, idx) => {
+          const mKey = d.slice(0, 7);
+          const mData = getMonthData(state, mKey);
+          if (!mData.lessonDates) mData.lessonDates = [];
+          if (!mData.lessonDates.includes(d)) {
+            mData.lessonDates.push(d);
+            mData.lessonDates.sort();
+          }
+          if (!mData.scheduleData) mData.scheduleData = {};
+          let assignedMat = null;
+          if (seqMaterials && groupMaterials.length > 0) {
+            assignedMat = groupMaterials[idx % groupMaterials.length];
+          }
+          mData.scheduleData[d] = {
+            startTime: currentStartTime,
+            durationMinutes: currentDuration,
+            period: currentPeriod,
+            materialId: assignedMat ? String(assignedMat.id) : (mData.scheduleData[d]?.materialId || '')
+          };
+        });
+
+        const curMonthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+        const curData = getMonthData(state, curMonthKey);
+        await saveGroupAttendanceData(groupId, state.monthIndex, curData);
+
+        const firstDate = targetDates[0];
+        const alertMaterialTitle = (seqMaterials && groupMaterials.length > 0) ? groupMaterials[0].title : 'Group Course Lessons';
+        void postLessonAlertToChat(groupId, state.groupTitle || 'Group', firstDate, currentStartTime, currentDuration, currentPeriod, alertMaterialTitle, false);
+
+        closeDialog();
+        window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function showRemoveScheduleModal(groupId, dateStr, state, container) {
+    const existingModal = document.getElementById('gcwRemoveScheduleDialog');
+    if (existingModal) existingModal.remove();
+
+    const dObj = new Date(dateStr + 'T00:00:00');
+    let weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
+    let monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    const weekdaysDef = [
+      { day: 1, label: 'Mo', name: 'Monday' },
+      { day: 2, label: 'Tu', name: 'Tuesday' },
+      { day: 3, label: 'We', name: 'Wednesday' },
+      { day: 4, label: 'Th', name: 'Thursday' },
+      { day: 5, label: 'Fr', name: 'Friday' },
+      { day: 6, label: 'Sa', name: 'Saturday' },
+      { day: 0, label: 'Su', name: 'Sunday' }
+    ];
+    const selectedDays = new Set([dObj.getDay()]);
+
+    function getDaysText() {
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      const active = order.filter(d => selectedDays.has(d));
+      if (!active.length) return weekdayName;
+      return active.map(d => weekdaysDef.find(w => w.day === d)?.label || '').join(', ');
+    }
+
+    let currentPeriod = 'single';
+
+    const dialog = document.createElement('dialog');
+    dialog.id = 'gcwRemoveScheduleDialog';
+    dialog.className = 'gcw-scheduler-dialog gcw-remove-dialog';
+
+    let html = '';
+    html += '<div class="gcw-scheduler-head">';
+    html += '<h3><span>🗑️</span> Remove from Schedule</h3>';
+    html += '<button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>';
+    html += '</div>';
+
+    html += '<div class="gcw-scheduler-body">';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label for="gcwRemoveDateBtn">Selected Date</label>';
+    html += '<button type="button" class="gcw-date-picker-btn" id="gcwRemoveDateBtn" title="Click to choose a date from calendar">';
+    html += '<span id="gcwRemoveDateText">' + esc(weekdayName) + ', ' + esc(dateStr) + '</span>';
+    html += '<span aria-hidden="true">📅</span>';
+    html += '</button>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Remove on Days of the Week</label>';
+    html += '<div class="gcw-weekday-chips-row">';
+    weekdaysDef.forEach(w => {
+      const isAct = selectedDays.has(w.day) ? ' is-active' : '';
+      html += '<button type="button" class="gcw-day-chip' + isAct + '" data-day="' + w.day + '" title="' + esc(w.name) + '">' + esc(w.label) + '</button>';
+    });
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group">';
+    html += '<label>Removal Recurrence Period</label>';
+    html += '<div class="gcw-period-options">';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwRemovePeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> <span>This date only (' + esc(dateStr) + ')</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwRemovePeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> <span id="gcwRemoveRadioMonthLabel">Current Month (every ' + esc(getDaysText()) + ' in ' + esc(monthName) + ')</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwRemovePeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> <span id="gcwRemoveRadioYearLabel">Academic Year (every ' + esc(getDaysText()) + ' Sep 1 – May 31)</span></label>';
+    html += '<label class="gcw-radio-label"><input type="radio" name="gcwRemovePeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> <span>Custom Period</span></label>';
+    html += '</div>';
+    html += '<div id="gcwRemoveCustomBox" style="display:none; gap:10px; margin-top:8px;">';
+    html += '<label style="flex:1;">From' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwRemoveCustStart" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwRemoveCustStartBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
+    html += '<label style="flex:1;">To' +
+      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
+        '<input type="text" id="gcwRemoveCustEnd" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
+        '<button type="button" class="btn icon-btn" id="gcwRemoveCustEndBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
+      '</div>' +
+    '</label>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-warning-note">';
+    html += '⚠️ Selected dates will be removed from the calendar schedule and group attendance tracking.';
+    html += '</div>';
+
+    html += '</div>';
+
+    html += '<div class="gcw-scheduler-foot">';
+    html += '<button type="button" class="btn ghost" data-action="close">Cancel</button>';
+    html += '<button type="button" class="btn danger" data-action="remove-confirm">Remove from Schedule</button>';
+    html += '</div>';
+
+    dialog.innerHTML = html;
+    document.body.appendChild(dialog);
+
+    function updateLabels() {
+      const text = getDaysText();
+      const mLabel = dialog.querySelector('#gcwRemoveRadioMonthLabel');
+      if (mLabel) mLabel.textContent = 'Current Month (every ' + text + ' in ' + monthName + ')';
+      const yLabel = dialog.querySelector('#gcwRemoveRadioYearLabel');
+      if (yLabel) yLabel.textContent = 'Academic Year (every ' + text + ' Sep 1 – May 31)';
+    }
+
+    const dateBtn = dialog.querySelector('#gcwRemoveDateBtn');
+    if (dateBtn) {
+      dateBtn.onclick = () => {
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(dateBtn, dateStr, (newDate) => {
+            if (!newDate || newDate === dateStr) return;
+            dateStr = newDate;
+            const newDObj = new Date(dateStr + 'T00:00:00');
+            weekdayName = newDObj.toLocaleDateString('en-US', { weekday: 'long' });
+            monthName = newDObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const dateText = dialog.querySelector('#gcwRemoveDateText');
+            if (dateText) dateText.textContent = weekdayName + ', ' + dateStr;
+
+            selectedDays.clear();
+            selectedDays.add(newDObj.getDay());
+            dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
+              const day = Number(chip.dataset.day);
+              if (selectedDays.has(day)) chip.classList.add('is-active');
+              else chip.classList.remove('is-active');
+            });
+
+            updateLabels();
+
+            const custStart = dialog.querySelector('#gcwRemoveCustStart');
+            if (custStart) custStart.value = dateStr;
+            const custEnd = dialog.querySelector('#gcwRemoveCustEnd');
+            if (custEnd) custEnd.value = dateStr;
+          });
+        }
+      };
+    }
+
+    dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
+      chip.onclick = () => {
+        const day = Number(chip.dataset.day);
+        if (selectedDays.has(day)) {
+          if (selectedDays.size > 1) {
+            selectedDays.delete(day);
+            chip.classList.remove('is-active');
+          }
+        } else {
+          selectedDays.add(day);
+          chip.classList.add('is-active');
+        }
+        updateLabels();
+      };
+    });
+
+    const customBox = dialog.querySelector('#gcwRemoveCustomBox');
+    dialog.querySelectorAll('input[name="gcwRemovePeriod"]').forEach(r => {
+      r.onchange = () => {
+        currentPeriod = r.value;
+        if (customBox) {
+          customBox.style.display = currentPeriod === 'custom' ? 'flex' : 'none';
+        }
+      };
+    });
+
+    const startBtn = dialog.querySelector('#gcwRemoveCustStartBtn');
+    if (startBtn) {
+      startBtn.onclick = () => {
+        const custStart = dialog.querySelector('#gcwRemoveCustStart');
+        const curVal = custStart ? custStart.value : dateStr;
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(startBtn, curVal, (newDate) => {
+            if (newDate && custStart) custStart.value = newDate;
+          });
+        }
+      };
+    }
+
+    const endBtn = dialog.querySelector('#gcwRemoveCustEndBtn');
+    if (endBtn) {
+      endBtn.onclick = () => {
+        const custEnd = dialog.querySelector('#gcwRemoveCustEnd');
+        const curVal = custEnd ? custEnd.value : dateStr;
+        if (window.openUniversalDatePicker) {
+          window.openUniversalDatePicker(endBtn, curVal, (newDate) => {
+            if (newDate && custEnd) custEnd.value = newDate;
+          });
+        }
+      };
+    }
+
+    const closeDialog = () => {
+      dialog.close();
+      dialog.remove();
+    };
+
+    dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
+      btn.onclick = closeDialog;
+    });
+
+    function computeRemovalDates(period, customStart, customEnd) {
+      if (period === 'single') return [dateStr];
+      const dates = [];
+      let startD, endD;
+      if (period === 'month') {
+        const [y, m] = dateStr.split('-').map(Number);
+        startD = new Date(y, m - 1, 1);
+        endD = new Date(y, m, 0);
+      } else if (period === 'academic_year') {
+        const [y, m] = dateStr.split('-').map(Number);
+        startD = new Date(y, m - 1, 1);
+        const endYear = m >= 9 ? y + 1 : y;
+        endD = new Date(endYear, 4, 31);
+      } else {
+        startD = customStart ? new Date(customStart + 'T00:00:00') : new Date(dateStr + 'T00:00:00');
+        endD = customEnd ? new Date(customEnd + 'T00:00:00') : new Date(dateStr + 'T00:00:00');
+      }
+      const cur = new Date(startD);
+      while (cur <= endD) {
+        if (selectedDays.has(cur.getDay())) {
+          const ds = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0') + '-' + String(cur.getDate()).padStart(2, '0');
+          dates.push(ds);
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
+
+    const removeBtn = dialog.querySelector('[data-action="remove-confirm"]');
+    if (removeBtn) {
+      removeBtn.onclick = async () => {
+        const custStartVal = dialog.querySelector('#gcwRemoveCustStart')?.value;
+        const custEndVal = dialog.querySelector('#gcwRemoveCustEnd')?.value;
+        const targetDates = computeRemovalDates(currentPeriod, custStartVal, custEndVal);
+
+        targetDates.forEach(d => {
+          const dMonthKey = d.slice(0, 7);
+          const targetMonthData = getMonthData(state, dMonthKey);
+          if (targetMonthData.lessonDates) {
+            if (targetMonthData.lessonDates instanceof Set) {
+              targetMonthData.lessonDates.delete(d);
+            } else if (Array.isArray(targetMonthData.lessonDates)) {
+              targetMonthData.lessonDates = targetMonthData.lessonDates.filter(x => x !== d);
+            }
+          }
+          if (targetMonthData.scheduleData && targetMonthData.scheduleData[d]) {
+            delete targetMonthData.scheduleData[d];
+          }
+          if (targetMonthData.attendance) {
+            for (const stId of Object.keys(targetMonthData.attendance)) {
+              if (targetMonthData.attendance[stId] && targetMonthData.attendance[stId][d] !== undefined) {
+                delete targetMonthData.attendance[stId][d];
+              }
+            }
+          }
+        });
+
+        const curMonthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+        const curData = getMonthData(state, curMonthKey);
+        await saveGroupAttendanceData(groupId, state.monthIndex, curData);
+
+        closeDialog();
+        window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
+      };
+    }
+
+    if (typeof dialog.showModal === 'function') {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  window.showRemoveScheduleModal = showRemoveScheduleModal;
+
   function showLessonSchedulerModal(groupId, dateStr, state, container) {
     const existingModal = document.getElementById('gcwSchedulerDialog');
     if (existingModal) existingModal.remove();
@@ -28577,7 +29442,7 @@ if(typeof window!=='undefined'){
 
     let html = '';
     html += '<div class="gcw-scheduler-head">';
-    html += '<h3>Plan & Schedule Lesson</h3>';
+    html += '<h3><span>📅</span> Schedule Single Lesson</h3>';
     html += '<button type="button" class="gcw-choice-close-btn" data-action="close" aria-label="Close">✕</button>';
     html += '</div>';
 
@@ -28610,6 +29475,11 @@ if(typeof window!=='undefined'){
       html += '<button type="button" class="gcw-duration-btn' + activeClass + '" data-dur="' + dur + '">' + durLabel + '</button>';
     });
     html += '</div>';
+    html += '<div class="gcw-custom-duration-wrap">';
+    html += '<label for="gcwSchedCustomDurInput">Custom:</label>';
+    html += '<input type="number" id="gcwSchedCustomDurInput" class="gcw-custom-duration-input" placeholder="' + currentDuration + '" min="15" max="360" step="5">';
+    html += '<span>min</span>';
+    html += '</div>';
     html += '</div>';
 
     const initialEndTime = formatEndTime(currentStartTime, currentDuration);
@@ -28623,45 +29493,15 @@ if(typeof window!=='undefined'){
     html += '<div class="gcw-tz-hint">Mode: Automatic "In Class" status will activate during this scheduled window.</div>';
     html += '</div>';
 
-    html += '<div class="gcw-field-group">';
-    html += '<label>Repeat on Days of the Week</label>';
-    html += '<div class="gcw-weekday-chips-row">';
-    weekdaysDef.forEach(w => {
-      const isAct = selectedDays.has(w.day) ? ' is-active' : '';
-      html += '<button type="button" class="gcw-day-chip' + isAct + '" data-day="' + w.day + '" title="' + esc(w.name) + '">' + esc(w.label) + '</button>';
-    });
-    html += '</div>';
-    html += '</div>';
-
-    html += '<div class="gcw-field-group">';
-    html += '<label>Schedule Recurrence Period</label>';
-    html += '<div class="gcw-period-options">';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="single"' + (currentPeriod === 'single' ? ' checked' : '') + '> <span>This date only</span></label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="month"' + (currentPeriod === 'month' ? ' checked' : '') + '> <span id="gcwRadioMonthLabel">Current Month (every ' + esc(getDaysText()) + ' in ' + esc(monthName) + ')</span></label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="academic_year"' + (currentPeriod === 'academic_year' ? ' checked' : '') + '> <span id="gcwRadioYearLabel">Academic Year (every ' + esc(getDaysText()) + ' Sep 1 – May 31)</span></label>';
-    html += '<label class="gcw-radio-label"><input type="radio" name="gcwPeriod" value="custom"' + (currentPeriod === 'custom' ? ' checked' : '') + '> <span>Custom Period</span></label>';
-    html += '</div>';
-    html += '<div id="gcwCustomBox" style="display:' + (currentPeriod === 'custom' ? 'flex' : 'none') + '; gap:10px; margin-top:8px;">';
-    html += '<label style="flex:1;">From' +
-      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
-        '<input type="text" id="gcwCustStart" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
-        '<button type="button" class="btn icon-btn" id="gcwCustStartBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
-      '</div>' +
-    '</label>';
-    html += '<label style="flex:1;">To' +
-      '<div class="gcw-date-picker-wrap" style="display:flex; align-items:center; gap:6px; margin-top:4px;">' +
-        '<input type="text" id="gcwCustEnd" value="' + esc(dateStr) + '" placeholder="YYYY-MM-DD" style="flex:1;" readonly>' +
-        '<button type="button" class="btn icon-btn" id="gcwCustEndBtn" title="Choose date" aria-label="Choose date" style="min-width:34px; height:34px; padding:0 6px;">📅</button>' +
-      '</div>' +
-    '</label>';
-    html += '</div>';
-    html += '</div>';
+    html += '<div class="gcw-single-session-note" style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:10px 14px; font-size:12px; color:#0369a1; line-height:1.45;">' +
+      '💡 <b>Single Session:</b> This assigns the selected lesson to this specific date only. To configure regular recurring classes for the entire group, use the <b>📅 Set group schedule</b> button in the calendar header.' +
+    '</div>';
 
     html += '</div>';
 
     html += '<div class="gcw-scheduler-foot">';
     html += '<button type="button" class="btn ghost" data-action="close">Cancel</button>';
-    html += '<button type="button" class="btn primary" data-action="save">Save Schedule</button>';
+    html += '<button type="button" class="btn primary" data-action="save">Save Single Lesson</button>';
     html += '</div>';
 
     dialog.innerHTML = html;
@@ -28689,25 +29529,6 @@ if(typeof window!=='undefined'){
             monthName = newDObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             const dateText = dialog.querySelector('#gcwSchedDateText');
             if (dateText) dateText.textContent = weekdayName + ', ' + dateStr;
-
-            selectedDays.clear();
-            selectedDays.add(newDObj.getDay());
-            dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
-              const day = Number(chip.dataset.day);
-              if (selectedDays.has(day)) chip.classList.add('is-active');
-              else chip.classList.remove('is-active');
-            });
-
-            const text = getDaysText();
-            const mLabel = dialog.querySelector('#gcwRadioMonthLabel');
-            if (mLabel) mLabel.textContent = 'Current Month (every ' + text + ' in ' + monthName + ')';
-            const yLabel = dialog.querySelector('#gcwRadioYearLabel');
-            if (yLabel) yLabel.textContent = 'Academic Year (every ' + text + ' Sep 1 – May 31)';
-
-            const custStart = dialog.querySelector('#gcwCustStart');
-            if (custStart) custStart.value = dateStr;
-            const custEnd = dialog.querySelector('#gcwCustEnd');
-            if (custEnd) custEnd.value = dateStr;
           });
         }
       };
@@ -28718,67 +29539,28 @@ if(typeof window!=='undefined'){
         dialog.querySelectorAll('.gcw-duration-btn').forEach(b => b.classList.remove('is-active'));
         btn.classList.add('is-active');
         currentDuration = Number(btn.dataset.dur) || 60;
+        const custIn = dialog.querySelector('#gcwSchedCustomDurInput');
+        if (custIn) custIn.value = '';
         updatePreview();
       };
     });
 
-    dialog.querySelectorAll('.gcw-day-chip').forEach(chip => {
-      chip.onclick = () => {
-        const day = Number(chip.dataset.day);
-        if (selectedDays.has(day)) {
-          if (selectedDays.size > 1) {
-            selectedDays.delete(day);
-            chip.classList.remove('is-active');
-          }
-        } else {
-          selectedDays.add(day);
-          chip.classList.add('is-active');
-        }
-        const text = getDaysText();
-        const mLabel = dialog.querySelector('#gcwRadioMonthLabel');
-        if (mLabel) mLabel.textContent = 'Current Month (every ' + text + ' in ' + monthName + ')';
-        const yLabel = dialog.querySelector('#gcwRadioYearLabel');
-        if (yLabel) yLabel.textContent = 'Academic Year (every ' + text + ' Sep 1 – May 31)';
-      };
-    });
-
-    const cStartIn = dialog.querySelector('#gcwCustStart');
-    const cStartBtn = dialog.querySelector('#gcwCustStartBtn');
-    if (cStartBtn && cStartIn) {
-      const openCustStart = () => {
-        if (window.openUniversalDatePicker) {
-          window.openUniversalDatePicker(cStartBtn, cStartIn.value, (newDate) => { cStartIn.value = newDate; });
+    const schedCustDurInput = dialog.querySelector('#gcwSchedCustomDurInput');
+    if (schedCustDurInput) {
+      schedCustDurInput.oninput = () => {
+        const val = parseInt(schedCustDurInput.value, 10);
+        if (val && val >= 15 && val <= 360) {
+          dialog.querySelectorAll('.gcw-duration-btn').forEach(b => b.classList.remove('is-active'));
+          currentDuration = val;
+          updatePreview();
         }
       };
-      cStartBtn.onclick = openCustStart;
-      cStartIn.onclick = openCustStart;
-    }
-
-    const cEndIn = dialog.querySelector('#gcwCustEnd');
-    const cEndBtn = dialog.querySelector('#gcwCustEndBtn');
-    if (cEndBtn && cEndIn) {
-      const openCustEnd = () => {
-        if (window.openUniversalDatePicker) {
-          window.openUniversalDatePicker(cEndBtn, cEndIn.value, (newDate) => { cEndIn.value = newDate; });
-        }
-      };
-      cEndBtn.onclick = openCustEnd;
-      cEndIn.onclick = openCustEnd;
     }
 
     const timeInput = dialog.querySelector('#gcwSchedStartTime');
     if (timeInput) {
       timeInput.addEventListener('input', updatePreview);
     }
-
-    dialog.querySelectorAll('input[name="gcwPeriod"]').forEach(radio => {
-      radio.onchange = () => {
-        const customBox = dialog.querySelector('#gcwCustomBox');
-        if (customBox) {
-          customBox.style.display = radio.value === 'custom' ? 'flex' : 'none';
-        }
-      };
-    });
 
     dialog.querySelectorAll('[data-action="close"]').forEach(btn => {
       btn.onclick = () => {
@@ -28817,24 +29599,22 @@ if(typeof window!=='undefined'){
           return;
         }
         saveBtn.disabled = true;
-        const selectedPeriod = dialog.querySelector('input[name="gcwPeriod"]:checked')?.value || 'single';
-        const custStart = dialog.querySelector('#gcwCustStart')?.value || dateStr;
-        const custEnd = dialog.querySelector('#gcwCustEnd')?.value || dateStr;
+        const selectedPeriod = 'single';
 
-        const targetDates = getDatesForPeriod(dateStr, selectedPeriod, custStart, custEnd, monthKey, selectedDays);
-
-        targetDates.forEach(d => {
-          const dMonthKey = d.slice(0, 7);
-          const targetMonthData = getMonthData(state, dMonthKey);
-          if (!targetMonthData.scheduleData) targetMonthData.scheduleData = {};
-          targetMonthData.lessonDates.add(d);
-          targetMonthData.scheduleData[d] = {
-            startTime: currentStartTime,
-            durationMinutes: currentDuration,
-            materialId: selectedMatId || null,
-            period: selectedPeriod
-          };
-        });
+        const dMonthKey = dateStr.slice(0, 7);
+        const targetMonthData = getMonthData(state, dMonthKey);
+        if (!targetMonthData.scheduleData) targetMonthData.scheduleData = {};
+        if (!targetMonthData.lessonDates) targetMonthData.lessonDates = [];
+        if (!targetMonthData.lessonDates.includes(dateStr)) {
+          targetMonthData.lessonDates.push(dateStr);
+          targetMonthData.lessonDates.sort();
+        }
+        targetMonthData.scheduleData[dateStr] = {
+          startTime: currentStartTime,
+          durationMinutes: currentDuration,
+          materialId: selectedMatId || null,
+          period: selectedPeriod
+        };
 
         const hadPreviousSchedule = Boolean(existing.startTime);
         const isReschedule = hadPreviousSchedule && (existing.startTime !== currentStartTime || existing.durationMinutes !== currentDuration);
@@ -28853,8 +29633,8 @@ if(typeof window!=='undefined'){
         if (typeof dialog.close === 'function') dialog.close();
         dialog.remove();
 
-        await saveGroupAttendanceData(groupId, state, container);
-        paintGroupCalendarWidget(container, groupId, state);
+        await saveGroupAttendanceData(groupId, state.monthIndex, targetMonthData);
+        window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
 
         void postLessonAlertToChat(groupId, state.groupTitle || 'Group', dateStr, currentStartTime, currentDuration, selectedPeriod, selectedMaterialTitle, isReschedule);
       };
@@ -28866,6 +29646,10 @@ if(typeof window!=='undefined'){
       dialog.setAttribute('open', '');
     }
   }
+
+  const showSingleLessonModal = showLessonSchedulerModal;
+  window.showSingleLessonModal = showSingleLessonModal;
+  window.showLessonSchedulerModal = showLessonSchedulerModal;
 
   function bindGroupCalendarEvents(container, groupId, state, canEdit) {
     const prevBtn = container.querySelector('[data-gcw-nav="prev"]');
@@ -28903,6 +29687,13 @@ if(typeof window!=='undefined'){
             if (nav) nav.focus();
           });
         }
+      };
+    }
+
+    const setScheduleBtn = container.querySelector('[data-gcw-action="set-group-schedule"]');
+    if (setScheduleBtn) {
+      setScheduleBtn.onclick = () => {
+        showSetGroupScheduleModal(groupId, state, container);
       };
     }
 
@@ -29159,30 +29950,181 @@ if(typeof window!=='undefined'){
         }
         const examCount = monthExamDates.size;
 
+        const sortedDates = Array.from(monthLessonDates).sort();
         const attendancePct = calculateAttendancePct(monthLessonDates, students, monthData.attendance);
 
-        const reportLines = [
-          'Attendance Report: ' + state.groupTitle + ' (' + monthName + ' ' + state.year + ')',
-          'Lessons: ' + lessonCount + ' | Exams: ' + examCount + ' | Students: ' + students.length + ' | Attendance: ' + attendancePct + '%',
-          '',
-          'Students:'
-        ];
+        let msgText = '';
 
-        for (const s of students) {
-          const stId = String(s.id);
-          const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
-          let pres = 0;
-          let abs = 0;
-          for (const d of monthLessonDates) {
-            if (stDates[d] === 'present') pres++;
-            else if (stDates[d] === 'absent') abs++;
+        if (state.activeTab === 'calendar') {
+          // TAB 1: Calendar Schedule Report (Screenshot 2, Plan Stage 5)
+          const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+          const icsUrl = `${origin}/api/groups/schedule.ics?groupId=${encodeURIComponent(groupId)}&month=${encodeURIComponent(monthKey)}`;
+          const gCalUrl = new URL('https://calendar.google.com/calendar/render');
+          gCalUrl.searchParams.set('action', 'TEMPLATE');
+          gCalUrl.searchParams.set('text', `Group Schedule · ${state.groupTitle}`);
+          gCalUrl.searchParams.set('details', `Lessons for ${monthName} ${state.year}`);
+          gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
+
+          const scheduleLines = [
+            `📅 Schedule Report: ${state.groupTitle} (${monthName} ${state.year})`,
+            `Scheduled lessons: ${lessonCount} | Scheduled exams: ${examCount}`,
+            '',
+            'Schedule:'
+          ];
+
+          if (sortedDates.length === 0) {
+            scheduleLines.push('No sessions scheduled for this month.');
+          } else {
+            for (const d of sortedDates) {
+              const [y, m, dayNum] = d.split('-').map(Number);
+              const dObj = new Date(y, m - 1, dayNum);
+              const weekday = dObj.toLocaleDateString('en-US', { weekday: 'short' });
+              const shortMo = dObj.toLocaleDateString('en-US', { month: 'short' });
+              const sched = (monthData.scheduleData && monthData.scheduleData[d]) || null;
+              const startTime = sched && sched.startTime ? sched.startTime : '18:30';
+              const dur = sched && sched.durationMinutes ? sched.durationMinutes : 60;
+              const [sh, sm] = startTime.split(':').map(Number);
+              const endDt = new Date(y, m - 1, dayNum, sh, sm + dur);
+              const endTime = String(endDt.getHours()).padStart(2, '0') + ':' + String(endDt.getMinutes()).padStart(2, '0');
+
+              const lessons = getLessonsForDate(groupId, d);
+              const exams = getExamsForDate(groupId, d);
+              const title = lessons[0] ? lessons[0].title : (exams[0] ? 'Exam: ' + exams[0].title : 'Group Lesson');
+
+              scheduleLines.push(`• ${weekday}, ${shortMo} ${dayNum} · ${startTime} – ${endTime} · ${title}`);
+            }
           }
-          const totalMarked = pres + abs;
-          const stPct = totalMarked > 0 ? Math.round((pres / totalMarked) * 100) : 0;
-          reportLines.push('• ' + (s.name || s.login) + ': ' + stPct + '% (' + pres + ' attended, ' + abs + ' missed)');
-        }
 
-        const msgText = reportLines.join('\n');
+          scheduleLines.push('');
+          scheduleLines.push('👉 Add schedule to your calendar:');
+          scheduleLines.push(`• [📅 Add to Google Calendar](${gCalUrl.toString()})`);
+          scheduleLines.push(`• [📥 Download .ics Calendar File](${icsUrl})`);
+
+          msgText = scheduleLines.join('\n');
+        } else if (state.activeTab === 'attendance') {
+          // TAB 2: Attendance Journal with personal dispatches to students (Plan Stage 5)
+          const sessionRecords = [];
+          let markedDatesCount = 0;
+          for (const d of sortedDates) {
+            const [y, m, dayNum] = d.split('-').map(Number);
+            const dObj = new Date(y, m - 1, dayNum);
+            const weekday = dObj.toLocaleDateString('en-US', { weekday: 'short' });
+            const shortMo = dObj.toLocaleDateString('en-US', { month: 'short' });
+
+            let presCount = 0;
+            const absentNames = [];
+            for (const s of students) {
+              const stId = String(s.id);
+              const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
+              if (stDates[d] === 'present') presCount++;
+              else if (stDates[d] === 'absent') absentNames.push(s.name || s.login);
+            }
+            const totalMarked = presCount + absentNames.length;
+            if (totalMarked > 0) markedDatesCount++;
+            const pct = totalMarked > 0 ? Math.round((presCount / totalMarked) * 100) : 0;
+            const absStr = absentNames.length > 0 ? `Absent: ${absentNames.join(', ')}` : 'All present';
+            sessionRecords.push(`• ${weekday}, ${shortMo} ${dayNum}: ${pct}% (${presCount} present · ${absStr})`);
+          }
+
+          // Personal student dispatches
+          for (const s of students) {
+            const stId = String(s.id);
+            const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
+            let pres = 0;
+            let abs = 0;
+            const personalSessions = [];
+            for (const d of sortedDates) {
+              const [y, m, dayNum] = d.split('-').map(Number);
+              const dObj = new Date(y, m - 1, dayNum);
+              const weekday = dObj.toLocaleDateString('en-US', { weekday: 'short' });
+              const shortMo = dObj.toLocaleDateString('en-US', { month: 'short' });
+              if (stDates[d] === 'present') {
+                pres++;
+                personalSessions.push(`• ${weekday}, ${shortMo} ${dayNum}: Present ✅`);
+              } else if (stDates[d] === 'absent') {
+                abs++;
+                personalSessions.push(`• ${weekday}, ${shortMo} ${dayNum}: Absent ⚠️`);
+              }
+            }
+            const totalMarked = pres + abs;
+            const stPct = totalMarked > 0 ? Math.round((pres / totalMarked) * 100) : 0;
+            const personalJournalLines = [
+              `📋 Personal Attendance Journal: ${state.groupTitle} (${monthName} ${state.year})`,
+              `Student: ${s.name || s.login}`,
+              `Attendance: ${stPct}% (${pres} attended, ${abs} missed of ${totalMarked})`,
+              '',
+              'Your Sessions:'
+            ];
+            if (personalSessions.length > 0) {
+              personalJournalLines.push(...personalSessions);
+            } else {
+              personalJournalLines.push('No sessions recorded yet.');
+            }
+            const personalMsg = personalJournalLines.join('\n');
+            if (typeof window.sendDirectChatMessage === 'function') {
+              try {
+                await window.sendDirectChatMessage(s.id, personalMsg, { category: 'learning' });
+              } catch {}
+            }
+          }
+
+          const journalLines = [
+            `📋 Attendance Journal: ${state.groupTitle} (${monthName} ${state.year})`,
+            `Sessions held: ${markedDatesCount} of ${sortedDates.length} | Average Presence: ${attendancePct}%`,
+            '',
+            'Session Records:'
+          ];
+          if (sessionRecords.length > 0) {
+            journalLines.push(...sessionRecords);
+          } else {
+            journalLines.push('No session records found.');
+          }
+          msgText = journalLines.join('\n');
+        } else {
+          // TAB 3: Statistics Rankings Report (Plan Stage 5)
+          let totalAttended = 0;
+          let totalMissed = 0;
+          const studentStats = [];
+
+          for (const s of students) {
+            const stId = String(s.id);
+            const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
+            let pres = 0;
+            let abs = 0;
+            for (const d of sortedDates) {
+              if (stDates[d] === 'present') pres++;
+              else if (stDates[d] === 'absent') abs++;
+            }
+            totalAttended += pres;
+            totalMissed += abs;
+            const totalMarked = pres + abs;
+            const stPct = totalMarked > 0 ? Math.round((pres / totalMarked) * 100) : 0;
+            studentStats.push({
+              name: s.name || s.login,
+              pct: stPct,
+              pres,
+              abs,
+              totalLessons: sortedDates.length
+            });
+          }
+
+          // Sort descending by attendance percentage
+          studentStats.sort((a, b) => b.pct - a.pct || b.pres - a.pres);
+
+          const statsLines = [
+            `📊 Group Statistics: ${state.groupTitle} (${monthName} ${state.year})`,
+            `Total Lessons: ${lessonCount} | Total Exams: ${examCount} | Students: ${students.length}`,
+            `Group Attendance: ${attendancePct}% (${totalAttended} attended, ${totalMissed} missed)`,
+            '',
+            'Attendance Rankings:'
+          ];
+
+          studentStats.forEach((st, idx) => {
+            statsLines.push(`${idx + 1}. ${st.name} — ${st.pct}% (${st.pres} attended, ${st.abs} missed of ${st.totalLessons})`);
+          });
+
+          msgText = statsLines.join('\n');
+        }
 
         reportBtn.disabled = true;
         if (statusNode) {

@@ -7,6 +7,7 @@
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
 - Always attach visual screenshots or mockups demonstrating your understanding of any proposed UI changes or feature designs.
 - Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
+- Mandatory: always attach final approved screenshots directly into the task's Markdown (.md) document in docs/ prior to implementation.
 - Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.
 - Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; only direct permission with the word "do" approves the scope already explained. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
