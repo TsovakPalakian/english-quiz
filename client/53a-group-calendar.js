@@ -1132,7 +1132,7 @@
     const monthData = getMonthData(state, monthKey);
     const students = getGroupStudents(groupId);
     const currency = monthData.currency || 'BYN';
-    const currentPrice = Number(monthData.pricePerLesson) || 30;
+    let currentPrice = Number(monthData.pricePerLesson) || 30;
     const dObj = new Date(state.year, state.monthIndex, 1);
     const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const currentRequisites = monthData.paymentRequisites || `Bank: Alfa-Bank CJSC · IBAN: BY00 ALFA 0000 0000 0000 0000\nRecipient: English Study Academy · Purpose: Tuition for ${monthName}\nERIP: Education & Development > English Study > Invoice ID: #ST-GRP-42`;
@@ -1239,8 +1239,24 @@
           </div>
         </div>
 
-        <!-- TAB 2: Student Invoices (Screenshot 9) -->
+        <!-- TAB 2: Student Invoices (Screenshot 9, 31) -->
         <div class="gcw-payment-panel" data-panel="invoices">
+          <!-- Rate per Lesson Card (Screenshot 31) -->
+          <div class="gcw-rate-setting-row">
+            <div>
+              <div class="gcw-rate-setting-title">
+                <span>💰</span> Price Per Lesson (${currency})
+              </div>
+              <div class="gcw-rate-setting-desc">
+                Base rate for auto-calculation: (Attended Lessons × Price). Changes update totals in real time.
+              </div>
+            </div>
+            <div class="gcw-price-input-wrap">
+              <input type="number" id="gcwModalPricePerLesson" class="gcw-price-input" value="${currentPrice}" min="0" step="1">
+              <span class="gcw-price-currency">${currency}</span>
+            </div>
+          </div>
+
           <div class="gcw-summary-banner">
             <div class="gcw-stat-col">
               <span class="gcw-stat-label">Total Invoiced</span>
@@ -1334,6 +1350,16 @@
 
     if (deadlineTimeInput) {
       deadlineTimeInput.onchange = () => renderRules();
+    }
+
+    const priceInput = dialog.querySelector('#gcwModalPricePerLesson');
+    if (priceInput) {
+      priceInput.oninput = () => {
+        const val = Number(priceInput.value);
+        currentPrice = isNaN(val) || val < 0 ? 0 : val;
+        monthData.pricePerLesson = currentPrice;
+        updateInvoicesDisplay();
+      };
     }
 
     // Auto-expanding textarea
@@ -1525,11 +1551,13 @@
         const newDeadline = deadlineInput.value || currentDeadline;
         const newDeadlineTime = deadlineTimeInput.value || '18:00';
         const newReq = dialog.querySelector('#gcwModalRequisites')?.value || currentRequisites;
+        const newPrice = Number(dialog.querySelector('#gcwModalPricePerLesson')?.value) || currentPrice;
         const isAnchor = dialog.querySelector('#gcwModalAnchorToggle')?.checked !== false;
 
         monthData.paymentDeadline = newDeadline;
         monthData.paymentDeadlineTime = newDeadlineTime;
         monthData.paymentRequisites = newReq;
+        monthData.pricePerLesson = newPrice;
         monthData.anchorToCycleEnd = isAnchor;
         monthData.paymentReminders = rules;
 

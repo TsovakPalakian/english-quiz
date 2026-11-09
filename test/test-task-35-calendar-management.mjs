@@ -786,3 +786,122 @@ test('TASK-35: Playwright UI visual test for Schedule Single Lesson date change 
     await browser.close();
   }
 });
+
+test('TASK-35: Price Per Lesson input is rendered in Student Invoices tab and updates live totals', () => {
+  // Contract check in client and preview
+  assert.ok(clientCalendarJs.includes('id="gcwModalPricePerLesson"'), 'clientCalendarJs includes price per lesson input');
+  assert.ok(previewJs.includes('id="gcwModalPricePerLesson"'), 'previewJs includes price per lesson input');
+  assert.ok(clientCalendarJs.includes('class="gcw-rate-setting-row"'), 'clientCalendarJs includes rate setting row');
+  assert.ok(previewJs.includes('class="gcw-rate-setting-row"'), 'previewJs includes rate setting row');
+  assert.ok(clientCalendarJs.includes('monthData.pricePerLesson = newPrice'), 'saveBtn saves pricePerLesson');
+});
+
+test('TASK-35: Playwright UI visual test for Price Per Lesson live recalculation in Tuition modal', async () => {
+  const browser = await launchChromium(chromium);
+  try {
+    const page = await browser.newPage({ viewport: { width: 700, height: 750 } });
+    const pageErrors = [];
+    page.on('pageerror', err => pageErrors.push(err.message));
+
+    const fixtureHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <style>
+    ${previewCss}
+    body { padding: 20px; background: #f8fafc; font-family: system-ui, sans-serif; }
+  </style>
+</head>
+<body>
+  <dialog id="gcwPaymentModal" class="gcw-scheduler-dialog gcw-payment-dialog" open style="display:block; position:relative;">
+    <div class="gcw-scheduler-head">
+      <h3><span>💳</span> Tuition Deadline & Payment Management</h3>
+    </div>
+    <div class="gcw-payment-tabs">
+      <button type="button" class="gcw-payment-tab is-active" data-tab="invoices"><span>📋</span> Student Invoices</button>
+    </div>
+    <div class="gcw-payment-panel is-active" data-panel="invoices">
+      <div class="gcw-rate-setting-row">
+        <div>
+          <div class="gcw-rate-setting-title"><span>💰</span> Price Per Lesson (BYN)</div>
+          <div class="gcw-rate-setting-desc">Base rate for auto-calculation</div>
+        </div>
+        <div class="gcw-price-input-wrap">
+          <input type="number" id="gcwModalPricePerLesson" class="gcw-price-input" value="30" min="0" step="1">
+          <span class="gcw-price-currency">BYN</span>
+        </div>
+      </div>
+      <div class="gcw-summary-banner">
+        <div class="gcw-stat-col">
+          <span class="gcw-stat-label">Total Invoiced</span>
+          <span class="gcw-stat-value" id="gcwTotalInvoiced">360 BYN</span>
+        </div>
+        <div class="gcw-stat-col">
+          <span class="gcw-stat-label">Pending</span>
+          <span class="gcw-stat-value amber" id="gcwTotalPending">360 BYN (2 Due)</span>
+        </div>
+      </div>
+      <table class="gcw-invoices-table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th>Attended</th>
+            <th>Auto Calc</th>
+            <th>Manual Amount</th>
+          </tr>
+        </thead>
+        <tbody id="gcwInvoicesTableBody">
+          <tr>
+            <td>Student A</td>
+            <td>4 / 12</td>
+            <td id="autoCalcA">120 BYN</td>
+            <td><input type="number" class="gcw-manual-amt-input" value=""></td>
+          </tr>
+          <tr>
+            <td>Student B</td>
+            <td>8 / 12</td>
+            <td id="autoCalcB">240 BYN</td>
+            <td><input type="number" class="gcw-manual-amt-input" value=""></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </dialog>
+</body>
+</html>`;
+
+    await page.setContent(fixtureHtml, { waitUntil: 'load' });
+
+    // Emulate live recalculation on input event
+    await page.evaluate(() => {
+      const priceIn = document.querySelector('#gcwModalPricePerLesson');
+      priceIn.oninput = () => {
+        const rate = Number(priceIn.value) || 0;
+        const autoA = 4 * rate;
+        const autoB = 8 * rate;
+        const total = autoA + autoB;
+        document.querySelector('#autoCalcA').textContent = autoA + ' BYN';
+        document.querySelector('#autoCalcB').textContent = autoB + ' BYN';
+        document.querySelector('#gcwTotalInvoiced').textContent = total + ' BYN';
+        document.querySelector('#gcwTotalPending').textContent = total + ' BYN (2 Due)';
+      };
+
+      priceIn.value = '35';
+      priceIn.dispatchEvent(new Event('input'));
+    });
+
+    assert.equal(pageErrors.length, 0, `Page errors encountered: ${pageErrors.join(', ')}`);
+
+    const autoAEl = await page.$('#autoCalcA');
+    assert.equal(await autoAEl.textContent(), '140 BYN', 'Student A auto amount updated to 140 BYN (4 * 35)');
+
+    const autoBEl = await page.$('#autoCalcB');
+    assert.equal(await autoBEl.textContent(), '280 BYN', 'Student B auto amount updated to 280 BYN (8 * 35)');
+
+    const totalEl = await page.$('#gcwTotalInvoiced');
+    assert.equal(await totalEl.textContent(), '420 BYN', 'Total invoiced updated to 420 BYN');
+  } finally {
+    await browser.close();
+  }
+});

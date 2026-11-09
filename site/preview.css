@@ -7113,6 +7113,50 @@ details[data-review-key] > summary {
 .gcw-delete-rule-btn:hover {
   color: var(--bad, #dc2626);
 }
+.gcw-rate-setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.gcw-rate-setting-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0369a1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gcw-rate-setting-desc {
+  font-size: 11px;
+  color: #0284c7;
+  margin-top: 2px;
+}
+.gcw-price-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gcw-price-input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 2px solid #0284c7;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  text-align: right;
+  background: #ffffff;
+  color: var(--ink, #0f172a);
+}
+.gcw-price-currency {
+  font-weight: 700;
+  font-size: 13px;
+  color: #0369a1;
+}
 .gcw-summary-banner {
   background: #f8fafc;
   border: 1px solid var(--saas-border, #e2e8f0);
