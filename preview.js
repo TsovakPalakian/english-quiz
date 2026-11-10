@@ -29062,7 +29062,7 @@ if(typeof window!=='undefined'){
     }, 10);
   }
 
-  async function postLessonAlertToChat(groupId, groupTitle, dateStr, startTime, durationMinutes, period, materialTitle, isReschedule) {
+  async function postLessonAlertToChat(groupId, groupTitle, dateStr, startTime, durationMinutes, period, materialTitle, isReschedule, selectedDayCodes, customUntilDate) {
     try {
       if (typeof window.ensureMessages === 'function') {
         await window.ensureMessages();
@@ -29082,14 +29082,25 @@ if(typeof window!=='undefined'){
       const googleDates = `${dtClean}T${stClean}/${dtClean}T${etClean}`;
 
       const [y, m] = dateStr.split('-').map(Number);
-      const dayCode = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][dObj.getDay()];
+      const dayCodes = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+      const defaultDayCode = dayCodes[dObj.getDay()];
+      let byDayStr = defaultDayCode;
+      if (Array.isArray(selectedDayCodes) && selectedDayCodes.length > 0) {
+        byDayStr = Array.from(new Set(selectedDayCodes)).join(',');
+      } else if (typeof selectedDayCodes === 'string' && selectedDayCodes.length > 0) {
+        byDayStr = selectedDayCodes;
+      }
+
       let gRecur = '';
       if (period === 'month') {
         const lastDay = new Date(y, m, 0).getDate();
-        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${dayCode};UNTIL=${y}${String(m).padStart(2, '0')}${String(lastDay).padStart(2, '0')}T235959Z`;
+        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${byDayStr};UNTIL=${y}${String(m).padStart(2, '0')}${String(lastDay).padStart(2, '0')}T235959Z`;
       } else if (period === 'academic_year') {
         const endYear = m >= 9 ? y + 1 : y;
-        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${dayCode};UNTIL=${endYear}0531T235959Z`;
+        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${byDayStr};UNTIL=${endYear}0531T235959Z`;
+      } else if (period === 'custom' && customUntilDate) {
+        const untilClean = String(customUntilDate).replace(/-/g, '');
+        gRecur = `RRULE:FREQ=WEEKLY;BYDAY=${byDayStr};UNTIL=${untilClean}T235959Z`;
       }
 
       const gCalUrl = new URL('https://calendar.google.com/calendar/render');
@@ -29139,6 +29150,7 @@ if(typeof window!=='undefined'){
       // Non-blocking notification dispatch
     }
   }
+  window.postLessonAlertToChat = postLessonAlertToChat;
 
   function showSetGroupScheduleModal(groupId, state, container) {
     const existingModal = document.getElementById('gcwSetGroupScheduleDialog');
@@ -29436,7 +29448,12 @@ if(typeof window!=='undefined'){
 
         const firstDate = targetDates[0];
         const alertMaterialTitle = (seqMaterials && groupMaterials.length > 0) ? groupMaterials[0].title : 'Group Course Lessons';
-        void postLessonAlertToChat(groupId, state.groupTitle || 'Group', firstDate, currentStartTime, currentDuration, currentPeriod, alertMaterialTitle, false);
+        const dayMap = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+        const selectedDayCodes = Array.from(new Set(targetDates.map(d => {
+          const [dy, dm, dd] = d.split('-').map(Number);
+          return dayMap[new Date(dy, dm - 1, dd).getDay()];
+        })));
+        void postLessonAlertToChat(groupId, state.groupTitle || 'Group', firstDate, currentStartTime, currentDuration, currentPeriod, alertMaterialTitle, false, selectedDayCodes, custEndVal);
 
         closeDialog();
         window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
@@ -30384,8 +30401,40 @@ if(typeof window!=='undefined'){
           const gCalUrl = new URL('https://calendar.google.com/calendar/render');
           gCalUrl.searchParams.set('action', 'TEMPLATE');
           gCalUrl.searchParams.set('text', `Group Schedule · ${state.groupTitle}`);
-          gCalUrl.searchParams.set('details', `Lessons for ${monthName} ${state.year}`);
           gCalUrl.searchParams.set('ctz', 'Europe/Minsk');
+
+          const dayMap = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+          if (sortedDates.length > 0) {
+            const firstDate = sortedDates[0];
+            const firstSched = (monthData.scheduleData && monthData.scheduleData[firstDate]) || null;
+            const startTime = firstSched && firstSched.startTime ? firstSched.startTime : '18:30';
+            const dur = firstSched && firstSched.durationMinutes ? firstSched.durationMinutes : 60;
+            const [sh, sm] = startTime.split(':').map(Number);
+            const startHours = isNaN(sh) ? 18 : sh;
+            const startMins = isNaN(sm) ? 30 : sm;
+            const totalEndMin = startHours * 60 + startMins + dur;
+            const endHours = Math.floor(totalEndMin / 60) % 24;
+            const endMins = totalEndMin % 60;
+            const dtClean = firstDate.replace(/-/g, '');
+            const stClean = String(startHours).padStart(2, '0') + String(startMins).padStart(2, '0') + '00';
+            const etClean = String(endHours).padStart(2, '0') + String(endMins).padStart(2, '0') + '00';
+            gCalUrl.searchParams.set('dates', `${dtClean}T${stClean}/${dtClean}T${etClean}`);
+
+            const distinctDays = Array.from(new Set(sortedDates.map(d => {
+              const [dy, dm, dd] = d.split('-').map(Number);
+              return dayMap[new Date(dy, dm - 1, dd).getDay()];
+            }))).join(',');
+            const lastDayNum = new Date(state.year, state.monthIndex + 1, 0).getDate();
+            const untilDate = `${state.year}${String(state.monthIndex + 1).padStart(2, '0')}${String(lastDayNum).padStart(2, '0')}`;
+            if (distinctDays) {
+              gCalUrl.searchParams.set('recur', `RRULE:FREQ=WEEKLY;BYDAY=${distinctDays};UNTIL=${untilDate}T235959Z`);
+            }
+            gCalUrl.searchParams.set('details', `Lessons for ${monthName} ${state.year} (${state.groupTitle}). Reminders preconfigured 1 hour and 15 minutes before class.`);
+          } else {
+            const fallbackDt = `${state.year}${String(state.monthIndex + 1).padStart(2, '0')}01`;
+            gCalUrl.searchParams.set('dates', `${fallbackDt}T183000/${fallbackDt}T193000`);
+            gCalUrl.searchParams.set('details', `Lessons for ${monthName} ${state.year}`);
+          }
 
           const scheduleLines = [
             `📅 Schedule Report: ${state.groupTitle} (${monthName} ${state.year})`,
