@@ -13,6 +13,9 @@
 ### Скриншот 4: Реальная реализация вкладки Telegram alerts в живом браузере
 ![Скриншот 4: Реальная реализация вкладки Telegram alerts в живом браузере](task-telegram-recipients-screenshot.png)
 
+### Скриншот 5: Заблокированная кнопка Test для выключенных получателей
+![Скриншот 5: Заблокированная кнопка Test для выключенных получателей](/Users/tsovakpalakian/.gemini/antigravity/brain/b3ab5c91-8058-4d84-813b-655017c121ef/mockup-disabled-test-button.png)
+
 ---
 
 ### Контрольный список реализации
@@ -27,12 +30,12 @@
   - Добавление кнопки вкладки `Telegram alerts` в разметку [site/preview.html](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L2042-L2045).
   - Регистрация вкладки `telegram` в клиентской маршрутизации [client/03-core.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/03-core.js#L132-L139).
   - Отрисовка формы добавления, таблицы получателей, бейджей статуса, кнопок редактирования, удаления и тестового пинга в [client/24-bugs.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js).
-- 🟩 **Этап 4: Сборка клиентских бандлов**
-  - Запуск `npm run build:preview` для генерации `preview.js`.
-- 🟩 **Этап 5: Автоматизированные тесты**
-  - Написание модульных тестов API и рассылки в [test/test-telegram-recipients.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-telegram-recipients.mjs).
-  - Написание визуальных и функциональных UI-тестов в [test/test-telegram-recipients-ui.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-telegram-recipients-ui.mjs).
-  - Запуск полного набора тестов `npm test` и `ops/check-all.mjs` (240 из 240 тестов успешно пройдены).
-- 🟩 **Этап 6: Финальная валидация и отчет**
-  - Двойная проверка соответствия утвержденному макету Скриншот 3.
-  - Предоставление коммит-сообщения и списка тестовых файлов без расширений.
+- 🟩 **Этап 4: Блокировка теста для выключенных получателей (UI и API)**
+  - Блокировка кнопки `Test` (`disabled` с подсказкой `Recipient is disabled. Change status to Active to test.`) в [client/24-bugs.js](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/24-bugs.js).
+  - Серверный запрет выполнения `POST /api/feedback/telegram-test` для `status === 'disabled'` в [src/learning-integrated-worker.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/learning-integrated-worker.mjs).
+- 🟩 **Этап 5: Сборка и тестирование**
+  - Запуск `npm run build:preview` и `ops/build-learning-production-assets.mjs`.
+  - Обновление тестов в [test/test-telegram-recipients.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-telegram-recipients.mjs) и [test/test-telegram-recipients-ui.mjs](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-telegram-recipients-ui.mjs).
+  - Прогон полного набора тестов `npm run check`.
+- 🟩 **Этап 6: Финальная валидация и коммит**
+  - Предоставление финального отчета, коммит-сообщения и списка тестовых файлов.

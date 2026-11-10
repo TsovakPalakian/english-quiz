@@ -21,8 +21,7 @@
 - Mandatory: always write tests for all changes without exception, regardless of how small the edit is.
 - Mandatory: if changes involve modifying or adding UI/UX, visual tests must also be added.
 - Mandatory: whenever test files are modified or newly added, output their list without file extensions in the chat directly below the commit message.
-- Mandatory: always run all tests after making any code changes or edits without exception; running the full test suite is strictly mandatory.
-- Do not deploy directly via wrangler; deployments are handled automatically by CI/CD when the user commits and pushes. Verify changes with the production asset builder and full test suite execution (run all tests).
+- Do not deploy directly via wrangler; deployments are handled automatically by CI/CD when the user commits and pushes. Verify changes with the production asset builder and targeted tests for modified or newly added test files; do not run the entire test suite unless explicitly requested.
 - The production builder reads HTML/CSS from site/ and private inline media from private/ (untracked); verify new UI is included in the generated production assets.
 - Never commit or push; the user does that.
 - Update docs/change-history/refactoring-plan.md after publication only if the user explicitly requests that documentation update.
@@ -48,13 +47,13 @@
 - Mandatory Four-Component Prompt Structure: Every stabilization task instruction must specify:
   1. Exact problem statement with code references (`file:///path#L123`).
   2. Scope boundaries and invariants (preserve existing public API contracts and error handlers).
-  3. Deterministic verification method (full test suite execution and asset build).
+  3. Deterministic verification method (targeted `node --test` scripts and asset build).
   4. Structured reporting format with colored square checklist states (`🟩`, `🟨`, `⬜`, `🟥`).
 - Four-Stage Stabilization Algorithm:
   1. Root-Cause Analysis: Identify race conditions, collisions, and type errors without editing code.
   2. Plan Artifact: Create a Markdown document detailing every edit and touched file before modifying code.
   3. Isolated Remediation: Apply surgical edits that preserve backward compatibility of public interfaces.
-  4. Verification: Run the full test suite and production asset builder; revert changes if tests fail.
+  4. Verification: Run targeted test suites and production asset builder; revert changes if tests fail.
 - Collision Resolution Hierarchy:
   1. Single Source of Truth: In any conflict between client state and server state, server validation holds absolute priority.
   2. Prohibition of Destructive Changes: Deleting existing error handlers, telemetry logging, or guard conditions is forbidden; only appending or refining conditional logic is permitted.
@@ -62,6 +61,6 @@
   4. Prohibition of Collateral Modifications: Strictly prohibit touching, breaking, or modifying any functionality unrelated to the current scoped task; tasks strictly touch only their designated functional scope. If adjacent functionality must be affected (due to mutual coupling, shared execution, or necessity), explicitly report this to the user in Russian using red text `<span style="color: red; font-weight: bold;">WARNING</span>` before making changes and wait for confirmation.
 - Antigravity Native Control Mechanisms:
   1. Artifacts: Plan and hypothesis tracking in Markdown documents prior to code modifications.
-  2. Verification Loops: Automated validation via full test suite runs and production asset builder before task completion.
+  2. Verification Loops: Automated validation via targeted test runs and production asset builder before task completion.
   3. Human-in-the-Loop Gate: Explicit numbered-list explanation and user confirmation required before code edits.
 

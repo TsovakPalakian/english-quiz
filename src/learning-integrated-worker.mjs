@@ -1259,6 +1259,12 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         let body;try{body=JSON.parse(raw);}catch{throw new StudyError(400,'Invalid JSON.');}
         const chatId=String(body?.chatId||'').trim();
         if(!/^-?\d+$/.test(chatId))throw new StudyError(400,'Valid numeric Telegram Chat ID is required.');
+        const db=studyDatabase(env);
+        const recipients=await getTelegramRecipients(db);
+        const match=recipients.find(r=>String(r.chatId)===chatId);
+        if(match&&match.status==='disabled'){
+          throw new StudyError(400,'Cannot send test: recipient is disabled. Change status to Active first.');
+        }
         const result=await testTelegramRecipient(env,chatId);
         return json({ok:result});
       }

@@ -111,7 +111,25 @@ try {
   await page.waitForTimeout(100);
   assert.ok((await testBtn.textContent()).includes('Sent!'));
 
-  // 9. Test remove recipient
+  // 9. Test disabling recipient and verify disabled Test button in UI
+  const editBtn2 = panel.locator('tr:has-text("Lead On-Call") [data-tg-action="edit"]');
+  await editBtn2.click();
+  await panel.locator('#telegramStatusSelect').selectOption('disabled');
+  await panel.locator('#telegramSubmitBtn').click();
+  await page.waitForTimeout(100);
+
+  const disabledRow = panel.locator('tr:has-text("Lead On-Call")');
+  assert.ok(await disabledRow.locator('text=Disabled').isVisible());
+  const disabledTestBtn = disabledRow.locator('[data-tg-action="test"]');
+  assert.equal(await disabledTestBtn.getAttribute('disabled'), '');
+  assert.equal(await disabledTestBtn.getAttribute('title'), 'Recipient is disabled. Change status to Active to test.');
+
+  // Click disabled button and verify it does not trigger test
+  await disabledTestBtn.click({ force: true });
+  await page.waitForTimeout(100);
+  assert.equal(await disabledTestBtn.textContent(), '🔔 Test');
+
+  // 10. Test remove recipient
   page.once('dialog', dialog => dialog.accept());
   const removeBtn = panel.locator('tr:has-text("Lead On-Call") [data-tg-action="remove"]');
   await removeBtn.click();

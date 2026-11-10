@@ -529,7 +529,11 @@
                             </span>
                           </td>
                           <td style="text-align:right; padding:11px 12px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;">
-                            <button type="button" class="btn small ghost" data-tg-action="test" data-chat-id="${esc(r.chatId)}" style="height:26px; padding:0 8px; font-size:11.5px; border:1px solid var(--line); border-radius:4px; cursor:pointer;" title="Send test ping">🔔 Test</button>
+                            ${isActive ? `
+                              <button type="button" class="btn small ghost" data-tg-action="test" data-chat-id="${esc(r.chatId)}" style="height:26px; padding:0 8px; font-size:11.5px; border:1px solid var(--line); border-radius:4px; cursor:pointer;" title="Send test ping">🔔 Test</button>
+                            ` : `
+                              <button type="button" class="btn small ghost" data-tg-action="test" data-chat-id="${esc(r.chatId)}" disabled style="height:26px; padding:0 8px; font-size:11.5px; border:1px solid var(--line); border-radius:4px; opacity:0.45; cursor:not-allowed; background:var(--bg-sub, #f1f5f9); color:var(--ink-sub, #94a3b8);" title="Recipient is disabled. Change status to Active to test.">🔔 Test</button>
+                            `}
                             <button type="button" class="btn small ghost" data-tg-action="edit" data-id="${esc(r.id)}" style="height:26px; padding:0 8px; font-size:11.5px; border:1px solid var(--line); border-radius:4px; cursor:pointer; margin-left:4px;">✏ Edit</button>
                             <button type="button" class="btn small danger" data-tg-action="remove" data-id="${esc(r.id)}" style="height:26px; padding:0 8px; font-size:11.5px; background:var(--danger-bg, #fee2e2); color:var(--danger, #dc2626); border:1px solid #fecaca; border-radius:4px; cursor:pointer; margin-left:4px;">✕ Remove</button>
                           </td>
@@ -645,6 +649,7 @@
 
         box.querySelectorAll('[data-tg-action="test"]').forEach(btn => {
           btn.addEventListener('click', () => {
+            if (btn.disabled) return;
             const chatId = btn.dataset.chatId;
             const origText = btn.innerHTML;
             btn.disabled = true;

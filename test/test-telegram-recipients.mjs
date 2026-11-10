@@ -190,6 +190,26 @@ test('integrated worker /api/feedback/telegram-recipients and test endpoints', a
   assert.equal(updatedJson.recipients.length, 2);
   assert.equal(updatedJson.recipients[0].chatId, '1308341417');
   assert.equal(updatedJson.recipients[1].chatId, '-100123456789');
+
+  // Disable one recipient and verify test request is rejected with 400
+  await worker.fetch(new Request('https://test.invalid/api/feedback/telegram-recipients', {
+    method: 'POST',
+    headers: { Origin: 'https://test.invalid', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      recipients: [
+        { chatId: '1308341417', label: 'Dev Lead', status: 'disabled' }
+      ]
+    })
+  }), env);
+
+  const disabledTestRes = await worker.fetch(new Request('https://test.invalid/api/feedback/telegram-test', {
+    method: 'POST',
+    headers: { Origin: 'https://test.invalid', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId: '1308341417' })
+  }), env);
+  assert.equal(disabledTestRes.status, 400);
+  const disabledJson = await disabledTestRes.json();
+  assert.ok(disabledJson.error.includes('recipient is disabled'));
 });
 
 test('preview.html and preview.js include Telegram alerts tab and view', () => {
