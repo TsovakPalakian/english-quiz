@@ -448,6 +448,9 @@
     function lessonLabel(unitIndex, lesson) {
       return (unitIndex + 1) + lesson.letter + " " + lesson.title;
     }
+    function speakUnitTitle(title) {
+      return title ? title.charAt(0).toUpperCase() + title.slice(1) : "";
+    }
     function openSpeak(view, level, unit, lesson, quiet) {
       const nextLevel = Number.isFinite(level) ? level : -1;
       const nextUnit = Number.isFinite(unit) ? unit : -1;
@@ -475,7 +478,7 @@
         sub.textContent = "Eight levels. Each level has 8 units and 32 lessons.";
         list.className = "decks";
         list.innerHTML = book.map((row, i) =>
-          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num saas-badge saas-badge-muted">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
+          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b></button>'
         ).join("");
         return;
       }
@@ -486,14 +489,14 @@
         sub.textContent = "8 units. Each unit has lessons A–D.";
         list.className = "card grow";
         list.innerHTML = row.units.map((item, i) =>
-          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form saas-badge saas-badge-info">A–D</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(speakUnitTitle(item.title)) + '</b></button>'
         ).join("");
         return;
       }
       const item = row.units[speakUnit];
       if (!item) { openSpeak("level", speakLevel, -1, -1, true); return; }
       if (speakView === "unit") {
-        title.textContent = (speakUnit + 1) + " " + item.title;
+        title.textContent = (speakUnit + 1) + " " + speakUnitTitle(item.title);
         sub.textContent = row.level + " · 4 lessons";
         list.className = "card grow";
         list.innerHTML = item.lessons.map((lesson, i) =>
@@ -504,7 +507,7 @@
       const lesson = item.lessons[speakLesson];
       if (!lesson) { openSpeak("unit", speakLevel, speakUnit, -1, true); return; }
       title.textContent = lessonLabel(speakUnit, lesson);
-      sub.textContent = row.level + " · " + (speakUnit + 1) + " " + item.title;
+      sub.textContent = row.level + " · " + (speakUnit + 1) + " " + speakUnitTitle(item.title);
       list.className = "card grow";
       list.innerHTML = item.lessons.map((entry, i) =>
         '<button class="tense saas-card' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form saas-badge saas-badge-info">' + esc(entry.letter) + '</span></button>'

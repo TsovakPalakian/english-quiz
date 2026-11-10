@@ -2721,7 +2721,7 @@ button:disabled { opacity: .45; }
 #textread .text-read { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); padding: 18px 20px; box-shadow: var(--saas-shadow-card); }
 .expression-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
 .expression-card:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
-#speakout .file-card { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
+#speakout .file-card { justify-content: flex-start; background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
 #speakout .file-card:hover { transform: translateY(-1px); box-shadow: var(--saas-shadow-md); }
 #speakout .file-card .num { border-radius: var(--saas-radius-pill); padding: 2px 8px; background: var(--saas-status-muted-bg); color: var(--saas-status-muted-text); font-weight: 600; }
 #speakout .tense { background: var(--saas-card); border: 1px solid var(--saas-border); border-radius: var(--saas-radius-lg); box-shadow: var(--saas-shadow-card); transition: transform 0.15s ease, box-shadow 0.15s ease; }
@@ -3660,6 +3660,13 @@ button.group-person:hover { background: var(--acc-s); }
 .group-diagnostic-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .group-diagnostic-head h2 { font-size: 18px; font-weight: 700; color: var(--saas-text-primary, #0f172a); margin: 0; letter-spacing: -0.01em; }
 .group-diag-badge { font-size: 12px; font-weight: 600; padding: 3px 10px; background: #e0f2fe; color: #0369a1; border-radius: 9999px; border: 1px solid #bae6fd; }
+.group-diag-submetrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.group-diag-submetric-card { background: var(--saas-subtle, #f8fafc); border: 1px solid var(--saas-border, #e2e8f0); border-radius: var(--saas-radius-md, 8px); padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
+.group-diag-submetric-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mute, #64748b); }
+.group-diag-submetric-value { font-size: 15px; font-weight: 700; color: var(--saas-text-primary, #0f172a); }
+.group-diag-submetric-sub { font-size: 11px; color: #94a3b8; }
+.group-diag-lesson-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #0f766e; background: #ccfbf1; padding: 2px 8px; border-radius: 6px; font-weight: 600; margin-bottom: 8px; }
+@media (max-width: 640px) { .group-diag-submetrics { grid-template-columns: 1fr; gap: 8px; } }
 .group-diag-bars { display: flex; height: 12px; border-radius: 9999px; overflow: hidden; background: #e2e8f0; margin-bottom: 14px; border: none; }
 .group-diag-bar-segment { height: 100%; transition: width 0.3s ease; }
 .group-diag-bar.is-clean { height: 100%; background: #10b981; }

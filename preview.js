@@ -3175,6 +3175,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function lessonLabel(unitIndex, lesson) {
       return (unitIndex + 1) + lesson.letter + " " + lesson.title;
     }
+    function speakUnitTitle(title) {
+      return title ? title.charAt(0).toUpperCase() + title.slice(1) : "";
+    }
     function openSpeak(view, level, unit, lesson, quiet) {
       const nextLevel = Number.isFinite(level) ? level : -1;
       const nextUnit = Number.isFinite(unit) ? unit : -1;
@@ -3202,7 +3205,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = "Eight levels. Each level has 8 units and 32 lessons.";
         list.className = "decks";
         list.innerHTML = book.map((row, i) =>
-          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b><span class="num saas-badge saas-badge-muted">32</span><span class="label">8 units</span><i class="mini"><i style="width:100%"></i></i></button>'
+          '<button class="file-card saas-card" type="button" data-speak-level="' + i + '"><b>' + esc(row.level) + '</b></button>'
         ).join("");
         return;
       }
@@ -3213,14 +3216,14 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         sub.textContent = "8 units. Each unit has lessons A–D.";
         list.className = "card grow";
         list.innerHTML = row.units.map((item, i) =>
-          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(item.title) + '</b><span class="form saas-badge saas-badge-info">A–D</span></button>'
+          '<button class="tense saas-card" type="button" data-speak-unit="' + i + '"><b>' + (i + 1) + " " + esc(speakUnitTitle(item.title)) + '</b></button>'
         ).join("");
         return;
       }
       const item = row.units[speakUnit];
       if (!item) { openSpeak("level", speakLevel, -1, -1, true); return; }
       if (speakView === "unit") {
-        title.textContent = (speakUnit + 1) + " " + item.title;
+        title.textContent = (speakUnit + 1) + " " + speakUnitTitle(item.title);
         sub.textContent = row.level + " · 4 lessons";
         list.className = "card grow";
         list.innerHTML = item.lessons.map((lesson, i) =>
@@ -3231,7 +3234,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const lesson = item.lessons[speakLesson];
       if (!lesson) { openSpeak("unit", speakLevel, speakUnit, -1, true); return; }
       title.textContent = lessonLabel(speakUnit, lesson);
-      sub.textContent = row.level + " · " + (speakUnit + 1) + " " + item.title;
+      sub.textContent = row.level + " · " + (speakUnit + 1) + " " + speakUnitTitle(item.title);
       list.className = "card grow";
       list.innerHTML = item.lessons.map((entry, i) =>
         '<button class="tense saas-card' + (i === speakLesson ? " on" : "") + '" type="button" data-speak-lesson="' + i + '"><b>' + esc(lessonLabel(speakUnit, entry)) + '</b><span class="form saas-badge saas-badge-info">' + esc(entry.letter) + '</span></button>'
@@ -26985,6 +26988,7 @@ if(typeof window!=='undefined'){
       currentDiagGroupId = groupId;
       panel.hidden = false;
       const badge = document.getElementById('groupDiagTotalErrors');
+      const submetrics = document.getElementById('groupDiagSubmetrics');
       const bars = document.getElementById('groupDiagBars');
       const legend = document.getElementById('groupDiagLegend');
       const advice = document.getElementById('groupDiagAdvice');
@@ -26998,6 +27002,10 @@ if(typeof window!=='undefined'){
         if (currentDiagGroupId !== groupId) return;
         if (!res || !res.totalErrors) {
           if (badge) badge.textContent = '0 errors';
+          if (submetrics) {
+            submetrics.hidden = true;
+            submetrics.innerHTML = '';
+          }
           bars.innerHTML = '<div class="group-diag-bar is-clean" style="width:100%"></div>';
           legend.innerHTML = '<span class="group-diag-pill is-clean">● All clear</span>';
           advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this group.</p>';
@@ -27005,6 +27013,41 @@ if(typeof window!=='undefined'){
         }
 
         if (badge) badge.textContent = res.totalErrors + (res.totalErrors === 1 ? ' error' : ' errors');
+
+        if (submetrics) {
+          const affStudents = res.affectedStudentsCount || 0;
+          const totalStudents = res.totalGroupStudents || affStudents;
+          const affPct = res.affectedStudentsPct != null ? res.affectedStudentsPct : (totalStudents > 0 ? Math.round((affStudents / totalStudents) * 100) : 0);
+          const lapses = res.retentionLapsesCount || 0;
+
+          let materialTitle = 'Core curriculum';
+          let materialBadge = res.topMaterialId ? ('Lesson ' + res.topMaterialId) : 'Course material';
+          if (res.topMaterialId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
+            const foundMat = lmLibrary.materials.find(m => m && (m.id === res.topMaterialId || String(m.id) === String(res.topMaterialId)));
+            if (foundMat) {
+              if (foundMat.title) materialTitle = foundMat.title;
+              if (foundMat.index != null) materialBadge = 'Lesson ' + foundMat.index;
+              else if (foundMat.id != null) materialBadge = 'Lesson ' + foundMat.id;
+            }
+          }
+
+          submetrics.hidden = false;
+          submetrics.innerHTML = '<div class="group-diag-submetric-card">' +
+            '<span class="group-diag-submetric-label">Affected students</span>' +
+            '<span class="group-diag-submetric-value">' + affStudents + ' / ' + totalStudents + ' ' + (totalStudents === 1 ? 'student' : 'students') + '</span>' +
+            '<span class="group-diag-submetric-sub">' + affPct + '% of group members</span>' +
+            '</div>' +
+            '<div class="group-diag-submetric-card">' +
+            '<span class="group-diag-submetric-label">Retention lapses</span>' +
+            '<span class="group-diag-submetric-value">' + lapses + ' ' + (lapses === 1 ? 'repeat' : 'repeats') + '</span>' +
+            '<span class="group-diag-submetric-sub">Previously learned items</span>' +
+            '</div>' +
+            '<div class="group-diag-submetric-card">' +
+            '<span class="group-diag-submetric-label">Source material</span>' +
+            '<span class="group-diag-submetric-value">' + esc(materialBadge) + '</span>' +
+            '<span class="group-diag-submetric-sub">' + esc(materialTitle) + '</span>' +
+            '</div>';
+        }
 
         const colors = {
           l1_transfer: { color: '#f59e0b', label: 'L1 Transfer (Russian calques & word order)', bg: '#fef3c7', border: '#fde68a' },
@@ -27042,7 +27085,24 @@ if(typeof window!=='undefined'){
           recommendation = recommendation.replace(/\bThe subgroup\b/g, groupTitle.trim());
         }
 
-        advice.innerHTML = '<div class="group-diag-advice-box"><div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
+        let lessonTagHtml = '';
+        if (res.topMaterialId) {
+          let tagBadge = 'Lesson ' + res.topMaterialId;
+          let tagTitle = 'Core curriculum';
+          if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
+            const foundMat = lmLibrary.materials.find(m => m && (m.id === res.topMaterialId || String(m.id) === String(res.topMaterialId)));
+            if (foundMat) {
+              if (foundMat.title) tagTitle = foundMat.title;
+              if (foundMat.index != null) tagBadge = 'Lesson ' + foundMat.index;
+              else if (foundMat.id != null) tagBadge = 'Lesson ' + foundMat.id;
+            }
+          }
+          lessonTagHtml = '<div class="group-diag-lesson-tag">📍 Primary source: ' + esc(tagBadge) + ' (' + esc(tagTitle) + ')</div>';
+        }
+
+        advice.innerHTML = '<div class="group-diag-advice-box">' +
+          lessonTagHtml +
+          '<div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
           '<p class="group-diag-advice-text">' + esc(recommendation) + '</p>' +
           patternsHtml +
           '</div>';

@@ -342,7 +342,7 @@ export function classifyError({ prompt = '', expected = '', given = '', partType
   });
 }
 
-export function synthesizeSubgroupDiagnostic(items = [], { groupId = null } = {}) {
+export function synthesizeSubgroupDiagnostic(items = [], { groupId = null, totalGroupStudents = null } = {}) {
   const total = items.length;
   if (!total) {
     return {
@@ -366,7 +366,13 @@ export function synthesizeSubgroupDiagnostic(items = [], { groupId = null } = {}
       },
       topPatterns: [],
       dominantCategory: null,
-      recommendation: 'No recorded errors in this subgroup. Performance is on track!'
+      recommendation: 'No recorded errors in this subgroup. Performance is on track!',
+      affectedStudentsCount: 0,
+      totalGroupStudents: totalGroupStudents || 0,
+      affectedStudentsPct: 0,
+      retentionLapsesCount: 0,
+      topMaterialId: null,
+      topMaterialCount: 0
     };
   }
 
@@ -380,8 +386,22 @@ export function synthesizeSubgroupDiagnostic(items = [], { groupId = null } = {}
   };
   const categoryCounts = {};
   const patternOccurrences = {};
+  const studentSet = new Set();
+  const materialCounts = {};
+  let retentionLapsesCount = 0;
 
   for (const item of items) {
+    const acc = item.accountId || item.account_id;
+    if (acc) studentSet.add(String(acc));
+
+    const lapses = item.lapses != null ? Number(item.lapses) : Math.max(0, (item.errorCount || item.error_count || 1) - 1);
+    if (lapses > 0) retentionLapsesCount += lapses;
+
+    const mid = item.materialId != null ? item.materialId : item.material_id;
+    if (mid != null) {
+      materialCounts[mid] = (materialCounts[mid] || 0) + 1;
+    }
+
     const tag = item.errorTag || item.error_tag || 'grammar';
     if (tagCounts[tag] != null) tagCounts[tag]++;
     else tagCounts.grammar++;
@@ -392,6 +412,18 @@ export function synthesizeSubgroupDiagnostic(items = [], { groupId = null } = {}
     const patternKey = item.prompt ? `${item.prompt} -> ${item.expectedAnswer || item.expected_answer || ''}` : cat;
     patternOccurrences[patternKey] = (patternOccurrences[patternKey] || 0) + 1;
   }
+
+  const affectedStudentsCount = studentSet.size;
+  const resolvedTotalStudents = (totalGroupStudents && totalGroupStudents >= affectedStudentsCount)
+    ? totalGroupStudents
+    : affectedStudentsCount;
+  const affectedStudentsPct = resolvedTotalStudents > 0
+    ? Math.round((affectedStudentsCount / resolvedTotalStudents) * 100)
+    : 0;
+
+  const topMaterialEntry = Object.entries(materialCounts).sort((a, b) => b[1] - a[1])[0];
+  const topMaterialId = topMaterialEntry ? Number(topMaterialEntry[0]) : null;
+  const topMaterialCount = topMaterialEntry ? topMaterialEntry[1] : 0;
 
   const percentages = {};
   for (const [tag, count] of Object.entries(tagCounts)) {
@@ -437,6 +469,12 @@ export function synthesizeSubgroupDiagnostic(items = [], { groupId = null } = {}
     percentages,
     topPatterns,
     dominantCategory,
-    recommendation
+    recommendation,
+    affectedStudentsCount,
+    totalGroupStudents: resolvedTotalStudents,
+    affectedStudentsPct,
+    retentionLapsesCount,
+    topMaterialId,
+    topMaterialCount
   };
 }

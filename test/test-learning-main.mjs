@@ -2528,16 +2528,16 @@ test('Lyric size is kept without an unsupported-operation error',()=>{
   scope.stageApplyPrefs();
   assert.equal(saved.get('enquiz-lyric-size'),'28');assert.equal(scope.lyricSize,28);assert.deepEqual(notices,[]);
 });
-test('Speak Out level buttons use the loaded level instead of a fixed 32',()=>{
+test('Speak Out level buttons render clean level titles without count spans',()=>{
   const list={};
   const scope={esc:value=>String(value??''),document:{addEventListener(){},getElementById:id=>id==='speakoutList'?list:null,querySelector:()=>null},
     window:{SPEAKOUT:[{level:'A1',units:[{lessons:[{},{}]}]}]}};
   runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),scope);
   scope.stagePaintSpeakLevels();
   assert.equal(list.innerHTML.includes('>32<'),false);
-  assert.match(list.innerHTML,/data-speak-level="0"[\s\S]*>2</);
-  assert.match(list.innerHTML,/1 unit/);
-  assert.match(list.innerHTML,/>Open</);
+  assert.equal(list.innerHTML.includes('saas-badge-muted'),false);
+  assert.equal(list.innerHTML.includes('unit'),false);
+  assert.match(list.innerHTML,/data-speak-level="0"><b>A1<\/b><\/button>/);
 });
 test('A PDF with an empty browser type is accepted from its name',async()=>{
   const headers=[];

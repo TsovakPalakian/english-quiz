@@ -91,6 +91,7 @@
       currentDiagGroupId = groupId;
       panel.hidden = false;
       const badge = document.getElementById('groupDiagTotalErrors');
+      const submetrics = document.getElementById('groupDiagSubmetrics');
       const bars = document.getElementById('groupDiagBars');
       const legend = document.getElementById('groupDiagLegend');
       const advice = document.getElementById('groupDiagAdvice');
@@ -104,6 +105,10 @@
         if (currentDiagGroupId !== groupId) return;
         if (!res || !res.totalErrors) {
           if (badge) badge.textContent = '0 errors';
+          if (submetrics) {
+            submetrics.hidden = true;
+            submetrics.innerHTML = '';
+          }
           bars.innerHTML = '<div class="group-diag-bar is-clean" style="width:100%"></div>';
           legend.innerHTML = '<span class="group-diag-pill is-clean">● All clear</span>';
           advice.innerHTML = '<p class="group-diag-clean-note"><strong>Great performance! 🎉</strong> No recent errors recorded for this group.</p>';
@@ -111,6 +116,41 @@
         }
 
         if (badge) badge.textContent = res.totalErrors + (res.totalErrors === 1 ? ' error' : ' errors');
+
+        if (submetrics) {
+          const affStudents = res.affectedStudentsCount || 0;
+          const totalStudents = res.totalGroupStudents || affStudents;
+          const affPct = res.affectedStudentsPct != null ? res.affectedStudentsPct : (totalStudents > 0 ? Math.round((affStudents / totalStudents) * 100) : 0);
+          const lapses = res.retentionLapsesCount || 0;
+
+          let materialTitle = 'Core curriculum';
+          let materialBadge = res.topMaterialId ? ('Lesson ' + res.topMaterialId) : 'Course material';
+          if (res.topMaterialId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
+            const foundMat = lmLibrary.materials.find(m => m && (m.id === res.topMaterialId || String(m.id) === String(res.topMaterialId)));
+            if (foundMat) {
+              if (foundMat.title) materialTitle = foundMat.title;
+              if (foundMat.index != null) materialBadge = 'Lesson ' + foundMat.index;
+              else if (foundMat.id != null) materialBadge = 'Lesson ' + foundMat.id;
+            }
+          }
+
+          submetrics.hidden = false;
+          submetrics.innerHTML = '<div class="group-diag-submetric-card">' +
+            '<span class="group-diag-submetric-label">Affected students</span>' +
+            '<span class="group-diag-submetric-value">' + affStudents + ' / ' + totalStudents + ' ' + (totalStudents === 1 ? 'student' : 'students') + '</span>' +
+            '<span class="group-diag-submetric-sub">' + affPct + '% of group members</span>' +
+            '</div>' +
+            '<div class="group-diag-submetric-card">' +
+            '<span class="group-diag-submetric-label">Retention lapses</span>' +
+            '<span class="group-diag-submetric-value">' + lapses + ' ' + (lapses === 1 ? 'repeat' : 'repeats') + '</span>' +
+            '<span class="group-diag-submetric-sub">Previously learned items</span>' +
+            '</div>' +
+            '<div class="group-diag-submetric-card">' +
+            '<span class="group-diag-submetric-label">Source material</span>' +
+            '<span class="group-diag-submetric-value">' + esc(materialBadge) + '</span>' +
+            '<span class="group-diag-submetric-sub">' + esc(materialTitle) + '</span>' +
+            '</div>';
+        }
 
         const colors = {
           l1_transfer: { color: '#f59e0b', label: 'L1 Transfer (Russian calques & word order)', bg: '#fef3c7', border: '#fde68a' },
@@ -148,7 +188,24 @@
           recommendation = recommendation.replace(/\bThe subgroup\b/g, groupTitle.trim());
         }
 
-        advice.innerHTML = '<div class="group-diag-advice-box"><div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
+        let lessonTagHtml = '';
+        if (res.topMaterialId) {
+          let tagBadge = 'Lesson ' + res.topMaterialId;
+          let tagTitle = 'Core curriculum';
+          if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
+            const foundMat = lmLibrary.materials.find(m => m && (m.id === res.topMaterialId || String(m.id) === String(res.topMaterialId)));
+            if (foundMat) {
+              if (foundMat.title) tagTitle = foundMat.title;
+              if (foundMat.index != null) tagBadge = 'Lesson ' + foundMat.index;
+              else if (foundMat.id != null) tagBadge = 'Lesson ' + foundMat.id;
+            }
+          }
+          lessonTagHtml = '<div class="group-diag-lesson-tag">📍 Primary source: ' + esc(tagBadge) + ' (' + esc(tagTitle) + ')</div>';
+        }
+
+        advice.innerHTML = '<div class="group-diag-advice-box">' +
+          lessonTagHtml +
+          '<div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
           '<p class="group-diag-advice-text">' + esc(recommendation) + '</p>' +
           patternsHtml +
           '</div>';

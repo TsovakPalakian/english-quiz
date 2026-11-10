@@ -550,13 +550,20 @@ export class ErrorBankService extends StudyService {
       `SELECT id,account_id accountId,material_id materialId,kind,part_id partId,
               question_index questionIndex,prompt,expected_answer expectedAnswer,
               given_answer givenAnswer,error_tag errorTag,error_category errorCategory,
-              diagnostic_note diagnosticNote,stage,status,updated_at updatedAt
+              diagnostic_note diagnosticNote,stage,status,lapses,error_count errorCount,
+              updated_at updatedAt
        FROM account_error_items
        WHERE account_id IN (SELECT account_id FROM class_group_students WHERE group_id=?)
        ORDER BY updated_at DESC LIMIT 500`,
       [gid]
     );
 
-    return synthesizeSubgroupDiagnostic(items,{groupId:gid});
+    const [groupStudentRow]=await this.db.read(
+      `SELECT COUNT(DISTINCT account_id) as total FROM class_group_students WHERE group_id=?`,
+      [gid]
+    );
+    const totalGroupStudents=Number(groupStudentRow?.total)||0;
+
+    return synthesizeSubgroupDiagnostic(items,{groupId:gid,totalGroupStudents});
   }
 }
