@@ -48,6 +48,12 @@
   - 🟩 Добавить целевые unit-тесты в `test/test-workbench-schema-migration.mjs` для проверки поиска по целочисленному `id`, строковому `id`, логину `login`, а также по устаревшему UUID через `legacy_account_ids`, включая обработку случая отсутствия таблицы `legacy_account_ids`.
   - 🟩 Запустить целевые тесты (26 тестов успешно пройдено) и выполнить `npm run build:preview`.
 
+- 🟩 **Этап 7: Поддержка числового идентификатора воркера в QuizPreparationRunner**
+  - 🟩 В `src/quiz-preparation-runner.mjs#L9` расширить валидацию `workerId` для поддержки как строк, так и положительных целых чисел: `((typeof workerId!=='string'&&!Number.isSafeInteger(workerId))||!workerId||(typeof workerId==='string'&&workerId.length>200)||(typeof workerId==='number'&&workerId<=0))`.
+  - 🟩 В `src/quiz-preparation-runner.mjs#L22` поддержать сверку числовых и строковых идентификаторов: `String(worker.id)!==String(this.workerId)`.
+  - 🟩 В `test/test-quiz-preparation-runner.mjs` добавить unit-тесты для целочисленного и строкового `workerId` и валидации недопустимых значений.
+  - 🟩 Запустить целевые тесты (37 тестов успешно пройдено) и выполнить `npm run build:preview`.
+
 ---
 
 ## 4. Прикрепленные скриншоты

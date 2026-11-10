@@ -122,3 +122,42 @@ test('an explicit new retry cycle captures fresh context instead of reusing an u
     f.service.createGeneratedDraft=create;await f.generation.retry(actors.teacher,job.id,body({expectedRevision:job.revision}));await f.generation.runOne();assert.equal((await f.generation.list(actors.teacher))[0].state,'submitted');assert.equal(f.calls(),2);assert.equal(f.sql.prepare('SELECT COUNT(*) AS n FROM qr_generation_contexts').get().n,2);
   }finally{f.close();}
 });
+
+test('QuizPreparationRunner supports integer and string workerId and enforces positive integer checks', async () => {
+  const f = await setup();
+  try {
+    const devWorker = {id: 1, role: 'DEVELOPER', active: 1};
+    const resolveActor = async id => id === 1 || id === '1' ? devWorker : null;
+    const runnerWithInt = new QuizPreparationRunner({
+      review: f.service,
+      generation: f.generation,
+      pipeline: f.pipeline,
+      workerId: 1,
+      resolveActor,
+      authorize: async () => true
+    });
+    assert.equal(runnerWithInt.workerId, 1);
+
+    const runnerWithString = new QuizPreparationRunner({
+      review: f.service,
+      generation: f.generation,
+      pipeline: f.pipeline,
+      workerId: '1',
+      resolveActor,
+      authorize: async () => true
+    });
+    assert.equal(runnerWithString.workerId, '1');
+
+    for (const invalid of [0, -1, '', null, undefined, {}]) {
+      assert.throws(() => new QuizPreparationRunner({
+        review: f.service,
+        generation: f.generation,
+        pipeline: f.pipeline,
+        workerId: invalid,
+        resolveActor
+      }), error => error.status === 503 || error.message.includes('dependencies'));
+    }
+  } finally {
+    f.close();
+  }
+});

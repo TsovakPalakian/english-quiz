@@ -6,7 +6,7 @@ const stop=code=>{throw Object.assign(Error(code),{code});};
 const positive=(value,max)=>Number.isSafeInteger(value)&&value>0&&value<=max;
 export class QuizPreparationRunner{
   constructor({review,generation,pipeline,workerId,resolveActor,authorize=async()=>false,now=Date.now,leaseMs=30000}={}){
-    if(!review?.db||generation?.review!==review||pipeline?.review!==review||!generation.preparation||typeof generation.enqueuePackage!=='function'||typeof pipeline.runOne!=='function'||typeof workerId!=='string'||!workerId||typeof resolveActor!=='function'||typeof authorize!=='function'||typeof now!=='function'||!positive(leaseMs,120000))throw Error('Invalid preparation runner dependencies.');
+    if(!review?.db||generation?.review!==review||pipeline?.review!==review||!generation.preparation||typeof generation.enqueuePackage!=='function'||typeof pipeline.runOne!=='function'||((typeof workerId!=='string'&&!Number.isSafeInteger(workerId))||!workerId||(typeof workerId==='string'&&workerId.length>200)||(typeof workerId==='number'&&workerId<=0))||typeof resolveActor!=='function'||typeof authorize!=='function'||typeof now!=='function'||!positive(leaseMs,120000))throw new StudyError(503,'Invalid preparation runner dependencies.');
     Object.assign(this,{review,db:review.db,generation,pipeline,workerId,resolveActor,authorize,now,leaseMs});
     this.running=new Set();
   }
@@ -19,7 +19,7 @@ export class QuizPreparationRunner{
   }
   async gate(stage,signal,context=null){
     if(signal?.aborted)stop('cancelled');
-    const worker=await this.resolveActor(this.workerId);try{developer(worker);}catch{stop('denied');}if(worker.id!==this.workerId)stop('denied');
+    const worker=await this.resolveActor(this.workerId);try{developer(worker);}catch{stop('denied');}if(worker.id!==this.workerId&&String(worker.id)!==String(this.workerId))stop('denied');
     if(!(await this.settings(worker)).enabled)stop('off');
     if(signal?.aborted)stop('cancelled');
     if(await this.authorize({stage,worker,context,signal})!==true)stop('denied');
