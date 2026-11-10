@@ -102,7 +102,7 @@ test('learning workbench readiness detects missing workbench triggers or tables'
   }
 });
 
-test('workbenchActor resolves developer actor by numeric id, string id, and login name', async () => {
+test('workbenchActor resolves developer actor by numeric id, string id, login name, and legacy account id', async () => {
   const db = new DatabaseSync(':memory:');
   try {
     db.exec(`
@@ -114,12 +114,19 @@ test('workbenchActor resolves developer actor by numeric id, string id, and logi
         active INTEGER NOT NULL DEFAULT 1,
         is_personal_data_revoked INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE legacy_account_ids (
+        old_id TEXT PRIMARY KEY,
+        new_id INTEGER NOT NULL
+      );
       INSERT INTO users (id, login, name, role, active, is_personal_data_revoked)
       VALUES
         (1, 'TsovakDev', 'Tsovak Palakian', 'DEVELOPER', 1, 0),
         (2, 'Tsovak', 'Tsovak Student', 'USER', 1, 0),
         (3, 'InactiveDev', 'Inactive Developer', 'DEVELOPER', 0, 0),
         (4, 'RevokedDev', 'Revoked Developer', 'DEVELOPER', 1, 1);
+      INSERT INTO legacy_account_ids (old_id, new_id)
+      VALUES
+        ('32289ffb5f3ab2745157f1e2c6040443', 1);
     `);
 
     const env = {
@@ -131,6 +138,15 @@ test('workbenchActor resolves developer actor by numeric id, string id, and logi
         })
       }
     };
+
+    const byLegacyId = await workbenchActor(env, '32289ffb5f3ab2745157f1e2c6040443');
+    assert.deepEqual(byLegacyId, {
+      id: 1,
+      login: 'TsovakDev',
+      name: 'Tsovak Palakian',
+      role: 'DEVELOPER',
+      active: true
+    });
 
     const byNumericId = await workbenchActor(env, 1);
     assert.deepEqual(byNumericId, {
@@ -176,6 +192,45 @@ test('workbenchActor resolves developer actor by numeric id, string id, and logi
     assert.equal(await workbenchActor(env, 999), null);
     assert.equal(await workbenchActor(env, ''), null);
     assert.equal(await workbenchActor(env, null), null);
+  } finally {
+    db.close();
+  }
+});
+
+test('workbenchActor falls back gracefully when legacy_account_ids table is absent', async () => {
+  const db = new DatabaseSync(':memory:');
+  try {
+    db.exec(`
+      CREATE TABLE users (
+        id INTEGER PRIMARY KEY,
+        login TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        role TEXT NOT NULL DEFAULT 'USER',
+        active INTEGER NOT NULL DEFAULT 1,
+        is_personal_data_revoked INTEGER NOT NULL DEFAULT 0
+      );
+      INSERT INTO users (id, login, name, role, active, is_personal_data_revoked)
+      VALUES (1, 'TsovakDev', 'Tsovak Palakian', 'DEVELOPER', 1, 0);
+    `);
+
+    const env = {
+      DB: {
+        prepare: sql => ({
+          bind: (...args) => ({
+            first: async () => db.prepare(sql).get(...args) || null
+          })
+        })
+      }
+    };
+
+    const resolved = await workbenchActor(env, 1);
+    assert.deepEqual(resolved, {
+      id: 1,
+      login: 'TsovakDev',
+      name: 'Tsovak Palakian',
+      role: 'DEVELOPER',
+      active: true
+    });
   } finally {
     db.close();
   }

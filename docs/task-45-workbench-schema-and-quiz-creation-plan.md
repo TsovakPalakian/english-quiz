@@ -44,9 +44,9 @@
   - 🟩 Выполнить сборку клиентских ассетов командой `npm run build:preview`.
 
 - 🟩 **Этап 6: Универсальное разрешение разработчика подготовки (workbenchActor)**
-  - 🟩 Обновить запрос в `src/learning-workbench-runtime.mjs#L22` для поиска как по `id`, так и по `login`: `WHERE id=? OR login=?`.
-  - 🟩 Добавить целевой unit-тест в `test/test-workbench-schema-migration.mjs` для проверки поиска по целочисленному `id`, строковому `id` и логину `login`.
-  - 🟩 Запустить целевые тесты (25 тестов успешно пройдено) и выполнить `npm run build:preview`.
+  - 🟩 Обновить запрос в `src/learning-workbench-runtime.mjs#L22` для поиска по `id`, по `login`, а также по сопоставлению устаревших идентификаторов в таблице `legacy_account_ids`: `WHERE id=? OR login=? OR id=(SELECT new_id FROM legacy_account_ids WHERE old_id=?)`.
+  - 🟩 Добавить целевые unit-тесты в `test/test-workbench-schema-migration.mjs` для проверки поиска по целочисленному `id`, строковому `id`, логину `login`, а также по устаревшему UUID через `legacy_account_ids`, включая обработку случая отсутствия таблицы `legacy_account_ids`.
+  - 🟩 Запустить целевые тесты (26 тестов успешно пройдено) и выполнить `npm run build:preview`.
 
 ---
 
