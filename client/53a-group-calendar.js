@@ -146,8 +146,28 @@
     const matches = [];
     if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
       for (const m of lmLibrary.materials) {
-        if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && m.date === dateStr) {
-          matches.push({ id: m.id, material: m, title: m.title || 'Lesson', time: m.time || '' });
+        const isGroupLesson = lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId);
+        if (isGroupLesson) {
+          const hasDate = m.date === dateStr || (Array.isArray(m.dates) && m.dates.includes(dateStr));
+          if (hasDate) {
+            matches.push({ id: m.id, material: m, title: m.title || 'Lesson', time: m.time || '' });
+          }
+        }
+      }
+    }
+    if (matches.length === 0 && typeof groupWidgetStates !== 'undefined') {
+      const widgetState = groupWidgetStates.get(groupId) || groupWidgetStates.get(Number(groupId));
+      if (widgetState && widgetState.monthCache) {
+        const mKey = dateStr.slice(0, 7);
+        const mData = widgetState.monthCache.get(mKey);
+        const sched = mData && mData.scheduleData ? mData.scheduleData[dateStr] : null;
+        if (sched && sched.materialId && (sched.published || sched.active)) {
+          const mat = lmLibrary && Array.isArray(lmLibrary.materials)
+            ? lmLibrary.materials.find(m => String(m.id) === String(sched.materialId))
+            : null;
+          if (mat) {
+            matches.push({ id: mat.id, material: mat, title: mat.title || 'Lesson', time: sched.startTime || mat.time || '' });
+          }
         }
       }
     }
@@ -685,7 +705,19 @@
           tooltipParts.push((totalEvents > 1 ? (tooltipParts.length + 1) + '. ' : '') + cleanTitle);
         });
       } else if (isScheduled) {
-        tooltipParts.push('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1));
+        const sched = (monthData.scheduleData && monthData.scheduleData[dateStr]) || null;
+        let schedMatTitle = '';
+        if (sched && sched.materialId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+          const foundMat = lmLibrary.materials.find(m => String(m.id) === String(sched.materialId));
+          if (foundMat && foundMat.title) {
+            schedMatTitle = foundMat.title;
+          }
+        }
+        if (schedMatTitle) {
+          tooltipParts.push('Lesson: ' + schedMatTitle + ' (Draft)');
+        } else {
+          tooltipParts.push('Lesson ' + (sortedMonthLessons.indexOf(dateStr) + 1));
+        }
       }
       if (exams.length) {
         exams.forEach(ex => {
@@ -861,6 +893,18 @@
       }
     }
 
+    let draftSlotsCount = 0;
+    if (canEdit && monthData.lessonDates) {
+      for (const d of monthData.lessonDates) {
+        if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+          const dLessons = getLessonsForDate(groupId, d);
+          if (dLessons.length === 0) {
+            draftSlotsCount++;
+          }
+        }
+      }
+    }
+
     container.innerHTML =
       '<div class="gcw-header">' +
         '<div class="gcw-tier-top">' +
@@ -877,6 +921,7 @@
             '<button class="gcw-tab' + (state.activeTab === 'statistics' ? ' is-active' : '') + '" type="button" data-gcw-tab="statistics" role="tab" aria-selected="' + (state.activeTab === 'statistics') + '">Statistics</button>' +
           '</div>' +
           '<div class="gcw-header-spacer"' + (state.activeTab !== 'calendar' ? ' style="display:none;"' : '') + '>' +
+            (canEdit && draftSlotsCount > 0 ? '<button class="btn-publish-all" type="button" data-gcw-action="publish-all-scheduled" title="Activate all scheduled draft lessons at once" aria-label="Publish all scheduled lessons">⚡ Publish all scheduled (' + draftSlotsCount + ')</button>' : '') +
             (canEdit ? '<button class="gcw-set-schedule-btn" type="button" data-gcw-action="set-group-schedule" aria-label="Set group schedule">📅 Set group schedule</button>' : '') +
             '<button class="gcw-today-btn" type="button" data-gcw-nav="today" aria-label="Go to current month">Today</button>' +
           '</div>' +
@@ -2193,6 +2238,20 @@
     html += '<div class="gcw-field-group">';
     html += '<label><input type="checkbox" id="gcwSequentialMaterials" checked style="margin-right:6px; accent-color:var(--pri, #0284c7);"> Sequentially distribute course lessons across dates</label>';
     html += '<div style="font-size:12px; color:var(--mute, #64748b); margin-top:4px;">' + (groupMaterials.length ? (groupMaterials.length + ' available materials in group course will be assigned one by one to scheduled dates.') : 'No materials linked yet; dates will be scheduled as standard group sessions.') + '</div>';
+    html += '<div id="gcwGroupRepeatWarning" class="gcw-repeat-warning" style="display:none;">';
+    html += '<span style="font-size:14px; line-height:1; margin-right:4px;">⚠️</span>';
+    html += '<span id="gcwGroupRepeatWarningText"></span>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="gcw-field-group gcw-publish-immediately-group">';
+    html += '<label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer;">';
+    html += '<input type="checkbox" id="gcwPublishImmediately" checked style="margin-top:2px; accent-color:#16a34a; width:16px; height:16px;">';
+    html += '<div>';
+    html += '<span style="font-size:13px; font-weight:700; color:#166534;">Publish and activate lessons immediately <span class="highlight-pill" style="display:inline-block; padding:2px 7px; background:#dcfce7; color:#15803d; border-radius:4px; font-size:11px; font-weight:700; margin-left:6px;">Recommended</span></span>';
+    html += '<div style="font-size:11px; font-weight:400; color:#15803d; margin-top:2px; line-height:1.4;">Immediately binds materials to dates and activates them as live group sessions (green dots) instead of leaving them as unlinked draft slots (red dots).</div>';
+    html += '</div>';
+    html += '</label>';
     html += '</div>';
 
     html += '</div>'; // gcw-scheduler-body
@@ -2204,6 +2263,22 @@
 
     dialog.innerHTML = html;
     document.body.appendChild(dialog);
+
+    function updateRepeatWarning() {
+      const warnEl = dialog.querySelector('#gcwGroupRepeatWarning');
+      const warnTextEl = dialog.querySelector('#gcwGroupRepeatWarningText');
+      if (!warnEl || !warnTextEl) return;
+      const seqMaterials = dialog.querySelector('#gcwSequentialMaterials')?.checked;
+      const custStartVal = dialog.querySelector('#gcwGroupCustStart')?.value;
+      const custEndVal = dialog.querySelector('#gcwGroupCustEnd')?.value;
+      const targetDates = computeTargetDates(currentPeriod, custStartVal, custEndVal);
+      if (seqMaterials && groupMaterials.length > 0 && targetDates.length > groupMaterials.length) {
+        warnEl.style.display = 'flex';
+        warnTextEl.innerHTML = '<strong>Material repeating notice:</strong> ' + groupMaterials.length + ' available materials will be repeated in cycle to fill ' + targetDates.length + ' selected dates.';
+      } else {
+        warnEl.style.display = 'none';
+      }
+    }
 
     function updatePreview() {
       const timeIn = dialog.querySelector('#gcwGroupSchedStartTime');
@@ -2250,6 +2325,7 @@
           selectedDays.add(day);
           chip.classList.add('is-active');
         }
+        updateRepeatWarning();
       };
     });
 
@@ -2263,6 +2339,7 @@
         if (customBox) {
           customBox.style.display = currentPeriod === 'custom' ? 'flex' : 'none';
         }
+        updateRepeatWarning();
       };
     });
 
@@ -2273,7 +2350,10 @@
         const curVal = custStart ? custStart.value : defStart;
         if (window.openUniversalDatePicker) {
           window.openUniversalDatePicker(startBtn, curVal, (newDate) => {
-            if (newDate && custStart) custStart.value = newDate;
+            if (newDate && custStart) {
+              custStart.value = newDate;
+              updateRepeatWarning();
+            }
           });
         }
       };
@@ -2286,11 +2366,20 @@
         const curVal = custEnd ? custEnd.value : defStart;
         if (window.openUniversalDatePicker) {
           window.openUniversalDatePicker(endBtn, curVal, (newDate) => {
-            if (newDate && custEnd) custEnd.value = newDate;
+            if (newDate && custEnd) {
+              custEnd.value = newDate;
+              updateRepeatWarning();
+            }
           });
         }
       };
     }
+
+    const seqCheckbox = dialog.querySelector('#gcwSequentialMaterials');
+    if (seqCheckbox) {
+      seqCheckbox.onchange = updateRepeatWarning;
+    }
+    updateRepeatWarning();
 
     const closeDialog = () => {
       dialog.close();
@@ -2340,6 +2429,7 @@
         }
 
         const seqMaterials = dialog.querySelector('#gcwSequentialMaterials')?.checked;
+        const publishImmediately = dialog.querySelector('#gcwPublishImmediately')?.checked;
 
         targetDates.forEach((d, idx) => {
           const mKey = d.slice(0, 7);
@@ -2359,9 +2449,27 @@
             startTime: currentStartTime,
             durationMinutes: currentDuration,
             period: currentPeriod,
-            materialId: assignedMat ? String(assignedMat.id) : (mData.scheduleData[d]?.materialId || '')
+            materialId: assignedMat ? String(assignedMat.id) : (mData.scheduleData[d]?.materialId || ''),
+            published: Boolean(publishImmediately && assignedMat)
           };
+
+          if (publishImmediately && assignedMat) {
+            assignedMat.date = d;
+            if (!Array.isArray(assignedMat.dates)) {
+              assignedMat.dates = assignedMat.date ? [assignedMat.date] : [];
+            }
+            if (!assignedMat.dates.includes(d)) assignedMat.dates.push(d);
+            assignedMat.time = currentStartTime;
+            if (!assignedMat.groupId) assignedMat.groupId = groupId;
+            if (grp && Array.isArray(grp.lessonIds) && !grp.lessonIds.map(String).includes(String(assignedMat.id))) {
+              grp.lessonIds.push(assignedMat.id);
+            }
+          }
         });
+
+        if (publishImmediately && typeof lmPersist === 'function') {
+          lmPersist();
+        }
 
         await saveGroupAttendanceData(groupId, state, container);
 
@@ -2686,7 +2794,17 @@
                   }
                 }
               }
+              if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+                for (const m of lmLibrary.materials) {
+                  if (m.date === d) m.date = '';
+                  if (Array.isArray(m.dates)) m.dates = m.dates.filter(x => x !== d);
+                }
+              }
             });
+
+            if (typeof lmPersist === 'function') {
+              lmPersist();
+            }
 
             closeConfirm();
             closeDialog();
@@ -2983,10 +3101,14 @@
           if (mat) {
             selectedMaterialTitle = mat.title || '';
             mat.date = dateStr;
+            if (!Array.isArray(mat.dates)) mat.dates = mat.date ? [mat.date] : [];
+            if (!mat.dates.includes(dateStr)) mat.dates.push(dateStr);
             mat.time = currentStartTime;
             if (!mat.groupId) mat.groupId = groupId;
+            if (typeof lmPersist === 'function') lmPersist();
           }
         }
+        targetMonthData.scheduleData[dateStr].published = true;
 
         if (typeof dialog.close === 'function') dialog.close();
         dialog.remove();
@@ -3045,6 +3167,73 @@
             if (nav) nav.focus();
           });
         }
+      };
+    }
+
+    const publishAllBtn = container.querySelector('[data-gcw-action="publish-all-scheduled"]');
+    if (publishAllBtn) {
+      publishAllBtn.onclick = async () => {
+        publishAllBtn.disabled = true;
+        const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
+        const monthData = getMonthData(state, monthKey);
+        let grp = null;
+        if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+          grp = classGroups.find(g => Number(g.id) === Number(groupId));
+        }
+        if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+          grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+        }
+        if (!grp) {
+          grp = { id: groupId, lessonIds: [] };
+        }
+        if (!Array.isArray(grp.lessonIds)) grp.lessonIds = [];
+
+        let activatedAny = false;
+        if (monthData.lessonDates) {
+          const sortedD = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+          for (const d of sortedD) {
+            const currentLessons = getLessonsForDate(groupId, d);
+            if (currentLessons.length === 0) {
+              const sched = monthData.scheduleData && monthData.scheduleData[d];
+              let mat = null;
+              if (sched && sched.materialId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+                mat = lmLibrary.materials.find(m => String(m.id) === String(sched.materialId));
+              }
+              if (!mat && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+                const groupMaterials = lmLibrary.materials.filter(m => !m.hidden && (grp.lessonIds.map(String).includes(String(m.id)) || Number(m.groupId) === Number(groupId)));
+                if (groupMaterials.length > 0) {
+                  mat = groupMaterials[0];
+                }
+              }
+              if (mat) {
+                mat.date = d;
+                if (!Array.isArray(mat.dates)) {
+                  mat.dates = mat.date ? [mat.date] : [];
+                }
+                if (!mat.dates.includes(d)) mat.dates.push(d);
+                if (sched && sched.startTime) mat.time = sched.startTime;
+                if (!mat.groupId) mat.groupId = groupId;
+                if (!grp.lessonIds.map(String).includes(String(mat.id))) {
+                  grp.lessonIds.push(mat.id);
+                }
+                if (!monthData.scheduleData) monthData.scheduleData = {};
+                if (!monthData.scheduleData[d]) monthData.scheduleData[d] = {};
+                monthData.scheduleData[d].materialId = String(mat.id);
+                monthData.scheduleData[d].published = true;
+                activatedAny = true;
+              }
+            }
+          }
+        }
+
+        if (activatedAny) {
+          if (typeof lmPersist === 'function') {
+            lmPersist();
+          }
+          await saveGroupAttendanceData(groupId, state, container);
+        }
+
+        window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
       };
     }
 
@@ -3379,7 +3568,16 @@
 
               const lessons = getLessonsForDate(groupId, d);
               const exams = getExamsForDate(groupId, d);
-              const title = lessons[0] ? lessons[0].title : (exams[0] ? 'Exam: ' + exams[0].title : 'Group Lesson');
+              let title = lessons[0] ? lessons[0].title : (exams[0] ? 'Exam: ' + exams[0].title : '');
+              if (!title && sched && sched.materialId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+                const foundMat = lmLibrary.materials.find(m => String(m.id) === String(sched.materialId));
+                if (foundMat && foundMat.title) {
+                  title = foundMat.title;
+                }
+              }
+              if (!title) {
+                title = 'Group Lesson';
+              }
 
               scheduleLines.push(`• ${weekday}, ${shortMo} ${dayNum} · ${startTime} – ${endTime} · ${title}`);
             }
