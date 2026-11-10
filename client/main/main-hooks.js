@@ -601,6 +601,34 @@ function stageStoreSong(existingId){
       videoUrl:document.getElementById('lyricVideo').value.trim(),musicUrl:document.getElementById('lyricMusic').value.trim()};
   changes.colorText=window.TextColors?.format(existingId?document.querySelector('#songUser [data-lyric-draft]'):document.getElementById('lyricText'))||null;
   const file=!managed&&(existingId?pendingEditFile:pendingLyricFile);
+  const status=existingId?document.querySelector('#songUser [data-lyric-edit-status]'):document.getElementById('lyricStatus');
+  if(!existingId&&!changes.title){
+    const msg='Write the song title.';
+    if(status){status.textContent=msg;status.classList?.add?.('bad');}
+    window.LearningMain?.notice?.(msg,true);
+    const titleInput=document.getElementById('lyricTitle');
+    titleInput?.focus?.();
+    return;
+  }
+  if(!String(changes.lyrics||'').trim()){
+    const msg='Paste the lyrics.';
+    if(status){status.textContent=msg;status.classList?.add?.('bad');}
+    window.LearningMain?.notice?.(msg,true);
+    const textInput=existingId?document.querySelector('#songUser [data-lyric-draft]'):document.getElementById('lyricText');
+    textInput?.focus?.();
+    return;
+  }
+  if(file){
+    const ext=String(file.name||'').toLowerCase().split('.').pop();
+    const type=file.type||'';
+    const valid=['audio/wav','audio/ogg','audio/mpeg','audio/mp3','audio/x-wav','audio/wave'].includes(type)||['mp3','wav','ogg'].includes(ext);
+    if(!valid){
+      const msg='Select an MP3, WAV or OGG file.';
+      if(status){status.textContent=msg;status.classList?.add?.('bad');}
+      window.LearningMain?.notice?.(msg,true);
+      return;
+    }
+  }
   return window.LearningMain.perform(async()=>{
     const result=managed?await window.LearningMain.saveManagedLibrary(accountId,item,'song',changes):await window.LearningMain.saveLibrary(item,'song',changes);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
@@ -831,8 +859,29 @@ function stageSaveSongMeta(){
   if(editFileRemoved){window.LearningMain.unsupported('Изменение файла песни');return;}
   const file=!managed&&pendingEditFile&&!editFileSent?pendingEditFile:null;
   const read=key=>document.querySelector('#songUser [data-lyric-'+key+']').value.trim();
+  const status=document.querySelector('#songUser [data-lyric-meta-status]');
+  const title=read('title');
+  if(!title){
+    const msg='Write the song title.';
+    if(status){status.textContent=msg;status.classList?.add?.('bad');}
+    window.LearningMain?.notice?.(msg,true);
+    const titleInput=document.querySelector('#songUser [data-lyric-title]');
+    titleInput?.focus?.();
+    return;
+  }
+  if(file){
+    const ext=String(file.name||'').toLowerCase().split('.').pop();
+    const type=file.type||'';
+    const valid=['audio/wav','audio/ogg','audio/mpeg','audio/mp3','audio/x-wav','audio/wave'].includes(type)||['mp3','wav','ogg'].includes(ext);
+    if(!valid){
+      const msg='Select an MP3, WAV or OGG file.';
+      if(status){status.textContent=msg;status.classList?.add?.('bad');}
+      window.LearningMain?.notice?.(msg,true);
+      return;
+    }
+  }
   return window.LearningMain.perform(async()=>{
-    const changes={title:read('title'),artist:read('artist'),videoUrl:read('video'),musicUrl:read('music')};
+    const changes={title,artist:read('artist'),videoUrl:read('video'),musicUrl:read('music')};
     const result=managed?await window.LearningMain.saveManagedLibrary(accountId,item,'song',changes):await window.LearningMain.saveLibrary(item,'song',changes);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
     let saved=result.item;
