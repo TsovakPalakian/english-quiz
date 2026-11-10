@@ -1115,8 +1115,12 @@ await scenarioSubtests("multi-teacher-topology-ui", async function*(){
       await pageT1.locator('[data-group-open="101"]').click();
       await pageT1.locator('#groupdetail.on').waitFor();
 
-      // Diagnostic panel remains hidden in UI on group detail page for teachers
-      assert.ok(await pageT1.locator('#groupDetailDiagnostic').isHidden(), 'Diagnostic heatmap must remain hidden on group detail page');
+      // Diagnostic panel is visible for assigned teacher
+      await pageT1.locator('#groupDetailDiagnostic').waitFor({state:'visible'});
+      await pageT1.waitForFunction(()=>document.getElementById('groupDiagTotalErrors')?.textContent==='3 errors');
+      assert.equal(await pageT1.locator('#groupDiagTotalErrors').textContent(), '3 errors');
+      assert.ok(await pageT1.locator('#groupDiagBars .group-diag-bar-segment').count() >= 2);
+      assert.match(await pageT1.locator('#groupDiagAdvice').textContent(), /Recommended: 10-minute focused contrastive analysis/);
 
       // Teacher 101_1 has authorized access to Group 101 diagnostic data via API
       const diagData = await pageT1.evaluate(async () => {

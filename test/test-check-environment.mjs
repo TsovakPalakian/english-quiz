@@ -68,8 +68,9 @@ test('SHOW_BROWSER opens Chrome only outside ci',()=>{
   }finally{restore();}
 });
 test('Telegram config rejects missing values and non-numeric destinations without disclosing secrets',()=>{
-  for(const env of [{},{TELEGRAM_BOT_TOKEN:'invalid',TELEGRAM_CHAT_ID:'123'},{TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'@someone'}])assert.throws(()=>telegramConfig(env),/Configure TELEGRAM_BOT_TOKEN/);
-  assert.deepEqual(telegramConfig({TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'-456'}),{token:'123:fixture',chat:'-456'});
+  for(const env of [{},{TELEGRAM_BOT_TOKEN:'invalid',TELEGRAM_CHAT_ID:'123'},{TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'@someone'},{TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'-456, invalid'},{TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'   '}])assert.throws(()=>telegramConfig(env),/Configure TELEGRAM_BOT_TOKEN/);
+  assert.deepEqual(telegramConfig({TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'-456'}),{token:'123:fixture',chat:'-456',chats:['-456']});
+  assert.deepEqual(telegramConfig({TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'-456, -789, -456'}),{token:'123:fixture',chat:'-456',chats:['-456','-789']});
 });
 test('manual CI notifications report the actual deployment result and run link',()=>{
   for(const [result, expected] of [

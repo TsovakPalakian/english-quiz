@@ -73,7 +73,7 @@
       document.getElementById('groupDetailLessonCount').textContent='Lessons · '+lessons.length;
       document.getElementById('groupDetailExamCount').textContent='Exams · '+metrics[0][1];
       document.getElementById('groupDetailExamSummary').innerHTML=metrics.map(([label,count])=>'<span'+(label==='assigned works'&&count>0?' class="has-assigned-works"':'')+'>'+label+(count?' · <b>'+count+'</b>':'')+'</span>').join('');
-      paintGroupDiagnostic(group.id);
+      paintGroupDiagnostic(group.id, group.title);
       const calWidget = document.getElementById('groupCalendarWidget');
       if (calWidget && typeof renderGroupCalendarWidget === 'function') {
         renderGroupCalendarWidget(calWidget, group.id, group.title);
@@ -81,16 +81,13 @@
       paintPagePath('groupdetail');
     }
     let currentDiagGroupId = null;
-    async function paintGroupDiagnostic(groupId) {
+    async function paintGroupDiagnostic(groupId, groupTitle) {
       const panel = document.getElementById('groupDetailDiagnostic');
       if (!panel) return;
-      panel.hidden = true;
-      panel.style.display = 'none';
       if (!isTeacher() || viewAccount || !groupId) {
+        panel.hidden = true;
         return;
       }
-      // Group Diagnostic Overview is temporarily hidden from page view
-      return;
       currentDiagGroupId = groupId;
       panel.hidden = false;
       const badge = document.getElementById('groupDiagTotalErrors');
@@ -116,12 +113,12 @@
         if (badge) badge.textContent = res.totalErrors + (res.totalErrors === 1 ? ' error' : ' errors');
 
         const colors = {
-          l1_transfer: { color: '#f59e0b', label: 'L1 Transfer (Russian calques & word order)' },
-          overgeneralization: { color: '#8b5cf6', label: 'Overgeneralization (irregular forms)' },
-          collocation_clash: { color: '#3b82f6', label: 'Collocations (do vs make)' },
-          grammar: { color: '#06b6d4', label: 'General Grammar' },
-          vocabulary: { color: '#10b981', label: 'Vocabulary Gaps' },
-          typo: { color: '#64748b', label: 'Spelling & Typos' }
+          l1_transfer: { color: '#f59e0b', label: 'L1 Transfer (Russian calques & word order)', bg: '#fef3c7', border: '#fde68a' },
+          overgeneralization: { color: '#8b5cf6', label: 'Overgeneralization (irregular forms)', bg: '#f3e8ff', border: '#e9d5ff' },
+          collocation_clash: { color: '#3b82f6', label: 'Collocations (do vs make)', bg: '#eff6ff', border: '#dbeafe' },
+          grammar: { color: '#06b6d4', label: 'General Grammar', bg: '#ecfeff', border: '#cffafe' },
+          vocabulary: { color: '#10b981', label: 'Vocabulary Gaps', bg: '#ecfdf5', border: '#a7f3d0' },
+          typo: { color: '#64748b', label: 'Spelling & Typos', bg: '#f1f5f9', border: '#e2e8f0' }
         };
 
         const pct = res.percentages || {};
@@ -132,7 +129,7 @@
           const val = pct[key] || 0;
           if (val > 0) {
             barHtml += '<div class="group-diag-bar-segment" style="width:' + val + '%;background:' + cfg.color + '" title="' + esc(cfg.label) + ': ' + val + '%"></div>';
-            legendHtml += '<span class="group-diag-pill" style="border-left-color:' + cfg.color + '"><b>' + val + '%</b> ' + esc(cfg.label) + '</span>';
+            legendHtml += '<span class="group-diag-pill" style="border-left-color:' + cfg.color + ';background:' + cfg.bg + ';border-color:' + cfg.border + '"><b>' + val + '%</b> ' + esc(cfg.label) + '</span>';
           }
         }
         bars.innerHTML = barHtml;
@@ -145,8 +142,14 @@
             '</ul></div>';
         }
 
+        let recommendation = res.recommendation || '';
+        if (groupTitle && typeof groupTitle === 'string' && groupTitle.trim()) {
+          recommendation = recommendation.replace(new RegExp('\\bGroup\\s+' + groupId + '\\b', 'g'), groupTitle.trim());
+          recommendation = recommendation.replace(/\bThe subgroup\b/g, groupTitle.trim());
+        }
+
         advice.innerHTML = '<div class="group-diag-advice-box"><div class="group-diag-advice-head"><span>💡 Recommended lesson focus</span></div>' +
-          '<p class="group-diag-advice-text">' + esc(res.recommendation || '') + '</p>' +
+          '<p class="group-diag-advice-text">' + esc(recommendation) + '</p>' +
           patternsHtml +
           '</div>';
       } catch (err) {

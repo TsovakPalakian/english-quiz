@@ -13,27 +13,26 @@ test('TASK: Verify code contracts for hiding Group Diagnostic Overview', async (
   const dirSrc = await fs.readFile(path.resolve('client/53-group-directory.js'), 'utf8');
   const previewSrc = await fs.readFile(path.resolve('preview.js'), 'utf8');
 
-  // 1. Check site/preview.html contains hidden attribute and inline style display: none
-  assert.match(
-    htmlSrc,
-    /<div\s+id="groupDetailDiagnostic"\s+class="group-diagnostic-panel"\s+hidden\s+style="display:\s*none\s*!important;"\s*>/,
-    'site/preview.html must contain #groupDetailDiagnostic with hidden and display: none !important;'
+  // 1. Check site/preview.html contains hidden attribute on template
+  assert.ok(
+    htmlSrc.includes('<div id="groupDetailDiagnostic" class="group-diagnostic-panel" hidden>'),
+    'site/preview.html must contain #groupDetailDiagnostic with hidden attribute'
   );
 
-  // 2. Check client/53-group-directory.js keeps panel.hidden = true
+  // 2. Check client/53-group-directory.js keeps panel.hidden = true for students and viewAccount
   assert.ok(
     dirSrc.includes('panel.hidden = true;'),
-    'client/53-group-directory.js must set panel.hidden = true'
+    'client/53-group-directory.js must set panel.hidden = true for non-teachers'
   );
   assert.ok(
-    dirSrc.includes('Group Diagnostic Overview is temporarily hidden from page view'),
-    'client/53-group-directory.js must document that diagnostic panel is temporarily hidden'
+    dirSrc.includes('if (!isTeacher() || viewAccount || !groupId)'),
+    'client/53-group-directory.js must hide diagnostic panel for students and viewAccount'
   );
 
-  // 3. Check preview.js contains the compiled hidden enforcement
+  // 3. Check preview.js contains the compiled hidden enforcement for non-teachers
   assert.ok(
-    previewSrc.includes('Group Diagnostic Overview is temporarily hidden from page view'),
-    'preview.js must include compiled hidden enforcement'
+    previewSrc.includes('if (!isTeacher() || viewAccount || !groupId)'),
+    'preview.js must include compiled hidden enforcement for non-teachers'
   );
 });
 

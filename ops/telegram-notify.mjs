@@ -35,47 +35,57 @@ export function formatDeployResult(status=''){
   return escapeHtml(status||'unknown');
 }
 
+export function parseTelegramChats(raw=''){
+  if(typeof raw!=='string'&&typeof raw!=='number')return [];
+  const parts=String(raw).split(/[,\s]+/).map(s=>s.trim()).filter(Boolean);
+  return [...new Set(parts)];
+}
+
 export function telegramConfig(env=process.env){
-  const token=env.TELEGRAM_BOT_TOKEN||'',chat=env.TELEGRAM_CHAT_ID||'';
-  if(!/^\d+:[A-Za-z0-9_-]+$/.test(token)||! /^-?\d+$/.test(chat))throw Error('Configure TELEGRAM_BOT_TOKEN and numeric TELEGRAM_CHAT_ID.');
-  return {token,chat};
+  const token=env.TELEGRAM_BOT_TOKEN||'',rawChat=env.TELEGRAM_CHAT_ID||'';
+  const chats=parseTelegramChats(rawChat);
+  if(!/^\d+:[A-Za-z0-9_-]+$/.test(token)||chats.length===0||chats.some(c=>!/^-?\d+$/.test(c)))throw Error('Configure TELEGRAM_BOT_TOKEN and numeric TELEGRAM_CHAT_ID.');
+  return {token,chat:chats[0],chats};
 }
 export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000,timeoutMs=30000,parseMode='HTML'}={}){
-  const {token,chat}=telegramConfig(env);
+  const {token,chats,chat}=telegramConfig(env);
+  const targets=Array.isArray(chats)&&chats.length?chats:[chat];
   let lastError;
-  for(let attempt=1;attempt<=maxRetries;attempt++){
-    try{
-      const payload={chat_id:chat,text:String(text).slice(0,3500),disable_web_page_preview:true};
-      if(parseMode)payload.parse_mode=parseMode;
-      const response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendMessage',{
-        method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(timeoutMs),
-        body:JSON.stringify(payload)
-      });
-      const value=await response.json().catch(()=>({}));
-      if(!response.ok||value.ok!==true){
-        const status=response.status;
-        const errMessage='Telegram rejected the notification (HTTP '+status+'). Check bot access and chat ID.';
-        if([429,500,502,503,504].includes(status)&&attempt<maxRetries){
-          lastError=Error(errMessage);
+  for(const targetChat of targets){
+    for(let attempt=1;attempt<=maxRetries;attempt++){
+      try{
+        const payload={chat_id:targetChat,text:String(text).slice(0,3500),disable_web_page_preview:true};
+        if(parseMode)payload.parse_mode=parseMode;
+        const response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendMessage',{
+          method:'POST',headers:{'Content-Type':'application/json'},signal:AbortSignal.timeout(timeoutMs),
+          body:JSON.stringify(payload)
+        });
+        const value=await response.json().catch(()=>({}));
+        if(!response.ok||value.ok!==true){
+          const status=response.status;
+          const errMessage='Telegram rejected the notification (HTTP '+status+'). Check bot access and chat ID.';
+          if([429,500,502,503,504].includes(status)&&attempt<maxRetries){
+            lastError=Error(errMessage);
+            if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
+            continue;
+          }
+          throw Error(errMessage);
+        }
+        break;
+      }catch(err){
+        if(err.message?.startsWith('Telegram rejected')){throw err;}
+        const isTimeout=err?.name==='TimeoutError'||err?.code===23||err?.code==='ETIMEDOUT';
+        const rawCause=isTimeout?'timeout':(err?.cause?.code||err?.code||err?.message||'');
+        const sanitizedCause=rawCause?': '+String(rawCause).replace(token,'[REDACTED]'):'';
+        lastError=Error('Telegram notification could not be delivered'+sanitizedCause+'.');
+        if(attempt<maxRetries){
           if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
           continue;
         }
-        throw Error(errMessage);
-      }
-      return;
-    }catch(err){
-      if(err.message?.startsWith('Telegram rejected')){throw err;}
-      const isTimeout=err?.name==='TimeoutError'||err?.code===23||err?.code==='ETIMEDOUT';
-      const rawCause=isTimeout?'timeout':(err?.cause?.code||err?.code||err?.message||'');
-      const sanitizedCause=rawCause?': '+String(rawCause).replace(token,'[REDACTED]'):'';
-      lastError=Error('Telegram notification could not be delivered'+sanitizedCause+'.');
-      if(attempt<maxRetries){
-        if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
-        continue;
+        throw lastError||Error('Telegram notification could not be delivered.');
       }
     }
   }
-  throw lastError||Error('Telegram notification could not be delivered.');
 }
 
 export function pipelineNotification(env=process.env){
@@ -106,37 +116,41 @@ export function pipelineNotification(env=process.env){
 }
 
 export async function notifyTelegramDocument(document,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000}={}){
-  const {token,chat}=telegramConfig(env);
+  const {token,chats,chat}=telegramConfig(env);
+  const targets=Array.isArray(chats)&&chats.length?chats:[chat];
   if(!/^lumiscia-ci-\d+-attempt-\d+\.txt$/.test(document?.name||'')||typeof document?.text!=='string')throw Error('Invalid CI log document.');
-  const form=new FormData();form.set('chat_id',chat);
-  form.set('document',new Blob([sanitizeCILogs(document.text,env)],{type:'text/plain;charset=utf-8'}),document.name);
-  form.set('caption','CI logs: completed test/deploy jobs, secrets redacted.');
+  const fileBytes=new Blob([sanitizeCILogs(document.text,env)],{type:'text/plain;charset=utf-8'});
   let lastError;
-  for(let attempt=1;attempt<=maxRetries;attempt++){
-    try{
-      const response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendDocument',{method:'POST',body:form,signal:AbortSignal.timeout(60000)});
-      const result=await response.json().catch(()=>({}));
-      if(!response.ok||result.ok!==true){
-        const status=response.status;
-        const errMessage='Telegram rejected the log file (HTTP '+status+').';
-        if([429,500,502,503,504].includes(status)&&attempt<maxRetries){
-          lastError=Error(errMessage);
+  for(const targetChat of targets){
+    const form=new FormData();form.set('chat_id',targetChat);
+    form.set('document',fileBytes,document.name);
+    form.set('caption','CI logs: completed test/deploy jobs, secrets redacted.');
+    for(let attempt=1;attempt<=maxRetries;attempt++){
+      try{
+        const response=await fetchImpl('https://api.telegram.org/bot'+token+'/sendDocument',{method:'POST',body:form,signal:AbortSignal.timeout(60000)});
+        const result=await response.json().catch(()=>({}));
+        if(!response.ok||result.ok!==true){
+          const status=response.status;
+          const errMessage='Telegram rejected the log file (HTTP '+status+').';
+          if([429,500,502,503,504].includes(status)&&attempt<maxRetries){
+            lastError=Error(errMessage);
+            if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
+            continue;
+          }
+          throw Error(errMessage);
+        }
+        break;
+      }catch(err){
+        if(err.message?.startsWith('Telegram rejected')){throw err;}
+        lastError=Error('Telegram log file could not be delivered.');
+        if(attempt<maxRetries){
           if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
           continue;
         }
-        throw Error(errMessage);
-      }
-      return;
-    }catch(err){
-      if(err.message?.startsWith('Telegram rejected')){throw err;}
-      lastError=Error('Telegram log file could not be delivered.');
-      if(attempt<maxRetries){
-        if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
-        continue;
+        throw lastError||Error('Telegram log file could not be delivered.');
       }
     }
   }
-  throw lastError||Error('Telegram log file could not be delivered.');
 }
 
 if(process.argv[1]===fileURLToPath(import.meta.url)){

@@ -144,3 +144,31 @@ test('notifyTelegram formats timeout errors (DOMException code 23) clearly as ti
   );
   assert.equal(attempts,2);
 });
+
+test('notifyTelegram delivers messages to all configured recipients when TELEGRAM_CHAT_ID contains multiple chats',async()=>{
+  const calls=[];
+  const multiEnv={...env,TELEGRAM_CHAT_ID:'456, -1009876543210'};
+  await notifyTelegram('Deploy success',multiEnv,{
+    fetchImpl:async(url,options)=>{
+      calls.push({url,body:JSON.parse(options.body)});
+      return Response.json({ok:true});
+    }
+  });
+  assert.equal(calls.length,2);
+  assert.equal(calls[0].body.chat_id,'456');
+  assert.equal(calls[1].body.chat_id,'-1009876543210');
+});
+
+test('notifyTelegramDocument delivers log file to all configured recipients when TELEGRAM_CHAT_ID contains multiple chats',async()=>{
+  const calls=[];
+  const multiEnv={...env,TELEGRAM_CHAT_ID:'456, -1009876543210'};
+  await notifyTelegramDocument({name:'lumiscia-ci-123-attempt-2.txt',text:'Completed logs'},multiEnv,{
+    fetchImpl:async(url,options)=>{
+      calls.push({url,chatId:options.body.get('chat_id')});
+      return Response.json({ok:true});
+    }
+  });
+  assert.equal(calls.length,2);
+  assert.equal(calls[0].chatId,'456');
+  assert.equal(calls[1].chatId,'-1009876543210');
+});
