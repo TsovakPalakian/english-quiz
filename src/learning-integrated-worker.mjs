@@ -919,10 +919,11 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
           'END:VCALENDAR'
         ];
 
+        const disposition=url.searchParams.get('inline')==='1'?'inline':'attachment';
         return new Response(method==='HEAD'?null:lines.join('\r\n'),{
           headers:{
             'Content-Type':'text/calendar; charset=utf-8',
-            'Content-Disposition':`inline; filename="group-${groupId}-schedule-${monthKey}.ics"`,
+            'Content-Disposition':`${disposition}; filename="group-${groupId}-schedule-${monthKey}.ics"`,
             'Cache-Control':'no-cache'
           }
         });

@@ -439,7 +439,7 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     );
     assert.equal(schedResp.status, 200);
     assert.ok(schedResp.headers.get('Content-Type').includes('text/calendar'));
-    assert.equal(schedResp.headers.get('Content-Disposition'), 'inline; filename="group-1-schedule-2026-11.ics"');
+    assert.equal(schedResp.headers.get('Content-Disposition'), 'attachment; filename="group-1-schedule-2026-11.ics"');
     assert.equal(schedResp.headers.get('Cache-Control'), 'no-cache');
     const schedText = await schedResp.text();
     assert.ok(schedText.includes('PRODID:-//EnglishQuiz//GroupSchedule//EN'));
@@ -461,10 +461,19 @@ test('IntegratedWorker /api/groups/attendance endpoints enforce auth, roles, CSR
     );
     assert.equal(headSchedResp.status, 200);
     assert.ok(headSchedResp.headers.get('Content-Type').includes('text/calendar'));
-    assert.equal(headSchedResp.headers.get('Content-Disposition'), 'inline; filename="group-1-schedule-2026-11.ics"');
+    assert.equal(headSchedResp.headers.get('Content-Disposition'), 'attachment; filename="group-1-schedule-2026-11.ics"');
     assert.equal(headSchedResp.headers.get('Cache-Control'), 'no-cache');
     const headSchedText = await headSchedResp.text();
     assert.equal(headSchedText, '');
+
+    // 200 GET schedule.ics with inline=1 returns inline Content-Disposition
+    const inlineSchedResp = await app.fetch(
+      new Request('https://quiz.example/api/groups/schedule.ics?groupId=1&month=2026-11&title=B1%20Group&inline=1'),
+      env,
+      ctx
+    );
+    assert.equal(inlineSchedResp.status, 200);
+    assert.equal(inlineSchedResp.headers.get('Content-Disposition'), 'inline; filename="group-1-schedule-2026-11.ics"');
 
     // 200 GET schedule.ics with empty schedule returns fallback month event
     const emptySchedResp = await app.fetch(

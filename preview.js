@@ -28933,7 +28933,7 @@ if(typeof window!=='undefined'){
         </div>
         <div style="display:flex; flex-direction:column; gap:6px; font-size:13px; margin-top:6px;">
           <a href="${gCalUrl.toString()}" target="_blank" rel="noopener noreferrer" style="color:var(--acc, #0d9488); font-weight:600;">📅 Add reminder to Google Calendar</a>
-          <a href="${icsUrl}" style="color:var(--acc, #0d9488); font-weight:600;">📥 Download .ics Calendar File</a>
+          <a href="${icsUrl}" download="payment-deadline.ics" style="color:var(--acc, #0d9488); font-weight:600;">📥 Download .ics Calendar File</a>
         </div>
         <div id="gcwPaymentStatusBox" style="margin-top:12px; padding:10px 14px; border-radius:8px; background:${tuition.isPaid ? '#ecfdf5' : '#fffbeb'}; border:1px solid ${tuition.isPaid ? '#a7f3d0' : '#fde68a'}; font-size:13px;">
           ${tuition.isPaid

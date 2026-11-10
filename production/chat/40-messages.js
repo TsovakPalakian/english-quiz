@@ -226,6 +226,9 @@
         link.className = 'chat-action-btn';
         range.deleteContents();
         link.textContent = match.label;
+        if (/\.(ics|ical|csv|json|xml|pdf|zip)$/i.test(match.url.pathname) || /download/i.test(match.label)) {
+          link.setAttribute('download', '');
+        }
       } else {
         link.append(range.extractContents());
       }
