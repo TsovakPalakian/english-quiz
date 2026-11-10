@@ -27403,8 +27403,8 @@ if(typeof window!=='undefined'){
     if (total > 1) {
       showEventChoiceDialog(dateStr, lessons, exams, { canEdit: true, groupId, state, container });
     } else if (total === 1) {
-      if (lessons.length === 1 && typeof window.lmOpenLesson === 'function') {
-        window.lmOpenLesson(lessons[0].id);
+      if (lessons.length === 1) {
+        showLessonSchedulerModal(groupId, dateStr, state, container);
       } else if (exams.length === 1) {
         if (typeof examOpenSelected === 'function') {
           void examOpenSelected(exams[0].id);
@@ -27519,14 +27519,14 @@ if(typeof window!=='undefined'){
 
   let saveAttendanceChain = Promise.resolve();
 
-  async function saveGroupAttendanceData(groupId, state, container) {
+  async function saveGroupAttendanceData(groupId, state, container, specificMonthKey) {
     saveAttendanceChain = saveAttendanceChain.catch(() => {}).then(async () => {
       let actualState = state;
       if (typeof state === 'number' || !state || !state.monthCache) {
         actualState = groupWidgetStates.get(groupId) || groupWidgetStates.get(Number(groupId)) || state;
       }
       if (!actualState || typeof actualState !== 'object') return;
-      const monthKey = actualState.year + '-' + String(actualState.monthIndex + 1).padStart(2, '0');
+      const monthKey = specificMonthKey || (actualState.year + '-' + String(actualState.monthIndex + 1).padStart(2, '0'));
       const monthData = getMonthData(actualState, monthKey);
       const filteredDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
       const filteredAttendance = {};
@@ -29991,6 +29991,17 @@ if(typeof window!=='undefined'){
     let currentPeriod = existing.period || 'month';
     let currentMaterialId = existing.materialId || '';
 
+    const existingLessons = getLessonsForDate(groupId, dateStr);
+    if (!currentMaterialId && existingLessons.length > 0) {
+      currentMaterialId = existingLessons[0].id;
+      if (!existing.startTime && existingLessons[0].material && existingLessons[0].material.time) {
+        currentStartTime = existingLessons[0].material.time;
+      }
+      if (!existing.durationMinutes && existingLessons[0].material && existingLessons[0].material.durationMinutes) {
+        currentDuration = Number(existingLessons[0].material.durationMinutes) || 60;
+      }
+    }
+
     let dObj = new Date(dateStr + 'T00:00:00');
     let weekdayName = dObj.toLocaleDateString('en-US', { weekday: 'long' });
     let monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -30055,7 +30066,12 @@ if(typeof window!=='undefined'){
     html += '</div>';
 
     html += '<div class="gcw-field-group">';
-    html += '<label for="gcwSchedMaterial">Learning Material</label>';
+    html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">';
+    html += '<label for="gcwSchedMaterial" style="margin:0;">Learning Material</label>';
+    html += '<button type="button" class="btn secondary" id="gcwSchedOpenLessonBtn" style="font-size:12px; padding:3px 10px; border-radius:6px; display:' + (currentMaterialId ? 'inline-flex' : 'none') + '; align-items:center; gap:4px; border:1px solid var(--saas-border, #cbd5e1); background:#f8fafc; color:var(--saas-text, #0f172a); cursor:pointer; font-weight:500;">';
+    html += '<span>📖</span> Open lesson material →';
+    html += '</button>';
+    html += '</div>';
     html += '<select id="gcwSchedMaterial">' + materialsHtml + '</select>';
     html += '<div id="gcwSchedMaterialHint" style="color:var(--bad, #dc2626); font-size:12px; margin-top:4px; display:none;">⚠️ Please select a learning material to schedule a lesson.</div>';
     html += '</div>';
@@ -30171,6 +30187,21 @@ if(typeof window!=='undefined'){
     const saveBtn = dialog.querySelector('[data-action="save"]');
     const matSelect = dialog.querySelector('#gcwSchedMaterial');
     const matHint = dialog.querySelector('#gcwSchedMaterialHint');
+    const openLessonBtn = dialog.querySelector('#gcwSchedOpenLessonBtn');
+
+    if (openLessonBtn) {
+      openLessonBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const matId = (matSelect && matSelect.value) ? matSelect.value : currentMaterialId;
+        if (matId && typeof window.lmOpenLesson === 'function') {
+          if (typeof dialog.close === 'function') dialog.close();
+          dialog.remove();
+          window.lmOpenLesson(matId);
+        }
+      };
+    }
+
     function updateMaterialValidation() {
       const hasMat = Boolean(matSelect && matSelect.value);
       if (saveBtn) {
@@ -30182,6 +30213,9 @@ if(typeof window!=='undefined'){
       }
       if (matSelect) {
         matSelect.style.borderColor = hasMat ? '' : 'var(--bad, #dc2626)';
+      }
+      if (openLessonBtn) {
+        openLessonBtn.style.display = hasMat ? 'inline-flex' : 'none';
       }
     }
     if (matSelect) {
@@ -30216,11 +30250,12 @@ if(typeof window!=='undefined'){
           period: selectedPeriod
         };
 
-        const hadPreviousSchedule = Boolean(existing.startTime);
-        const isReschedule = hadPreviousSchedule && (existing.startTime !== currentStartTime || existing.durationMinutes !== currentDuration || initialDateStr !== dateStr);
+        const hadPreviousSchedule = Boolean(existing.startTime || existing.materialId || (monthData.lessonDates && (monthData.lessonDates instanceof Set ? monthData.lessonDates.has(initialDateStr) : monthData.lessonDates.includes(initialDateStr))));
+        const isReschedule = (hadPreviousSchedule && initialDateStr && initialDateStr !== dateStr) || (existing.startTime !== currentStartTime || existing.durationMinutes !== currentDuration);
 
-        if (hadPreviousSchedule && initialDateStr && initialDateStr !== dateStr) {
-          const oldMonthKey = initialDateStr.slice(0, 7);
+        let oldMonthKey = null;
+        if ((hadPreviousSchedule && initialDateStr && initialDateStr !== dateStr) || (initialDateStr && initialDateStr !== dateStr)) {
+          oldMonthKey = initialDateStr.slice(0, 7);
           const oldMonthData = getMonthData(state, oldMonthKey);
           if (oldMonthData) {
             if (oldMonthData.lessonDates) {
@@ -30231,6 +30266,36 @@ if(typeof window!=='undefined'){
             }
             if (oldMonthData.scheduleData) {
               delete oldMonthData.scheduleData[initialDateStr];
+            }
+            // Migrate student attendance marks from initialDateStr to dateStr
+            if (oldMonthData.attendance && typeof oldMonthData.attendance === 'object') {
+              if (!targetMonthData.attendance || typeof targetMonthData.attendance !== 'object') {
+                targetMonthData.attendance = {};
+              }
+              for (const [stId, dates] of Object.entries(oldMonthData.attendance)) {
+                if (dates && typeof dates === 'object' && dates[initialDateStr] !== undefined) {
+                  if (!targetMonthData.attendance[stId]) {
+                    targetMonthData.attendance[stId] = {};
+                  }
+                  targetMonthData.attendance[stId][dateStr] = dates[initialDateStr];
+                  delete dates[initialDateStr];
+                }
+              }
+            }
+          }
+
+          // Clean up initialDateStr from any group materials in lmLibrary
+          if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+            for (const m of lmLibrary.materials) {
+              const isGrpMat = Number(m.groupId) === Number(groupId) || (groupLessonIds && groupLessonIds.includes(String(m.id)));
+              if (isGrpMat) {
+                if (Array.isArray(m.dates)) {
+                  m.dates = m.dates.filter(d => d !== initialDateStr);
+                }
+                if (m.date === initialDateStr) {
+                  m.date = (String(m.id) === String(selectedMatId)) ? dateStr : '';
+                }
+              }
             }
           }
         }
@@ -30253,7 +30318,12 @@ if(typeof window!=='undefined'){
         if (typeof dialog.close === 'function') dialog.close();
         dialog.remove();
 
-        await saveGroupAttendanceData(groupId, state, container);
+        if (oldMonthKey && oldMonthKey !== dMonthKey) {
+          await saveGroupAttendanceData(groupId, state, container, oldMonthKey);
+          await saveGroupAttendanceData(groupId, state, container, dMonthKey);
+        } else {
+          await saveGroupAttendanceData(groupId, state, container, dMonthKey);
+        }
         window.renderGroupCalendarWidget(container, groupId, state.groupTitle);
 
         void postLessonAlertToChat(groupId, state.groupTitle || 'Group', dateStr, currentStartTime, currentDuration, selectedPeriod, selectedMaterialTitle, isReschedule);
