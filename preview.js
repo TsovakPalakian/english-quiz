@@ -27109,6 +27109,7 @@ if(typeof window!=='undefined'){
         paymentRequisites: '',
         studentPayments: {},
         scheduleData: {},
+        reportingClosed: false,
         revision: 0,
         loaded: false
       };
@@ -27122,6 +27123,7 @@ if(typeof window!=='undefined'){
         paymentRequisites: '',
         studentPayments: {},
         scheduleData: {},
+        reportingClosed: false,
         revision: 0,
         loaded: false
       });
@@ -27506,6 +27508,7 @@ if(typeof window!=='undefined'){
         } else if (!monthData.scheduleData) {
           monthData.scheduleData = {};
         }
+        monthData.reportingClosed = Boolean(res.reportingClosed || (res.scheduleData && res.scheduleData.reportingClosed));
         monthData.revision = Number(res.revision) || 0;
       }
     } catch {
@@ -27550,7 +27553,11 @@ if(typeof window!=='undefined'){
         paymentDeadline: monthData.paymentDeadline || '',
         paymentRequisites: monthData.paymentRequisites || '',
         studentPayments: monthData.studentPayments || {},
-        scheduleData: monthData.scheduleData || {},
+        scheduleData: {
+          ...(monthData.scheduleData || {}),
+          reportingClosed: Boolean(monthData.reportingClosed)
+        },
+        reportingClosed: Boolean(monthData.reportingClosed),
         expectedRevision: monthData.revision
       };
       const url = '/api/groups/attendance';
@@ -27854,9 +27861,16 @@ if(typeof window!=='undefined'){
 
     // Attendance Journal View HTML
     let journalHtml = '<div class="gcw-journal-wrap" style="overflow-x:auto; margin-bottom:24px;">';
-    const hintText = canEdit
-      ? 'Click date to open activities; click to mark present (✓), double-click to mark absent (✕)'
-      : 'Click date to open activities';
+    const isLocked = Boolean(monthData.reportingClosed);
+    const canMarkAttendance = canEdit && !isLocked;
+    if (isLocked) {
+      journalHtml += '<div class="gcw-locked-banner"><span>🔒</span> <span>Attendance reporting for this month is closed and locked for editing.</span></div>';
+    }
+    const hintText = isLocked
+      ? '🔒 Attendance reporting is closed for this month. All records are locked in read-only mode.'
+      : (canEdit
+        ? 'Click date to open activities; click to mark present (✓), double-click to mark absent (✕)'
+        : 'Click date to open activities');
     journalHtml += '<p class="gcw-hint">' + hintText + '</p>';
     const sortedLessonDates = Array.from(monthLessonDates).sort();
     const now = new Date();
@@ -27892,13 +27906,18 @@ if(typeof window!=='undefined'){
         const stDates = monthData.attendance[stId] || monthData.attendance['u' + stId] || monthData.attendance['s' + stId] || {};
         let cells = '';
         for (const d of sortedLessonDates) {
+          const isFuture = (d > todayStr);
+          const canEditCell = canMarkAttendance && !isFuture;
           const st = stDates[d] || 'unmarked';
-          const sym = st === 'present' ? '✓' : st === 'absent' ? '✕' : (canEdit ? '+' : '');
-          const cellClass = st === 'present' ? 'is-present' : st === 'absent' ? 'is-absent' : 'is-unmarked';
-          const roClass = canEdit ? '' : ' is-readonly';
+          let sym = st === 'present' ? '✓' : st === 'absent' ? '✕' : (canEdit ? '+' : '');
+          if (!canEditCell && sym === '+') sym = '';
+          let cellClass = st === 'present' ? 'is-present' : st === 'absent' ? 'is-absent' : 'is-unmarked';
+          if (isFuture) cellClass += ' is-future';
+          const roClass = canEditCell ? '' : ' is-readonly';
           const isFocused = (d === targetFocusDate);
           const tdColClass = isFocused ? ' td-focused-col' : '';
-          cells += '<td class="' + tdColClass + '"><button type="button" class="gcw-cell-btn ' + cellClass + roClass + '" data-gcw-student="' + esc(stId) + '" data-gcw-date="' + esc(d) + '" aria-label="' + esc(s.name) + ' ' + d + ': ' + st + '">' + sym + '</button></td>';
+          const ariaExtra = isFuture ? ' (future date - cannot mark)' : (isLocked ? ' (reporting closed)' : '');
+          cells += '<td class="' + tdColClass + '"><button type="button" class="gcw-cell-btn ' + cellClass + roClass + '" data-gcw-student="' + esc(stId) + '" data-gcw-date="' + esc(d) + '" data-gcw-student-name="' + esc(s.name || s.login || 'Student') + '" aria-label="' + esc(s.name || s.login) + ' ' + d + ': ' + st + ariaExtra + '"' + (isFuture || !canMarkAttendance ? ' disabled' : '') + '>' + sym + '</button></td>';
         }
         journalHtml += '<tr>';
         journalHtml += '<td class="gcw-td-student">' + esc(s.name || s.login) + '</td>';
@@ -27918,7 +27937,7 @@ if(typeof window!=='undefined'){
           else if (st === 'absent') { marked++; }
         }
         const pctStr = marked > 0 ? (students.length ? Math.round((presents / students.length) * 100) + '%' : '—') : '—';
-        journalHtml += '<td>' + pctStr + '</td>';
+        journalHtml += '<td data-gcw-footer-date="' + esc(d) + '">' + pctStr + '</td>';
       }
       journalHtml += '</tr>';
 
@@ -27986,6 +28005,33 @@ if(typeof window!=='undefined'){
       }
     }
 
+    const oldJournal = container.querySelector('.gcw-journal-wrap');
+    const savedJournalScroll = oldJournal ? oldJournal.scrollLeft : null;
+
+    let scheduledDropdownHtml = '';
+    if (sortedLessonDates.length === 0) {
+      scheduledDropdownHtml = '<div class="gcw-scheduled-dropdown-empty">No scheduled lessons for this month</div>';
+    } else {
+      for (const d of sortedLessonDates) {
+        const shortD = d.slice(8) + '.' + d.slice(5, 7);
+        const dObj = new Date(d + 'T12:00:00');
+        const weekday = dObj.toLocaleDateString('en-US', { weekday: 'short' });
+        const dLessons = getLessonsForDate(groupId, d);
+        const sched = monthData.scheduleData && monthData.scheduleData[d];
+        let lessonTitle = dLessons[0] ? dLessons[0].title : '';
+        if (!lessonTitle && sched && sched.materialId && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+          const mat = lmLibrary.materials.find(m => String(m.id) === String(sched.materialId));
+          if (mat && mat.title) lessonTitle = mat.title;
+        }
+        if (!lessonTitle) lessonTitle = 'Lesson ' + (sortedLessonDates.indexOf(d) + 1);
+        const timeStr = (sched && sched.startTime) ? sched.startTime : (dLessons[0] && dLessons[0].time ? dLessons[0].time : '');
+        scheduledDropdownHtml += '<button type="button" class="gcw-scheduled-dropdown-item" data-gcw-dropdown-date="' + esc(d) + '">' +
+          '<span><b>' + shortD + '</b> (' + weekday + ')' + (timeStr ? ' · ' + esc(timeStr) : '') + '</span>' +
+          '<span style="color:var(--saas-text-muted, var(--mute, #64748b)); font-size:12px; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + esc(lessonTitle) + '</span>' +
+        '</button>';
+      }
+    }
+
     container.innerHTML =
       '<div class="gcw-header">' +
         '<div class="gcw-tier-top">' +
@@ -28019,23 +28065,36 @@ if(typeof window!=='undefined'){
       '</div>' +
       '<div class="gcw-footer">' +
         '<div class="gcw-stats">' +
-          '<span class="gcw-badge">Scheduled lessons · <b>' + lessonCount + '</b></span>' +
+          '<div class="gcw-dropdown-wrap">' +
+            '<button class="gcw-badge gcw-badge-btn" type="button" data-gcw-action="toggle-scheduled-dropdown" aria-haspopup="true" aria-expanded="false" title="Click to view scheduled lesson dates">Scheduled lessons · <b>' + lessonCount + '</b> ▾</button>' +
+            '<div class="gcw-scheduled-dropdown" style="display:none;" role="menu">' + scheduledDropdownHtml + '</div>' +
+          '</div>' +
           '<span class="gcw-badge">Scheduled exams · <b>' + examCount + '</b></span>' +
           '<span class="gcw-badge">Students · <b>' + studentCount + '</b></span>' +
-          '<span class="gcw-badge">Attendance · <b>' + attendancePct + '%</b></span>' +
+          '<span class="gcw-badge" data-gcw-metric="attendance-pct">Attendance · <b>' + attendancePct + '%</b></span>' +
         '</div>' +
-        (canEdit ? '<button class="gcw-report-btn" type="button" data-gcw-action="report-chat">Report to chat</button>' : '') +
+        '<div class="gcw-footer-actions">' +
+          (canEdit ? '<button class="gcw-lock-reporting-btn' + (isLocked ? ' is-locked' : '') + '" type="button" data-gcw-action="toggle-lock-reporting" title="' + (isLocked ? 'Click to reopen attendance reporting' : 'Click to lock attendance records for this month') + '">' + (isLocked ? '🔓 Reopen reporting' : '🔒 Close reporting') + '</button>' : '') +
+          (canEdit ? '<button class="gcw-report-btn" type="button" data-gcw-action="report-chat">Report to chat</button>' : '') +
+        '</div>' +
       '</div>' +
       '<p class="hint" data-gcw-status style="margin-top:10px; color:var(--ok, #10b981); font-size:12px; display:none;"></p>';
 
     bindGroupCalendarEvents(container, groupId, state, canEdit);
+
+    if (savedJournalScroll !== null) {
+      const newJournal = container.querySelector('.gcw-journal-wrap');
+      if (newJournal) {
+        newJournal.scrollLeft = savedJournalScroll;
+      }
+    }
 
     if (state.activeTab === 'attendance') {
       const focusedBtn = container.querySelector('[data-gcw-focused-date="true"]');
       if (focusedBtn) {
         setTimeout(() => {
           focusedBtn.focus({ preventScroll: true });
-          if (typeof focusedBtn.scrollIntoView === 'function') {
+          if (savedJournalScroll === null && typeof focusedBtn.scrollIntoView === 'function') {
             focusedBtn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
           }
         }, 50);
@@ -30491,22 +30550,143 @@ if(typeof window!=='undefined'){
       };
     });
 
-    if (canEdit) {
+    // Scheduled lessons dropdown toggle
+    const schedDropdownBtn = container.querySelector('[data-gcw-action="toggle-scheduled-dropdown"]');
+    const schedDropdownMenu = container.querySelector('.gcw-scheduled-dropdown');
+    if (schedDropdownBtn && schedDropdownMenu) {
+      schedDropdownBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const isOpen = schedDropdownMenu.style.display !== 'none';
+        schedDropdownMenu.style.display = isOpen ? 'none' : 'flex';
+        schedDropdownBtn.setAttribute('aria-expanded', String(!isOpen));
+      };
+      schedDropdownMenu.querySelectorAll('[data-gcw-dropdown-date]').forEach(itemBtn => {
+        itemBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          schedDropdownMenu.style.display = 'none';
+          schedDropdownBtn.setAttribute('aria-expanded', 'false');
+          const targetD = itemBtn.dataset.gcwDropdownDate;
+          if (state.activeTab === 'attendance') {
+            const dateHeader = container.querySelector('[data-gcw-open-date="' + targetD + '"]');
+            if (dateHeader) {
+              dateHeader.focus({ preventScroll: false });
+              if (typeof dateHeader.scrollIntoView === 'function') {
+                dateHeader.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+              }
+            }
+          } else if (state.activeTab === 'calendar') {
+            const calDay = container.querySelector('.gcw-day[data-gcw-date="' + targetD + '"]');
+            if (calDay) calDay.click();
+          }
+        };
+      });
+      const onDropdownDocClick = (e) => {
+        if (!schedDropdownBtn.contains(e.target) && !schedDropdownMenu.contains(e.target)) {
+          schedDropdownMenu.style.display = 'none';
+          schedDropdownBtn.setAttribute('aria-expanded', 'false');
+        }
+      };
+      document.addEventListener('click', onDropdownDocClick);
+    }
+
+    // Lock/Close reporting button
+    const lockReportingBtn = container.querySelector('[data-gcw-action="toggle-lock-reporting"]');
+    if (lockReportingBtn) {
+      lockReportingBtn.onclick = async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        monthData.reportingClosed = !monthData.reportingClosed;
+        if (!monthData.scheduleData) monthData.scheduleData = {};
+        monthData.scheduleData.reportingClosed = monthData.reportingClosed;
+        await saveGroupAttendanceData(groupId, state, container);
+        paintGroupCalendarWidget(container, groupId, state);
+      };
+    }
+
+    if (canEdit && !monthData.reportingClosed) {
+      const now = new Date();
+      const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+      const students = getGroupStudents(groupId);
+      const monthLessonDates = new Set();
+      for (const d of monthData.lessonDates) {
+        if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+          monthLessonDates.add(d);
+        }
+      }
+      let grp = null;
+      if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+        grp = classGroups.find(g => Number(g.id) === Number(groupId));
+      }
+      if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+        grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+      }
+      const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+      if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+        for (const m of lmLibrary.materials) {
+          if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
+            monthLessonDates.add(m.date);
+          }
+        }
+      }
+
+      const updateAttendanceCellDOM = (targetBtn, newStatus, studentName, dateStr) => {
+        targetBtn.classList.remove('is-present', 'is-absent', 'is-unmarked');
+        if (newStatus === 'present') {
+          targetBtn.classList.add('is-present');
+          targetBtn.textContent = '✓';
+        } else if (newStatus === 'absent') {
+          targetBtn.classList.add('is-absent');
+          targetBtn.textContent = '✕';
+        } else {
+          targetBtn.classList.add('is-unmarked');
+          targetBtn.textContent = '+';
+        }
+        targetBtn.setAttribute('aria-label', (studentName || 'Student') + ' ' + dateStr + ': ' + newStatus);
+
+        // Update column footer percentage without full re-render
+        const footerTd = container.querySelector('.gcw-table-footer-row td[data-gcw-footer-date="' + dateStr + '"]');
+        if (footerTd) {
+          let presents = 0;
+          let marked = 0;
+          for (const s of students) {
+            const stDates = monthData.attendance[s.id] || monthData.attendance['u' + s.id] || monthData.attendance['s' + s.id] || {};
+            const st = stDates[dateStr];
+            if (st === 'present') { presents++; marked++; }
+            else if (st === 'absent') { marked++; }
+          }
+          const pctStr = marked > 0 ? (students.length ? Math.round((presents / students.length) * 100) + '%' : '—') : '—';
+          footerTd.textContent = pctStr;
+        }
+
+        // Update footer overall attendance percentage badge
+        const overallBadge = container.querySelector('[data-gcw-metric="attendance-pct"] b');
+        if (overallBadge) {
+          const newPct = calculateAttendancePct(monthLessonDates, students, monthData.attendance);
+          overallBadge.textContent = newPct + '%';
+        }
+      };
+
       // Teacher gestures: Single click -> checkmark (present), Double click -> cross (absent)
       container.querySelectorAll('.gcw-cell-btn[data-gcw-student]').forEach(cellBtn => {
         let clickTimer = null;
         cellBtn.addEventListener('click', (e) => {
           e.stopPropagation();
+          const d = cellBtn.dataset.gcwDate;
+          if (d > todayStr || monthData.reportingClosed) {
+            return;
+          }
           if (e.detail === 1) {
             clickTimer = setTimeout(() => {
               const stId = cellBtn.dataset.gcwStudent;
-              const d = cellBtn.dataset.gcwDate;
+              const studentName = cellBtn.dataset.gcwStudentName;
               if (!monthData.attendance[stId]) monthData.attendance[stId] = {};
               const cur = monthData.attendance[stId][d] || 'unmarked';
-              // Single click marks present, or toggles back to unmarked
-              monthData.attendance[stId][d] = cur === 'present' ? 'unmarked' : 'present';
+              const nextStatus = cur === 'present' ? 'unmarked' : 'present';
+              monthData.attendance[stId][d] = nextStatus;
+              updateAttendanceCellDOM(cellBtn, nextStatus, studentName, d);
               saveGroupAttendanceData(groupId, state, container);
-              paintGroupCalendarWidget(container, groupId, state);
             }, 220);
           }
         });
@@ -30514,18 +30694,22 @@ if(typeof window!=='undefined'){
         cellBtn.addEventListener('dblclick', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          const d = cellBtn.dataset.gcwDate;
+          if (d > todayStr || monthData.reportingClosed) {
+            return;
+          }
           if (clickTimer) {
             clearTimeout(clickTimer);
             clickTimer = null;
           }
           const stId = cellBtn.dataset.gcwStudent;
-          const d = cellBtn.dataset.gcwDate;
+          const studentName = cellBtn.dataset.gcwStudentName;
           if (!monthData.attendance[stId]) monthData.attendance[stId] = {};
           const cur = monthData.attendance[stId][d] || 'unmarked';
-          // Double click marks absent (cross), or toggles back to unmarked
-          monthData.attendance[stId][d] = cur === 'absent' ? 'unmarked' : 'absent';
+          const nextStatus = cur === 'absent' ? 'unmarked' : 'absent';
+          monthData.attendance[stId][d] = nextStatus;
+          updateAttendanceCellDOM(cellBtn, nextStatus, studentName, d);
           saveGroupAttendanceData(groupId, state, container);
-          paintGroupCalendarWidget(container, groupId, state);
         });
       });
     }

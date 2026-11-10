@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {checkMode,checkWorkerCounts,chromiumExecutable,chromiumLaunchOptions} from '../ops/check-environment.mjs';
-import {telegramConfig,pipelineNotification} from '../ops/telegram-notify.mjs';
+import {telegramConfig,pipelineNotification,notifyTelegram,detectTaskKey,extractTaskKey,formatDeployResult,escapeHtml} from '../ops/telegram-notify.mjs';
 
 test('test mode comes from a validated flag or environment; filters remain filters',()=>{
   assert.deepEqual(checkMode([],{}),{mode:'local',filters:[]});
@@ -72,13 +72,65 @@ test('Telegram config rejects missing values and non-numeric destinations withou
   assert.deepEqual(telegramConfig({TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'-456'}),{token:'123:fixture',chat:'-456'});
 });
 test('manual CI notifications report the actual deployment result and run link',()=>{
-  for(const result of ['success','failure','skipped','cancelled']){
-    const message=pipelineNotification({PIPELINE_EVENT:'workflow_dispatch',TEST_EXECUTION:'success',DEPLOY_RESULT:result,GITHUB_SERVER_URL:'https://github.com',GITHUB_REPOSITORY:'fixture/repo',GITHUB_RUN_ID:'123'});
-    assert.ok(message.includes('Tests: success\nDeploy: '+result+'\n'));
+  for(const [result, expected] of [
+    ['success', '<b>Deploy:</b> 🟢 success'],
+    ['failure', '<b>Deploy:</b> 🔴 failure'],
+    ['skipped', '<b>Deploy:</b> 🔴 skipped'],
+    ['cancelled', '<b>Deploy:</b> cancelled']
+  ]){
+    const message=pipelineNotification({PIPELINE_EVENT:'workflow_dispatch',COMMIT_MESSAGE:'',TEST_EXECUTION:'success',DEPLOY_RESULT:result,GITHUB_SERVER_URL:'https://github.com',GITHUB_REPOSITORY:'fixture/repo',GITHUB_RUN_ID:'123'});
+    assert.ok(message.includes('Tests: success\n'+expected+'\n'));
     assert.ok(message.endsWith('https://github.com/fixture/repo/actions/runs/123'));
     assert.ok(!message.includes('not requested'));
   }
-  assert.match(pipelineNotification({TEST_EXECUTION:'skipped',TEST_RESULT:'failure',DEPLOY_RESULT:'skipped'}),/Tests: not run\nPreparation\/job: failure\nDeploy: skipped/);
+  assert.match(pipelineNotification({COMMIT_MESSAGE:'',TEST_EXECUTION:'skipped',TEST_RESULT:'failure',DEPLOY_RESULT:'skipped'}),/Tests: not run\nPreparation\/job: failure\n<b>Deploy:<\/b> 🔴 skipped/);
+});
+test('CI notifications format Task Jira link before commit when present and omit when absent',()=>{
+  const withCommit=pipelineNotification({
+    COMMIT_MESSAGE:'[bug] TASK-39 Fix schedule download',
+    GITHUB_SHA:'303265ad07e01234567890abcdef1234567890ab',
+    DEPLOY_RESULT:'success'
+  });
+  const lines=withCommit.split('\n');
+  const taskIdx=lines.indexOf('<b>Task:</b> <a href="https://lumiscia.atlassian.net/browse/TASK-39">TASK-39</a>');
+  const commitIdx=lines.indexOf('Commit: 303265ad07e0');
+  assert.ok(taskIdx>=0,'Task line must be present');
+  assert.equal(taskIdx+1,commitIdx,'Task line must be placed immediately before Commit line');
+
+  const withBranch=pipelineNotification({
+    COMMIT_MESSAGE:'',
+    GITHUB_REF_NAME:'feature/TASK-37',
+    GITHUB_SHA:'303265ad07e01234567890abcdef1234567890ab'
+  });
+  assert.ok(withBranch.includes('<b>Task:</b> <a href="https://lumiscia.atlassian.net/browse/TASK-37">TASK-37</a>'));
+
+  const withoutTask=pipelineNotification({
+    COMMIT_MESSAGE:'Refactor internal helper without task key',
+    GITHUB_REF_NAME:'main',
+    GITHUB_SHA:'303265ad07e01234567890abcdef1234567890ab'
+  });
+  assert.ok(!withoutTask.includes('<b>Task:</b>'));
+  assert.ok(!withoutTask.includes('Task:'));
+});
+test('notifyTelegram passes parse_mode HTML by default and escapes special HTML entities in pipelineNotification',async()=>{
+  assert.equal(escapeHtml('<script>alert("test&foo")</script>'),'&lt;script&gt;alert("test&amp;foo")&lt;/script&gt;');
+  assert.equal(extractTaskKey('[bug] TASK-42 Fix tuition count'),'TASK-42');
+  assert.equal(extractTaskKey('feature/TASK-19-otp'),'TASK-19');
+  assert.equal(extractTaskKey('normal commit message'),null);
+  assert.equal(formatDeployResult('success'),'🟢 success');
+  assert.equal(formatDeployResult('skipped'),'🔴 skipped');
+  assert.equal(formatDeployResult('failure'),'🔴 failure');
+  assert.equal(formatDeployResult('other'),'other');
+
+  let capturedBody;
+  await notifyTelegram('<b>Test HTML</b>',{TELEGRAM_BOT_TOKEN:'123:fixture',TELEGRAM_CHAT_ID:'456'},{
+    fetchImpl:async(url,options)=>{
+      capturedBody=JSON.parse(options.body);
+      return Response.json({ok:true});
+    }
+  });
+  assert.equal(capturedBody.parse_mode,'HTML');
+  assert.equal(capturedBody.text,'<b>Test HTML</b>');
 });
 test('CI notifications include useful run metadata but never credential values',()=>{
   const message=pipelineNotification({PIPELINE_EVENT:'workflow_dispatch',GITHUB_REF_NAME:'main',GITHUB_REF_TYPE:'branch',GITHUB_ACTOR:'original-author',GITHUB_TRIGGERING_ACTOR:'rerun-author',GITHUB_RUN_NUMBER:'42',GITHUB_RUN_ATTEMPT:'2',GITHUB_SHA:'a'.repeat(40),TEST_EXECUTION:'success',TEST_RESULT:'success',DEPLOY_RESULT:'success',TELEGRAM_BOT_TOKEN:'123:private-fixture-token',CI_R2_SECRET_ACCESS_KEY:'private-fixture-r2',CI_BUILD_INPUTS_URL:'https://example.invalid/private-signature'});
