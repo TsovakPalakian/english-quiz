@@ -27517,6 +27517,34 @@ if(typeof window!=='undefined'){
     monthData.loaded = true;
   }
 
+  function getGroupMonthLessonDates(groupId, state, monthKey) {
+    const monthData = getMonthData(state, monthKey);
+    const monthLessonDates = new Set();
+    if (monthData && monthData.lessonDates) {
+      for (const d of monthData.lessonDates) {
+        if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
+          monthLessonDates.add(d);
+        }
+      }
+    }
+    let grp = null;
+    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      grp = classGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
+      grp = adminGroups.find(g => Number(g.id) === Number(groupId));
+    }
+    const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
+    if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
+      for (const m of lmLibrary.materials) {
+        if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
+          monthLessonDates.add(m.date);
+        }
+      }
+    }
+    return Array.from(monthLessonDates).sort();
+  }
+
   let saveAttendanceChain = Promise.resolve();
 
   async function saveGroupAttendanceData(groupId, state, container, specificMonthKey) {
@@ -27528,6 +27556,10 @@ if(typeof window!=='undefined'){
       if (!actualState || typeof actualState !== 'object') return;
       const monthKey = specificMonthKey || (actualState.year + '-' + String(actualState.monthIndex + 1).padStart(2, '0'));
       const monthData = getMonthData(actualState, monthKey);
+      const fullLessonDates = getGroupMonthLessonDates(groupId, actualState, monthKey);
+      for (const d of fullLessonDates) {
+        monthData.lessonDates.add(d);
+      }
       const filteredDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
       const filteredAttendance = {};
       if (monthData.attendance && typeof monthData.attendance === 'object') {
@@ -27614,6 +27646,10 @@ if(typeof window!=='undefined'){
               }
               monthData.attendance = mergedAttendance;
               monthData.revision = Number(latest.revision) || 0;
+              const retryFullDates = getGroupMonthLessonDates(groupId, actualState, monthKey);
+              for (const d of retryFullDates) {
+                monthData.lessonDates.add(d);
+              }
               const retryDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
               const retryPayload = {
                 groupId,
@@ -27708,12 +27744,13 @@ if(typeof window!=='undefined'){
     const monthData = getMonthData(state, monthKey);
 
     // Combine scheduled dates and lmLibrary lesson dates for current month
-    const monthLessonDates = new Set();
-    for (const d of monthData.lessonDates) {
-      if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
-        monthLessonDates.add(d);
-      }
+    const sortedMonthLessons = getGroupMonthLessonDates(groupId, state, monthKey);
+    const monthLessonDates = new Set(sortedMonthLessons);
+    for (const d of sortedMonthLessons) {
+      monthData.lessonDates.add(d);
     }
+    const lessonCount = monthLessonDates.size;
+
     let grp = null;
     if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
       grp = classGroups.find(g => Number(g.id) === Number(groupId));
@@ -27721,15 +27758,6 @@ if(typeof window!=='undefined'){
     if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
       grp = adminGroups.find(g => Number(g.id) === Number(groupId));
     }
-    const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
-    if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
-      for (const m of lmLibrary.materials) {
-        if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
-          monthLessonDates.add(m.date);
-        }
-      }
-    }
-    const lessonCount = monthLessonDates.size;
 
     // Calculate exams for this month
     const monthExamDates = new Set();
@@ -27751,7 +27779,6 @@ if(typeof window!=='undefined'){
     // Calendar Grid Days Calculation
     const daysInMonth = new Date(year, state.monthIndex + 1, 0).getDate();
     const firstDayDow = (new Date(year, state.monthIndex, 1).getDay() + 6) % 7; // Monday = 0
-    const sortedMonthLessons = Array.from(monthLessonDates).sort();
 
     let gridHtml = '';
     for (const wd of WEEKDAYS) {
@@ -28163,7 +28190,7 @@ if(typeof window!=='undefined'){
     const monthKey = state.year + '-' + String(state.monthIndex + 1).padStart(2, '0');
     const monthData = getMonthData(state, monthKey);
     const pricePerLesson = Number(monthData.pricePerLesson) || 30;
-    const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+    const sortedLessonDates = getGroupMonthLessonDates(groupId, state, monthKey);
 
     const [y, m] = monthKey.split('-').map(Number);
     const daysInMonth = new Date(y, m, 0).getDate();
@@ -28219,7 +28246,7 @@ if(typeof window!=='undefined'){
       const monthName = dObj.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       const currency = monthData.currency || 'BYN';
       const students = getGroupStudents(groupId);
-      const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+      const sortedLessonDates = getGroupMonthLessonDates(groupId, state, monthKey);
       const lastLessonDate = sortedLessonDates[sortedLessonDates.length - 1] || '';
       const [y, m] = monthKey.split('-').map(Number);
       const daysInMonth = new Date(y, m, 0).getDate();
@@ -28325,7 +28352,7 @@ if(typeof window!=='undefined'){
     const currentDeadlineTime = monthData.paymentDeadlineTime || '18:00';
     const isAnchorChecked = monthData.anchorToCycleEnd !== false;
 
-    const sortedLessonDates = Array.from(monthData.lessonDates).filter(d => typeof d === 'string' && d.startsWith(monthKey + '-')).sort();
+    const sortedLessonDates = getGroupMonthLessonDates(groupId, state, monthKey);
     const lastLessonDate = sortedLessonDates[sortedLessonDates.length - 1] || '';
     let lastLessonBadgeText = 'No lessons scheduled';
     if (lastLessonDate) {
@@ -30679,27 +30706,8 @@ if(typeof window!=='undefined'){
       const now = new Date();
       const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
       const students = getGroupStudents(groupId);
-      const monthLessonDates = new Set();
-      for (const d of monthData.lessonDates) {
-        if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
-          monthLessonDates.add(d);
-        }
-      }
-      let grp = null;
-      if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-        grp = classGroups.find(g => Number(g.id) === Number(groupId));
-      }
-      if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
-        grp = adminGroups.find(g => Number(g.id) === Number(groupId));
-      }
-      const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
-      if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
-        for (const m of lmLibrary.materials) {
-          if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
-            monthLessonDates.add(m.date);
-          }
-        }
-      }
+      const sortedMonthLessons = getGroupMonthLessonDates(groupId, state, monthKey);
+      const monthLessonDates = new Set(sortedMonthLessons);
 
       const updateAttendanceCellDOM = (targetBtn, newStatus, studentName, dateStr) => {
         targetBtn.classList.remove('is-present', 'is-absent', 'is-unmarked');
@@ -30795,12 +30803,10 @@ if(typeof window!=='undefined'){
         const monthName = MONTH_NAMES[state.monthIndex];
         const students = getGroupStudents(groupId);
 
-        const monthLessonDates = new Set();
-        for (const d of monthData.lessonDates) {
-          if (typeof d === 'string' && d.startsWith(monthKey + '-')) {
-            monthLessonDates.add(d);
-          }
-        }
+        const sortedDates = getGroupMonthLessonDates(groupId, state, monthKey);
+        const monthLessonDates = new Set(sortedDates);
+        const lessonCount = monthLessonDates.size;
+
         let grp = null;
         if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
           grp = classGroups.find(g => Number(g.id) === Number(groupId));
@@ -30808,15 +30814,6 @@ if(typeof window!=='undefined'){
         if (!grp && typeof adminGroups !== 'undefined' && Array.isArray(adminGroups)) {
           grp = adminGroups.find(g => Number(g.id) === Number(groupId));
         }
-        const lessonIds = grp && Array.isArray(grp.lessonIds) ? grp.lessonIds.map(String) : [];
-        if (typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary.materials)) {
-          for (const m of lmLibrary.materials) {
-            if ((lessonIds.includes(String(m.id)) || Number(m.groupId) === Number(groupId)) && typeof m.date === 'string' && m.date.startsWith(monthKey + '-')) {
-              monthLessonDates.add(m.date);
-            }
-          }
-        }
-        const lessonCount = monthLessonDates.size;
 
         const monthExamDates = new Set();
         const examIds = grp && Array.isArray(grp.examIds) ? grp.examIds.map(String) : [];
@@ -30832,7 +30829,6 @@ if(typeof window!=='undefined'){
         }
         const examCount = monthExamDates.size;
 
-        const sortedDates = Array.from(monthLessonDates).sort();
         const attendancePct = calculateAttendancePct(monthLessonDates, students, monthData.attendance);
 
         let msgText = '';
@@ -31112,6 +31108,12 @@ if(typeof window!=='undefined'){
       }
     } catch {}
   });
+
+  if (typeof window !== 'undefined') {
+    window.calculateStudentTuition = calculateStudentTuition;
+    window.getGroupMonthLessonDates = getGroupMonthLessonDates;
+    window.showPaymentDeadlineModal = showPaymentDeadlineModal;
+  }
 })();
     let examHold = null;
     let examCurrentId = "";
