@@ -19,7 +19,7 @@ function policy(env){
 }
 export async function workbenchActor(env,id){
   if((typeof id!=='string'&&!Number.isSafeInteger(id))||!id||String(id).length>200||!env.DB?.prepare)return null;
-  const row=await env.DB.prepare('SELECT id,login,name,role,active,is_personal_data_revoked FROM users WHERE id=?').bind(id).first();
+  const row=await env.DB.prepare('SELECT id,login,name,role,active,is_personal_data_revoked FROM users WHERE id=? OR login=?').bind(id,String(id)).first();
   return row&&row.active!==0&&!row.is_personal_data_revoked&&['USER','ADMIN','DEVELOPER'].includes(row.role)?{id:row.id,login:row.login,name:row.name,role:row.role,active:true}:null;
 }
 function inspector(env){

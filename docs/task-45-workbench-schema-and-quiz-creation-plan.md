@@ -43,6 +43,11 @@
   - 🟩 Запустить таргетированные тесты `node --test test/test-workbench-schema-migration.mjs test/test-workbench-infrastructure.mjs test/test-learning-workbench.mjs`.
   - 🟩 Выполнить сборку клиентских ассетов командой `npm run build:preview`.
 
+- 🟩 **Этап 6: Универсальное разрешение разработчика подготовки (workbenchActor)**
+  - 🟩 Обновить запрос в `src/learning-workbench-runtime.mjs#L22` для поиска как по `id`, так и по `login`: `WHERE id=? OR login=?`.
+  - 🟩 Добавить целевой unit-тест в `test/test-workbench-schema-migration.mjs` для проверки поиска по целочисленному `id`, строковому `id` и логину `login`.
+  - 🟩 Запустить целевые тесты (25 тестов успешно пройдено) и выполнить `npm run build:preview`.
+
 ---
 
 ## 4. Прикрепленные скриншоты
@@ -62,3 +67,15 @@
 ### Скриншот 3: Воспроизведение ошибки на слове «delivery»
 ![Скриншот 3](task-workbench-screenshot-3.png)
 *Скриншот 3: Системная ошибка готовности схемы базы данных при открытии модального окна слова «delivery».*
+
+---
+
+### Скриншот 4: Ошибка схемы воркбенча на удаленном стенде после деплоя
+![Скриншот 4](task-workbench-screenshot-4.png)
+*Скриншот 4: Сохранение ошибки «Workbench schema requires an offline migration review» на удаленном стенде из-за отсутствия триггера qr_speech_attempts_immutable в базе данных Cloudflare D1 STUDY_DB.*
+
+---
+
+### Скриншот 5: Ошибка отсутствия активного разработчика подготовки после исправления схемы
+![Скриншот 5](task-workbench-screenshot-5.jpg)
+*Скриншот 5: Ошибка «An active preparation worker is required.» в модальном окне «cooking» из-за отсутствия или неверного значения LEARNING_WORKBENCH_WORKER_ID.*
