@@ -216,3 +216,13 @@ test('dedicated R2 contract is off by default, immutable, bounded and validates 
   bucket.objects.values().next().value.bytes[0]=9;await assert.rejects(reopened.get(key));
   await reopened.delete(key);assert.equal(await reopened.get(key),null);
 });
+test('workbench API /meanings/create allows 1-click creation from card translation and teacher custom definition',async()=>{
+  const f=await readyFixture();try{
+    const services=await createLearningWorkbenchFactory({inspect:async()=>{throw Error('No media.');}})({db:f.db,actor:actors.teacher});
+    const call=async(path,payload,actor=actors.teacher,writable=true)=>learningWorkbenchAPI(new Request('https://test.invalid/api/learning-workbench'+path,{method:payload?'POST':'GET',headers:{Origin:'https://test.invalid','Content-Type':'application/json'},...(payload?{body:JSON.stringify(payload)}:{})}),{actor,services,writable});
+    const res=await(await call('/meanings/create',body({cardId:2,fromCard:true}))).json();
+    assert.equal(res.cardId,2);
+    assert.equal(res.translation,'банк');
+    assert.ok(res.senseId);
+  }finally{f.close();}
+});

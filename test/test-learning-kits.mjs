@@ -153,3 +153,23 @@ test('targeted fill guards a concurrently created proposal and bounded retries d
     await f.kits.fill(actors.teacher,body({...f.context,types:['Flip']}));assert.equal((await f.generation.list(actors.teacher)).length,1);
   }finally{f.close();}
 });
+test('coverage returns card translation and createMeaning creates linked sense from card translation in one click',async()=>{
+  const f=await setup({d1:true});try{
+    const before=await f.kits.coverage(actors.teacher,{cardId:2});
+    assert.equal(before.selectionRequired,true);
+    assert.equal(before.word,'bank');
+    assert.equal(before.cardTranslation,'банк');
+    assert.deepEqual(before.senses,[]);
+    const created=await f.kits.createMeaning(actors.teacher,body({cardId:2,fromCard:true}));
+    assert.equal(created.cardId,2);
+    assert.equal(created.translation,'банк');
+    assert.ok(created.senseId);
+    const after=await f.kits.coverage(actors.teacher,{cardId:2});
+    assert.equal(after.selectionRequired,false);
+    assert.equal(after.meaning.id,created.senseId);
+    assert.equal(after.meaning.translation,'банк');
+    const custom=await f.kits.createMeaning(actors.teacher,body({cardId:2,meaning:{partOfSpeech:'verb',translation:'хранить в банке',definition:'Deposit funds into a bank.'}}));
+    assert.equal(custom.translation,'хранить в банке');
+    assert.equal((await f.kits.senses(actors.teacher,2)).length,2);
+  }finally{f.close();}
+});

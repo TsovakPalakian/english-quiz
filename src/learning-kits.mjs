@@ -22,7 +22,7 @@ export class LearningKits{
     if(!review.extendedLifecycle)fail(503,'Extended quiz lifecycle is not enabled.');
     this.review=review;this.db=review.db;this.generation=generation;this.availability=availability;
   }
-  async card(actor,id){kitSigned(actor);recordId(id);const [card]=await this.db.read(`SELECT c.id,c.scope FROM cards c WHERE c.id=? AND c.deleted_at IS NULL AND ${cardAccess}`,[id,...accessArgs(actor)]);if(!card)fail(404,'Card not available.');return card;}
+  async card(actor,id){kitSigned(actor);recordId(id);const [card]=await this.db.read(`SELECT c.id,c.scope,c.en,c.ru,c.part_of_speech,c.extra_json,c.word_key FROM cards c WHERE c.id=? AND c.deleted_at IS NULL AND ${cardAccess}`,[id,...accessArgs(actor)]);if(!card)fail(404,'Card not available.');return card;}
   cardGuard(actor,id){return s(`INSERT INTO mutation_guard SELECT EXISTS(SELECT 1 FROM cards c WHERE c.id=? AND c.deleted_at IS NULL AND ${cardAccess})`,[id,...accessArgs(actor)]);}
   async metadata(senseId){const [row]=await this.db.read('SELECT * FROM qr_sense_metadata WHERE sense_id=?',[senseId]);return {revision:row?.revision||0,...(row?JSON.parse(row.value_json):defaults())};}
   async senses(actor,cardId){await this.card(actor,cardId);const rows=await this.db.read(`SELECT m.id,m.en,m.translation,m.definition,m.part_of_speech FROM qr_senses m JOIN qr_card_senses cs ON cs.sense_id=m.id WHERE cs.card_id=? ORDER BY m.id`,[cardId]);
@@ -37,9 +37,11 @@ export class LearningKits{
   }
   async coverage(actor,{cardId,senseId=null,groupId=null,lessonId=null}){
     const card=await this.card(actor,cardId),senses=await this.senses(actor,cardId);
+    let extra={};try{extra=JSON.parse(card.extra_json||'{}');}catch{}
+    const cardInfo={cardId,word:card.en,cardTranslation:card.ru||'',partOfSpeech:card.part_of_speech||'',transcription:extra.transcription||extra.phonetic||''};
     if(!senseId&&senses.length===1)senseId=senses[0].id;
     const meaning=senses.find(row=>row.id===senseId);
-    if(!meaning){if(senseId)fail(400,'Select a meaning explicitly linked to this card.');return {senses,selectionRequired:true,types:[],counts:null,meaning:null};}
+    if(!meaning){if(senseId)fail(400,'Select a meaning explicitly linked to this card.');return {...cardInfo,senses,selectionRequired:true,types:[],counts:null,meaning:null};}
     const teacher=['ADMIN','DEVELOPER'].includes(actor.role),context=groupId!==null&&lessonId!==null&&card.scope==='shared'?{groupId,lessonId,cardId,senseId}:null;
     if(context)await this.review.checkContext(actor,context);
     const shared=(await this.review.sharedForCard(actor,cardId)).filter(q=>q.senseId===senseId);
@@ -75,7 +77,32 @@ export class LearningKits{
       FROM qr_versions q LEFT JOIN qr_publication p ON p.version_id=q.id
       WHERE q.sense_id=? AND q.state='approved' ORDER BY q.type,q.family_id,q.version DESC LIMIT 100`,[senseId]):[];
     const baseTypes=types.filter(row=>QUIZ_TYPES.includes(row.type));
-    return {senses,meaning,library,selectionRequired:false,types:baseTypes,additionalTypes:types.filter(row=>!QUIZ_TYPES.includes(row.type)),counts:{total:QUIZ_TYPES.length,ready:baseTypes.filter(t=>t.status==='ready').length,pending:baseTypes.filter(t=>['pending_review','needs_changes'].includes(t.status)).length,preparing:baseTypes.filter(t=>t.status==='preparing').length,missing:baseTypes.filter(t=>t.status==='missing').length,failed:baseTypes.filter(t=>t.status==='failed').length}};
+    return {...cardInfo,senses,meaning,library,selectionRequired:false,types:baseTypes,additionalTypes:types.filter(row=>!QUIZ_TYPES.includes(row.type)),counts:{total:QUIZ_TYPES.length,ready:baseTypes.filter(t=>t.status==='ready').length,pending:baseTypes.filter(t=>['pending_review','needs_changes'].includes(t.status)).length,preparing:baseTypes.filter(t=>t.status==='preparing').length,missing:baseTypes.filter(t=>t.status==='missing').length,failed:baseTypes.filter(t=>t.status==='failed').length}};
+  }
+  async createMeaning(actor,body){
+    kitSigned(actor);exactFields(body,['mutationId','cardId',...(body.fromCard?['fromCard']:['meaning'])]);
+    if(!uuid(body.mutationId))fail(400,'Invalid mutation identity.');
+    recordId(body.cardId);const card=await this.card(actor,body.cardId);
+    let pos,translation,definition;
+    if(body.fromCard){
+      pos=card.part_of_speech||'noun';
+      translation=reviewText(card.ru||card.en,2000);
+      definition=reviewText(card.ru?card.en+' — '+card.ru:card.en,2000);
+    }else{
+      kitTeacher(actor);exactFields(body.meaning,['partOfSpeech','translation','definition']);
+      pos=reviewText(body.meaning.partOfSpeech||card.part_of_speech||'noun',100);
+      translation=reviewText(body.meaning.translation,2000);
+      definition=reviewText(body.meaning.definition||body.meaning.translation,2000);
+    }
+    return this.review.mutation(actor,body,['meaning-create',body.cardId],async()=>{
+      const id=crypto.randomUUID(),today=new Date().toISOString().slice(0,10);
+      return {statements:[
+        this.cardGuard(actor,body.cardId),
+        s('INSERT INTO qr_senses(id,en,word_key,part_of_speech,translation,definition,created_by,created_date) VALUES(?,?,?,?,?,?,?,?)',[id,card.en,card.word_key||card.en.toLowerCase().trim(),pos,translation,definition,actor.id,today]),
+        s('INSERT INTO qr_card_senses(card_id,sense_id) SELECT id,? FROM cards WHERE id=? AND deleted_at IS NULL',[id,body.cardId]),
+        this.review.guard()
+      ],result:{cardId:body.cardId,senseId:id,partOfSpeech:pos,translation,definition}};
+    });
   }
   async fill(actor,body){
     kitTeacher(actor);exactFields(body,['mutationId','groupId','lessonId','cardId','senseId','types']);if(!uuid(body.mutationId)||!this.generation)fail(400,'Invalid preparation request.');

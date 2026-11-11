@@ -37,7 +37,7 @@ yield "00. Fixture and browser setup";
     const component=readFileSync(new URL('../client/52a-workbench.js',import.meta.url),'utf8'),lessonSource=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
     const lesson=extractFunction(lessonSource, 'lmWordCardHtml');
     assert.ok(bundleSource('preview.js').includes(component));
-    const script=`window.authUser={id:'u1',role:'USER'};window.accountReady=true;window.viewAccount=null;window.viewSwitching=false;window.viewGen=1;window.lmState={id:1,blocks:[{id:1,stageId:1,word:'drizzle'}]};window.classGroups=[{id:1,title:'A1 Monday',lessonIds:[1]},{id:2,title:'A2 Friday',lessonIds:[1]}];let flag=false;window.esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));window.wordPic=()=>'';window.ipaHtml=()=>'';window.examStudentRestricted=()=>false;window.LearningMain={capabilities:()=>flag?{learningWorkbench:true}:{},fetch:async(path,options={})=>{const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const data=await response.json();if(!response.ok)throw Error(data.error);return data;}};${component}\n${lesson}\nwindow.paint=()=>{document.querySelector('#lesson').innerHTML=lmWordCardHtml(lmState.blocks[0]);document.querySelector('#personal').innerHTML=LearningWorkbench.cardButton({stageId:1,word:'drizzle'});};window.toggle=value=>{flag=value;paint();};paint();`;
+    const script=`window.authUser={id:'u1',role:'USER'};window.accountReady=true;window.viewAccount=null;window.viewSwitching=false;window.viewGen=1;window.lmState={id:1,blocks:[{id:1,stageId:1,word:'drizzle'}]};window.classGroups=[{id:1,title:'A1 Monday',lessonIds:[1]},{id:2,title:'A2 Friday',lessonIds:[1]}];let flag=false;window.esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));window.wordPic=()=>'';window.ipaHtml=()=>'';window.examStudentRestricted=()=>false;window.LearningMain={capabilities:()=>flag?{learningWorkbench:true}:{},fetch:async(path,options={})=>{const response=await fetch(path,{headers:{'Content-Type':'application/json'},...options});const data=await response.json();if(!response.ok)throw Error(data.error);return data;}};${component}\n${lesson}\nwindow.paint=()=>{document.querySelector('#lesson').innerHTML=lmState.blocks.map(b=>lmWordCardHtml(b)).join('');document.querySelector('#personal').innerHTML=LearningWorkbench.cardButton({stageId:1,word:'drizzle'});};window.toggle=value=>{flag=value;paint();};paint();`;
     server=createServer(async(req,res)=>{
       try{
         const origin='http://127.0.0.1:'+server.address().port;
@@ -242,6 +242,27 @@ yield "00. Fixture and browser setup";
     yield "52. [data-workbench-body] / checks";
     assert.match(await page.locator('[data-workbench-body]').innerText(),/Read drizzle naturally/);
     assert.equal(await page.locator('[data-speech-form=task]').isVisible(),false);
+    yield "53. [data-workbench-meaning-auto] / click";
+    await page.locator('[data-workbench-close]').click();
+    actor=actors.teacher;writable=true;
+    f.sql.prepare("INSERT INTO lesson_blocks(id, lesson_id, position, type, tab, card_id, content_json, revision, deleted_at) VALUES(4, 1, 1, 'word', '', 2, '{}', 1, NULL)").run();
+    await page.evaluate(()=>{
+      lmState.blocks.push({id:2,stageId:2,word:'bank'});
+      window.paint();
+    });
+    await page.locator('[data-workbench-lesson="2"]').click();
+    await page.selectOption('[data-workbench-group]','1');
+    await page.locator('[data-workbench-meaning-auto]').waitFor();
+    await page.locator('[data-workbench-meaning-auto]').click();
+    yield "54. [data-workbench-categories] / checks";
+    await page.locator('[data-workbench-categories]').waitFor();
+    assert.ok(await page.locator('[data-workbench-lesson-bridge]').isVisible());
+    await page.locator('[data-workbench-categories] [data-category="speech"]').click();
+    assert.equal(await page.locator('[data-quiz-category="memory"]').first().isHidden(),true);
+    assert.equal(await page.locator('[data-quiz-category="speech"]').first().isVisible(),true);
+    yield "55. [data-workbench-lesson-bridge] / click";
+    await page.locator('[data-workbench-lesson-bridge]').click();
+    assert.equal(await page.locator('dialog[open]').count(),0);
     assert.equal(await page.locator('#old-study').innerText(),'Study');assert.equal(f.sql.prepare('SELECT count(*) AS n FROM quizzes').get().n,1);
     assert.deepEqual(errors,[]);assert.ok(requests.every(path=>path.startsWith(url)||path.startsWith('blob:')));assert.ok(!requests.some(path=>new URL(path).pathname.startsWith('/local/')));
   }finally{await browser?.close();if(server)await new Promise(resolve=>server.close(resolve));await services?.speech.close();await services?.transcripts.close();f.close();}

@@ -161,6 +161,13 @@
     render(entry,'<div class="learning-review-filters"><label>Search<input type="search" data-workbench-search value="'+esc(entry.search||'')+'"></label><label>Status<select data-workbench-filter><option value="">All</option>'+['draft','submitted','returned','approved'].filter(state=>entry.view==='mine'||['submitted','returned'].includes(state)).map(state=>'<option value="'+state+'" '+(entry.filter===state?'selected':'')+'>'+esc({draft:'Draft',submitted:'Needs review',returned:'Changes requested',approved:'Teacher checked'}[state])+'</option>').join('')+'</select></label></div><p>'+rows.length+' matching · '+entry.rows.length+' loaded</p>'+group(rows)+(!rows.length?'<p>'+(entry.view==='mine'?'No matching quizzes. To create a quiz, open a lesson and click the ⋮ menu on any word card.':'No matching quizzes.')+'</p>':'')+(entry.nextOffset!==null?'<button class="btn saas-btn" data-workbench-more>Load more</button>':''));
     if(staff()&&entry.features?.includes('independent'))for(const q of rows){const host=dialog.querySelector('[data-review-key="version-'+q.id+'"]'),panel=document.createElement('details');panel.innerHTML='<summary>Independent AI review</summary><div class="learning-workbench-actions"><button class="btn saas-btn" type="button" data-workbench-checks="'+esc(q.id)+'">Review history</button><button class="btn saas-btn" type="button" data-workbench-check-run="'+esc(q.id)+'" '+(!entry.writable||q.state!=='submitted'?'disabled':'')+'>Request AI review</button></div><div data-workbench-check-results="'+esc(q.id)+'"></div>';host?.append(panel);}
   }
+  const categoryForType=type=>{
+    if(['Flip','Memory','Flashcard'].includes(type))return 'memory';
+    if(['Choice','True / false','Tap','Select all','Odd one out','Definition','Video choice'].includes(type))return 'choice';
+    if(['Type','Gap','Build','Match','Reverse','Spell','Letters','Hangman'].includes(type))return 'writing';
+    if(['Listen','Pronunciation'].includes(type))return 'speech';
+    return 'choice';
+  };
   async function coverage(entry){
     speechUI?.deactivate();entry.view='kit';
     const token=++serial,query=new URLSearchParams({cardId:entry.cardId,...(entry.senseId?{senseId:entry.senseId}:{}),...(entry.groupId?{groupId:entry.groupId,lessonId:entry.lessonId}:{})});
@@ -169,7 +176,44 @@
     const group=tabButtons(entry)+(entry.groups?.length>1?'<label>Group<select data-workbench-group>'+options(entry.groups)+'</select></label>':'');
     const senses='<label>Meaning<select data-workbench-sense><option value="">Select a meaning</option>'+data.senses.map(sense=>'<option value="'+esc(sense.id)+'" '+(sense.id===entry.senseId?'selected':'')+'>'+esc([sense.part_of_speech,sense.translation,sense.definition].filter(Boolean).join(' · '))+'</option>').join('')+'</select></label>';
     const prepare=staff()&&entry.writable&&entry.features?.includes('preparation')&&authorable(entry)?data.types.filter(type=>type.canPrepare):[];
-    render(entry,group+senses+(data.selectionRequired?'<p>No meaning selected.</p>':'<div class="learning-workbench-actions">'+(authorable(entry)?'<button class="btn" type="button" data-workbench-new>New quiz</button>':'')+'<button class="btn" type="button" data-workbench-own>My quizzes</button></div><h3>'+data.counts.ready+' / '+data.counts.total+' types ready</h3>'+[...data.types,...(data.additionalTypes||[])].map(type=>'<details><summary>'+esc(type.type)+' · '+esc(type.status==='ready'?'Teacher checked · '+type.approvedCount+' variants':reason[type.reason]||type.reason||type.status)+'</summary>'+type.versionIds.map((id,index)=>'<p>Variant '+(index+1)+' <button class="btn" type="button" data-workbench-practice="'+esc(id)+'" '+(!entry.writable?'disabled':'')+'>Practice</button></p>').join('')+'</details>').join('')+(prepare.length?'<form data-workbench-prepare><fieldset><legend>Prepare missing types</legend>'+prepare.map(type=>'<label><input type="checkbox" name="types" value="'+esc(type.type)+'">'+esc(type.type)+'</label>').join('')+'</fieldset><button class="btn" type="submit">Queue preparation</button></form>':'')+(!entry.writable?'<p>Read-only. New practice sessions are disabled.</p>':'')));
+    const allTypes=[...data.types,...(data.additionalTypes||[])];
+    const setupView='<div class="workbench-setup-card" style="margin:12px 0;padding:14px;border:1px dashed var(--border,#cbd5e1);border-radius:8px;background:var(--bg-card,#f8fafc)">'+
+      '<h4 style="margin:0 0 6px">Meaning &amp; Definition Setup</h4>'+
+      '<p class="hint" style="margin:0 0 10px">No meaning selected. Select an existing meaning above or create one from card data.</p>'+
+      (data.cardTranslation?'<div style="margin-bottom:12px;padding:10px;background:var(--bg-hover,#e2e8f0);border-radius:6px"><p style="margin:0 0 6px">Card translation: <strong>'+esc(data.cardTranslation)+'</strong></p><button class="btn primary" type="button" data-workbench-meaning-auto '+(!entry.writable?'disabled':'')+'>✨ Create from card translation</button></div>':'')+
+      '<details style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:600">Enter custom definition</summary>'+
+      '<form data-workbench-meaning-custom style="margin-top:8px">'+
+      '<label>Part of speech<input name="partOfSpeech" value="'+esc(data.partOfSpeech||'noun')+'" required maxlength="100"></label>'+
+      '<label>Translation<input name="translation" value="'+esc(data.cardTranslation||'')+'" required maxlength="2000"></label>'+
+      '<label>Definition<textarea name="definition" required maxlength="2000">'+esc(data.word?data.word+' — '+(data.cardTranslation||''):'')+'</textarea></label>'+
+      '<button class="btn primary" type="submit" '+(!entry.writable?'disabled':'')+'>Save custom meaning</button>'+
+      '</form></details>'+
+      (staff()?'<div><button class="btn" type="button" data-workbench-dict-lookup '+(!entry.writable?'disabled':'')+'>🔍 WordNet dictionary lookup</button><div data-workbench-dict-results style="margin-top:8px"></div></div>':'')+
+      '</div>';
+    let hubView='';
+    if(!data.selectionRequired&&data.counts){
+      const memoryCount=allTypes.filter(t=>categoryForType(t.type)==='memory').length,
+            choiceCount=allTypes.filter(t=>categoryForType(t.type)==='choice').length,
+            writingCount=allTypes.filter(t=>categoryForType(t.type)==='writing').length,
+            speechCount=allTypes.filter(t=>categoryForType(t.type)==='speech').length;
+      hubView='<div class="workbench-bridge-banner" style="margin:12px 0;padding:10px 14px;border-radius:8px;background:var(--bg-card,#f1f5f9);border:1px solid var(--border,#cbd5e1);display:flex;align-items:center;justify-content:space-between;gap:12px">'+
+        '<div><strong>Lesson Group Practice</strong><p class="hint" style="margin:0">Practice all cards in this lesson together</p></div>'+
+        '<button class="btn primary" type="button" data-workbench-lesson-bridge>🚀 Open Lesson Study</button>'+
+        '</div>'+
+        '<div class="learning-workbench-actions">'+(authorable(entry)?'<button class="btn" type="button" data-workbench-new>New quiz</button>':'')+'<button class="btn" type="button" data-workbench-own>My quizzes</button></div>'+
+        '<h3>'+data.counts.ready+' / '+data.counts.total+' types ready</h3>'+
+        '<div class="row" data-workbench-categories style="margin-bottom:10px;gap:6px">'+
+        '<button class="btn chip on" type="button" data-category="all">All ('+allTypes.length+')</button>'+
+        '<button class="btn chip" type="button" data-category="memory">Cards &amp; Memory ('+memoryCount+')</button>'+
+        '<button class="btn chip" type="button" data-category="choice">Tests &amp; Choice ('+choiceCount+')</button>'+
+        '<button class="btn chip" type="button" data-category="writing">Spelling &amp; Writing ('+writingCount+')</button>'+
+        '<button class="btn chip" type="button" data-category="speech">Audio &amp; Speech ('+speechCount+')</button>'+
+        '</div>'+
+        allTypes.map(type=>'<details data-quiz-category="'+categoryForType(type.type)+'"><summary><strong>'+esc(type.type)+'</strong> · '+esc(type.status==='ready'?'Teacher checked · '+type.approvedCount+' variants':reason[type.reason]||type.reason||type.status)+'</summary>'+(type.versionIds.length?type.versionIds.map((id,index)=>'<p>Variant '+(index+1)+' <button class="btn" type="button" data-workbench-practice="'+esc(id)+'" '+(!entry.writable?'disabled':'')+'>Practice</button></p>').join(''):'<p class="hint">No approved variant.</p>')+'</details>').join('')+
+        (prepare.length?'<form data-workbench-prepare><fieldset><legend>Prepare missing types</legend>'+prepare.map(type=>'<label><input type="checkbox" name="types" value="'+esc(type.type)+'">'+esc(type.type)+'</label>').join('')+'</fieldset><button class="btn" type="submit">Queue preparation</button></form>':'')+
+        (!entry.writable?'<p>Read-only. New practice sessions are disabled.</p>':'');
+    }
+    render(entry,group+senses+(data.selectionRequired?setupView:hubView));
     if(entry.groupId&&dialog?.querySelector('[data-workbench-group]'))dialog.querySelector('[data-workbench-group]').value=String(entry.groupId);
     if(entry.features?.includes('mapping')&&staff()||entry.features?.includes('statistics')){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML=(entry.features.includes('mapping')&&staff()?'<button class="btn" type="button" data-workbench-meaning-map>Link an exact meaning</button>':'')+(entry.features.includes('statistics')?'<button class="btn" type="button" data-workbench-history-list>Practice history</button>':'')+(staff()&&entry.features.includes('examQuizzes')&&entry.senseId?'<button class="btn" type="button" data-workbench-assign-exam '+(!entry.writable?'disabled':'')+'>Assign reviewed quiz to exam</button>':'');dialog.querySelector('[data-workbench-body]').append(actions);}
     if(entry.features?.includes('feedback')&&entry.senseId){const actions=document.createElement('div');actions.className='learning-workbench-actions';actions.innerHTML='<button class="btn" type="button" data-workbench-report '+(!entry.writable?'disabled':'')+'>Report a problem</button><button class="btn" type="button" data-workbench-reports>My reports</button>';dialog.querySelector('[data-workbench-body]').append(actions);}
@@ -182,9 +226,52 @@
   }
   document.addEventListener('click',event=>{
     const exam=event.target.closest('[data-workbench-exam]');if(exam){if(!enabled()||!lmState?.examOwned||!valid(lmState.examId)||!valid(lmState.blockId))return;void open({examBridge:true,examId:lmState.examId,blockId:lmState.blockId,title:'Reviewed exam quizzes'});return;}
-    const node=event.target.closest('[data-workbench-meaning-map],[data-workbench-history-list],[data-workbench-open-session],[data-workbench-assign-exam],[data-workbench-release-session],[data-workbench-pronunciation-history]'),entry=job;
+    const catBtn=event.target.closest('[data-workbench-categories] [data-category]');
+    if(catBtn&&dialog?.contains(catBtn)){
+      dialog.querySelectorAll('[data-workbench-categories] [data-category]').forEach(b=>b.classList.remove('on'));
+      catBtn.classList.add('on');
+      const cat=catBtn.dataset.category;
+      dialog.querySelectorAll('[data-quiz-category]').forEach(card=>{
+        card.hidden=(cat!=='all'&&card.dataset.quizCategory!==cat);
+      });
+      return;
+    }
+    const node=event.target.closest('[data-workbench-meaning-map],[data-workbench-history-list],[data-workbench-open-session],[data-workbench-assign-exam],[data-workbench-release-session],[data-workbench-pronunciation-history],[data-workbench-meaning-auto],[data-workbench-lesson-bridge],[data-workbench-dict-lookup],[data-workbench-dict-pick]'),entry=job;
     if(!node||!entry||!dialog?.contains(node))return;
     void run(entry,async()=>{
+      if(node.hasAttribute('data-workbench-meaning-auto')){
+        const result=await write(entry,'/meanings/create',{cardId:entry.cardId,fromCard:true});
+        if(!current(entry))return;entry.senseId=result.senseId;await coverage(entry);return;
+      }
+      if(node.hasAttribute('data-workbench-lesson-bridge')){
+        close();
+        if(typeof openDayQuiz==='function'&&entry.lessonId){openDayQuiz(entry.lessonId);}
+        else if(typeof visit==='function'){visit('daysetup');}
+        return;
+      }
+      if(node.hasAttribute('data-workbench-dict-lookup')){
+        const word=entry.kit?.word;if(!word)return;
+        try{
+          const res=await write(entry,'/dictionary/lookup',{word});
+          const container=dialog.querySelector('[data-workbench-dict-results]');
+          if(container&&Array.isArray(res?.senses)){
+            container.innerHTML=res.senses.map(s=>'<div class="card" style="margin-top:6px;padding:8px"><p style="margin:0 0 4px"><strong>'+esc(s.partOfSpeech)+'</strong>: '+esc(s.definition)+'</p><button class="btn" type="button" data-workbench-dict-pick data-pos="'+esc(s.partOfSpeech)+'" data-def="'+esc(s.definition)+'">Use this definition</button></div>').join('')||'<p class="hint">No definitions found.</p>';
+          }
+        }catch(e){
+          const container=dialog.querySelector('[data-workbench-dict-results]');
+          if(container)container.innerHTML='<p class="hint">Lookup error: '+esc(e.message)+'</p>';
+        }
+        return;
+      }
+      if(node.hasAttribute('data-workbench-dict-pick')){
+        const form=dialog.querySelector('[data-workbench-meaning-custom]');
+        if(form){
+          const pos=form.querySelector('[name=partOfSpeech]'),def=form.querySelector('[name=definition]');
+          if(pos)pos.value=node.dataset.pos||'noun';
+          if(def)def.value=node.dataset.def||'';
+        }
+        return;
+      }
       if(node.hasAttribute('data-workbench-meaning-map')){
         const data=await request('/legacy/candidates?cardId='+entry.cardId);if(!current(entry))return;entry.meaningMap=data;entry.view='meaning-map';
         render(entry,'<button class="btn" data-workbench-back>Learning kit</button><h3>'+esc(data.word)+'</h3><form data-workbench-meaning-link><label>Exact meaning<select name="senseId" required><option value="">Choose the intended meaning</option>'+data.candidates.map(row=>'<option value="'+esc(row.id)+'" '+(data.linked.includes(row.id)?'disabled':'')+'>'+esc([row.part_of_speech,row.translation,row.definition].join(' · '))+'</option>').join('')+'</select></label><label>Reason<textarea name="reason" maxlength="1000" required></textarea></label><button class="btn" type="submit" '+(!entry.writable?'disabled':'')+'>Link meaning</button></form>'+(data.truncated?'<p>More meanings exist. Use an explicit reviewed source mapping.</p>':''));return;
@@ -211,9 +298,10 @@
     });
   });
   document.addEventListener('submit',event=>{
-    const form=event.target;if(!form.matches('[data-workbench-meaning-link],[data-workbench-exam-assign]'))return;event.preventDefault();const entry=job;if(!entry?.writable||!dialog?.contains(form))return;const data=new FormData(form);
+    const form=event.target;if(!form.matches('[data-workbench-meaning-link],[data-workbench-exam-assign],[data-workbench-meaning-custom]'))return;event.preventDefault();const entry=job;if(!entry?.writable||!dialog?.contains(form))return;const data=new FormData(form);
     void run(entry,async()=>{
-      if(form.hasAttribute('data-workbench-meaning-link')){const result=await write(entry,'/legacy/link',{cardId:entry.cardId,senseId:data.get('senseId'),expectedSenseIds:entry.meaningMap.linked,reason:data.get('reason')});if(!current(entry))return;entry.senseId=result.senseId;await coverage(entry);}
+      if(form.hasAttribute('data-workbench-meaning-custom')){const result=await write(entry,'/meanings/create',{cardId:entry.cardId,meaning:{partOfSpeech:data.get('partOfSpeech')||'noun',translation:data.get('translation'),definition:data.get('definition')}});if(!current(entry))return;entry.senseId=result.senseId;await coverage(entry);}
+      else if(form.hasAttribute('data-workbench-meaning-link')){const result=await write(entry,'/legacy/link',{cardId:entry.cardId,senseId:data.get('senseId'),expectedSenseIds:entry.meaningMap.linked,reason:data.get('reason')});if(!current(entry))return;entry.senseId=result.senseId;await coverage(entry);}
       else{await write(entry,'/exam-quizzes/assign',{examId:Number(data.get('examId')),blockId:Number(data.get('blockId')),cardId:entry.cardId,senseId:entry.senseId,versionId:data.get('versionId')});if(current(entry)){await coverage(entry);dialog.querySelector('[data-workbench-status]').textContent='Assigned as an additional quiz. Existing exam grades were not changed.';}}
     });
   });

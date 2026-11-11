@@ -143,6 +143,7 @@ export async function learningWorkbenchAPI(request,{actor,services,writable=fals
       return json(await service('preparation').reconcile(actor,data));
     }
     if(path==='/kit/fill')return json(await service('kits').fill(actor,data));
+    if(path==='/meanings/create')return json(await service('kits').createMeaning(actor,data));
     const removeMedia=new RegExp('^/media/'+id+'/remove$').exec(path);if(removeMedia)return json(await service('media').remove(actor,removeMedia[1],data));
     if(path==='/proposals')return json(await service('review').createDraft(actor,data));
     if(path==='/sessions')return json(await service('sessions').start(actor,data));
