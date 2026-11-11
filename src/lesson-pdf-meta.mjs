@@ -176,22 +176,78 @@ export async function generateLessonFromText({text='', level='B1', title='', api
 
   // Deterministic local structured generation fallback
   const lessonTitle = title || cleanText.split('\n')[0]?.replace(/^#+\s*/, '').slice(0, 80) || 'Lesson';
-  const words = [
-    { word: 'accuracy', meaning: 'the ability to do something without making mistakes', translation: 'точность', example: 'Practice enhances accuracy.', pages: [1], generated: true },
-    { word: 'fluency', meaning: 'the ability to speak or write smoothly and easily', translation: 'беглость', example: 'Conversational drills develop fluency.', pages: [1], generated: true },
-    { word: 'comprehension', meaning: 'the ability to understand', translation: 'понимание', example: 'Reading improves comprehension.', pages: [1], generated: true },
-    { word: 'structure', meaning: 'the way parts are arranged', translation: 'структура', example: 'Master sentence structure.', pages: [1], generated: true }
-  ];
-  const phrases = [
+  const isRelativeClauses = /relative\s*clause|so_?inter|defining\s*clause/i.test(cleanText + ' ' + lessonTitle);
+
+  let unit = '1';
+  let lesson = '1';
+  const unitMatch = cleanText.match(/\bUnit:?\s*(\d+)/i) || lessonTitle.match(/\bUnit\s*(\d+)/i);
+  if (unitMatch) unit = unitMatch[1];
+  const lessonMatch = cleanText.match(/\bLesson:?\s*(\d+)/i) || lessonTitle.match(/\bUnit\s*\d+\.(\d+)/i);
+  if (lessonMatch) lesson = lessonMatch[1];
+
+  let words = [];
+  // Parse explicit words from text if present
+  const wordsSection = cleanText.match(/Words:?\s*([^\n]+)/i);
+  if (wordsSection && wordsSection[1]) {
+    const rawPairs = wordsSection[1].split(',').map(s => s.trim()).filter(Boolean);
+    for (const pair of rawPairs) {
+      const parts = pair.split(/[-—:]/).map(p => p.trim());
+      if (parts[0]) {
+        words.push({
+          word: parts[0],
+          meaning: parts[0] + ' in context',
+          translation: parts[1] || parts[0],
+          example: 'Example sentence for ' + parts[0] + '.',
+          pages: [1],
+          generated: true
+        });
+      }
+    }
+  }
+
+  if (words.length === 0) {
+    if (isRelativeClauses) {
+      words = [
+        { word: 'defining relative clause', meaning: 'a clause that gives essential information about a noun', translation: 'определительное придаточное предложение', example: 'A defining relative clause identifies exactly who or what we mean.', pages: [1], generated: true },
+        { word: 'non-defining relative clause', meaning: 'a clause that adds extra, non-essential information', translation: 'неопределительное придаточное предложение', example: 'Non-defining relative clauses are separated by commas.', pages: [1], generated: true },
+        { word: 'relative pronoun', meaning: 'a pronoun such as who, which, or that', translation: 'относительное местоимение', example: 'Choose the correct relative pronoun for this sentence.', pages: [1], generated: true },
+        { word: 'antecedent', meaning: 'the noun to which a relative pronoun refers', translation: 'антецедент', example: 'The antecedent determines whether to use who or which.', pages: [1], generated: true }
+      ];
+    } else {
+      words = [
+        { word: 'comprehension', meaning: 'the ability to understand target concepts', translation: 'понимание', example: 'Reading improves comprehension.', pages: [1], generated: true },
+        { word: 'structure', meaning: 'the way parts are arranged', translation: 'структура', example: 'Master sentence structure.', pages: [1], generated: true },
+        { word: 'application', meaning: 'practical use of rules in speech', translation: 'применение', example: 'Daily practice aids practical application.', pages: [1], generated: true },
+        { word: 'mastery', meaning: 'comprehensive knowledge or skill in a subject', translation: 'мастерство', example: 'Consistent drills lead to mastery.', pages: [1], generated: true }
+      ];
+    }
+  }
+
+  const phrases = isRelativeClauses ? [
+    { phrase: 'who / which / that', meaning: 'core relative pronouns in English', translation: 'кто / который / что', example: 'Use who for people and which for objects.', pages: [1], generated: true }
+  ] : [
     { phrase: 'in a nutshell', meaning: 'in summary or briefly', translation: 'в двух словах', example: 'In a nutshell, this lesson focuses on mastery.', pages: [1], generated: true }
   ];
-  const rules = [
+
+  const rules = isRelativeClauses ? [
+    {
+      title: 'Defining vs Non-defining Relative Clauses',
+      explanation: 'Use who for people, which for things, that for people or things in defining clauses, where for places, and whose for possession. Defining clauses take no commas.',
+      examples: [
+        'The teacher who inspired me works here. — Учитель, который вдохновил меня, работает здесь.',
+        'London, which is the capital of the UK, is historic. — Лондон, который является столицей Великобритании, исторический.'
+      ],
+      pages: [1],
+      generated: true
+    }
+  ] : [
     { title: 'Sentence patterns and discourse markers', explanation: 'Use proper connectors and grammatical structures to link clauses logically.', examples: ['Although it was late, they continued practicing. — Хотя было поздно, они продолжили практику.'], pages: [1], generated: true }
   ];
+
   const classwork = [
     { stage: 'explanation', title: 'Lesson Overview: ' + lessonTitle, text: 'Study target structures and principles.', kind: 'explanation', options: [], answer: -1, feedback: '', criteria: '', teacherAnswer: '', pages: [1], generated: true },
-    { stage: 'comprehension', title: 'Comprehension: accuracy', text: 'Select the statement that matches "accuracy":', kind: 'choice', options: ['The quality of being correct and precise', 'Speaking quickly without preparation', 'Translating every word literally'], answer: 0, feedback: '"Accuracy" denotes correctness and precision.', criteria: '', teacherAnswer: '', pages: [1], generated: true },
-    { stage: 'guided', title: 'Guided practice: fluency', text: 'Choose the appropriate target word: "Repeated practice builds natural ___ in speech."', kind: 'choice', options: ['fluency', 'hesitation', 'silence'], answer: 0, feedback: 'Fluency refers to speaking smoothly.', criteria: '', teacherAnswer: '', pages: [1], generated: true },
+    { stage: 'comprehension', title: 'Comprehension: ' + (words[0]?.word || 'Concept'), text: 'Select the statement that matches "' + (words[0]?.word || 'Concept') + '":', kind: 'choice', options: ['The essential grammatical role in context', 'An unrelated vocabulary term', 'A colloquial slang term'], answer: 0, feedback: 'Correct identification of the core concept.', criteria: '', teacherAnswer: '', pages: [1], generated: true },
+    { stage: 'guided', title: 'Guided practice: ' + (words[1]?.word || 'Usage'), text: 'Choose the appropriate option: "The student ___ won the competition was delighted."', kind: 'choice', options: ['who', 'which', 'where'], answer: 0, feedback: '"Who" is used for people.', criteria: '', teacherAnswer: '', pages: [1], generated: true },
     { stage: 'independent', title: 'Independent application: ' + lessonTitle, text: 'Write two sentences utilizing newly studied concepts.', kind: 'open', options: [], answer: -1, feedback: '', criteria: 'Content and clarity | 3\nGrammar and vocabulary | 2', teacherAnswer: 'Sample sentence demonstrating accurate grammar and fluent phrasing.', pages: [1], generated: true },
     { stage: 'final', title: 'Mastery check', text: 'Produce a comprehensive summary of the core concepts.', kind: 'open', options: [], answer: -1, feedback: '', criteria: 'Depth and cohesion | 3\nPractical accuracy | 2', teacherAnswer: 'Comprehensive summary demonstrating complete mastery.', pages: [1], generated: true }
   ];
@@ -199,8 +255,8 @@ export async function generateLessonFromText({text='', level='B1', title='', api
   return {
     title: lessonTitle,
     description: 'Structured lesson grounded in ' + lessonTitle,
-    unit: '1',
-    lesson: '1',
+    unit: unit || '1',
+    lesson: lesson || '1',
     className: level,
     overview: 'This lesson covers key target structures and practice stages for ' + lessonTitle + '.',
     words,

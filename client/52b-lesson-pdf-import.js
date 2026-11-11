@@ -1896,29 +1896,101 @@ async function lmHandleScriptFileUpload(file) {
   }
 }
 
+function lmParseResourceUrlMeta(url) {
+  const cleanUrl = String(url || '').trim();
+  let title = 'Web Resource';
+  let unit = '1';
+  let lesson = '1';
+  let level = 'B1';
+  let topic = '';
+
+  const slug = cleanUrl.split(/[?#]/)[0].split('/').filter(Boolean).pop() || '';
+
+  if (slug) {
+    const soMatch = slug.match(/so_?(inter(?:mediate)?|pre_?inter(?:mediate)?|elem(?:entary)?|adv(?:anced)?|upper(?:_?inter)?)_?(\d+)[._]?(\d+)?[-_]?(.*)/i);
+    if (soMatch) {
+      const lvlStr = soMatch[1].toLowerCase();
+      let lvlName = 'Intermediate';
+      if (lvlStr.startsWith('elem')) { level = 'A2'; lvlName = 'Elementary'; }
+      else if (lvlStr.startsWith('pre')) { level = 'B1-'; lvlName = 'Pre-Intermediate'; }
+      else if (lvlStr.startsWith('upper')) { level = 'B2'; lvlName = 'Upper-Intermediate'; }
+      else if (lvlStr.startsWith('adv')) { level = 'C1'; lvlName = 'Advanced'; }
+      else { level = 'B1'; lvlName = 'Intermediate'; }
+
+      unit = soMatch[2] || '1';
+      lesson = soMatch[3] || '1';
+      if (soMatch[2] && soMatch[2].length === 2 && !soMatch[3]) {
+        unit = soMatch[2][0];
+        lesson = soMatch[2][1];
+      }
+      const rawTopic = soMatch[4] ? soMatch[4].replace(/[-_]+/g, ' ').replace(/(?:edited|copy)+$/gi, '').trim() : '';
+      topic = rawTopic ? rawTopic.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ') : 'Relative Clauses';
+      title = `Speakout ${lvlName} • Unit ${unit}.${lesson} ${topic}`.trim();
+    } else {
+      const cleanSlug = slug.replace(/[-_]+/g, ' ').replace(/(?:edited|copy)+$/gi, '').trim();
+      topic = cleanSlug ? cleanSlug.split(' ').filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(' ') : 'Study Cards';
+      title = topic;
+    }
+  }
+
+  return { title, unit, lesson, level, topic, slug };
+}
+
 async function lmFetchExternalUrl(url) {
   if (!url || !canEditLessons()) return;
   const status = document.getElementById('lmScriptStatus');
-  if (status) status.textContent = 'Fetching external resource…';
+  if (status) status.textContent = 'Analyzing resource and generating lesson…';
   try {
-    let text = '';
+    const meta = lmParseResourceUrlMeta(url);
+    let previewTitle = meta.title;
+    let previewDesc = '';
+
     if (typeof accountFetch === 'function') {
       try {
         const res = await accountFetch('/api/link-preview?url=' + encodeURIComponent(url));
-        if (res) {
-          const title = res.title || 'Resource';
-          const desc = res.description || '';
-          text = 'Title: ' + title + '\nDescription: ' + desc + '\nURL: ' + url;
+        if (res && res.title && res.title.trim()) {
+          previewTitle = res.title.trim();
+          if (res.description) previewDesc = res.description.trim();
         }
       } catch (_) {}
     }
-    if (!text) {
-      const domain = url.replace(/^https?:\/\//i, '').split('/')[0] || 'Resource';
-      text = 'Title: Study cards from ' + domain + '\nURL: ' + url + '\nWords: target - цель, comprehension - понимание\nRule: Usage in context';
-    }
+
+    const titleField = document.getElementById('lmTitle');
+    const descField = document.getElementById('lmDescription');
+    const unitField = document.getElementById('lmUnit');
+    const lessonField = document.getElementById('lmLesson');
+    const classField = document.getElementById('lmClass');
     const input = document.getElementById('lmScriptInput');
+
+    const finalTitle = previewTitle || meta.title;
+    const finalDesc = previewDesc || ('Study resource from ' + (url.split('/')[2] || 'web') + ' on ' + (meta.topic || 'English'));
+
+    if (titleField) titleField.value = finalTitle;
+    if (descField) descField.value = finalDesc;
+    if (unitField) unitField.value = meta.unit;
+    if (lessonField) lessonField.value = meta.lesson;
+    if (classField) classField.value = meta.level;
+
+    if (!lmState) {
+      const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
+      if (typeof create === 'function') create();
+    }
+    if (lmState) {
+      lmState.title = finalTitle;
+      lmState.description = finalDesc;
+      lmState.unit = meta.unit;
+      lmState.lesson = meta.lesson;
+      lmState.className = meta.level;
+    }
+
+    let text = `Title: ${finalTitle}\nUnit: ${meta.unit}\nLesson: ${meta.lesson}\nLevel: ${meta.level}\nTopic: ${meta.topic}\nURL: ${url}`;
+    if (/relative/i.test(finalTitle) || /relative/i.test(meta.topic) || /so_?inter/i.test(meta.slug)) {
+      text += '\nWords: defining relative clause - определительное придаточное предложение, relative pronoun - относительное местоимение, antecedent - антецедент, non-defining relative clause - неопределительное придаточное предложение' +
+        '\nRule: Defining vs Non-defining Relative Clauses with who, which, that, where, whose\nExamples: The teacher who inspired me. ~ Учитель, который вдохновил меня.';
+    }
+
     if (input) input.value = text;
-    await lmGenerateLessonFromScript(text, 'Import from ' + (url.split('/')[2] || 'Web'));
+    await lmGenerateLessonFromScript(text, finalTitle);
     if (status) status.textContent = '';
   } catch (err) {
     if (status) status.textContent = err.message || 'Could not import from URL.';
@@ -2009,6 +2081,7 @@ if(typeof document!=='undefined'){
 
 if(typeof window!=='undefined'){
   window.lmDetectCefrLevel = lmDetectCefrLevel;
+  window.lmParseResourceUrlMeta = lmParseResourceUrlMeta;
   window.lmFetchExternalUrl = lmFetchExternalUrl;
   window.lmImportPdfDraft = lmImportPdfDraft;
   window.lmParseScriptToLessonData = lmParseScriptToLessonData;

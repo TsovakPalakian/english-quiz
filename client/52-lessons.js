@@ -2549,6 +2549,106 @@
         "Video choice"
       ];
 
+      function lmSyncLessonComplementTab() {
+        if (typeof document === "undefined") return;
+        const lessonTabBtn = document.getElementById("lmTabBtnLesson");
+        const titleEl = document.getElementById("lmCurrentLessonTitle");
+        const statsEl = document.getElementById("lmCurrentLessonStats");
+        const hasBlocks = !!(lmState && Array.isArray(lmState.blocks) && lmState.blocks.length > 0);
+
+        if (lessonTabBtn) {
+          if (hasBlocks) {
+            lessonTabBtn.hidden = false;
+            if (titleEl) titleEl.textContent = lmState.title || "Untitled Lesson";
+            if (statsEl) {
+              const bCount = lmState.blocks.length;
+              statsEl.textContent = bCount + " block" + (bCount === 1 ? "" : "s") + " active";
+            }
+          } else {
+            lessonTabBtn.hidden = true;
+            if (lessonTabBtn.classList.contains("active")) {
+              lmSwitchImportTab("file");
+            }
+          }
+        }
+      }
+
+      function lmSwitchImportTab(tabKey) {
+        if (typeof document === "undefined") return;
+        const tabs = [
+          { key: "file", btnId: "lmTabBtnFile", paneId: "lmTabPaneFile" },
+          { key: "url", btnId: "lmTabBtnUrl", paneId: "lmTabPaneUrl" },
+          { key: "script", btnId: "lmTabBtnScript", paneId: "lmTabPaneScript" },
+          { key: "lesson", btnId: "lmTabBtnLesson", paneId: "lmTabPaneLesson" }
+        ];
+
+        tabs.forEach((t) => {
+          const btn = document.getElementById(t.btnId);
+          const pane = document.getElementById(t.paneId);
+          const isActive = t.key === tabKey;
+          if (btn) {
+            btn.classList.toggle("active", isActive);
+            btn.setAttribute("aria-selected", isActive ? "true" : "false");
+          }
+          if (pane) {
+            pane.style.display = isActive ? "block" : "none";
+            pane.classList.toggle("active", isActive);
+          }
+        });
+      }
+
+      function lmInitImportTabs() {
+        if (typeof document === "undefined") return;
+        const tabBtns = [
+          { btnId: "lmTabBtnFile", key: "file" },
+          { btnId: "lmTabBtnUrl", key: "url" },
+          { btnId: "lmTabBtnScript", key: "script" },
+          { btnId: "lmTabBtnLesson", key: "lesson" }
+        ];
+
+        tabBtns.forEach(({ btnId, key }) => {
+          const btn = document.getElementById(btnId);
+          if (btn && !btn.dataset.initialized) {
+            btn.dataset.initialized = "1";
+            btn.addEventListener("click", () => lmSwitchImportTab(key));
+          }
+        });
+
+        // Quick template buttons inside Manual Script
+        const templateBtns = document.querySelectorAll(".lm-template-pill");
+        templateBtns.forEach((tb) => {
+          if (!tb.dataset.initialized) {
+            tb.dataset.initialized = "1";
+            tb.addEventListener("click", () => {
+              const input = document.getElementById("lmScriptInput");
+              if (!input) return;
+              const type = tb.dataset.template;
+              let snippet = "";
+              if (type === "rule") {
+                snippet = "\nRule: Relative clauses with who, which, that, where, whose\nExamples: The teacher who inspired me. ~ Учитель, который вдохновил меня.\n";
+              } else if (type === "vocab") {
+                snippet = "\nWords: defining clause - определительное придаточное, relative pronoun - относительное местоимение, antecedent - антецедент\n";
+              } else if (type === "dialogue") {
+                snippet = "\nDialogue:\nA: Do you know the woman who just arrived?\nB: Yes, that is the engineer whose project won first place.\n";
+              }
+              input.value = (input.value ? input.value.trim() + "\n" : "") + snippet.trim();
+              input.focus();
+            });
+          }
+        });
+
+        // Generate tasks button inside Complement Current Lesson
+        const genTasksBtn = document.getElementById("lmGenerateTasksBtn");
+        if (genTasksBtn && !genTasksBtn.dataset.initialized) {
+          genTasksBtn.dataset.initialized = "1";
+          genTasksBtn.addEventListener("click", () => {
+            if (typeof window.lmGenerateLessonFromScript === "function") {
+              window.lmGenerateLessonFromScript("", lmState?.title || "Lesson Tasks");
+            }
+          });
+        }
+      }
+
       function lmSyncGenerateControls() {
         if (typeof document === "undefined") return;
         const btn = document.getElementById("lmGenerateFromScriptBtn");
@@ -2571,6 +2671,7 @@
             btn.textContent = hasBlocks ? "Generate tasks" : "Generate lesson";
           }
         }
+        lmSyncLessonComplementTab();
       }
 
       function lmGetSelectedQuizTypes() {
@@ -2618,14 +2719,19 @@
       function lmInitQuizOptions() {
         if (typeof document === "undefined") return;
         const listEl = document.getElementById("lmQuizTypesList");
+        const pillCloud = document.getElementById("lmQuizTypesPillCloud");
         const countEl = document.getElementById("lmQuizSelectedCount");
         const warnEl = document.getElementById("lmVideoChoiceWarning");
         const btn = document.getElementById("lmQuizOptionsBtn");
         const dropdown = document.getElementById("lmQuizOptionsDropdown");
         const selectAllBtn = document.getElementById("lmQuizSelectAll");
         const deselectAllBtn = document.getElementById("lmQuizDeselectAll");
+        const pillSelectAll = document.getElementById("lmPillSelectAll");
+        const pillDeselectAll = document.getElementById("lmPillDeselectAll");
         const cwCheck = document.getElementById("lmQuizClasswork");
         const hwCheck = document.getElementById("lmQuizHomework");
+        const pillCw = document.getElementById("lmPillClasswork");
+        const pillHw = document.getElementById("lmPillHomework");
         const countInput = document.getElementById("lmTaskCountPerSection");
 
         if (cwCheck && !cwCheck.dataset.initialized) {
@@ -2642,9 +2748,41 @@
           countInput.addEventListener("change", lmSyncTaskTotalSummary);
         }
 
-        if (!listEl) return;
+        function syncSectionPills() {
+          if (pillCw && cwCheck) {
+            const isCw = cwCheck.checked;
+            pillCw.className = "lm-quiz-pill " + (isCw ? "pill-active-blue" : "pill-inactive");
+            pillCw.textContent = (isCw ? "✓" : "+") + " Classwork";
+          }
+          if (pillHw && hwCheck) {
+            const isHw = hwCheck.checked;
+            pillHw.className = "lm-quiz-pill " + (isHw ? "pill-active-blue" : "pill-inactive");
+            pillHw.textContent = (isHw ? "✓" : "+") + " Homework";
+          }
+          lmSyncTaskTotalSummary();
+        }
 
-        if (listEl.children.length === 0) {
+        if (pillCw && !pillCw.dataset.initialized) {
+          pillCw.dataset.initialized = "1";
+          pillCw.addEventListener("click", () => {
+            if (cwCheck) {
+              cwCheck.checked = !cwCheck.checked;
+              syncSectionPills();
+            }
+          });
+        }
+        if (pillHw && !pillHw.dataset.initialized) {
+          pillHw.dataset.initialized = "1";
+          pillHw.addEventListener("click", () => {
+            if (hwCheck) {
+              hwCheck.checked = !hwCheck.checked;
+              syncSectionPills();
+            }
+          });
+        }
+        syncSectionPills();
+
+        if (listEl && listEl.children.length === 0) {
           listEl.innerHTML = LM_ALL_QUIZ_TYPES.map((type) => {
             const isVideo = type === "Video choice";
             return '<label style="display:flex; align-items:center; gap:8px; padding:3px 4px; border-radius:4px; cursor:pointer;" class="lm-quiz-type-opt">' +
@@ -2657,34 +2795,69 @@
         }
 
         function updateCountAndWarnings() {
-          const checked = listEl.querySelectorAll('input[type="checkbox"]:checked');
+          const checked = listEl ? listEl.querySelectorAll('input[type="checkbox"]:checked') : [];
           if (countEl) countEl.textContent = String(checked.length);
-          const videoChecked = listEl.querySelector('input[data-quiz-type="Video choice"]:checked');
+          const videoChecked = listEl ? listEl.querySelector('input[data-quiz-type="Video choice"]:checked') : null;
           if (warnEl) {
             warnEl.style.display = videoChecked ? "block" : "none";
           }
+
+          if (pillCloud) {
+            const pills = pillCloud.querySelectorAll("[data-quiz-type]");
+            pills.forEach((p) => {
+              const type = p.dataset.quizType;
+              const isVideo = type === "Video choice";
+              const cb = listEl ? listEl.querySelector('input[data-quiz-type="' + type + '"]') : null;
+              const isOn = cb ? cb.checked : true;
+              p.className = "lm-quiz-pill " + (isOn ? (isVideo ? "pill-active-coral" : "pill-active-blue") : "pill-inactive");
+              p.textContent = (isOn ? "✓ " : "+ ") + (isVideo ? "📹 " : "") + type;
+            });
+          }
         }
 
-        listEl.onchange = () => {
+        if (pillCloud && pillCloud.children.length === 0) {
+          pillCloud.innerHTML = LM_ALL_QUIZ_TYPES.map((type) => {
+            const isVideo = type === "Video choice";
+            return '<button type="button" class="lm-quiz-pill ' + (isVideo ? 'pill-active-coral' : 'pill-active-blue') + '" data-quiz-type="' + esc(type) + '">' +
+              '✓ ' + (isVideo ? '📹 ' : '') + esc(type) + '</button>';
+          }).join("");
+
+          pillCloud.querySelectorAll("[data-quiz-type]").forEach((p) => {
+            p.addEventListener("click", () => {
+              const type = p.dataset.quizType;
+              const cb = listEl ? listEl.querySelector('input[data-quiz-type="' + type + '"]') : null;
+              if (cb) {
+                cb.checked = !cb.checked;
+                updateCountAndWarnings();
+              }
+            });
+          });
+        }
+
+        if (listEl) {
+          listEl.onchange = () => {
+            updateCountAndWarnings();
+          };
+        }
+
+        function selectAllQuizzes(val) {
+          if (listEl) {
+            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = val; });
+          }
           updateCountAndWarnings();
-        };
+        }
 
         if (selectAllBtn) {
-          selectAllBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
-            updateCountAndWarnings();
-          };
+          selectAllBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); selectAllQuizzes(true); };
         }
-
         if (deselectAllBtn) {
-          deselectAllBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
-            updateCountAndWarnings();
-          };
+          deselectAllBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); selectAllQuizzes(false); };
+        }
+        if (pillSelectAll) {
+          pillSelectAll.onclick = (e) => { e.preventDefault(); e.stopPropagation(); selectAllQuizzes(true); };
+        }
+        if (pillDeselectAll) {
+          pillDeselectAll.onclick = (e) => { e.preventDefault(); e.stopPropagation(); selectAllQuizzes(false); };
         }
 
         if (btn && dropdown && !btn.dataset.initialized) {
@@ -2733,12 +2906,16 @@
       window.lmGetTaskCounts = lmGetTaskCounts;
       window.lmSyncTaskTotalSummary = lmSyncTaskTotalSummary;
       window.lmInitQuizOptions = lmInitQuizOptions;
+      window.lmInitImportTabs = lmInitImportTabs;
+      window.lmSyncLessonComplementTab = lmSyncLessonComplementTab;
+      window.lmSwitchImportTab = lmSwitchImportTab;
       window.lmSyncTeacherVerifySummary = lmSyncTeacherVerifySummary;
 
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
       const groupNew = document.getElementById("groupNew");
       if (groupNew) groupNew.addEventListener("click", groupCreate);
+      lmInitImportTabs();
       lmInitQuizOptions();
       lmSyncGenerateControls();
       lmSyncTeacherVerifySummary();

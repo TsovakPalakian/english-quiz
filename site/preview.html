@@ -672,72 +672,116 @@
               <span class="pill-badge" id="lmFrameModeBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:var(--acc-s, rgba(37,99,235,0.1)); color:var(--acc, #2563eb);">AI Generator</span>
             </div>
             <div class="lm-import-methods card saas-card" style="padding:16px; margin-bottom:14px; border:1px solid var(--saas-border, #e2e8f0); border-radius:12px; background:var(--saas-card, #ffffff);">
-              <label class="lm-drop lm-pdf-import" data-lesson-pdf-import style="margin-bottom:12px;">
-                Drop lesson or exam file / PDF
-                <small>Upload any file format (.pdf, .docx, .txt, .md, .json, .csv) or click to browse</small>
-                <input type="file" data-lesson-pdf-import-file accept="*/*" tabindex="-1" aria-hidden="true" />
-              </label>
+              <!-- 4 Generation Tabs -->
+              <div class="lm-tabs-bar" role="tablist" style="display:flex; gap:6px; border-bottom:2px solid var(--saas-border, #e0f2fe); padding-bottom:10px; margin-bottom:16px;">
+                <button type="button" class="tab-btn active" id="lmTabBtnFile" role="tab" aria-selected="true" aria-controls="lmTabPaneFile">📁 File / PDF</button>
+                <button type="button" class="tab-btn" id="lmTabBtnUrl" role="tab" aria-selected="false" aria-controls="lmTabPaneUrl">🌐 Web URL</button>
+                <button type="button" class="tab-btn" id="lmTabBtnScript" role="tab" aria-selected="false" aria-controls="lmTabPaneScript">📝 Manual Script</button>
+                <button type="button" class="tab-btn lesson-tab" id="lmTabBtnLesson" role="tab" aria-selected="false" aria-controls="lmTabPaneLesson" hidden>✨ Complement Current Lesson</button>
+              </div>
 
-              <!-- URL Input Field -->
-              <div class="lm-url-import" style="margin-bottom:12px;">
-                <label style="font-weight:700; font-size:12.5px; margin-bottom:4px; display:block;">Or paste external resource URL (Wordwall, Quizlet, article, web):</label>
-                <div style="display:flex; gap:8px;">
-                  <input type="url" id="lmUrlInput" class="saas-input" style="flex:1; font-size:13px; padding:6px 10px; border:1px solid var(--saas-border, #cbd5e1); border-radius:6px;" placeholder="https://wordwall.net/resource/... or https://quizlet.com/..." />
-                  <button type="button" class="btn secondary saas-btn" id="lmUrlFetchBtn" style="font-size:12px; font-weight:700; white-space:nowrap;">Fetch URL</button>
+              <!-- Tab 1: File / PDF -->
+              <div id="lmTabPaneFile" class="lm-tab-pane active" role="tabpanel">
+                <label class="lm-drop lm-pdf-import" data-lesson-pdf-import>
+                  Drop lesson or exam file / PDF
+                  <small>Upload any file format (.pdf, .docx, .txt, .md, .json, .csv) or click to browse</small>
+                  <input type="file" data-lesson-pdf-import-file accept="*/*" tabindex="-1" aria-hidden="true" />
+                </label>
+                <div class="lm-note-box" style="margin-top:14px; font-size:12px; color:var(--acc, #0284c7); background:var(--acc-s, rgba(2,132,199,0.08)); padding:10px 14px; border-radius:8px; display:flex; align-items:center; gap:8px;">
+                  <span>💡 <strong>Direct PDF Analysis:</strong> Gemini AI parses the document structure autonomously.</span>
                 </div>
               </div>
 
-              <label style="font-weight:700; font-size:13px; margin-bottom:6px; display:block;">Or enter lesson / exam script or description manually</label>
-              <textarea id="lmScriptInput" class="saas-textarea" style="min-height:90px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--saas-border, #cbd5e1); border-radius:8px;" placeholder="Paste lesson script, syllabus outline, or topic description. E.g.:&#10;&#10;Title: Travel and Transport&#10;Words: detour - объезд, commuter - пригородный пассажир&#10;Rule: Phrasal verbs of travel"></textarea>
+              <!-- Tab 2: Web URL -->
+              <div id="lmTabPaneUrl" class="lm-tab-pane" role="tabpanel" style="display:none;">
+                <div class="lm-url-import" style="display:flex; flex-direction:column; gap:12px;">
+                  <div style="display:flex; gap:8px;">
+                    <input type="url" id="lmUrlInput" class="saas-input" style="flex:1; font-size:13px; padding:10px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="https://wordwall.net/resource/... or https://quizlet.com/..." />
+                    <button type="button" class="btn primary saas-btn" id="lmUrlFetchBtn" style="font-weight:700; white-space:nowrap; padding:10px 22px;">Fetch &amp; Import Lesson</button>
+                  </div>
+                  <div class="hint" style="font-size:12px; color:var(--saas-text-muted, #64748b); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    <span>Supported:</span>
+                    <span class="pill-badge" style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600;">Wordwall</span>
+                    <span class="pill-badge" style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600;">Quizlet</span>
+                    <span class="pill-badge" style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:11px; font-weight:600;">Web Articles</span>
+                    <span style="margin-left:8px; color:var(--acc, #0284c7);">&bull; Extracts title, vocabulary, rules and exercises directly</span>
+                  </div>
+                </div>
+              </div>
 
-              <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:12px; align-items:center;">
-                <!-- Quiz options dropdown trigger -->
-                <div class="lm-quiz-options-wrap" style="position:relative; display:inline-block;">
-                  <button type="button" class="btn secondary saas-btn" id="lmQuizOptionsBtn" style="font-size:12.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">
-                    ⚙️ Quiz options (<span id="lmQuizSelectedCount">20</span> selected)
-                  </button>
-                  <div id="lmQuizOptionsDropdown" class="card saas-card" style="display:none; position:absolute; top:calc(100% + 6px); left:0; z-index:120; width:340px; max-height:420px; overflow-y:auto; padding:12px; box-shadow:0 12px 30px rgba(0,0,0,0.25); border:1px solid var(--saas-border, #cbd5e1); border-radius:10px; background:var(--saas-card, #ffffff);">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--saas-border, #e2e8f0);">
-                      <b style="font-size:12px; text-transform:uppercase;">Sections</b>
-                      <div style="display:flex; gap:12px;">
-                        <label style="display:flex; align-items:center; gap:5px; font-size:12px; font-weight:700; cursor:pointer;">
-                          <input type="checkbox" id="lmQuizClasswork" checked style="cursor:pointer;" /> Classwork
-                        </label>
-                        <label style="display:flex; align-items:center; gap:5px; font-size:12px; font-weight:700; cursor:pointer;">
-                          <input type="checkbox" id="lmQuizHomework" checked style="cursor:pointer;" /> Homework
-                        </label>
-                      </div>
+              <!-- Tab 3: Manual Script -->
+              <div id="lmTabPaneScript" class="lm-tab-pane" role="tabpanel" style="display:none;">
+                <div class="lm-script-container" style="display:flex; flex-direction:column; gap:10px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <label for="lmScriptInput" style="font-weight:700; font-size:13px; color:var(--saas-text, #0c4a6e);">Enter lesson script, notes, or grammar topic:</label>
+                    <div class="lm-quick-templates" style="display:flex; gap:6px; align-items:center;">
+                      <span style="font-size:11px; color:var(--saas-text-muted, #64748b);">Quick templates:</span>
+                      <button type="button" class="lm-template-pill" data-template="rule">+ Grammar Rule</button>
+                      <button type="button" class="lm-template-pill" data-template="vocab">+ Vocabulary List</button>
+                      <button type="button" class="lm-template-pill" data-template="dialogue">+ Dialogue / Text</button>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--saas-border, #e2e8f0);">
-                      <b style="font-size:12px; text-transform:uppercase;">Quiz Types (All 20)</b>
-                      <div style="display:flex; gap:6px;">
-                        <button type="button" class="btn-sm" id="lmQuizSelectAll" style="font-size:10.5px; cursor:pointer;">All 20</button>
-                        <button type="button" class="btn-sm" id="lmQuizDeselectAll" style="font-size:10.5px; cursor:pointer;">None</button>
-                      </div>
-                    </div>
-                    <div id="lmQuizTypesList" style="display:flex; flex-direction:column; gap:4px; font-size:12px;"></div>
+                  </div>
+                  <textarea id="lmScriptInput" class="saas-textarea" style="min-height:140px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; line-height:1.5; padding:12px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="Paste lesson script, syllabus outline, or topic description. E.g.:&#10;&#10;Title: Travel and Transport&#10;Words: detour - объезд, commuter - пригородный пассажир&#10;Rule: Phrasal verbs of travel"></textarea>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                    <span class="hint" style="font-size:12px; color:var(--saas-text-muted, #64748b);">💡 Direct AI Structuring: Gemini detects title, vocabulary, and grammar rules automatically.</span>
+                    <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" style="font-weight:700; padding:10px 22px;">Generate Lesson Draft &rarr;</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tab 4: Complement Current Lesson -->
+              <div id="lmTabPaneLesson" class="lm-tab-pane" role="tabpanel" style="display:none;">
+                <div class="lm-current-lesson-header" style="display:flex; justify-content:space-between; align-items:center; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:10px 14px; margin-bottom:12px;">
+                  <div id="lmCurrentLessonInfo" style="font-size:13px; font-weight:600; color:#065f46;">
+                    📚 Active Lesson: <strong id="lmCurrentLessonTitle"></strong> (<span id="lmCurrentLessonStats"></span>)
+                  </div>
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--acc, #0284c7);">
+                    <span>Generate count:</span>
+                    <input type="number" id="lmTaskCountPerSection" value="3" min="1" max="100" step="1" style="width:44px; padding:6px 8px; font-size:13px; font-weight:700; border:1.5px solid var(--saas-border, #bae6fd); border-radius:6px; text-align:center;">
+                    <span id="lmTaskTotalSummary">(Total: 6)</span>
                   </div>
                 </div>
 
-                <label style="font-size:12.5px; font-weight:700; color:var(--saas-text, #334155); display:inline-flex; align-items:center; gap:6px;">
-                  Count:
-                  <input type="number" id="lmTaskCountPerSection" value="3" min="1" max="100" step="1" style="width:60px; padding:4px 8px; font-size:13px; font-weight:700; border:1px solid var(--saas-border, #cbd5e1); border-radius:6px;">
-                  <span id="lmTaskTotalSummary" style="font-size:11.5px; font-weight:600; opacity:0.85; color:var(--saas-text, #475569);">(Total: 6)</span>
-                </label>
+                <!-- Unified All-Pill Inline Panel -->
+                <div class="lm-quiz-inline-panel" style="background:#f0f9ff; border:1.5px solid #bae6fd; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:10px;">
+                  <div class="panel-row-top" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; padding-bottom:8px; border-bottom:1px solid #e0f2fe;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:#0369a1; letter-spacing:0.04em; margin-right:4px;">Target Sections:</span>
+                      <button type="button" class="lm-quiz-pill pill-active-blue" id="lmPillClasswork" data-section="cw">✓ Classwork</button>
+                      <button type="button" class="lm-quiz-pill pill-active-blue" id="lmPillHomework" data-section="hw">✓ Homework</button>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:#0369a1; letter-spacing:0.04em;">Selection:</span>
+                      <button type="button" class="lm-quiz-pill-action" id="lmPillSelectAll">All 20</button>
+                      <button type="button" class="lm-quiz-pill-action" id="lmPillDeselectAll">None</button>
+                    </div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:6px;">
+                    <div style="font-size:11px; font-weight:700; text-transform:uppercase; color:#0369a1; letter-spacing:0.04em;">
+                      Select Quiz Types for New Tasks (<span id="lmQuizSelectedCount">20</span> active):
+                    </div>
+                    <div id="lmQuizTypesPillCloud" class="lm-quiz-pill-cloud" style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;"></div>
+                  </div>
+                </div>
 
-                <!-- Backward compatibility hidden fields -->
+                <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:14px;">
+                  <button type="button" class="btn primary saas-btn" id="lmGenerateTasksBtn" style="background:linear-gradient(135deg, #059669 0%, #047857 100%); color:#fff; border:none; border-radius:8px; padding:10px 22px; font-weight:700; font-size:13px; box-shadow:0 2px 8px rgba(5,150,105,0.35); cursor:pointer;">Generate Tasks for Current Lesson &rarr;</button>
+                </div>
+              </div>
+
+              <!-- Hidden backward-compatibility elements for legacy scripts & tests -->
+              <div id="lmLegacyQuizOptionsHost" style="display:none;" aria-hidden="true">
+                <input type="checkbox" id="lmQuizClasswork" checked />
+                <input type="checkbox" id="lmQuizHomework" checked />
+                <button type="button" id="lmQuizSelectAll"></button>
+                <button type="button" id="lmQuizDeselectAll"></button>
+                <button type="button" id="lmQuizOptionsBtn"></button>
+                <div id="lmQuizOptionsDropdown"><div id="lmQuizTypesList"></div></div>
                 <input type="hidden" id="lmClassworkCount" value="48">
                 <input type="hidden" id="lmHomeworkCount" value="72">
-                <input type="checkbox" id="lmAppendTasks" checked hidden aria-hidden="true" style="display:none;">
-
-                <!-- Exam time limit selector (visible when examOwned) -->
-                <label id="lmExamTimeLimitWrap" style="display:none; font-size:12.5px; font-weight:700; color:var(--saas-text, #334155); align-items:center; gap:6px;">
-                  Time limit:
-                  <select id="lmExamTimeLimit" style="padding:4px 8px; font-size:12px; font-weight:700; border:1px solid var(--saas-border, #cbd5e1); border-radius:6px;">
-                    <option value="45">45 min</option>
-                    <option value="60">60 min</option>
-                    <option value="90" selected>90 min</option>
-                  </select>
+                <input type="checkbox" id="lmAppendTasks" checked>
+                <label id="lmExamTimeLimitWrap" style="display:none;">
+                  <select id="lmExamTimeLimit"><option value="90">90 min</option></select>
                 </label>
               </div>
 
@@ -746,8 +790,7 @@
                 ⚠️ ВНИМАНИЕ! ВЫБРАН КВИЗ С ВИДЕО (VIDEO CHOICE) — НЕ ЗАБУДЬТЕ ДОБАВИТЬ ВИДЕОФАЙЛ MP4 ИЛИ ССЫЛКУ!
               </div>
 
-              <div style="display:flex; gap:10px; margin-top:14px; align-items:center;">
-                <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" style="font-weight:700;">Generate lesson</button>
+              <div style="margin-top:6px;">
                 <span class="hint" id="lmScriptStatus" role="status"></span>
               </div>
             </div>
