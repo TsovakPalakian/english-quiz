@@ -1075,7 +1075,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       if(details.open)mount();
       dialog.append(details);
     };
-    const isNonEmptyLesson = Boolean(current && ((current.blocks || []).length > 0 || current.title || current.description));
+    const isNonEmptyLesson = Boolean(isDocument && current && ((current.blocks || []).length > 0 || current.title || current.description));
     section('metadata','Basic information',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML=

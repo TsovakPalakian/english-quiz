@@ -56,4 +56,10 @@ test('Visual Test: CSS and DOM UI/UX specifications for Lesson and Exam Generato
     assert.ok(css.includes('@keyframes examRecPulse'), '@keyframes examRecPulse animation exists');
     assert.ok(css.includes('.exam-proctor-audit-card {'), '.exam-proctor-audit-card CSS exists');
   });
+
+  await t.test('Visual Test 6: Responsive flex-wrap on editor action bar and PDF draft selection invariant', () => {
+    assert.ok(html.includes('style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"'), 'HTML editor toolbar contains flex-wrap:wrap');
+    const pdfImportCode = fs.readFileSync(path.join(rootDir, 'client/52b-lesson-pdf-import.js'), 'utf8');
+    assert.ok(pdfImportCode.includes('Boolean(isDocument && current &&'), 'PDF draft dialog preserves full section selection for binary PDF files');
+  });
 });
