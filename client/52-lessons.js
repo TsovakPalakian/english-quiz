@@ -2632,10 +2632,35 @@
                 snippet = "\nDialogue:\nA: Do you know the woman who just arrived?\nB: Yes, that is the engineer whose project won first place.\n";
               }
               input.value = (input.value ? input.value.trim() + "\n" : "") + snippet.trim();
+              const scriptBtn = document.getElementById("lmGenerateFromScriptBtn");
+              if (scriptBtn) scriptBtn.disabled = !input.value.trim();
               input.focus();
             });
           }
         });
+
+        // Dynamic disabled state synchronization for URL and Script inputs
+        const urlInput = document.getElementById("lmUrlInput");
+        const urlBtn = document.getElementById("lmUrlFetchBtn");
+        if (urlInput && urlBtn) {
+          const syncUrlBtn = () => { urlBtn.disabled = !urlInput.value.trim(); };
+          if (!urlInput.dataset.initialized) {
+            urlInput.dataset.initialized = "1";
+            urlInput.addEventListener("input", syncUrlBtn);
+          }
+          syncUrlBtn();
+        }
+
+        const scriptInput = document.getElementById("lmScriptInput");
+        const scriptBtn = document.getElementById("lmGenerateFromScriptBtn");
+        if (scriptInput && scriptBtn) {
+          const syncScriptBtn = () => { scriptBtn.disabled = !scriptInput.value.trim(); };
+          if (!scriptInput.dataset.initialized) {
+            scriptInput.dataset.initialized = "1";
+            scriptInput.addEventListener("input", syncScriptBtn);
+          }
+          syncScriptBtn();
+        }
 
         // Generate tasks button inside Complement Current Lesson
         const genTasksBtn = document.getElementById("lmGenerateTasksBtn");
@@ -2786,7 +2811,7 @@
           listEl.innerHTML = LM_ALL_QUIZ_TYPES.map((type) => {
             const isVideo = type === "Video choice";
             return '<label style="display:flex; align-items:center; gap:8px; padding:3px 4px; border-radius:4px; cursor:pointer;" class="lm-quiz-type-opt">' +
-              '<input type="checkbox" data-quiz-type="' + esc(type) + '" checked style="cursor:pointer;" />' +
+              '<input type="checkbox" data-quiz-type="' + esc(type) + '"' + (isVideo ? "" : " checked") + ' style="cursor:pointer;" />' +
               '<span style="font-size:12px; font-weight:600;' + (isVideo ? " color:#ef4444;" : "") + '">' +
               (isVideo ? "📹 " : "") + esc(type) +
               (type === "Smart Flashcard" ? ' <small style="opacity:0.75; font-weight:400;">(FSRS)</small>' : "") +
@@ -2818,8 +2843,8 @@
         if (pillCloud && pillCloud.children.length === 0) {
           pillCloud.innerHTML = LM_ALL_QUIZ_TYPES.map((type) => {
             const isVideo = type === "Video choice";
-            return '<button type="button" class="lm-quiz-pill ' + (isVideo ? 'pill-active-coral' : 'pill-active-blue') + '" data-quiz-type="' + esc(type) + '">' +
-              '✓ ' + (isVideo ? '📹 ' : '') + esc(type) + '</button>';
+            return '<button type="button" class="lm-quiz-pill ' + (isVideo ? 'pill-inactive' : 'pill-active-blue') + '" data-quiz-type="' + esc(type) + '">' +
+              (isVideo ? '+ ' : '✓ ') + (isVideo ? '📹 ' : '') + esc(type) + '</button>';
           }).join("");
 
           pillCloud.querySelectorAll("[data-quiz-type]").forEach((p) => {

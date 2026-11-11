@@ -99,6 +99,8 @@ test('TASK-53: site/preview.html contains all 4 tabs and elements', () => {
   // Quick templates in Manual Script
   assert.ok(html.includes('data-template="rule"'), 'Quick template for grammar rule should exist');
   assert.ok(html.includes('data-template="vocab"'), 'Quick template for vocabulary should exist');
+  assert.ok(html.includes('id="lmGenerateFromScriptBtn" disabled'), 'Generate from script button should be disabled by default');
+  assert.ok(html.includes('id="lmUrlFetchBtn" disabled'), 'URL fetch button should be disabled by default');
 
   // Complement Lesson Pills
   assert.ok(html.includes('id="lmPillClasswork"'), 'Classwork pill button should exist');
@@ -107,6 +109,13 @@ test('TASK-53: site/preview.html contains all 4 tabs and elements', () => {
   assert.ok(html.includes('id="lmPillDeselectAll"'), 'None selection pill should exist');
   assert.ok(html.includes('id="lmQuizTypesPillCloud"'), 'Quiz types pill cloud container should exist');
   assert.ok(html.includes('id="lmGenerateTasksBtn"'), 'Generate tasks button should exist');
+  assert.ok(html.includes('<span id="lmQuizSelectedCount">19</span> active'), 'Default active count should be 19 (Video choice deselected)');
+
+  // Localized warning inside Tab 4
+  const tab4Start = html.indexOf('id="lmTabPaneLesson"');
+  const tab4End = html.indexOf('<!-- Hidden backward-compatibility elements', tab4Start);
+  const tab4Pane = html.substring(tab4Start, tab4End);
+  assert.ok(tab4Pane.includes('id="lmVideoChoiceWarning"'), 'Video choice warning should be inside Tab 4 pane');
 });
 
 test('TASK-53: site/preview.css contains centered dropzone and pill styles', () => {
@@ -191,7 +200,7 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
     });
     assert.ok(tab1Active, 'Tab 1 should be active initially');
 
-    // Switch to Tab 2
+    // Switch to Tab 2 and test URL fetch button disabled/enabled state
     const tab2Active = await page.evaluate(() => {
       document.getElementById('lmTabBtnUrl')?.click();
       const btn = document.getElementById('lmTabBtnUrl');
@@ -201,7 +210,18 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
     });
     assert.ok(tab2Active, 'Tab 2 Web URL should become active upon click');
 
-    // Switch to Tab 3
+    const urlBtnInitial = await page.evaluate(() => document.getElementById('lmUrlFetchBtn')?.disabled);
+    assert.strictEqual(urlBtnInitial, true, 'lmUrlFetchBtn should be disabled when url input is empty');
+
+    await page.fill('#lmUrlInput', 'https://wordwall.net/resource/12345');
+    const urlBtnAfterFill = await page.evaluate(() => document.getElementById('lmUrlFetchBtn')?.disabled);
+    assert.strictEqual(urlBtnAfterFill, false, 'lmUrlFetchBtn should be enabled after filling url');
+
+    await page.fill('#lmUrlInput', '   ');
+    const urlBtnAfterClear = await page.evaluate(() => document.getElementById('lmUrlFetchBtn')?.disabled);
+    assert.strictEqual(urlBtnAfterClear, true, 'lmUrlFetchBtn should be disabled after clearing input');
+
+    // Switch to Tab 3 and test manual script button disabled/enabled state
     const tab3Active = await page.evaluate(() => {
       document.getElementById('lmTabBtnScript')?.click();
       const btn = document.getElementById('lmTabBtnScript');
@@ -209,6 +229,17 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
       return btn?.classList.contains('active') && pane?.style.display === 'block';
     });
     assert.ok(tab3Active, 'Tab 3 Manual Script should become active upon click');
+
+    const scriptBtnInitial = await page.evaluate(() => document.getElementById('lmGenerateFromScriptBtn')?.disabled);
+    assert.strictEqual(scriptBtnInitial, true, 'lmGenerateFromScriptBtn should be disabled when script input is empty');
+
+    await page.fill('#lmScriptInput', 'Title: Past Simple');
+    const scriptBtnAfterFill = await page.evaluate(() => document.getElementById('lmGenerateFromScriptBtn')?.disabled);
+    assert.strictEqual(scriptBtnAfterFill, false, 'lmGenerateFromScriptBtn should be enabled after entering script');
+
+    await page.fill('#lmScriptInput', '');
+    const scriptBtnAfterClear = await page.evaluate(() => document.getElementById('lmGenerateFromScriptBtn')?.disabled);
+    assert.strictEqual(scriptBtnAfterClear, true, 'lmGenerateFromScriptBtn should be disabled after clearing script');
 
     // Verify Tab 4 Complement Lesson when lesson has blocks
     const tab4Shown = await page.evaluate(() => {
@@ -233,6 +264,53 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
       return btn?.classList.contains('active') && pane?.style.display === 'block' && cloud?.children.length === 20;
     });
     assert.ok(tab4Active, 'Tab 4 should be active and display 20 quiz type pills');
+
+    // Tab 4 initial state: 19 active, Video choice deselected, warning hidden
+    const initialTab4State = await page.evaluate(() => {
+      const count = document.getElementById('lmQuizSelectedCount')?.textContent?.trim();
+      const warning = document.getElementById('lmVideoChoiceWarning');
+      const videoPill = document.querySelector('[data-quiz-type="Video choice"]');
+      return {
+        count,
+        warningDisplay: warning?.style.display,
+        isInactivePill: videoPill?.classList.contains('pill-inactive')
+      };
+    });
+    assert.strictEqual(initialTab4State.count, '19', 'Default active quiz count should be 19');
+    assert.strictEqual(initialTab4State.warningDisplay, 'none', 'Warning should be hidden by default');
+    assert.strictEqual(initialTab4State.isInactivePill, true, 'Video choice pill should start inactive');
+
+    // Toggle Video choice pill ON
+    const stateAfterVideoOn = await page.evaluate(() => {
+      const videoPill = document.querySelector('[data-quiz-type="Video choice"]');
+      videoPill?.click();
+      const count = document.getElementById('lmQuizSelectedCount')?.textContent?.trim();
+      const warning = document.getElementById('lmVideoChoiceWarning');
+      return {
+        count,
+        warningDisplay: warning?.style.display,
+        isActiveCoral: videoPill?.classList.contains('pill-active-coral')
+      };
+    });
+    assert.strictEqual(stateAfterVideoOn.count, '20', 'Active quiz count should be 20 when Video choice is selected');
+    assert.notStrictEqual(stateAfterVideoOn.warningDisplay, 'none', 'Warning should be visible when Video choice is selected');
+    assert.strictEqual(stateAfterVideoOn.isActiveCoral, true, 'Video choice pill should have coral active style');
+
+    // Toggle Video choice pill OFF
+    const stateAfterVideoOff = await page.evaluate(() => {
+      const videoPill = document.querySelector('[data-quiz-type="Video choice"]');
+      videoPill?.click();
+      const count = document.getElementById('lmQuizSelectedCount')?.textContent?.trim();
+      const warning = document.getElementById('lmVideoChoiceWarning');
+      return {
+        count,
+        warningDisplay: warning?.style.display,
+        isInactivePill: videoPill?.classList.contains('pill-inactive')
+      };
+    });
+    assert.strictEqual(stateAfterVideoOff.count, '19', 'Active quiz count should return to 19');
+    assert.strictEqual(stateAfterVideoOff.warningDisplay, 'none', 'Warning should be hidden again when Video choice is deselected');
+    assert.strictEqual(stateAfterVideoOff.isInactivePill, true, 'Video choice pill should be inactive again');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

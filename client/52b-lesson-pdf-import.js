@@ -2045,11 +2045,7 @@ if(typeof document!=='undefined'){
     if (urlBtn) {
       const urlInput = document.getElementById('lmUrlInput');
       const url = urlInput?.value?.trim();
-      if (!url) {
-        const status = document.getElementById('lmScriptStatus');
-        if (status) status.textContent = 'Paste a resource URL first.';
-        return;
-      }
+      if (!url) return;
       await lmFetchExternalUrl(url);
       return;
     }
@@ -2063,10 +2059,7 @@ if(typeof document!=='undefined'){
       if (!text && hasBlocks) {
         text = lmExtractLessonContextText(lmState);
       }
-      if (!text) {
-        if (status) status.textContent = 'Enter a script or topic description first.';
-        return;
-      }
+      if (!text) return;
       if (status) status.textContent = isExam ? (hasBlocks ? 'Generating exam tasks…' : 'Generating exam structure…') : (hasBlocks ? 'Generating lesson tasks…' : 'Generating lesson structure…');
       try {
         await lmGenerateLessonFromScript(text);

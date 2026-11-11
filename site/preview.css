@@ -2432,7 +2432,7 @@ video.player { display: block; width: 100%; max-height: 360px; background: var(-
 .song-player iframe[data-spotify-height="352"] { height: 352px !important; min-height: 352px !important; max-height: 352px !important; }
 .song-player.is-playing { background: var(--card); z-index: 5; }
 .drop { border: 1px dashed var(--line); border-radius: 16px; padding: 16px; text-align: center; color: var(--mute); margin: 8px 0; background: var(--bg); }
-button:disabled { opacity: .45; }
+button:disabled { opacity: .45; cursor: not-allowed; }
 .file-progress { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-weight: 700; }
 .file-progress .ring { --p: 0; position: relative; width: 42px; height: 42px; border-radius: 50%; flex: none; background: conic-gradient(var(--acc) calc(var(--p) * 1%), var(--line) 0); }
 .file-progress .ring b { position: absolute; inset: 6px; border-radius: 50%; background: var(--card); color: var(--ink); display: grid; place-items: center; font-size: 11px; font-weight: 800; letter-spacing: 0; }
@@ -3346,7 +3346,7 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-picker-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .lm-picker button { min-height: 48px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .lm-picker button span { font-size: 11px; font-weight: 700; color: var(--lm-mute); }
-.lm-picker button:disabled { opacity: .45; }
+.lm-picker button:disabled { opacity: .45; cursor: not-allowed; }
 .lm-preview-btn { display: block; margin: 0 auto; }
 .lm-lines .lm-card-row { padding: 4px 0; }
 .lm-lines .lm-card-fields { grid-template-columns: minmax(88px, 132px) minmax(0, 1fr); }
