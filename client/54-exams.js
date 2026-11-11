@@ -250,7 +250,17 @@
     }
     function assessmentActive(doc) { return !!doc && (!!doc.examOwned || (doc.blocks || []).some(part => part.assessed)); }
     function assessmentRubric(item) {
-      return String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(String(points).replace(',','.'))}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 1e12).slice(0,20);
+      const parsed = String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(String(points).replace(',','.'))}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 1e12).slice(0,20);
+      if (parsed.length) return parsed;
+      if (lmState?.examOwned && (item.kind === 'task' || item.type === 'task' || item.kind === 'open' || item.response !== undefined)) {
+        return [
+          { label: 'Task Achievement', max: 2.5 },
+          { label: 'Lexical Resource', max: 2.5 },
+          { label: 'Grammatical Range & Accuracy', max: 2.5 },
+          { label: 'Fluency & Coherence', max: 2.5 }
+        ];
+      }
+      return [];
     }
     function assessmentMax(part, index) {
       const item = part.type === 'task' ? part : (part.items || [])[index] || {}, criteria = assessmentRubric(item);
@@ -1298,6 +1308,7 @@
       if (!canEditLessons()) lmState.mode = "preview";
       try { sessionStorage.setItem("enquiz-place", JSON.stringify({ id: "material", examId: exam.id, examBlockId: block.id, materialTab: lmState.tab || "" })); } catch (e) {}
       visit("material");
+      if (typeof window.lmSyncGenerateControls === "function") window.lmSyncGenerateControls();
     }
     function examBoot() {
       const openScreen = show;

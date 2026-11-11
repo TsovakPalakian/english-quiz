@@ -285,25 +285,47 @@ async function lmPdfDraftBlocks(data, hash) {
   return groups;
 }
 
+function lmDetectCefrLevel(className) {
+  const text = String(
+    className ||
+    (typeof document !== 'undefined' && document.getElementById('lmClass')?.value) ||
+    (typeof lmState !== 'undefined' && lmState?.className) ||
+    ''
+  ).trim();
+  const match = text.match(/(?:^|[^A-Za-z0-9])(A1|A2\+|A2|B1\+|B1|B2\+|B2|C1|C2)(?:[^A-Za-z0-9]|$)/i);
+  if (match) return match[1].toUpperCase();
+  if (typeof classGroups !== 'undefined' && typeof classGroupId !== 'undefined') {
+    const group = classGroups.find(row => row.id === classGroupId);
+    if (group && typeof accountGroupLevel === 'function') {
+      const lvl = accountGroupLevel(group);
+      if (lvl && lvl !== 'unassigned') return lvl;
+    }
+  }
+  return 'B1';
+}
+
 function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCount = null, targetHwCount = null) {
   function lmGenerateExercisesList(targetCount, words, phrases, rules, title, isHw = false) {
-    const pool = words.map(w => ({ word: w.word, meaning: w.translation || w.meaning || w.word, example: w.example || ('Example with ' + w.word) }));
-    phrases.forEach(p => pool.push({ word: p.phrase, meaning: p.translation || p.meaning || p.phrase, example: p.example || ('Example with ' + p.phrase) }));
+    if (!targetCount || targetCount <= 0) return [];
+    const pool = (words || []).map(w => ({ word: w.word, meaning: w.translation || w.meaning || w.word, example: w.example || ('Example with ' + w.word) }));
+    (phrases || []).forEach(p => pool.push({ word: p.phrase, meaning: p.translation || p.meaning || p.phrase, example: p.example || ('Example with ' + p.phrase) }));
     if (!pool.length) {
       const fallbackWords = ['structure', 'expression', 'context', 'accuracy', 'communication', 'objective', 'practice', 'fluency'];
       fallbackWords.forEach(w => pool.push({ word: w, meaning: w, example: 'Practice with ' + w }));
     }
-    const items = [];
-    const types = ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Task'];
-    const coverageCount = Math.min(types.length, targetCount);
 
-    for (let i = 0; i < coverageCount; i++) {
-      const t = types[i];
+    const selectedPool = (typeof window !== 'undefined' && typeof window.lmGetSelectedQuizTypes === 'function' ? window.lmGetSelectedQuizTypes() : []).filter(Boolean);
+    const availableTypes = selectedPool.length > 0 ? selectedPool : ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Smart Flashcard'];
+
+    const items = [];
+    for (let i = 0; i < targetCount; i++) {
+      const t = availableTypes[Math.floor(Math.random() * availableTypes.length)];
       const targetObj = pool[i % pool.length];
       const target = targetObj.word;
       const targetMeaning = targetObj.meaning;
       const d1 = pool[(i + 1) % pool.length].word;
       const d2 = pool[(i + 2) % pool.length].word;
+      const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
 
       if (t === 'Choice') {
         items.push({
@@ -332,7 +354,6 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
           generated: true
         });
       } else if (t === 'Match') {
-        const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
         items.push({
           stage: 'guided',
           title: (isHw ? 'HW Match: ' : 'CW Match: ') + title,
@@ -402,12 +423,155 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
           title: (isHw ? 'HW Odd One Out: ' : 'CW Odd One Out: ') + title,
           text: 'Choose the item that does not belong with the others.',
           quizType: 'Odd one out',
-          options: [pool[0].word, pool[1 % pool.length].word, pool[2 % pool.length].word, 'banana'],
+          options: [p1.word, p2.word, p3.word, 'banana'],
           answer: 3,
           pages: [1],
           generated: true
         });
-      } else if (t === 'Task') {
+      } else if (t === 'Smart Flashcard' || t === 'FSRS Flashcard') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Flashcard: ' : 'CW Flashcard: ') + target,
+          text: 'Recall and practice the target vocabulary card.',
+          quizType: 'FSRS Flashcard',
+          front: target,
+          back: targetMeaning + (targetObj.example ? '\n' + targetObj.example : ''),
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Video choice') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Video choice: ' : 'CW Video choice: ') + target,
+          text: 'Watch the video segment and answer the question for "' + target + '":',
+          quizType: 'Video choice',
+          prompt: 'What concept does "' + target + '" represent in this segment?',
+          options: [targetMeaning, 'Alternative: ' + d1, 'Opposite of ' + d2],
+          answer: 0,
+          mediaId: '',
+          transcript: targetObj.example || '',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Pronounce' || t === 'Pronunciation') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Pronounce: ' : 'CW Pronounce: ') + target,
+          text: 'Pronounce "' + target + '" clearly into the microphone.',
+          quizType: 'Pronunciation',
+          word: target,
+          ipa: '',
+          phoneticPrompt: 'Say: ' + target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Listen') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Listen: ' : 'CW Listen: ') + target,
+          text: 'Listen to the audio recording and choose the term you hear.',
+          quizType: 'Listen',
+          prompt: 'Identify the target term spoken in the recording:',
+          options: [target, d1, d2],
+          answer: 0,
+          transcript: target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Definition') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Definition: ' : 'CW Definition: ') + target,
+          text: 'Select the term that fits the definition.',
+          quizType: 'Definition',
+          prompt: 'Which word matches the definition: "' + targetMeaning + '"?',
+          options: [target, d1, d2],
+          answer: 0,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Reverse') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Reverse: ' : 'CW Reverse: ') + target,
+          text: 'Select the correct English translation.',
+          quizType: 'Reverse',
+          prompt: 'What is the English term for: "' + targetMeaning + '"?',
+          options: [target, d1, d2],
+          answer: 0,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Spell') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Spell: ' : 'CW Spell: ') + target,
+          text: 'Spell the word correctly.',
+          quizType: 'Spell',
+          prompt: 'Spell the word meaning: "' + targetMeaning + '"',
+          word: target,
+          hint: 'First letter is: ' + target[0],
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Letters') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Letters: ' : 'CW Letters: ') + target,
+          text: 'Unscramble the letters to form the target word.',
+          quizType: 'Letters',
+          word: target,
+          hint: 'Meaning: ' + targetMeaning,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Hangman') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Hangman: ' : 'CW Hangman: ') + target,
+          text: 'Guess the hidden letters of the word.',
+          quizType: 'Hangman',
+          word: target,
+          hint: 'Meaning: ' + targetMeaning,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Flip') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Flip: ' : 'CW Flip: ') + target,
+          text: 'Flip the card to check your understanding.',
+          quizType: 'Flip',
+          front: target,
+          back: targetMeaning,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Tap') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Tap: ' : 'CW Tap: ') + target,
+          text: 'Tap the target word in context.',
+          quizType: 'Tap',
+          textPrompt: 'Tap on "' + target + '" in the phrase: We practice ' + target + ' diligently.',
+          answer: target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Memory') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Memory: ' : 'CW Memory: ') + title,
+          text: 'Find matching pairs of words and meanings.',
+          quizType: 'Memory',
+          items: [
+            { left: p1.word, right: p1.meaning },
+            { left: p2.word, right: p2.meaning }
+          ],
+          pages: [1],
+          generated: true
+        });
+      } else {
         items.push({
           stage: 'final',
           title: (isHw ? 'Homework Production: ' : 'Classwork Production: ') + title,
@@ -421,117 +585,15 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       }
     }
 
-    const rapidKinds = [
-      { type: 'Choice', weight: 35 },
-      { type: 'Match', weight: 20 },
-      { type: 'True / false', weight: 15 },
-      { type: 'Select all', weight: 10 },
-      { type: 'Odd one out', weight: 10 },
-      { type: 'Gap', weight: 10 }
-    ];
-
-    let seq = coverageCount + 1;
-    const remainder = [];
-    while (items.length + remainder.length < targetCount) {
-      const roll = Math.random() * 100;
-      let acc = 0, picked = 'Choice';
-      for (const rk of rapidKinds) {
-        acc += rk.weight;
-        if (roll <= acc) { picked = rk.type; break; }
-      }
-      const targetObj = pool[seq % pool.length];
-      const target = targetObj.word;
-      const targetMeaning = targetObj.meaning;
-      const d1 = pool[(seq + 1) % pool.length].word;
-      const d2 = pool[(seq + 2) % pool.length].word;
-
-      if (picked === 'Choice') {
-        remainder.push({
-          stage: 'guided',
-          title: (isHw ? 'HW Choice ' : 'CW Choice ') + seq + ': ' + target,
-          text: 'Identify the most suitable usage of "' + target + '":',
-          kind: 'choice',
-          options: ['Proper use in context of ' + targetMeaning, 'Distractor context: ' + d1, 'Incorrect form: ' + d2],
-          answer: 0,
-          feedback: 'Accurate usage matches ' + targetMeaning + '.',
-          criteria: '',
-          teacherAnswer: '',
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'Match') {
-        const pA = pool[seq % pool.length], pB = pool[(seq + 1) % pool.length];
-        remainder.push({
-          stage: 'guided',
-          title: (isHw ? 'HW Match ' : 'CW Match ') + seq,
-          text: 'Match words with definitions.',
-          quizType: 'Match',
-          items: [
-            { left: pA.word, right: pA.meaning },
-            { left: pB.word, right: pB.meaning }
-          ],
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'True / false') {
-        const isTrue = seq % 2 === 0;
-        remainder.push({
-          stage: 'comprehension',
-          title: (isHw ? 'HW True/False ' : 'CW True/False ') + seq,
-          text: 'Check if this statement is true or false.',
-          quizType: 'True / false',
-          prompt: isTrue ? ('"' + target + '" is related to ' + targetMeaning + '.') : ('"' + target + '" means the exact opposite of ' + targetMeaning + '.'),
-          answer: isTrue ? 'true' : 'false',
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'Select all') {
-        remainder.push({
-          stage: 'independent',
-          title: (isHw ? 'HW Select All ' : 'CW Select All ') + seq,
-          text: 'Select all accurate applications.',
-          quizType: 'Select all',
-          prompt: 'Which options apply to "' + target + '"?',
-          options: ['Valid: ' + targetMeaning, 'Distractor ' + d1, 'Lesson target: ' + target, 'Unrelated: ' + d2],
-          answers: [0, 2],
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'Odd one out') {
-        remainder.push({
-          stage: 'independent',
-          title: (isHw ? 'HW Odd One Out ' : 'CW Odd One Out ') + seq,
-          text: 'Identify the odd term out of four.',
-          quizType: 'Odd one out',
-          options: [pool[seq % pool.length].word, pool[(seq + 1) % pool.length].word, pool[(seq + 2) % pool.length].word, 'airplane ' + seq],
-          answer: 3,
-          pages: [1],
-          generated: true
-        });
-      } else {
-        remainder.push({
-          stage: 'guided',
-          title: (isHw ? 'HW Gap ' : 'CW Gap ') + seq + ': ' + target,
-          text: 'Fill in the blank with the appropriate word.',
-          quizType: 'Gap',
-          shown: 'The team must consider ___ to achieve the goal.',
-          answer: target,
-          hint: 'Starts with ' + target[0],
-          pages: [1],
-          generated: true
-        });
-      }
-      seq++;
-    }
-
-    for (let idx = remainder.length - 1; idx > 0; idx--) {
+    // Fisher-Yates array shuffle algorithm
+    for (let idx = items.length - 1; idx > 0; idx--) {
       const swap = Math.floor(Math.random() * (idx + 1));
-      const temp = remainder[idx];
-      remainder[idx] = remainder[swap];
-      remainder[swap] = temp;
+      const temp = items[idx];
+      items[idx] = items[swap];
+      items[swap] = temp;
     }
 
-    return items.concat(remainder);
+    return items;
   }
   const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
   let title = '', description = '', unit = '', lesson = '', className = '';
@@ -798,17 +860,29 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   }
 
   let finalCw = classwork;
-  if (targetCwCount && targetCwCount > classwork.length) {
-    finalCw = classwork.concat(lmGenerateExercisesList(targetCwCount - classwork.length, words, phrases, rules, title, false));
+  if (targetCwCount !== null && targetCwCount !== undefined) {
+    if (targetCwCount === 0) {
+      finalCw = [];
+    } else if (targetCwCount > classwork.length) {
+      finalCw = classwork.concat(lmGenerateExercisesList(targetCwCount - classwork.length, words, phrases, rules, title, false));
+    } else {
+      finalCw = classwork.slice(0, targetCwCount);
+    }
   }
   const homework = (targetHwCount && targetHwCount > 0) ? lmGenerateExercisesList(targetHwCount, words, phrases, rules, title, true) : [];
 
+  const detectedLevel = (typeof lmDetectCefrLevel === 'function')
+    ? lmDetectCefrLevel(className)
+    : ((typeof window !== 'undefined' && typeof window.lmDetectCefrLevel === 'function')
+        ? window.lmDetectCefrLevel(className)
+        : (className ? (className.match(/(?:^|[^A-Za-z0-9])(A1|A2\+|A2|B1\+|B1|B2\+|B2|C1|C2)(?:[^A-Za-z0-9]|$)/i)?.[1]?.toUpperCase() || className) : 'B1'));
   return {
     title,
     description,
     unit: unit || '1',
     lesson: lesson || '1',
-    className: className || 'B2',
+    className: className || detectedLevel,
+    level: detectedLevel,
     overview: description,
     words,
     phrases,
@@ -1001,6 +1075,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       if(details.open)mount();
       dialog.append(details);
     };
+    const isNonEmptyLesson = Boolean(current && ((current.blocks || []).length > 0 || current.title || current.description));
     section('metadata','Basic information',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML=
@@ -1010,12 +1085,12 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc(data.lesson||'')+'" placeholder="Lesson number"></div></div>'+
         '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc(data.className||'')+'" placeholder="Class / Level"></div>';
       container.append(box);
-    },true);
+    },!isNonEmptyLesson);
     section('overview','Overview',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML='<div class="saas-form-group"><label class="saas-label">Lesson overview</label><textarea class="saas-textarea" data-pdf-field="overview" style="min-height:96px" placeholder="Overview text">'+esc(data.overview||'')+'</textarea></div>';
       container.append(box);
-    },true);
+    },!isNonEmptyLesson);
     section('words','Words · '+data.words.length,(container,titleSpan)=>{
       const wrap=document.createElement('div');wrap.className='lm-pdf-words-container';
       const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
@@ -1578,20 +1653,83 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
 
+function lmExtractLessonContextText(lesson) {
+  if (!lesson || !Array.isArray(lesson.blocks)) return '';
+  const parts = [];
+  if (lesson.title) parts.push('Title: ' + lesson.title);
+  if (lesson.description) parts.push('Description: ' + lesson.description);
+  const words = [];
+  const phrases = [];
+  const rules = [];
+  lesson.blocks.forEach(b => {
+    if (b.tab === 'words' && Array.isArray(b.items)) {
+      b.items.forEach(it => { if (it.word) words.push(it.word + ' - ' + (it.translation || it.meaning || it.word)); });
+    } else if (b.tab === 'phrases' && Array.isArray(b.items)) {
+      b.items.forEach(it => { if (it.phrase) phrases.push(it.phrase + ' - ' + (it.translation || it.meaning || it.phrase)); });
+    } else if (b.tab === 'rules') {
+      if (b.title) rules.push(b.title + (b.html ? ': ' + b.html.replace(/<[^>]+>/g, ' ') : ''));
+    }
+  });
+  if (words.length) parts.push('Words:\n' + words.join('\n'));
+  if (phrases.length) parts.push('Phrases:\n' + phrases.join('\n'));
+  if (rules.length) parts.push('Rules:\n' + rules.join('\n'));
+  return parts.join('\n\n');
+}
+
+function lmAutoExpandScriptInput() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+  const input = document.getElementById('lmScriptInput');
+  if (!input || !input.style) return;
+  input.style.height = 'auto';
+  input.style.height = Math.max(90, input.scrollHeight || 90) + 'px';
+}
+
+function lmInitScriptInputAutoExpand() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+  const input = document.getElementById('lmScriptInput');
+  if (!input || !input.dataset || input.dataset.autoExpandInit) return;
+  input.dataset.autoExpandInit = '1';
+  if (typeof input.addEventListener === 'function') {
+    input.addEventListener('input', lmAutoExpandScriptInput);
+    input.addEventListener('change', lmAutoExpandScriptInput);
+  }
+  lmAutoExpandScriptInput();
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', lmInitScriptInputAutoExpand);
+  } else if (typeof document.getElementById === 'function') {
+    lmInitScriptInputAutoExpand();
+  }
+}
+
 async function lmGenerateLessonFromScript(text, defaultTitle) {
+  const hasBlocks = !!(typeof lmState !== 'undefined' && lmState && Array.isArray(lmState.blocks) && lmState.blocks.length > 0);
+  if (!text && hasBlocks) {
+    text = lmExtractLessonContextText(lmState) || (lmState.title ? 'Title: ' + lmState.title : '');
+  }
   if(!text||!canEditLessons())return;
   const scriptInputVal = typeof document !== 'undefined' ? document.getElementById('lmScriptInput')?.value : '';
   const appendTasks = typeof document !== 'undefined' && document.getElementById('lmAppendTasks')?.checked;
-  const targetCwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmClassworkCount')?.value, 10) || 48);
-  const targetHwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmHomeworkCount')?.value, 10) || 72);
-  if(!appendTasks || !lmState){
+  const taskCounts = typeof window.lmGetTaskCounts === 'function' ? window.lmGetTaskCounts() : {
+    cw: typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3,
+    hw: typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3,
+    total: 6
+  };
+  const targetCwCount = taskCounts.cw;
+  const targetHwCount = taskCounts.hw;
+  if(!hasBlocks && (!appendTasks || !lmState)){
     const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
     if(typeof create === 'function') create();
   }
   if(!lmState)return;
   if(typeof document !== 'undefined') {
     const input = document.getElementById('lmScriptInput');
-    if (input && (text || scriptInputVal)) input.value = text || scriptInputVal;
+    if (input && (text || scriptInputVal)) {
+      input.value = text || scriptInputVal;
+      lmAutoExpandScriptInput();
+    }
   }
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
@@ -1604,7 +1742,30 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
   lmPdfProgress('Generating lesson');
   try{
     const fallbackTitle = defaultTitle || 'Lesson Script';
-    const data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
+    let data;
+    try {
+      const selectedQuizTypes = typeof window.lmGetSelectedQuizTypes === 'function' ? window.lmGetSelectedQuizTypes() : [];
+      const taskCountPerSec = typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3;
+      const detectedLvl = typeof window.lmDetectCefrLevel === 'function' ? window.lmDetectCefrLevel() : 'B1';
+      if (typeof accountFetch === 'function') {
+        const aiRes = await accountFetch('/api/lessons/generate-ai', {
+          method: 'POST',
+          body: JSON.stringify({
+            text,
+            title: fallbackTitle,
+            level: detectedLvl,
+            quizTypes: selectedQuizTypes,
+            taskCount: taskCountPerSec
+          })
+        });
+        if (aiRes && (aiRes.words?.length || aiRes.classwork?.length)) {
+          data = aiRes;
+        }
+      }
+    } catch (_) {}
+    if (!data) {
+      data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
+    }
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -1735,6 +1896,35 @@ async function lmHandleScriptFileUpload(file) {
   }
 }
 
+async function lmFetchExternalUrl(url) {
+  if (!url || !canEditLessons()) return;
+  const status = document.getElementById('lmScriptStatus');
+  if (status) status.textContent = 'Fetching external resource…';
+  try {
+    let text = '';
+    if (typeof accountFetch === 'function') {
+      try {
+        const res = await accountFetch('/api/link-preview?url=' + encodeURIComponent(url));
+        if (res) {
+          const title = res.title || 'Resource';
+          const desc = res.description || '';
+          text = 'Title: ' + title + '\nDescription: ' + desc + '\nURL: ' + url;
+        }
+      } catch (_) {}
+    }
+    if (!text) {
+      const domain = url.replace(/^https?:\/\//i, '').split('/')[0] || 'Resource';
+      text = 'Title: Study cards from ' + domain + '\nURL: ' + url + '\nWords: target - цель, comprehension - понимание\nRule: Usage in context';
+    }
+    const input = document.getElementById('lmScriptInput');
+    if (input) input.value = text;
+    await lmGenerateLessonFromScript(text, 'Import from ' + (url.split('/')[2] || 'Web'));
+    if (status) status.textContent = '';
+  } catch (err) {
+    if (status) status.textContent = err.message || 'Could not import from URL.';
+  }
+}
+
 if(typeof document!=='undefined'){
   document.addEventListener('change', async (e) => {
     const fileInput = e.target.closest('[data-lesson-script-file]');
@@ -1779,18 +1969,36 @@ if(typeof document!=='undefined'){
       }
       return;
     }
+    const urlBtn = e.target.closest('#lmUrlFetchBtn');
+    if (urlBtn) {
+      const urlInput = document.getElementById('lmUrlInput');
+      const url = urlInput?.value?.trim();
+      if (!url) {
+        const status = document.getElementById('lmScriptStatus');
+        if (status) status.textContent = 'Paste a resource URL first.';
+        return;
+      }
+      await lmFetchExternalUrl(url);
+      return;
+    }
     const btn = e.target.closest('#lmGenerateFromScriptBtn');
     if (btn) {
       const input = document.getElementById('lmScriptInput');
       const status = document.getElementById('lmScriptStatus');
-      const text = input?.value?.trim();
+      const isExam = !!(typeof lmState !== 'undefined' && lmState?.examOwned);
+      const hasBlocks = !!(typeof lmState !== 'undefined' && lmState?.blocks?.length);
+      let text = input?.value?.trim();
+      if (!text && hasBlocks) {
+        text = lmExtractLessonContextText(lmState);
+      }
       if (!text) {
         if (status) status.textContent = 'Enter a script or topic description first.';
         return;
       }
-      if (status) status.textContent = 'Generating lesson structure…';
+      if (status) status.textContent = isExam ? (hasBlocks ? 'Generating exam tasks…' : 'Generating exam structure…') : (hasBlocks ? 'Generating lesson tasks…' : 'Generating lesson structure…');
       try {
         await lmGenerateLessonFromScript(text);
+        if (typeof window !== 'undefined' && typeof window.lmSyncGenerateControls === 'function') window.lmSyncGenerateControls();
         if (status) status.textContent = '';
       } catch (err) {
         if (status) status.textContent = err.message || 'Generation failed.';
@@ -1800,9 +2008,14 @@ if(typeof document!=='undefined'){
 }
 
 if(typeof window!=='undefined'){
+  window.lmDetectCefrLevel = lmDetectCefrLevel;
+  window.lmFetchExternalUrl = lmFetchExternalUrl;
   window.lmImportPdfDraft = lmImportPdfDraft;
   window.lmParseScriptToLessonData = lmParseScriptToLessonData;
   window.lmGenerateLessonFromScript = lmGenerateLessonFromScript;
+  window.lmExtractLessonContextText = lmExtractLessonContextText;
+  window.lmAutoExpandScriptInput = lmAutoExpandScriptInput;
+  window.lmInitScriptInputAutoExpand = lmInitScriptInputAutoExpand;
   window.lmPdfProgressEnd = lmPdfProgressEnd;
   window.lmExtractTextFromFile = lmExtractTextFromFile;
   window.lmHandleScriptFileUpload = lmHandleScriptFileUpload;

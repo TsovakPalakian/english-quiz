@@ -22847,8 +22847,11 @@ const STUDIO_CONSTELLATIONS = [{
     function lmQuizBlankItem(quizType) {
       const kind = quizType || "Choice";
       if (kind === "Flip" || kind === "Reverse") return { front: "", back: "" };
+      if (kind === "Smart Flashcard" || kind === "FSRS Flashcard") return { front: "", back: "", example: "" };
       if (kind === "Choice") return { prompt: "", options: ["", "", ""], answer: 0 };
+      if (kind === "Video choice") return { prompt: "", options: ["", "", ""], answer: 0, mediaId: "", transcript: "" };
       if (kind === "Type" || kind === "Listen" || kind === "Definition") return { prompt: "", answer: "" };
+      if (kind === "Pronounce") return { prompt: "", answer: "", word: "", ipa: "" };
       if (kind === "Gap") return { shown: "", answer: "", hint: "" };
       if (kind === "Build") return { parts: "", answer: "" };
       if (kind === "Match" || kind === "Memory") return { left: "", right: "" };
@@ -23084,12 +23087,28 @@ const STUDIO_CONSTELLATIONS = [{
         return lmItemField(block, "items", index, "front", kind === "Reverse" ? "Russian" : "Front", true) +
           lmItemField(block, "items", index, "back", kind === "Reverse" ? "English" : "Back", true);
       }
+      if (kind === "Smart Flashcard" || kind === "FSRS Flashcard") {
+        return lmItemField(block, "items", index, "front", "Front (Word / Prompt)", true) +
+          lmItemField(block, "items", index, "back", "Back (Translation / Meaning)", true) +
+          lmItemField(block, "items", index, "example", "Example sentence", true);
+      }
       if (kind === "Choice") {
         return lmItemField(block, "items", index, "prompt", "Question", true) + lmChoiceEditor(block, index);
+      }
+      if (kind === "Video choice") {
+        return lmItemField(block, "items", index, "prompt", "Question / Prompt", true) +
+          lmItemField(block, "items", index, "mediaId", "Video Media ID / URL", true) +
+          lmItemField(block, "items", index, "transcript", "Video transcript / subtitle", true) +
+          lmChoiceEditor(block, index);
       }
       if (kind === "Type" || kind === "Listen") {
         return lmItemField(block, "items", index, "prompt", kind === "Listen" ? "Prompt / transcript" : "Prompt", true) +
           lmItemField(block, "items", index, "answer", "Answer", true);
+      }
+      if (kind === "Pronounce") {
+        return lmItemField(block, "items", index, "word", "Word / Phrase to pronounce", true) +
+          lmItemField(block, "items", index, "ipa", "IPA transcription (optional)", true) +
+          lmItemField(block, "items", index, "prompt", "Context prompt", true);
       }
       if (kind === "Definition") {
         return lmItemField(block, "items", index, "prompt", "Definition", true) +
@@ -23130,7 +23149,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmQuizItems(block) {
       const kind = lmQuizType(block);
-      const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : "+ Add card";
+      const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : (kind === "Video choice" || kind === "Choice" || kind === "Select all" || kind === "Odd one out") ? "+ Add question" : "+ Add card";
       const memory = kind === "Memory" ? '<label>Pairs in one set<input type="number" min="2" data-field="memorySize" data-block="' + block.id + '" value="' + esc(String(block.memorySize || 4)) + '" /></label>' : "";
       const rows = (block.items || []).map((item, index) =>
         '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
@@ -23260,13 +23279,14 @@ const STUDIO_CONSTELLATIONS = [{
         const label = block.type === "interactive" ? "Interactive" : block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
+        const verified = '<label class="lm-teacher-verify-label" style="font-size:12px; font-weight:700; color:#047857; display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:12px;"><input type="checkbox" data-block-teacher-verified="' + block.id + '"' + (block.teacherVerified ? ' checked' : '') + '> Verified by Teacher</label>';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
         const head = lmHead(block,label,isFirst,isLast).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
         const beforeZone = lmInsertZoneHtml(block.id, "before");
-        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + assessed + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
         const afterZone = isLast ? lmInsertZoneHtml(block.id, "after") : "";
         return beforeZone + blockHtml + afterZone;
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
@@ -23278,6 +23298,8 @@ const STUDIO_CONSTELLATIONS = [{
       dressWords(box);
       lmPaintChrome();
       lmPaintTabTools();
+      lmSyncGenerateControls();
+      lmSyncTeacherVerifySummary();
     }
     function lmPreviewFile(block, label, action, attr) {
       const external = lmExternalFile(block);
@@ -23378,8 +23400,15 @@ const STUDIO_CONSTELLATIONS = [{
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
           return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
         }
+        if (kind === "Video choice") {
+          const videoHtml = block.mediaId ? lmMedia(block.mediaId, "video") : (block.url ? lmVideoFrame(block.url, block.title) : "");
+          const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + (question.transcript ? '<p class="hint">Transcript: ' + esc(question.transcript) + '</p>' : '') + lmPreviewChoices(block, index, question) + "</div>").join("");
+          return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+        }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
+          if (kind === "Smart Flashcard" || kind === "FSRS Flashcard") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span><i>" + esc(item.example || "") + "</i></article>";
+          if (kind === "Pronounce") return '<article class="lm-read-card"><b>' + esc(item.word || item.prompt || "") + "</b><span>" + esc(item.ipa || "") + "</span><i>" + esc(item.answer || "") + "</i></article>";
           if (kind === "Type" || kind === "Listen" || kind === "Definition") return '<article class="lm-read-card"><b>' + esc(item.prompt || "") + "</b><span>" + esc(item.answer || "") + "</span></article>";
           if (kind === "Gap") return '<article class="lm-read-card"><b>' + esc(item.shown || "") + "</b><span>" + esc(item.answer || "") + "</span><i>" + esc(item.hint || "") + "</i></article>";
           if (kind === "Build") return '<article class="lm-read-card"><b>' + esc(item.parts || "") + "</b><span>" + esc(item.answer || "") + "</span></article>";
@@ -23448,7 +23477,8 @@ const STUDIO_CONSTELLATIONS = [{
         else {
           flush();
           const copy = contentCopyButton('material',block.id,lmState.examOwned?'exam-block':'lesson',lmState.id);
-          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + (copy ? '<div class="lm-copy-tools">' + copy + '</div>' : '') + lmPreviewBlock(block) + "</div>";
+          const verifiedBadge = block.teacherVerified ? '<span class="lm-verified-badge" title="Verified by Teacher">✓ Verified by Teacher</span>' : '';
+          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + ((copy || verifiedBadge) ? '<div class="lm-copy-tools">' + verifiedBadge + (copy || '') + '</div>' : '') + lmPreviewBlock(block) + "</div>";
         }
       });
       flush();
@@ -24163,6 +24193,27 @@ const STUDIO_CONSTELLATIONS = [{
           body.querySelector('[data-interactive-preview]').innerHTML = lmInteractiveFrame(block);
           lmSchedule(); return;
         }
+        const verifyToggle = event.target.closest("[data-block-teacher-verified]");
+        if (verifyToggle) {
+          const block = lmBlock(verifyToggle.dataset.blockTeacherVerified);
+          if (block) {
+            block.teacherVerified = !!verifyToggle.checked;
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
+        if (event.target.closest("#lmTeacherVerifyCheckbox")) {
+          const chk = document.getElementById("lmTeacherVerifyCheckbox");
+          const val = !!(chk && chk.checked);
+          if (lmState && Array.isArray(lmState.blocks)) {
+            lmState.blocks.forEach(b => { b.teacherVerified = val; });
+            lmRenderEditor();
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
         const meta = event.target.closest("[data-meta]");
         if (meta && lmState) { lmState[meta.dataset.meta] = meta.value; lmSchedule(); return; }
         const field = event.target.closest("[data-field]");
@@ -24430,6 +24481,16 @@ const STUDIO_CONSTELLATIONS = [{
           }
           return;
         }
+        if (event.target.closest("#lmApproveAllBlocksBtn")) {
+          event.preventDefault();
+          if (lmState && Array.isArray(lmState.blocks)) {
+            lmState.blocks.forEach(b => { b.teacherVerified = true; });
+            lmRenderEditor();
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
         const fold = event.target.closest("[data-lm-fold]");
         if (fold) { const block = lmBlock(fold.dataset.lmFold); if (block) block.collapsed = !block.collapsed; lmRenderEditor(); lmSchedule(); return; }
         const edit = event.target.closest("[data-lm-edit]");
@@ -24674,10 +24735,222 @@ const STUDIO_CONSTELLATIONS = [{
         lmNote("");
         lmShow("preview");
       });
+      const LM_ALL_QUIZ_TYPES = [
+        "Choice",
+        "Gap",
+        "Type",
+        "Definition",
+        "Odd one out",
+        "Select all",
+        "Reverse",
+        "Build",
+        "Match",
+        "True / false",
+        "Tap",
+        "Pronounce",
+        "Listen",
+        "Spell",
+        "Smart Flashcard",
+        "Flip",
+        "Letters",
+        "Memory",
+        "Hangman",
+        "Video choice"
+      ];
+
+      function lmSyncGenerateControls() {
+        if (typeof document === "undefined") return;
+        const btn = document.getElementById("lmGenerateFromScriptBtn");
+        const title = document.getElementById("lmFrameImportTitle");
+        const timeLimitWrap = document.getElementById("lmExamTimeLimitWrap");
+        const isExam = !!(lmState && lmState.examOwned);
+        const blocks = (lmState && Array.isArray(lmState.blocks)) ? lmState.blocks : [];
+        const hasBlocks = blocks.length > 0;
+
+        if (title) {
+          title.textContent = isExam ? "Generate & Import Exam" : "Generate & Import Lessons";
+        }
+        if (timeLimitWrap) {
+          timeLimitWrap.style.display = isExam ? "inline-flex" : "none";
+        }
+        if (btn) {
+          if (isExam) {
+            btn.textContent = hasBlocks ? "Generate tasks" : "Generate exam";
+          } else {
+            btn.textContent = hasBlocks ? "Generate tasks" : "Generate lesson";
+          }
+        }
+      }
+
+      function lmGetSelectedQuizTypes() {
+        if (typeof document === "undefined") return LM_ALL_QUIZ_TYPES.slice();
+        const listEl = document.getElementById("lmQuizTypesList");
+        if (!listEl) return LM_ALL_QUIZ_TYPES.slice();
+        const checked = Array.from(listEl.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.quizType);
+        return checked.length > 0 ? checked : ["Choice"];
+      }
+
+      function lmGetTaskCountPerSection() {
+        if (typeof document === "undefined") return 3;
+        const countInput = document.getElementById("lmTaskCountPerSection");
+        const count = parseInt(countInput ? countInput.value : "3", 10);
+        return isNaN(count) || count < 1 ? 3 : count;
+      }
+
+      function lmGetTaskCounts() {
+        if (typeof document === "undefined") return { cw: 3, hw: 3, perSection: 3, total: 6 };
+        const countInput = document.getElementById("lmTaskCountPerSection");
+        const count = parseInt(countInput ? countInput.value : "3", 10);
+        const perSection = isNaN(count) || count < 1 ? 3 : count;
+        const cwEl = document.getElementById("lmQuizClasswork");
+        const hwEl = document.getElementById("lmQuizHomework");
+        const cwChecked = cwEl ? cwEl.checked : true;
+        const hwChecked = hwEl ? hwEl.checked : true;
+        const cw = cwChecked ? perSection : 0;
+        const hw = hwChecked ? perSection : 0;
+        return {
+          cw,
+          hw,
+          perSection,
+          total: cw + hw
+        };
+      }
+
+      function lmSyncTaskTotalSummary() {
+        if (typeof document === "undefined") return;
+        const summaryEl = document.getElementById("lmTaskTotalSummary");
+        if (!summaryEl) return;
+        const counts = lmGetTaskCounts();
+        summaryEl.textContent = "(Total: " + counts.total + ")";
+      }
+
+      function lmInitQuizOptions() {
+        if (typeof document === "undefined") return;
+        const listEl = document.getElementById("lmQuizTypesList");
+        const countEl = document.getElementById("lmQuizSelectedCount");
+        const warnEl = document.getElementById("lmVideoChoiceWarning");
+        const btn = document.getElementById("lmQuizOptionsBtn");
+        const dropdown = document.getElementById("lmQuizOptionsDropdown");
+        const selectAllBtn = document.getElementById("lmQuizSelectAll");
+        const deselectAllBtn = document.getElementById("lmQuizDeselectAll");
+        const cwCheck = document.getElementById("lmQuizClasswork");
+        const hwCheck = document.getElementById("lmQuizHomework");
+        const countInput = document.getElementById("lmTaskCountPerSection");
+
+        if (cwCheck && !cwCheck.dataset.initialized) {
+          cwCheck.dataset.initialized = "1";
+          cwCheck.addEventListener("change", lmSyncTaskTotalSummary);
+        }
+        if (hwCheck && !hwCheck.dataset.initialized) {
+          hwCheck.dataset.initialized = "1";
+          hwCheck.addEventListener("change", lmSyncTaskTotalSummary);
+        }
+        if (countInput && !countInput.dataset.initialized) {
+          countInput.dataset.initialized = "1";
+          countInput.addEventListener("input", lmSyncTaskTotalSummary);
+          countInput.addEventListener("change", lmSyncTaskTotalSummary);
+        }
+
+        if (!listEl) return;
+
+        if (listEl.children.length === 0) {
+          listEl.innerHTML = LM_ALL_QUIZ_TYPES.map((type) => {
+            const isVideo = type === "Video choice";
+            return '<label style="display:flex; align-items:center; gap:8px; padding:3px 4px; border-radius:4px; cursor:pointer;" class="lm-quiz-type-opt">' +
+              '<input type="checkbox" data-quiz-type="' + esc(type) + '" checked style="cursor:pointer;" />' +
+              '<span style="font-size:12px; font-weight:600;' + (isVideo ? " color:#ef4444;" : "") + '">' +
+              (isVideo ? "📹 " : "") + esc(type) +
+              (type === "Smart Flashcard" ? ' <small style="opacity:0.75; font-weight:400;">(FSRS)</small>' : "") +
+              "</span></label>";
+          }).join("");
+        }
+
+        function updateCountAndWarnings() {
+          const checked = listEl.querySelectorAll('input[type="checkbox"]:checked');
+          if (countEl) countEl.textContent = String(checked.length);
+          const videoChecked = listEl.querySelector('input[data-quiz-type="Video choice"]:checked');
+          if (warnEl) {
+            warnEl.style.display = videoChecked ? "block" : "none";
+          }
+        }
+
+        listEl.onchange = () => {
+          updateCountAndWarnings();
+        };
+
+        if (selectAllBtn) {
+          selectAllBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
+            updateCountAndWarnings();
+          };
+        }
+
+        if (deselectAllBtn) {
+          deselectAllBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+            updateCountAndWarnings();
+          };
+        }
+
+        if (btn && dropdown && !btn.dataset.initialized) {
+          btn.dataset.initialized = "1";
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const isOpen = dropdown.style.display === "block";
+            dropdown.style.display = isOpen ? "none" : "block";
+          };
+
+          document.addEventListener("click", (e) => {
+            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+              dropdown.style.display = "none";
+            }
+          });
+        }
+
+        updateCountAndWarnings();
+        lmSyncTaskTotalSummary();
+      }
+
+      function lmSyncTeacherVerifySummary() {
+        if (typeof document === "undefined") return;
+        const chk = document.getElementById("lmTeacherVerifyCheckbox");
+        const badge = document.getElementById("lmTeacherVerifyBadge");
+        if (!chk || !lmState || !Array.isArray(lmState.blocks) || lmState.blocks.length === 0) {
+          if (chk) chk.checked = false;
+          if (badge) badge.textContent = "Unreviewed";
+          return;
+        }
+        const total = lmState.blocks.length;
+        const verifiedCount = lmState.blocks.filter(b => b.teacherVerified).length;
+        chk.checked = verifiedCount === total && total > 0;
+        if (badge) {
+          badge.textContent = verifiedCount === total
+            ? "Reviewed & Approved (" + total + "/" + total + ")"
+            : (verifiedCount > 0 ? "Partially Verified (" + verifiedCount + "/" + total + ")" : "Unreviewed (0/" + total + ")");
+        }
+      }
+
+      window.LM_ALL_QUIZ_TYPES = LM_ALL_QUIZ_TYPES;
+      window.lmSyncGenerateControls = lmSyncGenerateControls;
+      window.lmGetSelectedQuizTypes = lmGetSelectedQuizTypes;
+      window.lmGetTaskCountPerSection = lmGetTaskCountPerSection;
+      window.lmGetTaskCounts = lmGetTaskCounts;
+      window.lmSyncTaskTotalSummary = lmSyncTaskTotalSummary;
+      window.lmInitQuizOptions = lmInitQuizOptions;
+      window.lmSyncTeacherVerifySummary = lmSyncTeacherVerifySummary;
+
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
       const groupNew = document.getElementById("groupNew");
       if (groupNew) groupNew.addEventListener("click", groupCreate);
+      lmInitQuizOptions();
+      lmSyncGenerateControls();
+      lmSyncTeacherVerifySummary();
       paintLmDays();
     }
 
@@ -25495,25 +25768,47 @@ async function lmPdfDraftBlocks(data, hash) {
   return groups;
 }
 
+function lmDetectCefrLevel(className) {
+  const text = String(
+    className ||
+    (typeof document !== 'undefined' && document.getElementById('lmClass')?.value) ||
+    (typeof lmState !== 'undefined' && lmState?.className) ||
+    ''
+  ).trim();
+  const match = text.match(/(?:^|[^A-Za-z0-9])(A1|A2\+|A2|B1\+|B1|B2\+|B2|C1|C2)(?:[^A-Za-z0-9]|$)/i);
+  if (match) return match[1].toUpperCase();
+  if (typeof classGroups !== 'undefined' && typeof classGroupId !== 'undefined') {
+    const group = classGroups.find(row => row.id === classGroupId);
+    if (group && typeof accountGroupLevel === 'function') {
+      const lvl = accountGroupLevel(group);
+      if (lvl && lvl !== 'unassigned') return lvl;
+    }
+  }
+  return 'B1';
+}
+
 function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCount = null, targetHwCount = null) {
   function lmGenerateExercisesList(targetCount, words, phrases, rules, title, isHw = false) {
-    const pool = words.map(w => ({ word: w.word, meaning: w.translation || w.meaning || w.word, example: w.example || ('Example with ' + w.word) }));
-    phrases.forEach(p => pool.push({ word: p.phrase, meaning: p.translation || p.meaning || p.phrase, example: p.example || ('Example with ' + p.phrase) }));
+    if (!targetCount || targetCount <= 0) return [];
+    const pool = (words || []).map(w => ({ word: w.word, meaning: w.translation || w.meaning || w.word, example: w.example || ('Example with ' + w.word) }));
+    (phrases || []).forEach(p => pool.push({ word: p.phrase, meaning: p.translation || p.meaning || p.phrase, example: p.example || ('Example with ' + p.phrase) }));
     if (!pool.length) {
       const fallbackWords = ['structure', 'expression', 'context', 'accuracy', 'communication', 'objective', 'practice', 'fluency'];
       fallbackWords.forEach(w => pool.push({ word: w, meaning: w, example: 'Practice with ' + w }));
     }
-    const items = [];
-    const types = ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Task'];
-    const coverageCount = Math.min(types.length, targetCount);
 
-    for (let i = 0; i < coverageCount; i++) {
-      const t = types[i];
+    const selectedPool = (typeof window !== 'undefined' && typeof window.lmGetSelectedQuizTypes === 'function' ? window.lmGetSelectedQuizTypes() : []).filter(Boolean);
+    const availableTypes = selectedPool.length > 0 ? selectedPool : ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Smart Flashcard'];
+
+    const items = [];
+    for (let i = 0; i < targetCount; i++) {
+      const t = availableTypes[Math.floor(Math.random() * availableTypes.length)];
       const targetObj = pool[i % pool.length];
       const target = targetObj.word;
       const targetMeaning = targetObj.meaning;
       const d1 = pool[(i + 1) % pool.length].word;
       const d2 = pool[(i + 2) % pool.length].word;
+      const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
 
       if (t === 'Choice') {
         items.push({
@@ -25542,7 +25837,6 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
           generated: true
         });
       } else if (t === 'Match') {
-        const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
         items.push({
           stage: 'guided',
           title: (isHw ? 'HW Match: ' : 'CW Match: ') + title,
@@ -25612,12 +25906,155 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
           title: (isHw ? 'HW Odd One Out: ' : 'CW Odd One Out: ') + title,
           text: 'Choose the item that does not belong with the others.',
           quizType: 'Odd one out',
-          options: [pool[0].word, pool[1 % pool.length].word, pool[2 % pool.length].word, 'banana'],
+          options: [p1.word, p2.word, p3.word, 'banana'],
           answer: 3,
           pages: [1],
           generated: true
         });
-      } else if (t === 'Task') {
+      } else if (t === 'Smart Flashcard' || t === 'FSRS Flashcard') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Flashcard: ' : 'CW Flashcard: ') + target,
+          text: 'Recall and practice the target vocabulary card.',
+          quizType: 'FSRS Flashcard',
+          front: target,
+          back: targetMeaning + (targetObj.example ? '\n' + targetObj.example : ''),
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Video choice') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Video choice: ' : 'CW Video choice: ') + target,
+          text: 'Watch the video segment and answer the question for "' + target + '":',
+          quizType: 'Video choice',
+          prompt: 'What concept does "' + target + '" represent in this segment?',
+          options: [targetMeaning, 'Alternative: ' + d1, 'Opposite of ' + d2],
+          answer: 0,
+          mediaId: '',
+          transcript: targetObj.example || '',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Pronounce' || t === 'Pronunciation') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Pronounce: ' : 'CW Pronounce: ') + target,
+          text: 'Pronounce "' + target + '" clearly into the microphone.',
+          quizType: 'Pronunciation',
+          word: target,
+          ipa: '',
+          phoneticPrompt: 'Say: ' + target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Listen') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Listen: ' : 'CW Listen: ') + target,
+          text: 'Listen to the audio recording and choose the term you hear.',
+          quizType: 'Listen',
+          prompt: 'Identify the target term spoken in the recording:',
+          options: [target, d1, d2],
+          answer: 0,
+          transcript: target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Definition') {
+        items.push({
+          stage: 'comprehension',
+          title: (isHw ? 'HW Definition: ' : 'CW Definition: ') + target,
+          text: 'Select the term that fits the definition.',
+          quizType: 'Definition',
+          prompt: 'Which word matches the definition: "' + targetMeaning + '"?',
+          options: [target, d1, d2],
+          answer: 0,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Reverse') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Reverse: ' : 'CW Reverse: ') + target,
+          text: 'Select the correct English translation.',
+          quizType: 'Reverse',
+          prompt: 'What is the English term for: "' + targetMeaning + '"?',
+          options: [target, d1, d2],
+          answer: 0,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Spell') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Spell: ' : 'CW Spell: ') + target,
+          text: 'Spell the word correctly.',
+          quizType: 'Spell',
+          prompt: 'Spell the word meaning: "' + targetMeaning + '"',
+          word: target,
+          hint: 'First letter is: ' + target[0],
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Letters') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Letters: ' : 'CW Letters: ') + target,
+          text: 'Unscramble the letters to form the target word.',
+          quizType: 'Letters',
+          word: target,
+          hint: 'Meaning: ' + targetMeaning,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Hangman') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Hangman: ' : 'CW Hangman: ') + target,
+          text: 'Guess the hidden letters of the word.',
+          quizType: 'Hangman',
+          word: target,
+          hint: 'Meaning: ' + targetMeaning,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Flip') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Flip: ' : 'CW Flip: ') + target,
+          text: 'Flip the card to check your understanding.',
+          quizType: 'Flip',
+          front: target,
+          back: targetMeaning,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Tap') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Tap: ' : 'CW Tap: ') + target,
+          text: 'Tap the target word in context.',
+          quizType: 'Tap',
+          textPrompt: 'Tap on "' + target + '" in the phrase: We practice ' + target + ' diligently.',
+          answer: target,
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Memory') {
+        items.push({
+          stage: 'guided',
+          title: (isHw ? 'HW Memory: ' : 'CW Memory: ') + title,
+          text: 'Find matching pairs of words and meanings.',
+          quizType: 'Memory',
+          items: [
+            { left: p1.word, right: p1.meaning },
+            { left: p2.word, right: p2.meaning }
+          ],
+          pages: [1],
+          generated: true
+        });
+      } else {
         items.push({
           stage: 'final',
           title: (isHw ? 'Homework Production: ' : 'Classwork Production: ') + title,
@@ -25631,117 +26068,15 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       }
     }
 
-    const rapidKinds = [
-      { type: 'Choice', weight: 35 },
-      { type: 'Match', weight: 20 },
-      { type: 'True / false', weight: 15 },
-      { type: 'Select all', weight: 10 },
-      { type: 'Odd one out', weight: 10 },
-      { type: 'Gap', weight: 10 }
-    ];
-
-    let seq = coverageCount + 1;
-    const remainder = [];
-    while (items.length + remainder.length < targetCount) {
-      const roll = Math.random() * 100;
-      let acc = 0, picked = 'Choice';
-      for (const rk of rapidKinds) {
-        acc += rk.weight;
-        if (roll <= acc) { picked = rk.type; break; }
-      }
-      const targetObj = pool[seq % pool.length];
-      const target = targetObj.word;
-      const targetMeaning = targetObj.meaning;
-      const d1 = pool[(seq + 1) % pool.length].word;
-      const d2 = pool[(seq + 2) % pool.length].word;
-
-      if (picked === 'Choice') {
-        remainder.push({
-          stage: 'guided',
-          title: (isHw ? 'HW Choice ' : 'CW Choice ') + seq + ': ' + target,
-          text: 'Identify the most suitable usage of "' + target + '":',
-          kind: 'choice',
-          options: ['Proper use in context of ' + targetMeaning, 'Distractor context: ' + d1, 'Incorrect form: ' + d2],
-          answer: 0,
-          feedback: 'Accurate usage matches ' + targetMeaning + '.',
-          criteria: '',
-          teacherAnswer: '',
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'Match') {
-        const pA = pool[seq % pool.length], pB = pool[(seq + 1) % pool.length];
-        remainder.push({
-          stage: 'guided',
-          title: (isHw ? 'HW Match ' : 'CW Match ') + seq,
-          text: 'Match words with definitions.',
-          quizType: 'Match',
-          items: [
-            { left: pA.word, right: pA.meaning },
-            { left: pB.word, right: pB.meaning }
-          ],
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'True / false') {
-        const isTrue = seq % 2 === 0;
-        remainder.push({
-          stage: 'comprehension',
-          title: (isHw ? 'HW True/False ' : 'CW True/False ') + seq,
-          text: 'Check if this statement is true or false.',
-          quizType: 'True / false',
-          prompt: isTrue ? ('"' + target + '" is related to ' + targetMeaning + '.') : ('"' + target + '" means the exact opposite of ' + targetMeaning + '.'),
-          answer: isTrue ? 'true' : 'false',
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'Select all') {
-        remainder.push({
-          stage: 'independent',
-          title: (isHw ? 'HW Select All ' : 'CW Select All ') + seq,
-          text: 'Select all accurate applications.',
-          quizType: 'Select all',
-          prompt: 'Which options apply to "' + target + '"?',
-          options: ['Valid: ' + targetMeaning, 'Distractor ' + d1, 'Lesson target: ' + target, 'Unrelated: ' + d2],
-          answers: [0, 2],
-          pages: [1],
-          generated: true
-        });
-      } else if (picked === 'Odd one out') {
-        remainder.push({
-          stage: 'independent',
-          title: (isHw ? 'HW Odd One Out ' : 'CW Odd One Out ') + seq,
-          text: 'Identify the odd term out of four.',
-          quizType: 'Odd one out',
-          options: [pool[seq % pool.length].word, pool[(seq + 1) % pool.length].word, pool[(seq + 2) % pool.length].word, 'airplane ' + seq],
-          answer: 3,
-          pages: [1],
-          generated: true
-        });
-      } else {
-        remainder.push({
-          stage: 'guided',
-          title: (isHw ? 'HW Gap ' : 'CW Gap ') + seq + ': ' + target,
-          text: 'Fill in the blank with the appropriate word.',
-          quizType: 'Gap',
-          shown: 'The team must consider ___ to achieve the goal.',
-          answer: target,
-          hint: 'Starts with ' + target[0],
-          pages: [1],
-          generated: true
-        });
-      }
-      seq++;
-    }
-
-    for (let idx = remainder.length - 1; idx > 0; idx--) {
+    // Fisher-Yates array shuffle algorithm
+    for (let idx = items.length - 1; idx > 0; idx--) {
       const swap = Math.floor(Math.random() * (idx + 1));
-      const temp = remainder[idx];
-      remainder[idx] = remainder[swap];
-      remainder[swap] = temp;
+      const temp = items[idx];
+      items[idx] = items[swap];
+      items[swap] = temp;
     }
 
-    return items.concat(remainder);
+    return items;
   }
   const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
   let title = '', description = '', unit = '', lesson = '', className = '';
@@ -26008,17 +26343,29 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   }
 
   let finalCw = classwork;
-  if (targetCwCount && targetCwCount > classwork.length) {
-    finalCw = classwork.concat(lmGenerateExercisesList(targetCwCount - classwork.length, words, phrases, rules, title, false));
+  if (targetCwCount !== null && targetCwCount !== undefined) {
+    if (targetCwCount === 0) {
+      finalCw = [];
+    } else if (targetCwCount > classwork.length) {
+      finalCw = classwork.concat(lmGenerateExercisesList(targetCwCount - classwork.length, words, phrases, rules, title, false));
+    } else {
+      finalCw = classwork.slice(0, targetCwCount);
+    }
   }
   const homework = (targetHwCount && targetHwCount > 0) ? lmGenerateExercisesList(targetHwCount, words, phrases, rules, title, true) : [];
 
+  const detectedLevel = (typeof lmDetectCefrLevel === 'function')
+    ? lmDetectCefrLevel(className)
+    : ((typeof window !== 'undefined' && typeof window.lmDetectCefrLevel === 'function')
+        ? window.lmDetectCefrLevel(className)
+        : (className ? (className.match(/(?:^|[^A-Za-z0-9])(A1|A2\+|A2|B1\+|B1|B2\+|B2|C1|C2)(?:[^A-Za-z0-9]|$)/i)?.[1]?.toUpperCase() || className) : 'B1'));
   return {
     title,
     description,
     unit: unit || '1',
     lesson: lesson || '1',
-    className: className || 'B2',
+    className: className || detectedLevel,
+    level: detectedLevel,
     overview: description,
     words,
     phrases,
@@ -26211,6 +26558,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       if(details.open)mount();
       dialog.append(details);
     };
+    const isNonEmptyLesson = Boolean(current && ((current.blocks || []).length > 0 || current.title || current.description));
     section('metadata','Basic information',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML=
@@ -26220,12 +26568,12 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc(data.lesson||'')+'" placeholder="Lesson number"></div></div>'+
         '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc(data.className||'')+'" placeholder="Class / Level"></div>';
       container.append(box);
-    },true);
+    },!isNonEmptyLesson);
     section('overview','Overview',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML='<div class="saas-form-group"><label class="saas-label">Lesson overview</label><textarea class="saas-textarea" data-pdf-field="overview" style="min-height:96px" placeholder="Overview text">'+esc(data.overview||'')+'</textarea></div>';
       container.append(box);
-    },true);
+    },!isNonEmptyLesson);
     section('words','Words · '+data.words.length,(container,titleSpan)=>{
       const wrap=document.createElement('div');wrap.className='lm-pdf-words-container';
       const toolbar=document.createElement('div');toolbar.className='lm-pdf-words-toolbar';
@@ -26788,20 +27136,83 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
 
+function lmExtractLessonContextText(lesson) {
+  if (!lesson || !Array.isArray(lesson.blocks)) return '';
+  const parts = [];
+  if (lesson.title) parts.push('Title: ' + lesson.title);
+  if (lesson.description) parts.push('Description: ' + lesson.description);
+  const words = [];
+  const phrases = [];
+  const rules = [];
+  lesson.blocks.forEach(b => {
+    if (b.tab === 'words' && Array.isArray(b.items)) {
+      b.items.forEach(it => { if (it.word) words.push(it.word + ' - ' + (it.translation || it.meaning || it.word)); });
+    } else if (b.tab === 'phrases' && Array.isArray(b.items)) {
+      b.items.forEach(it => { if (it.phrase) phrases.push(it.phrase + ' - ' + (it.translation || it.meaning || it.phrase)); });
+    } else if (b.tab === 'rules') {
+      if (b.title) rules.push(b.title + (b.html ? ': ' + b.html.replace(/<[^>]+>/g, ' ') : ''));
+    }
+  });
+  if (words.length) parts.push('Words:\n' + words.join('\n'));
+  if (phrases.length) parts.push('Phrases:\n' + phrases.join('\n'));
+  if (rules.length) parts.push('Rules:\n' + rules.join('\n'));
+  return parts.join('\n\n');
+}
+
+function lmAutoExpandScriptInput() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+  const input = document.getElementById('lmScriptInput');
+  if (!input || !input.style) return;
+  input.style.height = 'auto';
+  input.style.height = Math.max(90, input.scrollHeight || 90) + 'px';
+}
+
+function lmInitScriptInputAutoExpand() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function') return;
+  const input = document.getElementById('lmScriptInput');
+  if (!input || !input.dataset || input.dataset.autoExpandInit) return;
+  input.dataset.autoExpandInit = '1';
+  if (typeof input.addEventListener === 'function') {
+    input.addEventListener('input', lmAutoExpandScriptInput);
+    input.addEventListener('change', lmAutoExpandScriptInput);
+  }
+  lmAutoExpandScriptInput();
+}
+
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', lmInitScriptInputAutoExpand);
+  } else if (typeof document.getElementById === 'function') {
+    lmInitScriptInputAutoExpand();
+  }
+}
+
 async function lmGenerateLessonFromScript(text, defaultTitle) {
+  const hasBlocks = !!(typeof lmState !== 'undefined' && lmState && Array.isArray(lmState.blocks) && lmState.blocks.length > 0);
+  if (!text && hasBlocks) {
+    text = lmExtractLessonContextText(lmState) || (lmState.title ? 'Title: ' + lmState.title : '');
+  }
   if(!text||!canEditLessons())return;
   const scriptInputVal = typeof document !== 'undefined' ? document.getElementById('lmScriptInput')?.value : '';
   const appendTasks = typeof document !== 'undefined' && document.getElementById('lmAppendTasks')?.checked;
-  const targetCwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmClassworkCount')?.value, 10) || 48);
-  const targetHwCount = Math.max(1, parseInt(typeof document !== 'undefined' && document.getElementById('lmHomeworkCount')?.value, 10) || 72);
-  if(!appendTasks || !lmState){
+  const taskCounts = typeof window.lmGetTaskCounts === 'function' ? window.lmGetTaskCounts() : {
+    cw: typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3,
+    hw: typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3,
+    total: 6
+  };
+  const targetCwCount = taskCounts.cw;
+  const targetHwCount = taskCounts.hw;
+  if(!hasBlocks && (!appendTasks || !lmState)){
     const create = typeof lmCreateLesson === 'function' ? lmCreateLesson : window.lmCreateLesson;
     if(typeof create === 'function') create();
   }
   if(!lmState)return;
   if(typeof document !== 'undefined') {
     const input = document.getElementById('lmScriptInput');
-    if (input && (text || scriptInputVal)) input.value = text || scriptInputVal;
+    if (input && (text || scriptInputVal)) {
+      input.value = text || scriptInputVal;
+      lmAutoExpandScriptInput();
+    }
   }
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
@@ -26814,7 +27225,30 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
   lmPdfProgress('Generating lesson');
   try{
     const fallbackTitle = defaultTitle || 'Lesson Script';
-    const data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
+    let data;
+    try {
+      const selectedQuizTypes = typeof window.lmGetSelectedQuizTypes === 'function' ? window.lmGetSelectedQuizTypes() : [];
+      const taskCountPerSec = typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3;
+      const detectedLvl = typeof window.lmDetectCefrLevel === 'function' ? window.lmDetectCefrLevel() : 'B1';
+      if (typeof accountFetch === 'function') {
+        const aiRes = await accountFetch('/api/lessons/generate-ai', {
+          method: 'POST',
+          body: JSON.stringify({
+            text,
+            title: fallbackTitle,
+            level: detectedLvl,
+            quizTypes: selectedQuizTypes,
+            taskCount: taskCountPerSec
+          })
+        });
+        if (aiRes && (aiRes.words?.length || aiRes.classwork?.length)) {
+          data = aiRes;
+        }
+      }
+    } catch (_) {}
+    if (!data) {
+      data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
+    }
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -26945,6 +27379,35 @@ async function lmHandleScriptFileUpload(file) {
   }
 }
 
+async function lmFetchExternalUrl(url) {
+  if (!url || !canEditLessons()) return;
+  const status = document.getElementById('lmScriptStatus');
+  if (status) status.textContent = 'Fetching external resource…';
+  try {
+    let text = '';
+    if (typeof accountFetch === 'function') {
+      try {
+        const res = await accountFetch('/api/link-preview?url=' + encodeURIComponent(url));
+        if (res) {
+          const title = res.title || 'Resource';
+          const desc = res.description || '';
+          text = 'Title: ' + title + '\nDescription: ' + desc + '\nURL: ' + url;
+        }
+      } catch (_) {}
+    }
+    if (!text) {
+      const domain = url.replace(/^https?:\/\//i, '').split('/')[0] || 'Resource';
+      text = 'Title: Study cards from ' + domain + '\nURL: ' + url + '\nWords: target - цель, comprehension - понимание\nRule: Usage in context';
+    }
+    const input = document.getElementById('lmScriptInput');
+    if (input) input.value = text;
+    await lmGenerateLessonFromScript(text, 'Import from ' + (url.split('/')[2] || 'Web'));
+    if (status) status.textContent = '';
+  } catch (err) {
+    if (status) status.textContent = err.message || 'Could not import from URL.';
+  }
+}
+
 if(typeof document!=='undefined'){
   document.addEventListener('change', async (e) => {
     const fileInput = e.target.closest('[data-lesson-script-file]');
@@ -26989,18 +27452,36 @@ if(typeof document!=='undefined'){
       }
       return;
     }
+    const urlBtn = e.target.closest('#lmUrlFetchBtn');
+    if (urlBtn) {
+      const urlInput = document.getElementById('lmUrlInput');
+      const url = urlInput?.value?.trim();
+      if (!url) {
+        const status = document.getElementById('lmScriptStatus');
+        if (status) status.textContent = 'Paste a resource URL first.';
+        return;
+      }
+      await lmFetchExternalUrl(url);
+      return;
+    }
     const btn = e.target.closest('#lmGenerateFromScriptBtn');
     if (btn) {
       const input = document.getElementById('lmScriptInput');
       const status = document.getElementById('lmScriptStatus');
-      const text = input?.value?.trim();
+      const isExam = !!(typeof lmState !== 'undefined' && lmState?.examOwned);
+      const hasBlocks = !!(typeof lmState !== 'undefined' && lmState?.blocks?.length);
+      let text = input?.value?.trim();
+      if (!text && hasBlocks) {
+        text = lmExtractLessonContextText(lmState);
+      }
       if (!text) {
         if (status) status.textContent = 'Enter a script or topic description first.';
         return;
       }
-      if (status) status.textContent = 'Generating lesson structure…';
+      if (status) status.textContent = isExam ? (hasBlocks ? 'Generating exam tasks…' : 'Generating exam structure…') : (hasBlocks ? 'Generating lesson tasks…' : 'Generating lesson structure…');
       try {
         await lmGenerateLessonFromScript(text);
+        if (typeof window !== 'undefined' && typeof window.lmSyncGenerateControls === 'function') window.lmSyncGenerateControls();
         if (status) status.textContent = '';
       } catch (err) {
         if (status) status.textContent = err.message || 'Generation failed.';
@@ -27010,13 +27491,685 @@ if(typeof document!=='undefined'){
 }
 
 if(typeof window!=='undefined'){
+  window.lmDetectCefrLevel = lmDetectCefrLevel;
+  window.lmFetchExternalUrl = lmFetchExternalUrl;
   window.lmImportPdfDraft = lmImportPdfDraft;
   window.lmParseScriptToLessonData = lmParseScriptToLessonData;
   window.lmGenerateLessonFromScript = lmGenerateLessonFromScript;
+  window.lmExtractLessonContextText = lmExtractLessonContextText;
+  window.lmAutoExpandScriptInput = lmAutoExpandScriptInput;
+  window.lmInitScriptInputAutoExpand = lmInitScriptInputAutoExpand;
   window.lmPdfProgressEnd = lmPdfProgressEnd;
   window.lmExtractTextFromFile = lmExtractTextFromFile;
   window.lmHandleScriptFileUpload = lmHandleScriptFileUpload;
 }
+// Full Focus Mode Step-by-Step Interactive Player with Adaptive Remediation (Stages 14 & 15)
+(function() {
+  let focusActive = false;
+  let focusQuestions = [];
+  let focusIndex = 0;
+  let focusSelectedOption = null;
+  let focusResults = {}; // index -> boolean (true: correct, false: incorrect)
+  let sessionConceptErrors = new Map(); // concept -> count of errors in this session
+
+  function esc(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function extractFocusQuestionsFromLesson(lesson) {
+    if (!lesson || !Array.isArray(lesson.blocks)) return [];
+    const questions = [];
+    lesson.blocks.forEach((b, bIdx) => {
+      if (b.tab === 'words' && Array.isArray(b.items)) {
+        b.items.forEach((it, itIdx) => {
+          questions.push({
+            id: 'word-' + bIdx + '-' + itIdx,
+            title: 'Vocabulary: ' + it.word,
+            concept: it.word,
+            prompt: 'Identify the definition of "' + it.word + '":',
+            options: [it.translation || it.meaning || it.word, 'Alternative form', 'Unrelated context'],
+            answer: 0,
+            feedback: '"' + it.word + '" means: ' + (it.translation || it.meaning || it.word)
+          });
+        });
+      } else if (b.type === 'quiz') {
+        const item = b.items?.[0] || b;
+        const concept = item.word || b.title?.replace(/^(?:HW|CW)\s+[^:]+:\s*/i, '') || 'Grammar & Usage';
+        const options = item.options || [item.answer || 'Option A', 'Option B', 'Option C'];
+        const ans = typeof item.answer === 'number' ? item.answer : 0;
+        questions.push({
+          id: 'quiz-' + (b.id || bIdx),
+          title: b.title || b.quizType || 'Quiz Task',
+          concept,
+          prompt: item.prompt || item.text || b.text || 'Choose the best option:',
+          options,
+          answer: ans,
+          feedback: b.pdfTeacherNotes || item.feedback || 'Target concept: ' + concept
+        });
+      } else if (b.type === 'exercise' && Array.isArray(b.items)) {
+        b.items.forEach((it, itIdx) => {
+          const concept = b.title || 'Exercise Practice';
+          questions.push({
+            id: 'exercise-' + (b.id || bIdx) + '-' + itIdx,
+            title: b.title || 'Exercise',
+            concept,
+            prompt: it.prompt || 'Select the correct statement:',
+            options: it.options || ['Correct usage', 'Distractor 1', 'Distractor 2'],
+            answer: it.answer || 0,
+            feedback: b.pdfTeacherNotes || 'Correct answer matches standard grammar rule.'
+          });
+        });
+      }
+    });
+    return questions;
+  }
+
+  function createPlayerDom() {
+    let overlay = document.getElementById('lmFocusPlayerOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'lmFocusPlayerOverlay';
+      overlay.className = 'focus-player-overlay';
+      overlay.style.display = 'none';
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function renderFocusPlayer() {
+    const overlay = createPlayerDom();
+    if (!focusActive || focusQuestions.length === 0) {
+      overlay.style.display = 'none';
+      return;
+    }
+
+    overlay.style.display = 'flex';
+    const total = focusQuestions.length;
+    const currentQ = focusQuestions[focusIndex] || {};
+    const hasResult = focusResults[focusIndex] !== undefined;
+    const isCorrect = focusResults[focusIndex] === true;
+
+    // Segmented progress bar
+    const progressSegments = focusQuestions.map((q, idx) => {
+      let statusClass = 'is-unvisited';
+      if (idx === focusIndex) statusClass = 'is-current';
+      else if (focusResults[idx] === true) statusClass = 'is-correct';
+      else if (focusResults[idx] === false) statusClass = 'is-incorrect';
+      return '<div class="focus-segment ' + statusClass + '" data-focus-jump="' + idx + '" title="Question ' + (idx + 1) + '"></div>';
+    }).join('');
+
+    // Bottom strip chips
+    const stripChips = focusQuestions.map((q, idx) => {
+      let statusClass = '';
+      if (idx === focusIndex) statusClass = 'is-current';
+      else if (focusResults[idx] === true) statusClass = 'is-correct';
+      else if (focusResults[idx] === false) statusClass = 'is-incorrect';
+      return '<button type="button" class="focus-strip-chip ' + statusClass + '" data-focus-jump="' + idx + '">' + (idx + 1) + '</button>';
+    }).join('');
+
+    const optionsHtml = (currentQ.options || []).map((opt, i) => {
+      const isSelected = focusSelectedOption === i;
+      let optClass = 'focus-option-btn';
+      if (isSelected) optClass += ' is-selected';
+      if (hasResult) {
+        if (i === currentQ.answer) optClass += ' is-correct-opt';
+        else if (isSelected && !isCorrect) optClass += ' is-incorrect-opt';
+      }
+      return '<button type="button" class="' + optClass + '" data-focus-option="' + i + '" ' + (hasResult ? 'disabled' : '') + '>' +
+        '<span class="focus-option-key">' + (i + 1) + '</span>' +
+        '<span>' + esc(opt) + '</span>' +
+      '</button>';
+    }).join('');
+
+    overlay.innerHTML =
+      '<div class="focus-player-header">' +
+        '<div style="font-size:14px; font-weight:700;">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
+        '<div class="focus-progress-bar">' + progressSegments + '</div>' +
+        '<div style="display:flex; align-items:center; gap:14px;">' +
+          '<span style="font-size:11px; opacity:0.8; font-family:monospace; background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:4px;">⌨️ 1-4: Select | Enter: Check/Next | Esc: Exit</span>' +
+          '<button type="button" class="btn-sm" id="lmFocusCloseBtn" style="font-size:16px; background:none; border:none; color:#ffffff; cursor:pointer;">✕</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="focus-player-stage">' +
+        '<div class="focus-card">' +
+          '<div style="font-size:12px; text-transform:uppercase; color:#94a3b8; font-weight:700; margin-bottom:6px;">' + esc(currentQ.title || 'Practice Task') + '</div>' +
+          '<h2 style="font-size:20px; font-weight:700; color:#f8fafc; margin-top:0; margin-bottom:18px;">' + esc(currentQ.prompt || '') + '</h2>' +
+          '<div class="focus-options-container">' + optionsHtml + '</div>' +
+
+          (hasResult ? (
+            '<div class="focus-feedback-banner" style="margin-top:20px; padding:12px 16px; border-radius:8px; font-size:13.5px; font-weight:600; ' +
+              (isCorrect ? 'background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#34d399;' : 'background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#f87171;') + '">' +
+              (isCorrect ? '✓ Correct! Excellent grasp of concept.' : '✗ Needs review. Target concept: ' + esc(currentQ.concept || '')) +
+              '<div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:4px;">' + esc(currentQ.feedback || '') + '</div>' +
+            '</div>'
+          ) : '') +
+
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">' +
+            '<button type="button" class="btn secondary" id="focusPrevBtn" ' + (focusIndex === 0 ? 'disabled' : '') + ' style="font-size:13px;">← Previous</button>' +
+            (!hasResult ? (
+              '<button type="button" class="btn primary" id="focusCheckBtn" ' + (focusSelectedOption === null ? 'disabled' : '') + ' style="font-size:14px; font-weight:700; padding:8px 24px;">Check (Enter)</button>'
+            ) : (
+              '<button type="button" class="btn primary" id="focusNextBtn" style="font-size:14px; font-weight:700; padding:8px 24px;">' + (focusIndex < total - 1 ? 'Next question →' : 'Finish Session') + '</button>'
+            )) +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="focus-player-footer">' +
+        '<div style="font-size:12px; color:#94a3b8;">Question Quick Jump:</div>' +
+        '<div class="focus-strip">' + stripChips + '</div>' +
+      '</div>';
+  }
+
+  function focusApplyAdaptiveRemediation(targetConcept) {
+    const errorCount = (sessionConceptErrors.get(targetConcept) || 0) + 1;
+    sessionConceptErrors.set(targetConcept, errorCount);
+
+    const newTasks = [];
+    if (errorCount === 1) {
+      // Rule 1: First error on concept -> +2 targeted tasks in fresh contexts
+      newTasks.push({
+        id: 'adaptive-' + Date.now() + '-1',
+        title: 'Adaptive Remediation: ' + targetConcept,
+        concept: targetConcept,
+        prompt: 'Fill in the blank with the appropriate word: "The team analyzed the ___ in depth."',
+        options: [targetConcept, 'Variant form', 'Opposite concept'],
+        answer: 0,
+        feedback: 'Remediation task 1 of 2: reinforce "' + targetConcept + '" in a professional context.'
+      });
+      newTasks.push({
+        id: 'adaptive-' + Date.now() + '-2',
+        title: 'Adaptive Listening & Context: ' + targetConcept,
+        concept: targetConcept,
+        prompt: 'Select the statement that correctly represents: "' + targetConcept + '":',
+        options: ['Accurate contextual definition of ' + targetConcept, 'Unrelated formal distractor', 'Opposite usage'],
+        answer: 0,
+        feedback: 'Remediation task 2 of 2: conceptual clarity in communication.'
+      });
+    } else {
+      // Rule 2: Repeat error on same concept -> +1 reinforcement task
+      newTasks.push({
+        id: 'adaptive-' + Date.now() + '-repeat',
+        title: 'Reinforcement Task: ' + targetConcept,
+        concept: targetConcept,
+        prompt: 'Evaluate: "' + targetConcept + '" is properly used in this context.',
+        options: ['True: valid application of ' + targetConcept, 'False: incorrect form'],
+        answer: 0,
+        feedback: 'Reinforcement task: master the concept before finishing.'
+      });
+    }
+
+    focusQuestions.push(...newTasks);
+    return newTasks.length;
+  }
+
+  function focusCheckAnswer() {
+    if (focusSelectedOption === null || focusResults[focusIndex] !== undefined) return;
+    const currentQ = focusQuestions[focusIndex];
+    if (!currentQ) return;
+
+    const isCorrect = focusSelectedOption === currentQ.answer;
+    focusResults[focusIndex] = isCorrect;
+
+    if (!isCorrect) {
+      const concept = currentQ.concept || currentQ.word || 'Target Concept';
+      focusApplyAdaptiveRemediation(concept);
+    }
+
+    renderFocusPlayer();
+  }
+
+  function focusNextQuestion() {
+    if (focusIndex < focusQuestions.length - 1) {
+      focusIndex += 1;
+      focusSelectedOption = null;
+      renderFocusPlayer();
+    } else {
+      // Completed all questions - enforce strict 90% threshold (Stage 16)
+      const correctCount = Object.values(focusResults).filter(Boolean).length;
+      const totalCount = focusQuestions.length;
+      const pct = Math.round((correctCount / totalCount) * 100);
+      const passed = pct >= 90;
+      const statusText = passed ? 'Passed (≥ 90%)' : 'Needs work (< 90%)';
+      alert('Focus Mode Completed!\nScore: ' + correctCount + ' / ' + totalCount + ' (' + pct + '%)\nStatus: ' + statusText);
+      closeFocusPlayer();
+    }
+  }
+
+  function focusPrevQuestion() {
+    if (focusIndex > 0) {
+      focusIndex -= 1;
+      focusSelectedOption = null;
+      renderFocusPlayer();
+    }
+  }
+
+  function focusSelectOption(optIdx) {
+    if (focusResults[focusIndex] !== undefined) return;
+    focusSelectedOption = optIdx;
+    renderFocusPlayer();
+  }
+
+  function openFocusPlayer(customQuestions = null) {
+    focusQuestions = customQuestions || extractFocusQuestionsFromLesson(typeof lmState !== 'undefined' ? lmState : null);
+    if (!focusQuestions || focusQuestions.length === 0) {
+      alert('No quiz or exercise tasks available to practice in Focus Mode.');
+      return;
+    }
+    focusActive = true;
+    focusIndex = 0;
+    focusSelectedOption = null;
+    focusResults = {};
+    sessionConceptErrors.clear();
+    renderFocusPlayer();
+  }
+
+  function closeFocusPlayer() {
+    focusActive = false;
+    const overlay = document.getElementById('lmFocusPlayerOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  // Stage 17: Cumulative Topic Mastery Score (40% CW + 40% HW + 20% DQ)
+  function calculateMasteryScore(params = {}) {
+    const cw = typeof params.cwScore === 'number' ? params.cwScore : (Number(params.cwScore) || 0);
+    const hw = typeof params.hwScore === 'number' ? params.hwScore : (Number(params.hwScore) || 0);
+    const dq = typeof params.dqScore === 'number' ? params.dqScore : (Number(params.dqScore) || 0);
+    const cwWeight = 0.40;
+    const hwWeight = 0.40;
+    const dqWeight = 0.20;
+    const weightedScore = Math.round(cw * cwWeight + hw * hwWeight + dq * dqWeight);
+    const passed = weightedScore >= 90;
+    const status = passed ? 'Passed' : 'Needs work';
+    return {
+      cwScore: cw,
+      hwScore: hw,
+      dqScore: dq,
+      cwWeight,
+      hwWeight,
+      dqWeight,
+      score: weightedScore,
+      passed,
+      status,
+      summary: 'Cumulative Topic Mastery: ' + weightedScore + '% (CW 40% [' + cw + '%] + HW 40% [' + hw + '%] + DQ 20% [' + dq + '%]) · Status: ' + status
+    };
+  }
+
+  // Stage 16: Two-Factor Verification (Gemini AI Preliminary + Teacher Final Word)
+  function evaluateTwoFactorSubmission(params = {}) {
+    const aiScore = typeof params.aiScore === 'number' ? params.aiScore : (Number(params.aiScore) || 0);
+    const aiFeedback = params.aiFeedback || 'Evaluation based on grammatical correctness and relevance.';
+    const isApproved = !!params.approved;
+    const teacherScore = params.teacherScore !== undefined && params.teacherScore !== null
+      ? (typeof params.teacherScore === 'number' ? params.teacherScore : Number(params.teacherScore))
+      : undefined;
+    const teacherComment = params.teacherComment || '';
+
+    const finalScore = isApproved
+      ? (teacherScore !== undefined ? teacherScore : aiScore)
+      : null;
+    const passed = finalScore !== null ? finalScore >= 90 : false;
+    const status = isApproved ? (passed ? 'Passed' : 'Needs work') : 'Pending Teacher Review';
+
+    return {
+      aiScore,
+      aiFeedback,
+      teacherScore,
+      teacherComment,
+      teacherVerified: isApproved,
+      finalScore,
+      passed,
+      status,
+      lastWord: 'Teacher'
+    };
+  }
+
+  function renderTwoFactorReviewHtml(submission = {}) {
+    const aiScore = submission.aiScore ?? 0;
+    const aiFeedback = submission.aiFeedback || 'Automated linguistic evaluation.';
+    const teacherScore = submission.teacherScore ?? aiScore;
+    const teacherComment = submission.teacherComment || '';
+    const isApproved = !!submission.teacherVerified;
+
+    return '<div class="two-factor-review-card" data-two-factor-submission>' +
+      '<div class="two-factor-header">' +
+        '<strong style="font-size:13.5px; color:#1e293b;">Two-Factor Verification (Gemini AI + Teacher Final Word)</strong>' +
+        (isApproved ? '<span class="lm-verified-badge">✓ Teacher Verified</span>' : '<span style="font-size:11.5px; color:#92400e; background:#fef3c7; padding:2px 8px; border-radius:4px; font-weight:700;">Pending Verification</span>') +
+      '</div>' +
+      '<div class="two-factor-scores">' +
+        '<div class="two-factor-score-box">' +
+          '<div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">1. Preliminary AI Evaluation</div>' +
+          '<div style="font-size:18px; font-weight:800; color:#2563eb; margin:4px 0;">' + aiScore + '%</div>' +
+          '<div style="font-size:12px; color:#475569;">' + esc(aiFeedback) + '</div>' +
+        '</div>' +
+        '<div class="two-factor-score-box">' +
+          '<div style="font-size:11px; font-weight:700; color:#047857; text-transform:uppercase;">2. Teacher Final Score (Override)</div>' +
+          '<div style="margin:6px 0; display:flex; align-items:center; gap:8px;">' +
+            '<input type="number" min="0" max="100" class="saas-input" style="width:70px; font-size:16px; font-weight:800; padding:4px 8px;" data-teacher-override-score value="' + esc(String(teacherScore)) + '" />' +
+            '<span style="font-size:14px; font-weight:700;">%</span>' +
+          '</div>' +
+          '<textarea class="saas-textarea" style="width:100%; box-sizing:border-box; font-size:12px; height:50px; padding:6px 8px; margin-top:4px;" placeholder="Teacher feedback or comment..." data-teacher-comment>' + esc(teacherComment) + '</textarea>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex; justify-content:flex-end; gap:8px; align-items:center; margin-top:8px;">' +
+        '<button type="button" class="btn secondary saas-btn" style="font-size:12px; font-weight:700;" data-teacher-confirm-ai>Confirm AI Score (' + aiScore + '%)</button>' +
+        '<button type="button" class="btn primary saas-btn" style="font-size:12px; font-weight:700; background:#059669; border-color:#059669;" data-teacher-approve>Approve Final Grade</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Stage 18: Voice Mode Controller (AI Tutor & Oral Examiner)
+  let voiceRecognition = null;
+  const voiceSynthesis = typeof window !== 'undefined' ? window.speechSynthesis : null;
+
+  function openVoiceMode() {
+    const modal = document.getElementById('lmVoiceModeModal');
+    if (modal) modal.style.display = 'flex';
+    const statusEl = document.getElementById('lmVoiceStatus');
+    if (statusEl) statusEl.textContent = 'Ready to listen';
+    initVoiceMode();
+  }
+
+  function closeVoiceMode() {
+    const modal = document.getElementById('lmVoiceModeModal');
+    if (modal) modal.style.display = 'none';
+    if (voiceRecognition) {
+      try { voiceRecognition.stop(); } catch (_) {}
+    }
+    if (voiceSynthesis && voiceSynthesis.speaking) {
+      try { voiceSynthesis.cancel(); } catch (_) {}
+    }
+  }
+
+  function voiceAppendMessage(sender, text, isAi = false) {
+    const history = document.getElementById('lmVoiceDialogueHistory');
+    if (!history) return;
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'voice-msg ' + (isAi ? 'ai' : 'user');
+    msgDiv.style.cssText = isAi
+      ? 'background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 12px; align-self:flex-start; max-width:85%;'
+      : 'background:#2563eb; color:#ffffff; border-radius:8px; padding:8px 12px; align-self:flex-end; max-width:85%;';
+    msgDiv.innerHTML = '<strong style="' + (isAi ? 'color:#2563eb;' : 'color:#ffffff;') + '">' + esc(sender) + ':</strong> ' + esc(text);
+    history.appendChild(msgDiv);
+    history.scrollTop = history.scrollHeight;
+  }
+
+  function voiceSpeakText(text) {
+    if (!voiceSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+    try {
+      voiceSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      const statusEl = document.getElementById('lmVoiceStatus');
+      utterance.onstart = () => { if (statusEl) statusEl.textContent = 'AI Speaking...'; };
+      utterance.onend = () => { if (statusEl) statusEl.textContent = 'Ready to listen'; };
+      utterance.onerror = () => { if (statusEl) statusEl.textContent = 'Ready to listen'; };
+      voiceSynthesis.speak(utterance);
+    } catch (_) {}
+  }
+
+  function voiceGenerateReply(userPrompt) {
+    const lessonTitle = (typeof lmState !== 'undefined' && lmState?.title) ? lmState.title : 'English Practice';
+    const textLower = (userPrompt || '').toLowerCase();
+    let reply = 'Great effort! Speaking naturally in English is the best way to develop fluency.';
+
+    if (textLower.includes('hello') || textLower.includes('hi')) {
+      reply = 'Hello! Ready to practice vocabulary and speaking for ' + lessonTitle + '? What topic shall we discuss?';
+    } else if (textLower.includes('word') || textLower.includes('vocabulary')) {
+      reply = 'Let us practice the key words from ' + lessonTitle + '. Try using one of your new vocabulary words in a full sentence!';
+    } else if (textLower.includes('rule') || textLower.includes('grammar')) {
+      reply = 'For grammar accuracy, focus on verb forms and subject-verb agreement. What structure would you like to review?';
+    } else if (textLower.includes('check') || textLower.includes('correct')) {
+      reply = 'Your pronunciation and sentence structure sound intelligible! Keep practicing the intonation of question forms.';
+    } else {
+      reply = 'I understood your thought: "' + userPrompt + '". In standard conversational English, that is clear and natural. Let us continue!';
+    }
+    return reply;
+  }
+
+  function voiceSubmitUserText(text) {
+    const trimmed = (text || '').trim();
+    if (!trimmed) return;
+    voiceAppendMessage('You', trimmed, false);
+    const inputEl = document.getElementById('lmVoiceTextInput');
+    if (inputEl) inputEl.value = '';
+    const statusEl = document.getElementById('lmVoiceStatus');
+    if (statusEl) statusEl.textContent = 'AI thinking...';
+
+    setTimeout(() => {
+      const reply = voiceGenerateReply(trimmed);
+      voiceAppendMessage('AI Tutor', reply, true);
+      voiceSpeakText(reply);
+    }, 400);
+  }
+
+  function initVoiceMode() {
+    if (typeof window === 'undefined') return;
+    if (voiceRecognition) return;
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRec) {
+      voiceRecognition = new SpeechRec();
+      voiceRecognition.continuous = false;
+      voiceRecognition.interimResults = false;
+      voiceRecognition.lang = 'en-US';
+
+      voiceRecognition.onstart = () => {
+        const statusEl = document.getElementById('lmVoiceStatus');
+        if (statusEl) statusEl.textContent = '● Listening to your voice...';
+        const micBtn = document.getElementById('lmVoiceMicBtn');
+        if (micBtn) micBtn.classList.add('is-recording');
+      };
+      voiceRecognition.onresult = (e) => {
+        const transcript = e.results[0]?.[0]?.transcript || '';
+        if (transcript) {
+          voiceSubmitUserText(transcript);
+        }
+      };
+      voiceRecognition.onerror = () => {
+        const statusEl = document.getElementById('lmVoiceStatus');
+        if (statusEl) statusEl.textContent = 'Voice recognition error or timeout. Click Speak to retry.';
+        const micBtn = document.getElementById('lmVoiceMicBtn');
+        if (micBtn) micBtn.classList.remove('is-recording');
+      };
+      voiceRecognition.onend = () => {
+        const statusEl = document.getElementById('lmVoiceStatus');
+        if (statusEl && statusEl.textContent.includes('Listening')) {
+          statusEl.textContent = 'Ready to listen';
+        }
+        const micBtn = document.getElementById('lmVoiceMicBtn');
+        if (micBtn) micBtn.classList.remove('is-recording');
+      };
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#lmFocusPlayerBtn')) {
+        e.preventDefault();
+        openFocusPlayer();
+        return;
+      }
+      if (e.target.closest('#lmFocusCloseBtn')) {
+        e.preventDefault();
+        closeFocusPlayer();
+        return;
+      }
+      // Voice Mode Triggers
+      if (e.target.closest('#lmVoiceModeBtn')) {
+        e.preventDefault();
+        openVoiceMode();
+        return;
+      }
+      if (e.target.closest('#lmVoiceCloseBtn')) {
+        e.preventDefault();
+        closeVoiceMode();
+        return;
+      }
+      if (e.target.closest('#lmVoiceSendBtn')) {
+        e.preventDefault();
+        const inputEl = document.getElementById('lmVoiceTextInput');
+        if (inputEl) voiceSubmitUserText(inputEl.value);
+        return;
+      }
+      if (e.target.closest('#lmVoiceMicBtn')) {
+        e.preventDefault();
+        if (voiceRecognition) {
+          try {
+            voiceRecognition.start();
+          } catch (err) {
+            voiceRecognition.stop();
+          }
+        } else {
+          const manual = prompt('Speech recognition not supported in this browser. Enter your message:');
+          if (manual) voiceSubmitUserText(manual);
+        }
+        return;
+      }
+
+      // Two-Factor Teacher Verification Actions
+      const confirmAiBtn = e.target.closest('[data-teacher-confirm-ai]');
+      if (confirmAiBtn) {
+        e.preventDefault();
+        const card = confirmAiBtn.closest('[data-two-factor-submission]');
+        if (card) {
+          const aiScoreText = card.querySelector('.two-factor-score-box div[style*="font-size:18px"]')?.textContent || '0';
+          const aiScoreNum = parseInt(aiScoreText.replace(/\D/g, ''), 10) || 0;
+          const overrideInput = card.querySelector('[data-teacher-override-score]');
+          if (overrideInput) overrideInput.value = String(aiScoreNum);
+        }
+        return;
+      }
+      const approveGradeBtn = e.target.closest('[data-teacher-approve]');
+      if (approveGradeBtn) {
+        e.preventDefault();
+        const card = approveGradeBtn.closest('[data-two-factor-submission]');
+        if (card) {
+          const overrideInput = card.querySelector('[data-teacher-override-score]');
+          const commentInput = card.querySelector('[data-teacher-comment]');
+          const score = overrideInput ? parseInt(overrideInput.value, 10) : 100;
+          const comment = commentInput ? commentInput.value : '';
+          const result = evaluateTwoFactorSubmission({
+            aiScore: score,
+            teacherScore: score,
+            teacherComment: comment,
+            approved: true
+          });
+          card.innerHTML = '<div style="padding:14px; background:#ecfdf5; border:1px solid #10b981; border-radius:8px; color:#065f46; font-weight:700;">' +
+            '✓ Grade Approved by Teacher: ' + result.finalScore + '% (' + result.status + ')' +
+            (comment ? '<div style="font-size:12px; font-weight:400; margin-top:4px;">Comment: ' + esc(comment) + '</div>' : '') +
+          '</div>';
+        }
+        return;
+      }
+
+      const optBtn = e.target.closest('[data-focus-option]');
+      if (optBtn) {
+        e.preventDefault();
+        const optIdx = parseInt(optBtn.dataset.focusOption, 10);
+        focusSelectOption(optIdx);
+        return;
+      }
+      if (e.target.closest('#focusCheckBtn')) {
+        e.preventDefault();
+        focusCheckAnswer();
+        return;
+      }
+      if (e.target.closest('#focusNextBtn')) {
+        e.preventDefault();
+        focusNextQuestion();
+        return;
+      }
+      if (e.target.closest('#focusPrevBtn')) {
+        e.preventDefault();
+        focusPrevQuestion();
+        return;
+      }
+      const jumpChip = e.target.closest('[data-focus-jump]');
+      if (jumpChip) {
+        e.preventDefault();
+        focusIndex = parseInt(jumpChip.dataset.focusJump, 10);
+        focusSelectedOption = null;
+        renderFocusPlayer();
+        return;
+      }
+    });
+
+    // Voice text enter key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target && e.target.id === 'lmVoiceTextInput') {
+        e.preventDefault();
+        voiceSubmitUserText(e.target.value);
+      }
+    });
+
+    // Hotkeys handler
+    window.addEventListener('keydown', (e) => {
+      if (!focusActive) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeFocusPlayer();
+        return;
+      }
+
+      if (['1', '2', '3', '4'].includes(e.key)) {
+        e.preventDefault();
+        focusSelectOption(parseInt(e.key, 10) - 1);
+        return;
+      }
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (focusResults[focusIndex] === undefined) {
+          focusCheckAnswer();
+        } else {
+          focusNextQuestion();
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        focusNextQuestion();
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        focusPrevQuestion();
+        return;
+      }
+    });
+  }
+
+  if (typeof window !== 'undefined') {
+    window.openFocusPlayer = openFocusPlayer;
+    window.closeFocusPlayer = closeFocusPlayer;
+    window.focusNextQuestion = focusNextQuestion;
+    window.focusPrevQuestion = focusPrevQuestion;
+    window.focusSelectOption = focusSelectOption;
+    window.focusCheckAnswer = focusCheckAnswer;
+    window.focusApplyAdaptiveRemediation = focusApplyAdaptiveRemediation;
+    window.extractFocusQuestionsFromLesson = extractFocusQuestionsFromLesson;
+    window.calculateMasteryScore = calculateMasteryScore;
+    window.evaluateTwoFactorSubmission = evaluateTwoFactorSubmission;
+    window.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
+    window.openVoiceMode = openVoiceMode;
+    window.closeVoiceMode = closeVoiceMode;
+    window.initVoiceMode = initVoiceMode;
+    window.voiceSubmitUserText = voiceSubmitUserText;
+  }
+  if (typeof globalThis !== 'undefined') {
+    globalThis.calculateMasteryScore = calculateMasteryScore;
+    globalThis.evaluateTwoFactorSubmission = evaluateTwoFactorSubmission;
+    globalThis.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
+    globalThis.extractFocusQuestionsFromLesson = extractFocusQuestionsFromLesson;
+    globalThis.focusApplyAdaptiveRemediation = focusApplyAdaptiveRemediation;
+  }
+})();
     let groupDirectory = null, groupDirectoryJob = null;
     function groupDirectoryKey() { return authUser?.id+':'+viewGen; }
     function groupDirectoryReady() { return isTeacher()&&!viewAccount&&groupDirectory?.key===groupDirectoryKey()&&groupDirectory.ready&&Date.now()-groupDirectory.at<30000; }
@@ -31552,7 +32705,17 @@ if(typeof window!=='undefined'){
     }
     function assessmentActive(doc) { return !!doc && (!!doc.examOwned || (doc.blocks || []).some(part => part.assessed)); }
     function assessmentRubric(item) {
-      return String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(String(points).replace(',','.'))}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 1e12).slice(0,20);
+      const parsed = String(item.criteria || '').split('\n').map(line => { const [label, points] = line.split('|'); return {label:label.trim(), max:Number(String(points).replace(',','.'))}; }).filter(row => row.label && Number.isFinite(row.max) && row.max > 0 && row.max <= 1e12).slice(0,20);
+      if (parsed.length) return parsed;
+      if (lmState?.examOwned && (item.kind === 'task' || item.type === 'task' || item.kind === 'open' || item.response !== undefined)) {
+        return [
+          { label: 'Task Achievement', max: 2.5 },
+          { label: 'Lexical Resource', max: 2.5 },
+          { label: 'Grammatical Range & Accuracy', max: 2.5 },
+          { label: 'Fluency & Coherence', max: 2.5 }
+        ];
+      }
+      return [];
     }
     function assessmentMax(part, index) {
       const item = part.type === 'task' ? part : (part.items || [])[index] || {}, criteria = assessmentRubric(item);
@@ -32600,6 +33763,7 @@ if(typeof window!=='undefined'){
       if (!canEditLessons()) lmState.mode = "preview";
       try { sessionStorage.setItem("enquiz-place", JSON.stringify({ id: "material", examId: exam.id, examBlockId: block.id, materialTab: lmState.tab || "" })); } catch (e) {}
       visit("material");
+      if (typeof window.lmSyncGenerateControls === "function") window.lmSyncGenerateControls();
     }
     function examBoot() {
       const openScreen = show;

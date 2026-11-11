@@ -28,6 +28,7 @@
 - Edit site JavaScript only in client/; root preview.js is generated from client/*.js by `npm run build:preview` and is never edited by hand.
 - Edit chat JavaScript only in production/chat/; production/chat.js is generated from production/chat/*.js by the same command and is never edited by hand.
 - Always remove temporary and service scripts upon task completion; never leave scratch or validation files in the repository workspace.
+- Jira Scope: для проекта `english-quiz` доступна и используется исключительно Jira Atlassian Cloud: `https://lumiscia.atlassian.net` (проект `TASK`, доска `https://lumiscia.atlassian.net/jira/software/projects/TASK/boards/1?filter=&groupBy=none`). Доступ осуществляется через `twg` / Atlassian Cloud. Использование корпоративной Jira (`jira.moscow.alfaintra.net`) в рамках этого проекта строго запрещено.
 
 # Zero-Compression Forensic Code Audit Protocol
 

@@ -8,6 +8,16 @@ import {boundedProviderBytes} from './bounded-provider-body.mjs';
 import {checkSpeechContext,speechContextGuard,lessonSpeechContext} from './speech-lesson-context.mjs';
 const fail=(status,message)=>{throw new StudyError(status,message);};
 export const QUIZ_MEDIA_LIMITS=Object.freeze({image:5*1024*1024,audio:10*1024*1024,video:20*1024*1024,uploadsPerDay:20,bytesPerDay:100*1024*1024});
+export const EXAM_VIDEO_LIMITS=Object.freeze({maxPlays:2,allowScrubbing:false});
+export function checkExamVideoPlayQuota(currentPlays){
+  const count=typeof currentPlays==='number'?currentPlays:parseInt(currentPlays,10)||0;
+  return count<EXAM_VIDEO_LIMITS.maxPlays;
+}
+export const EXAM_SPEAKING_LIMITS=Object.freeze({maxSeconds:90,autoStop:true});
+export function checkExamSpeakingDuration(seconds){
+  const count=typeof seconds==='number'?seconds:parseInt(seconds,10)||0;
+  return count<=EXAM_SPEAKING_LIMITS.maxSeconds;
+}
 const kinds={'image/png':'image','image/jpeg':'image','audio/wav':'audio','audio/mpeg':'audio','video/mp4':'video'};
 const digest=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');
 const validId=value=>typeof value==='string'&&/^[a-f0-9-]{36}$/.test(value);

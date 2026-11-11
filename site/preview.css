@@ -9262,6 +9262,343 @@ td.td-focused-col {
   border-color: var(--acc, #173832);
 }
 
+@keyframes lmBlinkAlert {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.99); }
+}
+.lm-blink-alert {
+  animation: lmBlinkAlert 1.2s infinite ease-in-out;
+}
+.lm-frame-card {
+  padding: 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--saas-border, #cbd5e1);
+  border-radius: 12px;
+  background: var(--saas-card, #ffffff);
+}
+.lm-frame-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exam-video-quota-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  border: 1px solid #334155;
+  font-family: monospace;
+}
+.exam-video-quota-badge.is-locked {
+  background: #dc2626 !important;
+  color: #ffffff !important;
+  border-color: #b91c1c !important;
+}
+
+#lmScriptInput {
+  overflow-y: hidden;
+  resize: vertical;
+  transition: height 0.1s ease;
+}
+
+.exam-speaking-recording-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  animation: examRecPulse 1.5s infinite;
+}
+
+@keyframes examRecPulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.pronounce-widget {
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #cbd5e1);
+  border-radius: 10px;
+  padding: 14px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pronounce-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+}
+
+/* Full Focus Mode Interactive Player (Stage 14 & 15) */
+.focus-player-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  color: #ffffff;
+}
+.focus-player-header {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.focus-progress-bar {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  max-width: 600px;
+  margin: 0 20px;
+}
+.focus-segment {
+  height: 8px;
+  flex: 1;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.focus-segment.is-current {
+  background: #3b82f6;
+  box-shadow: 0 0 8px #3b82f6;
+}
+.focus-segment.is-correct {
+  background: #10b981;
+}
+.focus-segment.is-incorrect {
+  background: #ef4444;
+}
+.focus-player-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+}
+.focus-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 680px;
+  padding: 32px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+.focus-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: #334155;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 10px;
+  color: #ffffff;
+  font-size: 15px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+.focus-option-btn:hover {
+  background: #475569;
+}
+.focus-option-btn.is-selected {
+  background: #2563eb;
+  border-color: #3b82f6;
+}
+.focus-option-btn.is-correct-opt {
+  background: #059669;
+  border-color: #10b981;
+}
+.focus-option-btn.is-incorrect-opt {
+  background: #dc2626;
+  border-color: #ef4444;
+}
+.focus-option-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: monospace;
+}
+.focus-player-footer {
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.focus-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+.focus-strip-chip {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: #334155;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+}
+.focus-strip-chip.is-current {
+  background: #3b82f6;
+}
+.focus-strip-chip.is-correct {
+  background: #10b981;
+}
+.focus-strip-chip.is-incorrect {
+  background: #ef4444;
+}
+
+/* Exam Proctoring & Review Audit (Stage E7) */
+.exam-proctor-audit-card {
+  background: var(--saas-card, #ffffff);
+  border: 1px solid var(--saas-border, #cbd5e1);
+  border-left: 4px solid #2563eb;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.exam-proctor-audit-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.exam-proctor-audit-grid .audit-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.exam-proctor-audit-grid .badge.clean {
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.exam-proctor-audit-grid .badge.warning {
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Teacher Verification & Voice Mode (Stages 16-19) */
+.lm-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+  margin-right: 6px;
+}
+
+.voice-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.voice-modal-card {
+  background: var(--saas-card, #ffffff);
+  color: var(--saas-text, #1e293b);
+  border: 1px solid var(--saas-border, #cbd5e1);
+  border-radius: 16px;
+  width: 90%;
+  max-width: 580px;
+  padding: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.two-factor-review-card {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 14px;
+}
+.two-factor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.two-factor-scores {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.two-factor-score-box {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+
+
 
 
 

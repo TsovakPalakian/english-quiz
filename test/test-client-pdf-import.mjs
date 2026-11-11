@@ -11,6 +11,7 @@ const IMPORT_PDF_FUNCTIONS = [
   'lmStripHtmlOrXml',
   'lmExtractRtfText',
   'lmExtractTextFromFile',
+  'lmDetectCefrLevel',
   'lmParseScriptToLessonData',
   'lmPdfIdentity',
   'lmPdfContentKey',

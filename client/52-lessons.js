@@ -638,8 +638,11 @@
     function lmQuizBlankItem(quizType) {
       const kind = quizType || "Choice";
       if (kind === "Flip" || kind === "Reverse") return { front: "", back: "" };
+      if (kind === "Smart Flashcard" || kind === "FSRS Flashcard") return { front: "", back: "", example: "" };
       if (kind === "Choice") return { prompt: "", options: ["", "", ""], answer: 0 };
+      if (kind === "Video choice") return { prompt: "", options: ["", "", ""], answer: 0, mediaId: "", transcript: "" };
       if (kind === "Type" || kind === "Listen" || kind === "Definition") return { prompt: "", answer: "" };
+      if (kind === "Pronounce") return { prompt: "", answer: "", word: "", ipa: "" };
       if (kind === "Gap") return { shown: "", answer: "", hint: "" };
       if (kind === "Build") return { parts: "", answer: "" };
       if (kind === "Match" || kind === "Memory") return { left: "", right: "" };
@@ -875,12 +878,28 @@
         return lmItemField(block, "items", index, "front", kind === "Reverse" ? "Russian" : "Front", true) +
           lmItemField(block, "items", index, "back", kind === "Reverse" ? "English" : "Back", true);
       }
+      if (kind === "Smart Flashcard" || kind === "FSRS Flashcard") {
+        return lmItemField(block, "items", index, "front", "Front (Word / Prompt)", true) +
+          lmItemField(block, "items", index, "back", "Back (Translation / Meaning)", true) +
+          lmItemField(block, "items", index, "example", "Example sentence", true);
+      }
       if (kind === "Choice") {
         return lmItemField(block, "items", index, "prompt", "Question", true) + lmChoiceEditor(block, index);
+      }
+      if (kind === "Video choice") {
+        return lmItemField(block, "items", index, "prompt", "Question / Prompt", true) +
+          lmItemField(block, "items", index, "mediaId", "Video Media ID / URL", true) +
+          lmItemField(block, "items", index, "transcript", "Video transcript / subtitle", true) +
+          lmChoiceEditor(block, index);
       }
       if (kind === "Type" || kind === "Listen") {
         return lmItemField(block, "items", index, "prompt", kind === "Listen" ? "Prompt / transcript" : "Prompt", true) +
           lmItemField(block, "items", index, "answer", "Answer", true);
+      }
+      if (kind === "Pronounce") {
+        return lmItemField(block, "items", index, "word", "Word / Phrase to pronounce", true) +
+          lmItemField(block, "items", index, "ipa", "IPA transcription (optional)", true) +
+          lmItemField(block, "items", index, "prompt", "Context prompt", true);
       }
       if (kind === "Definition") {
         return lmItemField(block, "items", index, "prompt", "Definition", true) +
@@ -921,7 +940,7 @@
     }
     function lmQuizItems(block) {
       const kind = lmQuizType(block);
-      const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : "+ Add card";
+      const addLabel = (kind === "Match" || kind === "Memory") ? "+ Add pair" : (kind === "Spell" || kind === "Letters" || kind === "Hangman") ? "+ Add word" : (kind === "Video choice" || kind === "Choice" || kind === "Select all" || kind === "Odd one out") ? "+ Add question" : "+ Add card";
       const memory = kind === "Memory" ? '<label>Pairs in one set<input type="number" min="2" data-field="memorySize" data-block="' + block.id + '" value="' + esc(String(block.memorySize || 4)) + '" /></label>' : "";
       const rows = (block.items || []).map((item, index) =>
         '<div class="lm-card-row"><div class="lm-card-fields">' + lmQuizItemEditor(block, index) + "</div>" + lmItemTools(block.id, "items", index) + "</div>"
@@ -1051,13 +1070,14 @@
         const label = block.type === "interactive" ? "Interactive" : block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
+        const verified = '<label class="lm-teacher-verify-label" style="font-size:12px; font-weight:700; color:#047857; display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:12px;"><input type="checkbox" data-block-teacher-verified="' + block.id + '"' + (block.teacherVerified ? ' checked' : '') + '> Verified by Teacher</label>';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
         const head = lmHead(block,label,isFirst,isLast).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
         const beforeZone = lmInsertZoneHtml(block.id, "before");
-        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + assessed + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
         const afterZone = isLast ? lmInsertZoneHtml(block.id, "after") : "";
         return beforeZone + blockHtml + afterZone;
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
@@ -1069,6 +1089,8 @@
       dressWords(box);
       lmPaintChrome();
       lmPaintTabTools();
+      lmSyncGenerateControls();
+      lmSyncTeacherVerifySummary();
     }
     function lmPreviewFile(block, label, action, attr) {
       const external = lmExternalFile(block);
@@ -1169,8 +1191,15 @@
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
           return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
         }
+        if (kind === "Video choice") {
+          const videoHtml = block.mediaId ? lmMedia(block.mediaId, "video") : (block.url ? lmVideoFrame(block.url, block.title) : "");
+          const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + (question.transcript ? '<p class="hint">Transcript: ' + esc(question.transcript) + '</p>' : '') + lmPreviewChoices(block, index, question) + "</div>").join("");
+          return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+        }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
+          if (kind === "Smart Flashcard" || kind === "FSRS Flashcard") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span><i>" + esc(item.example || "") + "</i></article>";
+          if (kind === "Pronounce") return '<article class="lm-read-card"><b>' + esc(item.word || item.prompt || "") + "</b><span>" + esc(item.ipa || "") + "</span><i>" + esc(item.answer || "") + "</i></article>";
           if (kind === "Type" || kind === "Listen" || kind === "Definition") return '<article class="lm-read-card"><b>' + esc(item.prompt || "") + "</b><span>" + esc(item.answer || "") + "</span></article>";
           if (kind === "Gap") return '<article class="lm-read-card"><b>' + esc(item.shown || "") + "</b><span>" + esc(item.answer || "") + "</span><i>" + esc(item.hint || "") + "</i></article>";
           if (kind === "Build") return '<article class="lm-read-card"><b>' + esc(item.parts || "") + "</b><span>" + esc(item.answer || "") + "</span></article>";
@@ -1239,7 +1268,8 @@
         else {
           flush();
           const copy = contentCopyButton('material',block.id,lmState.examOwned?'exam-block':'lesson',lmState.id);
-          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + (copy ? '<div class="lm-copy-tools">' + copy + '</div>' : '') + lmPreviewBlock(block) + "</div>";
+          const verifiedBadge = block.teacherVerified ? '<span class="lm-verified-badge" title="Verified by Teacher">✓ Verified by Teacher</span>' : '';
+          html += '<div class="lm-panel" data-lm-panel="' + block.id + '">' + ((copy || verifiedBadge) ? '<div class="lm-copy-tools">' + verifiedBadge + (copy || '') + '</div>' : '') + lmPreviewBlock(block) + "</div>";
         }
       });
       flush();
@@ -1954,6 +1984,27 @@
           body.querySelector('[data-interactive-preview]').innerHTML = lmInteractiveFrame(block);
           lmSchedule(); return;
         }
+        const verifyToggle = event.target.closest("[data-block-teacher-verified]");
+        if (verifyToggle) {
+          const block = lmBlock(verifyToggle.dataset.blockTeacherVerified);
+          if (block) {
+            block.teacherVerified = !!verifyToggle.checked;
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
+        if (event.target.closest("#lmTeacherVerifyCheckbox")) {
+          const chk = document.getElementById("lmTeacherVerifyCheckbox");
+          const val = !!(chk && chk.checked);
+          if (lmState && Array.isArray(lmState.blocks)) {
+            lmState.blocks.forEach(b => { b.teacherVerified = val; });
+            lmRenderEditor();
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
         const meta = event.target.closest("[data-meta]");
         if (meta && lmState) { lmState[meta.dataset.meta] = meta.value; lmSchedule(); return; }
         const field = event.target.closest("[data-field]");
@@ -2221,6 +2272,16 @@
           }
           return;
         }
+        if (event.target.closest("#lmApproveAllBlocksBtn")) {
+          event.preventDefault();
+          if (lmState && Array.isArray(lmState.blocks)) {
+            lmState.blocks.forEach(b => { b.teacherVerified = true; });
+            lmRenderEditor();
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
         const fold = event.target.closest("[data-lm-fold]");
         if (fold) { const block = lmBlock(fold.dataset.lmFold); if (block) block.collapsed = !block.collapsed; lmRenderEditor(); lmSchedule(); return; }
         const edit = event.target.closest("[data-lm-edit]");
@@ -2465,10 +2526,222 @@
         lmNote("");
         lmShow("preview");
       });
+      const LM_ALL_QUIZ_TYPES = [
+        "Choice",
+        "Gap",
+        "Type",
+        "Definition",
+        "Odd one out",
+        "Select all",
+        "Reverse",
+        "Build",
+        "Match",
+        "True / false",
+        "Tap",
+        "Pronounce",
+        "Listen",
+        "Spell",
+        "Smart Flashcard",
+        "Flip",
+        "Letters",
+        "Memory",
+        "Hangman",
+        "Video choice"
+      ];
+
+      function lmSyncGenerateControls() {
+        if (typeof document === "undefined") return;
+        const btn = document.getElementById("lmGenerateFromScriptBtn");
+        const title = document.getElementById("lmFrameImportTitle");
+        const timeLimitWrap = document.getElementById("lmExamTimeLimitWrap");
+        const isExam = !!(lmState && lmState.examOwned);
+        const blocks = (lmState && Array.isArray(lmState.blocks)) ? lmState.blocks : [];
+        const hasBlocks = blocks.length > 0;
+
+        if (title) {
+          title.textContent = isExam ? "Generate & Import Exam" : "Generate & Import Lessons";
+        }
+        if (timeLimitWrap) {
+          timeLimitWrap.style.display = isExam ? "inline-flex" : "none";
+        }
+        if (btn) {
+          if (isExam) {
+            btn.textContent = hasBlocks ? "Generate tasks" : "Generate exam";
+          } else {
+            btn.textContent = hasBlocks ? "Generate tasks" : "Generate lesson";
+          }
+        }
+      }
+
+      function lmGetSelectedQuizTypes() {
+        if (typeof document === "undefined") return LM_ALL_QUIZ_TYPES.slice();
+        const listEl = document.getElementById("lmQuizTypesList");
+        if (!listEl) return LM_ALL_QUIZ_TYPES.slice();
+        const checked = Array.from(listEl.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.dataset.quizType);
+        return checked.length > 0 ? checked : ["Choice"];
+      }
+
+      function lmGetTaskCountPerSection() {
+        if (typeof document === "undefined") return 3;
+        const countInput = document.getElementById("lmTaskCountPerSection");
+        const count = parseInt(countInput ? countInput.value : "3", 10);
+        return isNaN(count) || count < 1 ? 3 : count;
+      }
+
+      function lmGetTaskCounts() {
+        if (typeof document === "undefined") return { cw: 3, hw: 3, perSection: 3, total: 6 };
+        const countInput = document.getElementById("lmTaskCountPerSection");
+        const count = parseInt(countInput ? countInput.value : "3", 10);
+        const perSection = isNaN(count) || count < 1 ? 3 : count;
+        const cwEl = document.getElementById("lmQuizClasswork");
+        const hwEl = document.getElementById("lmQuizHomework");
+        const cwChecked = cwEl ? cwEl.checked : true;
+        const hwChecked = hwEl ? hwEl.checked : true;
+        const cw = cwChecked ? perSection : 0;
+        const hw = hwChecked ? perSection : 0;
+        return {
+          cw,
+          hw,
+          perSection,
+          total: cw + hw
+        };
+      }
+
+      function lmSyncTaskTotalSummary() {
+        if (typeof document === "undefined") return;
+        const summaryEl = document.getElementById("lmTaskTotalSummary");
+        if (!summaryEl) return;
+        const counts = lmGetTaskCounts();
+        summaryEl.textContent = "(Total: " + counts.total + ")";
+      }
+
+      function lmInitQuizOptions() {
+        if (typeof document === "undefined") return;
+        const listEl = document.getElementById("lmQuizTypesList");
+        const countEl = document.getElementById("lmQuizSelectedCount");
+        const warnEl = document.getElementById("lmVideoChoiceWarning");
+        const btn = document.getElementById("lmQuizOptionsBtn");
+        const dropdown = document.getElementById("lmQuizOptionsDropdown");
+        const selectAllBtn = document.getElementById("lmQuizSelectAll");
+        const deselectAllBtn = document.getElementById("lmQuizDeselectAll");
+        const cwCheck = document.getElementById("lmQuizClasswork");
+        const hwCheck = document.getElementById("lmQuizHomework");
+        const countInput = document.getElementById("lmTaskCountPerSection");
+
+        if (cwCheck && !cwCheck.dataset.initialized) {
+          cwCheck.dataset.initialized = "1";
+          cwCheck.addEventListener("change", lmSyncTaskTotalSummary);
+        }
+        if (hwCheck && !hwCheck.dataset.initialized) {
+          hwCheck.dataset.initialized = "1";
+          hwCheck.addEventListener("change", lmSyncTaskTotalSummary);
+        }
+        if (countInput && !countInput.dataset.initialized) {
+          countInput.dataset.initialized = "1";
+          countInput.addEventListener("input", lmSyncTaskTotalSummary);
+          countInput.addEventListener("change", lmSyncTaskTotalSummary);
+        }
+
+        if (!listEl) return;
+
+        if (listEl.children.length === 0) {
+          listEl.innerHTML = LM_ALL_QUIZ_TYPES.map((type) => {
+            const isVideo = type === "Video choice";
+            return '<label style="display:flex; align-items:center; gap:8px; padding:3px 4px; border-radius:4px; cursor:pointer;" class="lm-quiz-type-opt">' +
+              '<input type="checkbox" data-quiz-type="' + esc(type) + '" checked style="cursor:pointer;" />' +
+              '<span style="font-size:12px; font-weight:600;' + (isVideo ? " color:#ef4444;" : "") + '">' +
+              (isVideo ? "📹 " : "") + esc(type) +
+              (type === "Smart Flashcard" ? ' <small style="opacity:0.75; font-weight:400;">(FSRS)</small>' : "") +
+              "</span></label>";
+          }).join("");
+        }
+
+        function updateCountAndWarnings() {
+          const checked = listEl.querySelectorAll('input[type="checkbox"]:checked');
+          if (countEl) countEl.textContent = String(checked.length);
+          const videoChecked = listEl.querySelector('input[data-quiz-type="Video choice"]:checked');
+          if (warnEl) {
+            warnEl.style.display = videoChecked ? "block" : "none";
+          }
+        }
+
+        listEl.onchange = () => {
+          updateCountAndWarnings();
+        };
+
+        if (selectAllBtn) {
+          selectAllBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = true; });
+            updateCountAndWarnings();
+          };
+        }
+
+        if (deselectAllBtn) {
+          deselectAllBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            listEl.querySelectorAll('input[type="checkbox"]').forEach((cb) => { cb.checked = false; });
+            updateCountAndWarnings();
+          };
+        }
+
+        if (btn && dropdown && !btn.dataset.initialized) {
+          btn.dataset.initialized = "1";
+          btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const isOpen = dropdown.style.display === "block";
+            dropdown.style.display = isOpen ? "none" : "block";
+          };
+
+          document.addEventListener("click", (e) => {
+            if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+              dropdown.style.display = "none";
+            }
+          });
+        }
+
+        updateCountAndWarnings();
+        lmSyncTaskTotalSummary();
+      }
+
+      function lmSyncTeacherVerifySummary() {
+        if (typeof document === "undefined") return;
+        const chk = document.getElementById("lmTeacherVerifyCheckbox");
+        const badge = document.getElementById("lmTeacherVerifyBadge");
+        if (!chk || !lmState || !Array.isArray(lmState.blocks) || lmState.blocks.length === 0) {
+          if (chk) chk.checked = false;
+          if (badge) badge.textContent = "Unreviewed";
+          return;
+        }
+        const total = lmState.blocks.length;
+        const verifiedCount = lmState.blocks.filter(b => b.teacherVerified).length;
+        chk.checked = verifiedCount === total && total > 0;
+        if (badge) {
+          badge.textContent = verifiedCount === total
+            ? "Reviewed & Approved (" + total + "/" + total + ")"
+            : (verifiedCount > 0 ? "Partially Verified (" + verifiedCount + "/" + total + ")" : "Unreviewed (0/" + total + ")");
+        }
+      }
+
+      window.LM_ALL_QUIZ_TYPES = LM_ALL_QUIZ_TYPES;
+      window.lmSyncGenerateControls = lmSyncGenerateControls;
+      window.lmGetSelectedQuizTypes = lmGetSelectedQuizTypes;
+      window.lmGetTaskCountPerSection = lmGetTaskCountPerSection;
+      window.lmGetTaskCounts = lmGetTaskCounts;
+      window.lmSyncTaskTotalSummary = lmSyncTaskTotalSummary;
+      window.lmInitQuizOptions = lmInitQuizOptions;
+      window.lmSyncTeacherVerifySummary = lmSyncTeacherVerifySummary;
+
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
       const groupNew = document.getElementById("groupNew");
       if (groupNew) groupNew.addEventListener("click", groupCreate);
+      lmInitQuizOptions();
+      lmSyncGenerateControls();
+      lmSyncTeacherVerifySummary();
       paintLmDays();
     }
 

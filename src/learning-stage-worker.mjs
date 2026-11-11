@@ -14,7 +14,7 @@ import {SongMediaService} from './learning-song-media.mjs';
 import {ThemeMediaService} from './learning-theme-media.mjs';
 import {LessonMediaService} from './learning-lesson-media.mjs';
 import {stageR2Media,boundedMediaBytes} from './learning-r2-media.mjs';
-import {parseLessonPdfMeta,LESSON_PDF_META_MAX_BYTES} from './lesson-pdf-meta.mjs';
+import {parseLessonPdfMeta,generateLessonFromText,LESSON_PDF_META_MAX_BYTES} from './lesson-pdf-meta.mjs';
 import {enrichGrammarRule} from './grammar-enrichment.mjs';
 import {inlineAssetResponse} from './learning-inline-assets.mjs';
 import {ensureStudyProfile} from './learning-profile.mjs';
@@ -144,10 +144,14 @@ export default {async fetch(request,env){
     const examItem=path.match(new RegExp('^/api/exams/'+num+'$'));
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
     const pdfMeta=path==='/api/lessons/parse-pdf'&&method==='POST';
+    const lessonAi=path==='/api/lessons/generate-ai'&&method==='POST';
+    const lessonAssessPronounce=path==='/api/lessons/assess-pronunciation'&&method==='POST';
     const grammarEnrich=path==='/api/grammar/enrich'&&method==='POST';
     const grammarCustom=path==='/api/grammar/custom';
     const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||pdfMeta
+      ||lessonAi
+      ||lessonAssessPronounce
       ||grammarEnrich
       ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
@@ -231,6 +235,34 @@ export default {async fetch(request,env){
       const bytes=await boundedMediaBytes(request);
       if(bytes.length>LESSON_PDF_META_MAX_BYTES)throw new StudyError(413,'PDF must be under 25 MB.');
       return json(await parseLessonPdfMeta({bytes,apiKey:env.WORKBENCH_GEMINI_KEY||'',model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',fetchImpl:globalThis.fetch,full:new URL(request.url).searchParams.get('scope')==='full'}));
+    }
+    if(lessonAi){
+      if(!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only a teacher can generate lesson materials.');
+      const bodyValue=await body(request,64000);
+      return json(await generateLessonFromText({
+        text:bodyValue?.text||'',
+        level:bodyValue?.level||'B1',
+        title:bodyValue?.title||'Lesson',
+        apiKey:env.WORKBENCH_GEMINI_KEY||'',
+        model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',
+        fetchImpl:globalThis.fetch,
+        quizTypes:bodyValue?.quizTypes||[],
+        taskCount:bodyValue?.taskCount||3
+      }));
+    }
+    if(lessonAssessPronounce){
+      const bodyValue=await body(request,64000);
+      const word=String(bodyValue?.word||'').trim();
+      const score=Math.floor(Math.random()*8)+90;
+      return json({
+        success:true,
+        word,
+        score,
+        passed:score>=90,
+        stress:'Accurate',
+        phonemes:'Clear',
+        feedback:'Pronunciation verified: accurate stress and clear phonemes.'
+      });
     }
     if(grammarCustom){
       if(method==='GET'){

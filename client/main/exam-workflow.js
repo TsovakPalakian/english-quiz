@@ -267,3 +267,201 @@ examPaintList=function(){
     const text=[...label.childNodes].find(node=>node.nodeType===3);if(text)text.textContent='Exam';
   });
 };
+
+// Strict Proctoring & Exam Player (Countdown, Anti-Cheat, Blind Mode)
+let examTimerInterval = null;
+let examSecondsRemaining = 90 * 60;
+let examTabSwitches = 0;
+
+function examStartStrictProctoring() {
+  if (typeof document === 'undefined') return;
+  const isTaking = !!(lmState?.examOwned && !canEditLessons() && !canTuneStudentLessons() && !lmState?.studentSaved);
+  if (!isTaking) {
+    examStopStrictProctoring();
+    return;
+  }
+
+  if (examTimerInterval) return;
+
+  const timeLimitSelect = document.getElementById('lmExamTimeLimit');
+  const minutes = (lmState && lmState.timeLimit) || (timeLimitSelect ? parseInt(timeLimitSelect.value, 10) : 90) || 90;
+  examSecondsRemaining = minutes * 60;
+  examTabSwitches = 0;
+
+  let banner = document.getElementById('examProctorBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'examProctorBanner';
+    banner.className = 'exam-proctor-banner';
+    banner.style.cssText = 'position:fixed; top:12px; right:16px; z-index:9999; background:rgba(15,23,42,0.95); color:#ffffff; padding:8px 16px; border-radius:10px; font-size:13px; font-weight:700; box-shadow:0 8px 24px rgba(0,0,0,0.3); display:flex; align-items:center; gap:12px; border:1px solid #334155; font-family:monospace;';
+    document.body.appendChild(banner);
+  }
+  banner.style.display = 'flex';
+
+  function updateBanner() {
+    const m = Math.floor(examSecondsRemaining / 60);
+    const s = examSecondsRemaining % 60;
+    const timeStr = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    const isUrgent = examSecondsRemaining <= 300;
+    banner.style.color = isUrgent ? '#ef4444' : '#ffffff';
+    banner.innerHTML = '<span>⏱ ' + timeStr + '</span>' +
+      '<span style="font-size:11px; color:' + (examTabSwitches > 0 ? '#f59e0b' : '#10b981') + ';">🛡️ Proctor: ' +
+      (examTabSwitches === 0 ? 'Clean' : examTabSwitches + ' switch' + (examTabSwitches > 1 ? 'es' : '')) +
+      '</span>';
+  }
+
+  updateBanner();
+
+  examTimerInterval = setInterval(() => {
+    examSecondsRemaining -= 1;
+    updateBanner();
+    if (examSecondsRemaining <= 0) {
+      examStopStrictProctoring();
+      const saveBtn = document.getElementById('examSave');
+      if (saveBtn && !saveBtn.disabled) {
+        saveBtn.click();
+      }
+    }
+  }, 1000);
+}
+
+function examStopStrictProctoring() {
+  if (examTimerInterval) {
+    clearInterval(examTimerInterval);
+    examTimerInterval = null;
+  }
+  const banner = document.getElementById('examProctorBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+function examAttachStrictVideoQuota() {
+  if (typeof document === 'undefined') return;
+  const isTaking = !!(lmState?.examOwned && !canEditLessons() && !canTuneStudentLessons() && !lmState?.studentSaved);
+  if (!isTaking) return;
+
+  const root = document.getElementById('material') || document.body;
+  const videos = root.querySelectorAll('video');
+  videos.forEach(video => {
+    if (video.dataset.examVideoAttached === '1') return;
+    video.dataset.examVideoAttached = '1';
+    video.dataset.examPlays = video.dataset.examPlays || '0';
+    video.setAttribute('controlslist', 'nodownload noplaybackrate noscrub');
+    video.setAttribute('disablepictureinpicture', 'true');
+    video.oncontextmenu = (e) => { e.preventDefault(); return false; };
+
+    let badge = video.parentElement?.querySelector('.exam-video-quota-badge');
+    if (!badge && video.parentElement) {
+      badge = document.createElement('div');
+      badge.className = 'exam-video-quota-badge';
+      video.insertAdjacentElement('afterend', badge);
+    }
+
+    function updateVideoBadge() {
+      if (!badge) return;
+      const plays = parseInt(video.dataset.examPlays || '0', 10);
+      const isLocked = plays >= 2;
+      badge.className = 'exam-video-quota-badge' + (isLocked ? ' is-locked' : '');
+      badge.innerHTML = isLocked ? '🔒 Video plays: 2 / 2 (Quota exhausted)' : '📹 Video plays: ' + plays + ' / 2';
+    }
+
+    let maxAllowedTime = 0;
+    video.addEventListener('timeupdate', () => {
+      if (video.currentTime > maxAllowedTime) {
+        if (video.currentTime - maxAllowedTime > 1.5) {
+          video.currentTime = maxAllowedTime;
+        } else {
+          maxAllowedTime = video.currentTime;
+        }
+      }
+    });
+
+    video.addEventListener('seeking', () => {
+      if (video.currentTime > maxAllowedTime + 1.0) {
+        video.currentTime = maxAllowedTime;
+      }
+    });
+
+    video.addEventListener('play', () => {
+      let plays = parseInt(video.dataset.examPlays || '0', 10);
+      if (plays >= 2) {
+        video.pause();
+        updateVideoBadge();
+        return;
+      }
+      if (!video.dataset.currentPlayActive) {
+        video.dataset.currentPlayActive = '1';
+        plays += 1;
+        video.dataset.examPlays = String(plays);
+        updateVideoBadge();
+      }
+    });
+
+    video.addEventListener('ended', () => {
+      delete video.dataset.currentPlayActive;
+      maxAllowedTime = 0;
+      const plays = parseInt(video.dataset.examPlays || '0', 10);
+      if (plays >= 2) {
+        video.controls = false;
+        video.style.pointerEvents = 'none';
+        updateVideoBadge();
+      }
+    });
+
+    updateVideoBadge();
+  });
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    const isTaking = !!(lmState?.examOwned && !canEditLessons() && !canTuneStudentLessons() && !lmState?.studentSaved);
+    if (isTaking && document.visibilityState === 'hidden') {
+      examTabSwitches += 1;
+      if (lmState) {
+        lmState.tabSwitches = (lmState.tabSwitches || 0) + 1;
+      }
+      const banner = document.getElementById('examProctorBanner');
+      if (banner) {
+        const m = Math.floor(examSecondsRemaining / 60);
+        const s = examSecondsRemaining % 60;
+        const timeStr = String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        banner.innerHTML = '<span>⏱ ' + timeStr + '</span>' +
+          '<span style="font-size:11px; color:#f59e0b;">🛡️ Proctor: ' + examTabSwitches + ' switch' + (examTabSwitches > 1 ? 'es' : '') + '</span>';
+      }
+    }
+  });
+
+  const blockClipboard = (e) => {
+    const isTaking = !!(lmState?.examOwned && !canEditLessons() && !canTuneStudentLessons() && !lmState?.studentSaved);
+    if (isTaking) {
+      e.preventDefault();
+      return false;
+    }
+  };
+  document.addEventListener('copy', blockClipboard);
+  document.addEventListener('cut', blockClipboard);
+  document.addEventListener('paste', blockClipboard);
+  document.addEventListener('contextmenu', (e) => {
+    const isTaking = !!(lmState?.examOwned && !canEditLessons() && !canTuneStudentLessons() && !lmState?.studentSaved);
+    if (isTaking && e.target.closest('#material')) {
+      e.preventDefault();
+      return false;
+    }
+  });
+}
+
+const examDressProctorBefore = globalThis.examDress;
+globalThis.examDress = function() {
+  if (typeof examDressProctorBefore === 'function') examDressProctorBefore();
+  if (lmState?.examOwned && !canEditLessons() && !canTuneStudentLessons() && !lmState?.studentSaved) {
+    examStartStrictProctoring();
+    examAttachStrictVideoQuota();
+  } else {
+    examStopStrictProctoring();
+  }
+};
+
+if (typeof window !== 'undefined') {
+  window.examStartStrictProctoring = examStartStrictProctoring;
+  window.examStopStrictProctoring = examStopStrictProctoring;
+  window.examAttachStrictVideoQuota = examAttachStrictVideoQuota;
+}

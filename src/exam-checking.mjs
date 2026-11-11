@@ -5,7 +5,7 @@ export function examSuggestion({part,item,index,max},value){
   if(part.type==='task'||item.checkMode==='teacher'||item.checkMode==='meaning')return null;
   if(value==null||value==='')return 0;
   const kind=part.type==='exercise'?(item.kind==='write'?'Type':'Choice'):part.quizType;
-  if(['Choice','Odd one out'].includes(kind))return Number.isInteger(Number(value))&&Number(value)===Number(item.answer)?max:0;
+  if(['Choice','Odd one out','Video choice'].includes(kind))return Number.isInteger(Number(value))&&Number(value)===Number(item.answer)?max:0;
   if(kind==='Select all'){
     if(!Array.isArray(value)||!value.every(Number.isInteger)||new Set(value).size!==value.length)return 0;
     return JSON.stringify([...value].sort((a,b)=>a-b))===JSON.stringify([...(item.answers||[])].sort((a,b)=>a-b))?max:0;

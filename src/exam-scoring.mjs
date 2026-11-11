@@ -53,7 +53,7 @@ export function validateExamScoring(parts,allowIncomplete=false){
     if(source.maxPoints==null||source.maxPoints===''||!Number.isFinite(max)||max<=0||max>1e12)throw new Error('Set Maximum points explicitly for '+(part.title||part.type)+'.');
     if(part.scoringVersion>=3&&part.quizType==='Flip')throw new Error('Flip is not available in exams.');
     if(part.scoringVersion>=3&&['Match','Memory'].includes(part.quizType)&&(part.items||[]).length<2&&!allowIncomplete)throw new Error('Add at least two pairs.');
-    if(part.scoringVersion>=3&&(['Choice','Select all','Odd one out'].includes(part.quizType)||part.type==='exercise'&&item.kind!=='write')&&(item.options||[]).length<2)throw new Error('At least two options are required.');
+    if(part.scoringVersion>=3&&(['Choice','Select all','Odd one out','Video choice'].includes(part.quizType)||part.type==='exercise'&&item.kind!=='write')&&(item.options||[]).length<2)throw new Error('At least two options are required.');
   }
 }
 export function memoryDeck(part){
