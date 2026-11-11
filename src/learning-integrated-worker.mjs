@@ -1237,6 +1237,17 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const breadcrumbsLimit=await setFeedbackBreadcrumbsLimit(db,body.breadcrumbsLimit);
         return json({ok:true,breadcrumbsLimit});
       }
+      if(path==='/api/ci/telegram-recipients'&&method==='GET'){
+        const botToken=env?.TELEGRAM_BOT_TOKEN;
+        if(!botToken)throw new StudyError(503,'Telegram bot is not configured.');
+        const authHeader=request.headers.get('Authorization')||'';
+        const expectedHeader='Bearer '+botToken;
+        if(authHeader!==expectedHeader)throw new StudyError(401,'Unauthorized CI dispatch request.');
+        const db=studyDatabase(env);
+        const allRecipients=await getTelegramRecipients(db);
+        const activeRecipients=allRecipients.filter(r=>r.status==='active');
+        return json({ok:true,recipients:activeRecipients,allRecipients,fallbackChatId:env?.TELEGRAM_CHAT_ID||''});
+      }
       if(path==='/api/feedback/telegram-recipients'&&method==='GET'){
         const actor=await identify(accountEnv,request);if(!actor)throw new StudyError(401,'Sign in first.');
         if(actor.role!=='DEVELOPER')throw new StudyError(403,'Developer access required.');

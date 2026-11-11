@@ -448,15 +448,18 @@
                   Telegram Notification Recipients
                 </b>
                 <small style="color:var(--ink-sub); display:block; margin-top:3px; font-size:12.5px;">
-                  Configure Telegram accounts and groups that receive automated notifications for bug reports, user feedback, and error alerts.
+                  Unified recipient directory controlling automated alerts for User Feedback, Bug Reports, and CI/CD Deployments.
                 </small>
               </div>
-              <span style="padding:3px 10px; border-radius:6px; background:var(--bg-sub, #f1f5f9); font-size:11px; font-weight:600; color:var(--ink-sub, #64748b);">Developer Console</span>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <span style="padding:3px 10px; border-radius:6px; background:#dbeafe; font-size:11px; font-weight:600; color:#1e40af;">Unified Bot Dispatcher</span>
+                <span style="padding:3px 10px; border-radius:6px; background:var(--bg-sub, #f1f5f9); font-size:11px; font-weight:600; color:var(--ink-sub, #64748b);">Developer Console</span>
+              </div>
             </div>
 
             <div class="info-callout" style="padding:10px 14px; border-radius:6px; background:#eff6ff; border-left:3px solid #3b82f6; font-size:12px; color:#1e40af; display:flex; align-items:center; gap:8px;">
               <span>💡</span>
-              <span><strong>Delivery Rule:</strong> Private recipients must launch the bot first via <code>/start</code> in Telegram. For group channels, add the bot to the group with message sending permissions.</span>
+              <span><strong>Single Source of Truth:</strong> Disabling a recipient here halts both Website Feedback alerts and GitHub Actions CI/CD deployment notifications. Private recipients must launch the bot first via <code>/start</code> in Telegram.</span>
             </div>
 
             <form id="telegramRecipientForm" style="display:flex; flex-wrap:wrap; align-items:flex-end; gap:10px; padding:12px; background:var(--bg-sub, #f8fafc); border-radius:8px; border:1px solid var(--line);">

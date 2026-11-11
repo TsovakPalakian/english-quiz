@@ -67,7 +67,8 @@ try {
   const panel = page.locator('#bugList');
   assert.ok(await panel.locator('text=Telegram Notification Recipients').isVisible());
   assert.ok(await panel.locator('text=Developer Console').isVisible());
-  assert.ok(await panel.locator('text=Delivery Rule:').isVisible());
+  assert.ok(await panel.locator('text=Unified Bot Dispatcher').isVisible());
+  assert.ok(await panel.locator('text=Single Source of Truth:').isVisible());
   assert.ok(await panel.locator('#telegramRecipientForm').isVisible());
   assert.ok(await panel.locator('#telegramChatIdInput').isVisible());
   assert.ok(await panel.locator('#telegramLabelInput').isVisible());

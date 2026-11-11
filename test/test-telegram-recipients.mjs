@@ -9,6 +9,7 @@ import {
   notifyFeedbackTelegram
 } from '../src/feedback.mjs';
 import {integratedWorker} from '../src/learning-integrated-worker.mjs';
+import {resolveTelegramChats} from '../ops/telegram-notify.mjs';
 
 const plain = value => value && typeof value === 'object' && 'type' in value ? value.value : value;
 
@@ -197,7 +198,8 @@ test('integrated worker /api/feedback/telegram-recipients and test endpoints', a
     headers: { Origin: 'https://test.invalid', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       recipients: [
-        { chatId: '1308341417', label: 'Dev Lead', status: 'disabled' }
+        { chatId: '1308341417', label: 'Dev Lead', status: 'disabled' },
+        { chatId: '-100123456789', label: 'Team Supergroup', status: 'active' }
       ]
     })
   }), env);
@@ -210,6 +212,61 @@ test('integrated worker /api/feedback/telegram-recipients and test endpoints', a
   assert.equal(disabledTestRes.status, 400);
   const disabledJson = await disabledTestRes.json();
   assert.ok(disabledJson.error.includes('recipient is disabled'));
+
+  // CI/CD endpoint /api/ci/telegram-recipients tests
+  // 1. Without Authorization header -> 401
+  const ciUnauthorized = await worker.fetch(new Request('https://test.invalid/api/ci/telegram-recipients'), env);
+  assert.equal(ciUnauthorized.status, 401);
+
+  // 2. With invalid Bearer token -> 401
+  const ciBadToken = await worker.fetch(new Request('https://test.invalid/api/ci/telegram-recipients', {
+    headers: { Authorization: 'Bearer wrong-secret' }
+  }), env);
+  assert.equal(ciBadToken.status, 401);
+
+  // 3. With valid Bearer token -> 200, returns active recipients only
+  const ciAuthorized = await worker.fetch(new Request('https://test.invalid/api/ci/telegram-recipients', {
+    headers: { Authorization: 'Bearer ' + env.TELEGRAM_BOT_TOKEN }
+  }), env);
+  assert.equal(ciAuthorized.status, 200);
+  const ciJson = await ciAuthorized.json();
+  assert.equal(ciJson.ok, true);
+  // Active list contains only the active supergroup, disabled Dev Lead is excluded
+  assert.equal(ciJson.recipients.length, 1);
+  assert.equal(ciJson.recipients[0].chatId, '-100123456789');
+  assert.equal(ciJson.allRecipients.length, 2);
+
+  // Test resolveTelegramChats using mock fetch against the worker
+  const resolvedChats = await resolveTelegramChats({
+    APP_URL: 'https://test.invalid',
+    TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: '987654321'
+  }, {
+    fetchImpl: async (url, opts) => worker.fetch(new Request(url, opts), env)
+  });
+  // Must return only active recipients, excluding the disabled '1308341417'
+  assert.deepEqual(resolvedChats, ['-100123456789']);
+
+  // When all recipients are disabled
+  await worker.fetch(new Request('https://test.invalid/api/feedback/telegram-recipients', {
+    method: 'POST',
+    headers: { Origin: 'https://test.invalid', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      recipients: [
+        { chatId: '1308341417', label: 'Dev Lead', status: 'disabled' },
+        { chatId: '-100123456789', label: 'Team Supergroup', status: 'disabled' }
+      ]
+    })
+  }), env);
+
+  const resolvedWhenAllDisabled = await resolveTelegramChats({
+    APP_URL: 'https://test.invalid',
+    TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: '987654321'
+  }, {
+    fetchImpl: async (url, opts) => worker.fetch(new Request(url, opts), env)
+  });
+  assert.deepEqual(resolvedWhenAllDisabled, []);
 });
 
 test('preview.html and preview.js include Telegram alerts tab and view', () => {
@@ -221,4 +278,6 @@ test('preview.html and preview.js include Telegram alerts tab and view', () => {
   assert.ok(js.includes('paintTelegramRecipientsView'), 'preview.js must include paintTelegramRecipientsView');
   assert.ok(js.includes('/api/feedback/telegram-recipients'), 'preview.js must fetch /api/feedback/telegram-recipients');
   assert.ok(js.includes('/api/feedback/telegram-test'), 'preview.js must post to /api/feedback/telegram-test');
+  assert.ok(js.includes('Unified Bot Dispatcher'), 'preview.js must include Unified Bot Dispatcher badge');
+  assert.ok(js.includes('Single Source of Truth'), 'preview.js must include Single Source of Truth callout');
 });

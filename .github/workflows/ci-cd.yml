@@ -136,6 +136,7 @@ jobs:
         continue-on-error: true
         run: node ops/telegram-notify.mjs
         env:
+          APP_URL: 'https://lumiscia.org'
           CI_ATTACH_LOGS: 'true'
           GITHUB_TOKEN: ${{ github.token }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

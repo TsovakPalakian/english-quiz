@@ -47,9 +47,43 @@ export function telegramConfig(env=process.env){
   if(!/^\d+:[A-Za-z0-9_-]+$/.test(token)||chats.length===0||chats.some(c=>!/^-?\d+$/.test(c)))throw Error('Configure TELEGRAM_BOT_TOKEN and numeric TELEGRAM_CHAT_ID.');
   return {token,chat:chats[0],chats};
 }
-export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000,timeoutMs=30000,parseMode='HTML'}={}){
-  const {token,chats,chat}=telegramConfig(env);
-  const targets=Array.isArray(chats)&&chats.length?chats:[chat];
+
+export async function resolveTelegramChats(env=process.env,{fetchImpl=globalThis.fetch,timeoutMs=5000}={}){
+  const token=env.TELEGRAM_BOT_TOKEN||'';
+  const siteUrl=env.APP_URL||env.LUMISCIA_API_URL||'';
+  if(siteUrl&&/^\d+:[A-Za-z0-9_-]+$/.test(token)){
+    try{
+      const response=await fetchImpl(`${siteUrl}/api/ci/telegram-recipients`,{
+        headers:{'Authorization':'Bearer '+token},
+        signal:AbortSignal.timeout(timeoutMs)
+      });
+      if(response.ok){
+        const data=await response.json().catch(()=>null);
+        if(Array.isArray(data?.recipients)){
+          const activeIds=data.recipients
+            .map(r=>String(r.chatId||'').trim())
+            .filter(id=>/^-?\d+$/.test(id));
+          if(activeIds.length>0){
+            return [...new Set(activeIds)];
+          }
+          if(Array.isArray(data.allRecipients)&&data.allRecipients.length>0){
+            return [];
+          }
+        }
+      }
+    }catch(_){}
+  }
+  const rawChat=env.TELEGRAM_CHAT_ID||'';
+  return parseTelegramChats(rawChat);
+}
+
+export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000,timeoutMs=30000,parseMode='HTML',chats=null}={}){
+  const token=env.TELEGRAM_BOT_TOKEN||'';
+  if(!/^\d+:[A-Za-z0-9_-]+$/.test(token))throw Error('Configure TELEGRAM_BOT_TOKEN and numeric TELEGRAM_CHAT_ID.');
+  const targets=Array.isArray(chats)?chats:await resolveTelegramChats(env,{fetchImpl});
+  if(targets.length===0){
+    return;
+  }
   let lastError;
   for(const targetChat of targets){
     for(let attempt=1;attempt<=maxRetries;attempt++){
@@ -115,9 +149,13 @@ export function pipelineNotification(env=process.env){
   ].filter(Boolean).join('\n');
 }
 
-export async function notifyTelegramDocument(document,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000}={}){
-  const {token,chats,chat}=telegramConfig(env);
-  const targets=Array.isArray(chats)&&chats.length?chats:[chat];
+export async function notifyTelegramDocument(document,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000,chats=null}={}){
+  const token=env.TELEGRAM_BOT_TOKEN||'';
+  if(!/^\d+:[A-Za-z0-9_-]+$/.test(token))throw Error('Configure TELEGRAM_BOT_TOKEN and numeric TELEGRAM_CHAT_ID.');
+  const targets=Array.isArray(chats)?chats:await resolveTelegramChats(env,{fetchImpl});
+  if(targets.length===0){
+    return;
+  }
   if(!/^lumiscia-ci-\d+-attempt-\d+\.txt$/.test(document?.name||'')||typeof document?.text!=='string')throw Error('Invalid CI log document.');
   const fileBytes=new Blob([sanitizeCILogs(document.text,env)],{type:'text/plain;charset=utf-8'});
   let lastError;
@@ -157,12 +195,17 @@ if(process.argv[1]===fileURLToPath(import.meta.url)){
   try{
     if(process.argv[2]==='--check-config'){telegramConfig();console.log('Telegram configuration present; no message sent.');}
     else{
-      await notifyTelegram(pipelineNotification());
-      if(shouldAttachCILogs()){
-        try{await notifyTelegramDocument(await collectCILogs());}
-        catch{
-          await notifyTelegram('The CI summary was sent, but the TXT log file could not be delivered. View the logs in GitHub Actions.');
-          throw Error('CI log attachment failed; summary delivery was preserved.');
+      const resolvedChats=await resolveTelegramChats();
+      if(resolvedChats.length===0){
+        console.log('No active Telegram recipients configured; skipping CI notification.');
+      }else{
+        await notifyTelegram(pipelineNotification(),process.env,{chats:resolvedChats});
+        if(shouldAttachCILogs()){
+          try{await notifyTelegramDocument(await collectCILogs(),process.env,{chats:resolvedChats});}
+          catch{
+            await notifyTelegram('The CI summary was sent, but the TXT log file could not be delivered. View the logs in GitHub Actions.',process.env,{chats:resolvedChats});
+            throw Error('CI log attachment failed; summary delivery was preserved.');
+          }
         }
       }
     }
