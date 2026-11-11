@@ -133,3 +133,165 @@
       if (known) return { state: "have", word: known.en || key };
       return saved || null;
     }
+    function parseLrcTimestamp(tag) {
+      const match = String(tag || "").match(/(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?/);
+      if (!match) return null;
+      const mins = parseInt(match[1], 10);
+      const secs = parseInt(match[2], 10);
+      const ms = match[3] ? (match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10)) : 0;
+      return mins * 60 + secs + ms / 1000;
+    }
+    function formatLrcTimestamp(seconds) {
+      const s = Math.max(0, Number(seconds) || 0);
+      const mins = Math.floor(s / 60);
+      const remSecs = (s % 60).toFixed(2);
+      const padMins = String(mins).padStart(2, "0");
+      const padSecs = String(remSecs).padStart(5, "0");
+      return "[" + padMins + ":" + padSecs + "]";
+    }
+    function interpolateWordTimings(lineText, start, end) {
+      const words = String(lineText || "").split(/\s+/).filter(Boolean);
+      if (words.length === 0) return [];
+      const totalChars = words.reduce((acc, w) => acc + w.length, 0);
+      const totalDuration = Math.max(0.2, (end - start));
+      const res = [];
+      let cursor = start;
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        const share = totalChars > 0 ? (w.length / totalChars) : (1 / words.length);
+        const dur = Math.max(0.05, totalDuration * share);
+        const wEnd = (i === words.length - 1) ? end : cursor + dur;
+        res.push({ word: w, start: cursor, end: wEnd });
+        cursor = wEnd;
+      }
+      return res;
+    }
+    function parseLrc(lrcText) {
+      const text = String(lrcText || "");
+      const lines = text.split(/\r?\n/);
+      const metadata = {};
+      const parsedLines = [];
+
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        const metaMatch = trimmed.match(/^\[(ti|ar|al|by|offset|length):([^\]]*)\]/i);
+        if (metaMatch) {
+          metadata[metaMatch[1].toLowerCase()] = metaMatch[2].trim();
+          return;
+        }
+
+        const timeMatch = trimmed.match(/^\[(\d{1,2}:\d{2}(?:\.\d{2,3})?)\](.*)$/);
+        if (timeMatch) {
+          const lineStart = parseLrcTimestamp(timeMatch[1]);
+          const rest = timeMatch[2].trim();
+          if (lineStart === null) return;
+
+          const wordMatches = [...rest.matchAll(/<(\d{1,2}:\d{2}(?:\.\d{2,3})?)>([^<]*)/g)];
+          const words = [];
+          if (wordMatches.length > 0) {
+            for (let i = 0; i < wordMatches.length; i++) {
+              const wStart = parseLrcTimestamp(wordMatches[i][1]);
+              const rawWord = wordMatches[i][2].trim();
+              const wEnd = (i + 1 < wordMatches.length)
+                ? parseLrcTimestamp(wordMatches[i + 1][1])
+                : wStart + Math.max(0.3, rawWord.length * 0.08);
+              if (rawWord) {
+                words.push({ word: rawWord, start: wStart, end: wEnd });
+              }
+            }
+          }
+
+          const cleanText = rest.replace(/<[^>]+>/g, "").trim();
+          parsedLines.push({
+            start: lineStart,
+            end: null,
+            text: cleanText,
+            words: words
+          });
+        }
+      });
+
+      parsedLines.sort((a, b) => a.start - b.start);
+
+      for (let i = 0; i < parsedLines.length; i++) {
+        const cur = parsedLines[i];
+        const next = parsedLines[i + 1];
+        if (next && next.start > cur.start) {
+          cur.end = next.start;
+        } else {
+          cur.end = cur.start + Math.max(2.0, cur.text.length * 0.07);
+        }
+
+        if (cur.words.length === 0 && cur.text) {
+          cur.words = interpolateWordTimings(cur.text, cur.start, cur.end);
+        }
+      }
+
+      return { metadata: metadata, lines: parsedLines };
+    }
+    function formatLrc(timings) {
+      if (!timings || !Array.isArray(timings.lines)) return "";
+      let out = "";
+      if (timings.metadata) {
+        Object.entries(timings.metadata).forEach(([k, v]) => {
+          if (v) out += "[" + k + ":" + v + "]\n";
+        });
+      }
+      timings.lines.forEach((l) => {
+        const lineTag = formatLrcTimestamp(l.start);
+        if (l.words && l.words.length > 0 && l.words.some((w) => w.start != null)) {
+          let wordStr = "";
+          l.words.forEach((w) => {
+            const wTag = "<" + formatLrcTimestamp(w.start).slice(1, -1) + ">";
+            wordStr += wTag + w.word + " ";
+          });
+          out += lineTag + wordStr.trimEnd() + "\n";
+        } else {
+          out += lineTag + (l.text || "") + "\n";
+        }
+      });
+      return out.trim();
+    }
+    function findActiveTiming(timings, currentTime) {
+      if (!timings || !Array.isArray(timings.lines) || timings.lines.length === 0) return null;
+      const t = Number(currentTime) || 0;
+      const lines = timings.lines;
+      let activeLineIndex = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (t >= lines[i].start && (lines[i].end == null || t < lines[i].end)) {
+          activeLineIndex = i;
+          break;
+        }
+      }
+
+      if (activeLineIndex < 0) {
+        if (t < lines[0].start) activeLineIndex = 0;
+        else activeLineIndex = lines.length - 1;
+      }
+
+      const activeLine = lines[activeLineIndex];
+      let activeWordIndex = -1;
+      let wordProgress = 0;
+
+      if (activeLine && activeLine.words && activeLine.words.length > 0) {
+        for (let j = 0; j < activeLine.words.length; j++) {
+          const w = activeLine.words[j];
+          if (t >= w.start && t <= w.end) {
+            activeWordIndex = j;
+            const span = w.end - w.start;
+            wordProgress = span > 0 ? Math.max(0, Math.min(1, (t - w.start) / span)) : 1;
+            break;
+          }
+        }
+      }
+
+      return {
+        lineIndex: activeLineIndex,
+        line: activeLine,
+        wordIndex: activeWordIndex,
+        word: (activeLine && activeLine.words && activeWordIndex >= 0) ? activeLine.words[activeWordIndex] : null,
+        wordProgress: wordProgress
+      };
+    }

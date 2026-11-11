@@ -1889,6 +1889,55 @@ a.btn { text-decoration: none; }
 .song-line .plain { font-weight: 500; }
 .lyric-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 20px; font-weight: 700; line-height: 1.6; }
 .lyric-text button { border: 0; background: transparent; padding: 0 2px; font: inherit; font-weight: 800; color: var(--acc); text-decoration: underline; text-underline-offset: 3px; }
+.karaoke-studio { background: var(--card, #0f172a); border: 1px solid var(--acc, rgba(56, 189, 248, 0.2)); border-radius: 16px; padding: 16px; margin: 12px 0; display: flex; flex-direction: column; gap: 12px; }
+.karaoke-mode-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.karaoke-mode-btn { background: rgba(255, 255, 255, 0.05); color: var(--ink, #94a3b8); border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
+.karaoke-mode-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.karaoke-mode-btn.active { background: #0284c7; color: #fff; border-color: #38bdf8; box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
+.karaoke-lines { max-height: 380px; overflow-y: auto; scroll-behavior: smooth; padding: 20px 10px; display: flex; flex-direction: column; gap: 16px; }
+.karaoke-line { font-size: 20px; line-height: 1.5; font-weight: 700; opacity: 0.45; transition: opacity 0.2s ease, transform 0.2s ease; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.karaoke-line:hover { opacity: 0.8; background: rgba(255, 255, 255, 0.03); }
+.karaoke-line.active { opacity: 1; transform: scale(1.02); background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; }
+.karaoke-word { display: inline-block; position: relative; margin-right: 4px; --word-progress: 0%; background: linear-gradient(90deg, #38bdf8 var(--word-progress), currentColor var(--word-progress)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.karaoke-word.sung { --word-progress: 100%; }
+.karaoke-word.active { text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
+.karaoke-translation { font-size: 14px; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+.karaoke-split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+@media (max-width: 768px) { .karaoke-split-layout { grid-template-columns: 1fr; } }
+.karaoke-coach-panel { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
+.karaoke-coach-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.karaoke-record-btn { background: #ef4444; color: #fff; border: 0; padding: 8px 18px; border-radius: 20px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; }
+.karaoke-record-btn:hover { background: #dc2626; box-shadow: 0 0 12px rgba(239, 68, 68, 0.4); }
+.karaoke-record-btn.recording { background: #64748b; animation: pulse-rec 1.5s infinite; }
+@keyframes pulse-rec { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+.coach-score-card { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; background: rgba(255, 255, 255, 0.03); border-radius: 10px; padding: 12px; }
+.coach-overall-badge { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; background: #0284c7; color: #fff; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+.coach-metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.coach-metric-item { display: flex; flex-direction: column; gap: 4px; }
+.coach-metric-item label { font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700; }
+.coach-metric-bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.coach-metric-fill { height: 100%; border-radius: 3px; background: #38bdf8; transition: width 0.4s ease; }
+.coach-findings { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.coach-phoneme-badge { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: help; }
+.karaoke-looper-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+.karaoke-looper-btn { background: rgba(255, 255, 255, 0.06); color: var(--ink, #cbd5e1); border: 1px solid rgba(255, 255, 255, 0.12); padding: 5px 12px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; }
+.karaoke-looper-btn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.karaoke-looper-btn.active { background: #0284c7; color: #fff; border-color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+.karaoke-looper-info { font-size: 12px; color: #94a3b8; font-weight: 600; margin-left: auto; }
+.karaoke-line.in-loop { border-left: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.04); }
+.karaoke-nav-bar { display: flex; flex-direction: column; gap: 8px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+.karaoke-steppers, .karaoke-sections, .karaoke-extra-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nav-label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8; margin-right: 4px; }
+.karaoke-nav-btn { background: rgba(255, 255, 255, 0.05); color: var(--ink, #cbd5e1); border: 1px solid rgba(255, 255, 255, 0.1); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.karaoke-nav-btn:hover { background: rgba(255, 255, 255, 0.15); color: #fff; }
+.karaoke-section-btn { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.karaoke-section-btn:hover { background: #0284c7; color: #fff; }
+.karaoke-popover { position: absolute; z-index: 1000; background: #0f172a; border: 1px solid #38bdf8; border-radius: 12px; padding: 14px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(56, 189, 248, 0.3); min-width: 240px; max-width: 320px; color: #f8fafc; font-size: 14px; }
+.karaoke-popover-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.karaoke-popover-word { font-size: 18px; font-weight: 800; color: #38bdf8; }
+.karaoke-popover-ipa { font-size: 13px; color: #94a3b8; margin-left: 6px; }
+.karaoke-popover-trans { font-size: 14px; color: #e2e8f0; margin-bottom: 10px; font-weight: 500; }
+.karaoke-popover-actions { display: flex; gap: 6px; }
 .lyric-text button.learned { color: var(--ok); }
 .lyric-text button.lyric-miss { color: var(--bad); font-weight: 800; text-decoration: underline; cursor: pointer; }
 .lyric-text button.lyric-return { background: var(--acc-s); border-radius: 6px; }

@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Song Lyrics Karaoke & Learning Studio — Full Cartesian Matrix Mockup</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap");
+
+    :root {
+      --primary: #0d9488;
+      --primary-hover: #0f766e;
+      --primary-glow: rgba(13, 148, 136, 0.35);
+      --primary-light: #ccfbf1;
+      --accent-beat: #38bdf8;
+      --bg: #090d16;
+      --surface: #0f172a;
+      --card: #1e293b;
+      --card-subtle: #243044;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: rgba(255, 255, 255, 0.08);
+      --learned: #10b981;
+      --new-word: #f43f5e;
+      --bilingual: #a78bfa;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 0%, #1e293b 0%, #090d16 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+    }
+
+    /* Top Control Matrix Panels */
+    .matrix-nav {
+      width: min(1080px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+    .matrix-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .matrix-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .matrix-badge {
+      background: var(--primary);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 800;
+    }
+    .pill-selector {
+      display: flex;
+      gap: 6px;
+      background: #090d16;
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .pill-btn:hover { color: #fff; }
+    .pill-btn.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+    .pill-btn.active-source {
+      background: #3b82f6;
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    }
+
+    /* Main Container Shell */
+    .karaoke-shell {
+      width: min(1080px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Song Header */
+    .song-header {
+      padding: 16px 24px;
+      background: #111a2e;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .song-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .song-art {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #0d9488 0%, #0284c7 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(13,148,136,0.35);
+    }
+    .song-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .combo-chip {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      background: rgba(13, 148, 136, 0.2);
+      color: #2dd4bf;
+      border: 1px solid rgba(45, 212, 191, 0.3);
+    }
+    .song-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Stage Area (Adaptive Flex / Grid for Video Split) */
+    .stage-container {
+      display: flex;
+      min-height: 460px;
+      background: radial-gradient(ellipse at 50% 50%, #172338 0%, #0b1120 100%);
+      position: relative;
+    }
+    .stage-container.split-layout {
+      display: grid;
+      grid-template-columns: 440px 1fr;
+    }
+
+    /* Video Sidepane */
+    .video-sidepane {
+      background: #000;
+      border-right: 1px solid var(--border);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      position: relative;
+    }
+    .video-sidepane.visible { display: flex; }
+    .video-player-box {
+      width: 100%;
+      height: 240px;
+      background: #111;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .video-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.85;
+    }
+    .video-overlay-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      color: #ff0000;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .video-overlay-play {
+      position: absolute;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: rgba(255,0,0,0.9);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* Spotify Widget Bar */
+    .spotify-widget-bar {
+      width: 100%;
+      background: #121212;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 24px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .spotify-widget-bar.visible { display: flex; }
+    .spotify-track-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .spotify-logo {
+      color: #1db954;
+      font-size: 22px;
+    }
+    .spotify-btn {
+      background: #1db954;
+      color: #000;
+      font-weight: 700;
+      font-size: 12px;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      cursor: pointer;
+    }
+
+    /* Lyrics Center Stage */
+    .stage-center {
+      flex: 1;
+      padding: 44px 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      position: relative;
+    }
+
+    /* Lines */
+    .lyric-line-box {
+      font-size: 20px;
+      font-weight: 500;
+      color: var(--text-muted);
+      opacity: 0.35;
+      text-align: center;
+      padding: 6px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .lyric-line-box:hover {
+      opacity: 0.75;
+      background: rgba(255,255,255,0.03);
+    }
+    .lyric-line-box.active {
+      font-size: 28px;
+      font-weight: 700;
+      color: #fff;
+      opacity: 1;
+      transform: scale(1.03);
+      padding: 14px 24px;
+      background: rgba(13, 148, 136, 0.12);
+      border: 1.5px solid rgba(45, 212, 191, 0.35);
+      border-radius: 16px;
+      box-shadow: 0 10px 32px -5px var(--primary-glow);
+    }
+    .line-text-words {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .line-trans-sub {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--bilingual);
+      opacity: 0.9;
+    }
+
+    /* Word Chips */
+    .word-token {
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+      padding: 2px 7px;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 1px solid transparent;
+    }
+    .word-token:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .word-token.sung { color: #93c5fd; }
+    .word-token.highlight-beat {
+      color: #38bdf8;
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(13, 148, 136, 0.3));
+      border: 1.5px solid #38bdf8;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);
+      transform: translateY(-2px);
+    }
+    .word-token.vocab-new::after {
+      content: '';
+      position: absolute;
+      bottom: 0px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--new-word);
+    }
+    .word-token.vocab-learned::after {
+      content: '';
+      position: absolute;
+      bottom: 0px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--learned);
+    }
+
+    /* Shadowing Echo Indicator */
+    .echo-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 9999px;
+      font-size: 12px;
+      color: #fca5a5;
+      font-weight: 700;
+      animation: pulse 1.5s infinite;
+      margin-bottom: 8px;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* Word Popover */
+    .word-popover {
+      position: absolute;
+      top: 130px;
+      right: 40px;
+      width: 350px;
+      background: var(--card);
+      border: 1.5px solid #2dd4bf;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.8), 0 0 24px rgba(13,148,136,0.3);
+      z-index: 50;
+      display: none;
+    }
+    .word-popover.open { display: block; }
+
+    /* Timing Tool Grid View */
+    .editor-grid-view {
+      display: none;
+      padding: 24px;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+      min-height: 440px;
+    }
+    .editor-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .edit-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .edit-row.current {
+      border-color: #2dd4bf;
+      background: rgba(13, 148, 136, 0.15);
+      box-shadow: 0 0 12px rgba(13,148,136,0.3);
+    }
+    .edit-time-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #2dd4bf;
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      width: 80px;
+      text-align: center;
+    }
+    .edit-text { flex: 1; font-size: 14px; }
+    .btn-row-tap {
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Scrubber & A-B Interval */
+    .scrubber-zone {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .time-lbl {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 44px;
+    }
+    .scrubber-track {
+      flex: 1;
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      position: relative;
+      cursor: pointer;
+    }
+    .scrubber-prog {
+      width: 42%;
+      height: 100%;
+      background: linear-gradient(90deg, #0d9488, #38bdf8);
+      border-radius: 4px;
+      position: relative;
+    }
+    .scrubber-thumb {
+      position: absolute;
+      right: -6px;
+      top: -4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.6);
+      z-index: 10;
+    }
+
+    /* A-B Range Markers */
+    .ab-range-highlight {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 20%;
+      width: 38%;
+      background: rgba(45, 212, 191, 0.35);
+      border-top: 1.5px solid #2dd4bf;
+      border-bottom: 1.5px solid #2dd4bf;
+      border-radius: 2px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    .marker-ab {
+      position: absolute;
+      top: -24px;
+      transform: translateX(-50%);
+      background: #0d9488;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      border: 1px solid #2dd4bf;
+      z-index: 12;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .marker-ab::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 4px solid transparent;
+      border-right: 4px solid transparent;
+      border-top: 4px solid #0d9488;
+    }
+    .marker-ab.point-b {
+      background: #0284c7;
+      border-color: #38bdf8;
+    }
+    .marker-ab.point-b::after {
+      border-top-color: #0284c7;
+    }
+
+    /* Section Navigation Header */
+    .section-nav-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: #090d16;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .section-pill {
+      background: #1e293b;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .section-pill:hover { color: #fff; background: #334155; }
+    .section-pill.active {
+      background: rgba(13, 148, 136, 0.25);
+      border-color: #2dd4bf;
+      color: #2dd4bf;
+    }
+
+    /* Waveform Zoom Canvas Panel */
+    .waveform-panel {
+      padding: 12px 20px;
+      background: #0a0f1d;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .waveform-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .waveform-visual {
+      height: 48px;
+      background: #070a12;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      padding: 0 4px;
+    }
+    .wave-bar {
+      flex: 1;
+      background: #334155;
+      border-radius: 1px;
+      min-width: 2px;
+    }
+    .wave-bar.in-range {
+      background: linear-gradient(180deg, #38bdf8 0%, #0d9488 100%);
+    }
+
+    /* Precision Stepper Controls */
+    .stepper-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
+    }
+    .btn-step {
+      background: #1e293b;
+      border: none;
+      color: #94a3b8;
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 5px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-step:hover { color: #fff; background: #334155; }
+
+    /* Saved Bookmarks Strip */
+    .bookmarks-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: #111a2e;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+    }
+    .bookmark-chip {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 3px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .bookmark-chip:hover { border-color: #2dd4bf; color: #fff; }
+
+    /* A-B Interval Toolbar */
+    .interval-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 8px 14px;
+      background: rgba(13, 148, 136, 0.1);
+      border: 1px solid rgba(45, 212, 191, 0.25);
+      border-radius: 10px;
+      font-size: 12px;
+    }
+    .interval-chips {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .interval-btn {
+      background: #1e293b;
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+    .interval-btn:hover { background: #334155; color: #fff; }
+    .interval-btn.active {
+      background: #0d9488;
+      border-color: #2dd4bf;
+      color: #fff;
+    }
+
+    /* Interval Selected Lines in Lyrics */
+    .lyric-line-box.in-interval {
+      border-left: 3px solid #2dd4bf;
+      background: rgba(13, 148, 136, 0.08);
+      padding-left: 12px;
+    }
+    .bar-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .play-btns {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-icon-circle {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .btn-icon-circle.main-play {
+      width: 46px;
+      height: 46px;
+      background: var(--primary);
+      border: none;
+      box-shadow: 0 4px 16px var(--primary-glow);
+    }
+    .btn-badge-action {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-badge-action.active {
+      background: rgba(13, 148, 136, 0.2);
+      border-color: var(--primary);
+      color: #2dd4bf;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Matrix Controls -->
+  <div class="matrix-nav">
+    <div class="matrix-row">
+      <div class="matrix-label">
+        <span class="matrix-badge">DIMENSION 1</span>
+        <span>Study & Karaoke Mode:</span>
+      </div>
+      <div class="pill-selector" id="modeSelector">
+        <button class="pill-btn active" onclick="setMode('wordflow')">🎤 Word-Flow</button>
+        <button class="pill-btn" onclick="setMode('scroller')">📜 Line Scroller</button>
+        <button class="pill-btn" onclick="setMode('quiz')">🧩 Lyric Quiz</button>
+        <button class="pill-btn" onclick="setMode('shadowing')">🗣️ Shadowing Echo</button>
+        <button class="pill-btn" onclick="setMode('bilingual')">🌐 Bilingual Flow</button>
+        <button class="pill-btn" onclick="setMode('ai_coach')" style="border:1px solid #10b981; color:#34d399;">🎯 AI Pronunciation</button>
+        <button class="pill-btn" onclick="setMode('editor')">⏱️ Tap-to-Sync</button>
+      </div>
+    </div>
+
+    <div class="matrix-row" style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+      <div class="matrix-label">
+        <span class="matrix-badge" style="background:#3b82f6;">DIMENSION 2</span>
+        <span>Playback Media Source (Stored in Song Record):</span>
+      </div>
+      <div class="pill-selector" id="sourceSelector">
+        <button class="pill-btn active-source" onclick="setSource('audio')">🎵 Audio File <span style="font-size:10px; opacity:0.8; background:rgba(255,255,255,0.15); padding:1px 5px; border-radius:4px;">In Program</span></button>
+        <button class="pill-btn" onclick="setSource('video')">🎬 YouTube Video <span style="font-size:10px; opacity:0.8; background:rgba(255,255,255,0.15); padding:1px 5px; border-radius:4px;">In Program</span></button>
+        <button class="pill-btn" onclick="setSource('spotify')">🎧 Spotify Embed <span style="font-size:10px; opacity:0.8; background:rgba(255,255,255,0.15); padding:1px 5px; border-radius:4px;">In Program</span></button>
+      </div>
+    </div>
+
+    <div class="matrix-row" style="border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+      <div class="matrix-label">
+        <span class="matrix-badge" style="background:#f59e0b; color:#000;">DIMENSION 3</span>
+        <span>Vocals vs Instrumental Minus:</span>
+      </div>
+      <div class="pill-selector" id="trackSelector">
+        <button class="pill-btn active" id="btnTrackOriginal" onclick="setVocalTrack('original')">🎙️ Original (With Vocals)</button>
+        <button class="pill-btn" id="btnTrackMinus" onclick="setVocalTrack('minus')" style="color:#fbbf24; font-weight:700;">🎹 Minus Track (Instrumental Backing)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Player Shell -->
+  <div class="karaoke-shell">
+    <!-- Header -->
+    <header class="song-header">
+      <div class="song-info">
+        <div class="song-art">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="song-title">Shape of My Heart</span>
+            <span class="combo-chip" id="comboBadge">Word-Flow · Audio File</span>
+          </div>
+          <div class="song-meta">Sting · Stored Sources: <b>videoUrl (YouTube)</b> · <b>musicUrl (Spotify)</b> · <b>file (MP3)</b></div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <span style="font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px;">
+          <span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Synchronized
+        </span>
+      </div>
+    </header>
+
+    <!-- Section Navigation Strip -->
+    <div class="section-nav-strip">
+      <span style="font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; margin-right:4px;">Song Structure Map:</span>
+      <button class="section-pill">Intro <span style="font-family:monospace; opacity:0.7;">00:00</span></button>
+      <button class="section-pill">Verse 1 <span style="font-family:monospace; opacity:0.7;">00:15</span></button>
+      <button class="section-pill active">Chorus ★ <span style="font-family:monospace; opacity:0.7;">00:41</span></button>
+      <button class="section-pill">Verse 2 <span style="font-family:monospace; opacity:0.7;">01:12</span></button>
+      <button class="section-pill">Bridge <span style="font-family:monospace; opacity:0.7;">02:08</span></button>
+      <button class="section-pill">Outro <span style="font-family:monospace; opacity:0.7;">03:45</span></button>
+      <span style="margin-left:auto; font-size:11px; color:#2dd4bf; display:flex; align-items:center; gap:5px; font-weight:600;">⌨️ Hotkeys: Space=Play · I/O=Set A/B · J/L=±2s</span>
+    </div>
+
+    <!-- Waveform Visual Zoom Panel -->
+    <div class="waveform-panel">
+      <div class="waveform-header">
+        <span><b>Audio Waveform Navigation (Zoom 2x)</b> · Drag to select precise interval boundaries</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-step">1x</button>
+          <button class="btn-step" style="background:#0d9488; color:#fff;">2x</button>
+          <button class="btn-step">4x</button>
+          <button class="btn-step" style="border:1px solid #2dd4bf; color:#2dd4bf;">Snap to Voice</button>
+        </div>
+      </div>
+      <div class="waveform-visual">
+        <div class="wave-bar" style="height:25%;"></div>
+        <div class="wave-bar" style="height:35%;"></div>
+        <div class="wave-bar" style="height:40%;"></div>
+        <div class="wave-bar" style="height:30%;"></div>
+        <div class="wave-bar in-range" style="height:70%;"></div>
+        <div class="wave-bar in-range" style="height:90%;"></div>
+        <div class="wave-bar in-range" style="height:85%;"></div>
+        <div class="wave-bar in-range" style="height:60%;"></div>
+        <div class="wave-bar in-range" style="height:95%;"></div>
+        <div class="wave-bar in-range" style="height:75%;"></div>
+        <div class="wave-bar in-range" style="height:88%;"></div>
+        <div class="wave-bar in-range" style="height:65%;"></div>
+        <div class="wave-bar in-range" style="height:92%;"></div>
+        <div class="wave-bar in-range" style="height:80%;"></div>
+        <div class="wave-bar" style="height:35%;"></div>
+        <div class="wave-bar" style="height:20%;"></div>
+        <div class="wave-bar" style="height:30%;"></div>
+        <div class="wave-bar" style="height:25%;"></div>
+      </div>
+    </div>
+
+    <!-- Spotify Widget Bar (Conditional) -->
+    <div class="spotify-widget-bar" id="spotifyBar">
+      <div class="spotify-track-info">
+        <span class="spotify-logo">🟢</span>
+        <div>
+          <div style="font-size:13px; font-weight:700; color:#fff;">Sting — Shape of My Heart</div>
+          <div style="font-size:11px; color:#b3b3b3;">Spotify Connected · Streaming Track</div>
+        </div>
+      </div>
+      <button class="spotify-btn">Open in Spotify ↗</button>
+    </div>
+
+    <!-- Center Stage Container -->
+    <div class="stage-container" id="stageContainer">
+      <!-- Video Split Sidepane (Conditional) -->
+      <aside class="video-sidepane" id="videoPane">
+        <div class="video-player-box">
+          <img class="video-thumb" src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80" alt="Video thumbnail" />
+          <div class="video-overlay-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> YouTube Sync
+          </div>
+          <div class="video-overlay-play">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          </div>
+        </div>
+        <div style="font-size:12px; color:#94a3b8; margin-top:10px; text-align:center;">
+          Official Music Video (1080p HD)<br/>
+          <span style="font-size:11px; color:#64748b;">currentTime sync enabled via postMessage API</span>
+        </div>
+      </aside>
+
+      <!-- Lyrics Stage -->
+      <main class="stage-center" id="stageCenter">
+        <!-- AI Pronunciation Score Board (Conditional) -->
+        <div class="ai-coach-card" id="aiCoachBoard" style="display:none; width:100%; max-width:680px; background:#111a2e; border:1.5px solid #10b981; border-radius:14px; padding:14px 18px; margin-bottom:12px; box-shadow:0 10px 25px rgba(16,185,129,0.2);">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:22px;">🎯</span>
+              <div>
+                <div style="font-size:15px; font-weight:800; color:#fff;">AI Pronunciation Assessment</div>
+                <div style="font-size:11px; color:#94a3b8;">Singing with Minus Track · Real-time Phonetic & Rhythm Scoring</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button class="interval-btn" style="background:#ef4444; color:#fff; border:none; padding:5px 12px; font-weight:700;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#fff; animation:pulse 1s infinite; margin-right:4px;"></span> 🔴 Recording Voice</button>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-top:10px;">
+            <div style="background:#090d16; padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Overall Score</div>
+              <div style="font-size:17px; font-weight:800; color:#34d399;">88.5% <span style="font-size:11px; color:#2dd4bf;">(B2)</span></div>
+            </div>
+            <div style="background:#090d16; padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Accuracy</div>
+              <div style="font-size:17px; font-weight:800; color:#38bdf8;">92.0%</div>
+            </div>
+            <div style="background:#090d16; padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Fluency</div>
+              <div style="font-size:17px; font-weight:800; color:#fbbf24;">84.0%</div>
+            </div>
+            <div style="background:#090d16; padding:8px 12px; border-radius:8px; border:1px solid var(--border);">
+              <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Prosody / Pitch</div>
+              <div style="font-size:17px; font-weight:800; color:#a78bfa;">89.5%</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shadowing Banner (Conditional) -->
+        <div class="echo-indicator" id="echoBanner" style="display:none;">
+          <span>🎙️ Echo Pause: Listen carefully, then repeat in 3... 2... 1</span>
+        </div>
+
+        <!-- Interval Loop Active Badge -->
+        <div style="font-size:11px; font-weight:700; color:#2dd4bf; background:rgba(13,148,136,0.15); border:1px solid rgba(45,212,191,0.3); border-radius:9999px; padding:3px 12px; display:inline-flex; align-items:center; gap:6px; margin-bottom:4px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          <span>A-B Interval Active: 00:28.40 – 00:48.00 (Lines 2–3 looping)</span>
+        </div>
+
+        <div class="lyric-line-box">
+          <div class="line-text-words">He deals the cards as a meditation</div>
+          <div class="line-trans-sub" style="display:none;">Он сдает карты как медитацию</div>
+        </div>
+
+        <!-- Line 2: In Interval -->
+        <div class="lyric-line-box in-interval">
+          <div class="line-text-words"><span style="font-size:10px; font-weight:800; color:#2dd4bf; background:rgba(13,148,136,0.25); padding:1px 5px; border-radius:4px; margin-right:4px;">[A]</span> And those he plays never suspect</div>
+          <div class="line-trans-sub" style="display:none;">И те, с кем он играет, не догадываются</div>
+        </div>
+
+        <!-- Line 3: Current Active Line & End of Interval -->
+        <div class="lyric-line-box active in-interval" id="activeLineBox">
+          <div class="line-text-words" id="activeWordsGroup">
+            <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'He')">He</span>
+            <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'doesn\'t')">doesn't</span>
+            <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'play')">play</span>
+            <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'for')">for</span>
+            <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'the')">the</span>
+            <span class="word-token sung vocab-new" onclick="showWordPop(this, 'money')">money</span>
+            <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'he')">he</span>
+            <span class="word-token highlight-beat vocab-new" id="activeTarget" onclick="showWordPop(this, 'wins')">wins</span>
+            <span style="font-size:10px; font-weight:800; color:#38bdf8; background:rgba(2,132,199,0.3); padding:1px 5px; border-radius:4px; margin-left:4px;">[B]</span>
+          </div>
+          <div class="line-trans-sub" id="activeTransSub" style="display:none;">
+            Он играет не ради денег, которые выигрывает
+          </div>
+        </div>
+
+        <div class="lyric-line-box">
+          <div class="line-text-words">He doesn't play for respect</div>
+          <div class="line-trans-sub" style="display:none;">Он играет не ради уважения</div>
+        </div>
+
+        <div class="lyric-line-box">
+          <div class="line-text-words">He deals the cards to find the answer</div>
+          <div class="line-trans-sub" style="display:none;">Он сдает карты, чтобы найти ответ</div>
+        </div>
+
+        <!-- Word Popover Card -->
+        <div class="word-popover" id="popoverModal">
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div>
+              <div style="font-size:20px; font-weight:800; color:#fff;" id="popWordTitle">win <span style="font-size:13px; color:#94a3b8; font-weight:400;">(wins)</span></div>
+              <div style="font-size:11px; color:#94a3b8;">Irregular: win · won · won</div>
+            </div>
+            <span style="font-size:10px; font-weight:800; background:rgba(13,148,136,0.2); color:#2dd4bf; padding:2px 8px; border-radius:6px; height:fit-content;">VERB</span>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-bottom:12px;">
+            <div style="background:#090d16; padding:4px 8px; border-radius:6px; font-size:11px; display:flex; align-items:center; gap:6px;">
+              <span style="color:#94a3b8; font-weight:700;">UK</span> 🔊 <span style="color:#cbd5e1; font-family:monospace;">/wɪn/</span>
+            </div>
+            <div style="background:#090d16; padding:4px 8px; border-radius:6px; font-size:11px; display:flex; align-items:center; gap:6px;">
+              <span style="color:#94a3b8; font-weight:700;">US</span> 🔊 <span style="color:#cbd5e1; font-family:monospace;">/wɪn/</span>
+            </div>
+          </div>
+
+          <div style="background:#090d16; border-radius:8px; padding:10px; margin-bottom:12px; font-size:13px;">
+            <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Translation</div>
+            <div style="color:#34d399; font-weight:600; margin-top:2px;">побеждать, выигрывать, завоевывать</div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button style="background:var(--primary); color:#fff; border:none; padding:8px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;" onclick="hideWordPop()">+ Add to Deck</button>
+            <button style="background:#334155; color:#fff; border:none; padding:8px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;" onclick="hideWordPop()">Mark Known</button>
+          </div>
+        </div>
+      </main>
+
+      <!-- Timing Editor Tool Mode -->
+      <div class="editor-grid-view" id="editorView">
+        <div class="editor-rows">
+          <div class="edit-row">
+            <input class="edit-time-box" value="00:15.20" />
+            <span class="edit-text">He deals the cards as a meditation</span>
+            <button class="btn-row-tap">Test ▶</button>
+          </div>
+          <div class="edit-row">
+            <input class="edit-time-box" value="00:28.40" />
+            <span class="edit-text">And those he plays never suspect</span>
+            <button class="btn-row-tap">Test ▶</button>
+          </div>
+          <div class="edit-row current">
+            <input class="edit-time-box" value="00:41.80" />
+            <span class="edit-text"><b>He doesn't play for the money he wins</b></span>
+            <button class="btn-row-tap" style="color:#2dd4bf; border-color:#2dd4bf;">Listening ●</button>
+          </div>
+          <div class="edit-row">
+            <input class="edit-time-box" value="--:--.--" placeholder="Set time" />
+            <span class="edit-text" style="color:#64748b;">He doesn't play for respect</span>
+            <button class="btn-row-tap">Mark [Space]</button>
+          </div>
+        </div>
+
+        <div style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+          <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--text-muted);">Alignment Source Sync</div>
+          <div style="font-size:12px; color:#cbd5e1;">Active Media: <b id="editorSourceLabel">Audio File (MP3)</b></div>
+          <button style="background:linear-gradient(135deg, #4f46e5, #9333ea); color:#fff; border:none; padding:10px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer;">AI Auto-Align (Whisper)</button>
+          <div style="font-size:11px; color:#94a3b8; line-height:1.4;">
+            Press <b>Space</b> to mark the current line.<br/>
+            Use <b>←/→</b> to nudge ±0.2s.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Audio/Video Player Bar with A-B Interval Controls -->
+    <footer class="player-bar">
+      <!-- Interval Toolbar with Millisecond Steppers -->
+      <div class="interval-bar">
+        <div class="interval-chips">
+          <span style="font-weight:800; font-size:11px; color:#2dd4bf; text-transform:uppercase; letter-spacing:0.5px;">Precision Range:</span>
+          <div class="stepper-box">
+            <span style="font-size:10px; font-weight:800; color:#2dd4bf;">[A]</span>
+            <input value="00:28.420" style="background:transparent; border:none; color:#2dd4bf; font-family:monospace; font-size:11px; width:65px; font-weight:700;" readonly />
+            <button class="btn-step">-0.1s</button>
+            <button class="btn-step">+0.1s</button>
+          </div>
+          <div class="stepper-box">
+            <span style="font-size:10px; font-weight:800; color:#38bdf8;">[B]</span>
+            <input value="00:48.250" style="background:transparent; border:none; color:#38bdf8; font-family:monospace; font-size:11px; width:65px; font-weight:700;" readonly />
+            <button class="btn-step">-0.1s</button>
+            <button class="btn-step">+0.1s</button>
+          </div>
+          <button class="interval-btn active" id="btnLoopAB"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Loop Interval (19.8s)</button>
+          <button class="interval-btn">▶ Play Once</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <button class="interval-btn">🔗 Snap to Lines (2–3)</button>
+          <button class="interval-btn">✕ Clear</button>
+        </div>
+      </div>
+
+      <!-- Scrubber Track with A-B Range Markers -->
+      <div class="scrubber-zone" style="margin-top:10px;">
+        <span class="time-lbl">01:14</span>
+        <div class="scrubber-track" id="scrubberTrack">
+          <!-- A-B Range Overlay on Scrubber -->
+          <div class="ab-range-highlight" id="abHighlight" style="left:22%; width:36%;">
+            <div class="marker-ab" style="left:0;"><span>[A] 00:28</span></div>
+            <div class="marker-ab point-b" style="right:-25px;"><span>[B] 00:48</span></div>
+          </div>
+          <div class="scrubber-prog"><span class="scrubber-thumb"></span></div>
+        </div>
+        <span class="time-lbl">04:38</span>
+      </div>
+
+      <div class="bar-controls">
+        <div class="play-btns">
+          <button class="btn-icon-circle" title="Prev Line"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg></button>
+          <button class="btn-icon-circle main-play" title="Play / Pause"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+          <button class="btn-icon-circle" title="Next Line"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg></button>
+          <button class="btn-badge-action active"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg> Loop Line</button>
+          <button class="btn-badge-action"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg> 1.0x Speed</button>
+        </div>
+
+        <div style="font-size:11px; color:var(--text-muted); display:flex; align-items:center; gap:14px;">
+          <span><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#10b981;"></span> Learned</span>
+          <span><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#f43f5e;"></span> New</span>
+          <span><span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:#38bdf8;"></span> Beat</span>
+          <span style="color:#cbd5e1; font-weight:600;">💡 Click word for instant study</span>
+        </div>
+      </div>
+      <!-- Saved Bookmarks Strip -->
+      <div class="bookmarks-strip">
+        <span style="font-weight:800; color:var(--text-muted); text-transform:uppercase;">Saved Loops:</span>
+        <button class="bookmark-chip">★ "never suspect" (00:28.40 – 00:32.10)</button>
+        <button class="bookmark-chip" style="border-color:#2dd4bf; color:#2dd4bf;">★ "money he wins" (00:41.80 – 00:48.25)</button>
+        <button class="interval-btn" style="background:#0d9488; color:#fff; border:none; margin-left:auto;">+ Bookmark Active Range</button>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    let activeMode = 'wordflow';
+    let activeSource = 'audio';
+    let activeVocalTrack = 'original';
+
+    function updateBadge() {
+      const modeNames = {
+        wordflow: 'Word-Flow',
+        scroller: 'Line Scroller',
+        quiz: 'Lyric Quiz',
+        shadowing: 'Shadowing Echo',
+        bilingual: 'Bilingual Flow',
+        ai_coach: 'AI Pronunciation Coach',
+        editor: 'Tap-to-Sync Tool'
+      };
+      const sourceNames = {
+        audio: 'Audio File',
+        video: 'YouTube Video',
+        spotify: 'Spotify Embed'
+      };
+      const trackNames = {
+        original: 'Vocals On',
+        minus: 'Minus Track'
+      };
+      document.getElementById('comboBadge').textContent = modeNames[activeMode] + ' · ' + sourceNames[activeSource] + ' · ' + trackNames[activeVocalTrack];
+      document.getElementById('editorSourceLabel').textContent = sourceNames[activeSource];
+    }
+
+    function setVocalTrack(track) {
+      activeVocalTrack = track;
+      document.querySelectorAll('#trackSelector .pill-btn').forEach(b => b.classList.remove('active'));
+      if (track === 'minus') {
+        document.getElementById('btnTrackMinus').classList.add('active');
+      } else {
+        document.getElementById('btnTrackOriginal').classList.add('active');
+      }
+      updateBadge();
+    }
+
+    function setMode(mode) {
+      activeMode = mode;
+      document.querySelectorAll('#modeSelector .pill-btn').forEach(b => b.classList.remove('active'));
+      const idx = ['wordflow', 'scroller', 'quiz', 'shadowing', 'bilingual', 'ai_coach', 'editor'].indexOf(mode);
+      if (idx >= 0) document.querySelectorAll('#modeSelector .pill-btn')[idx].classList.add('active');
+
+      const stageCenter = document.getElementById('stageCenter');
+      const editorView = document.getElementById('editorView');
+      const activeLineBox = document.getElementById('activeLineBox');
+      const echoBanner = document.getElementById('echoBanner');
+      const aiCoachBoard = document.getElementById('aiCoachBoard');
+      const transSubs = document.querySelectorAll('.line-trans-sub');
+      hideWordPop();
+
+      if (mode === 'editor') {
+        stageCenter.style.display = 'none';
+        editorView.style.display = 'grid';
+        echoBanner.style.display = 'none';
+        if (aiCoachBoard) aiCoachBoard.style.display = 'none';
+        updateBadge();
+        return;
+      }
+
+      stageCenter.style.display = 'flex';
+      editorView.style.display = 'none';
+
+      // Toggle bilingual subtitles
+      transSubs.forEach(el => el.style.display = (mode === 'bilingual' ? 'block' : 'none'));
+
+      // Toggle Shadowing banner
+      echoBanner.style.display = (mode === 'shadowing' ? 'flex' : 'none');
+
+      // Toggle AI Coach Board
+      if (aiCoachBoard) aiCoachBoard.style.display = (mode === 'ai_coach' ? 'block' : 'none');
+
+      // Update lyrics content
+      const wordsGroup = document.getElementById('activeWordsGroup');
+      if (mode === 'ai_coach') {
+        wordsGroup.innerHTML = `
+          <span class="word-token" style="color:#34d399; border-bottom:2px solid #10b981;" onclick="showAiWordPop('He', 98, '/hiː/', '/hiː/', 'Perfect pronunciation')">He <small style="font-size:9px; opacity:0.8;">98%</small></span>
+          <span class="word-token" style="color:#34d399; border-bottom:2px solid #10b981;" onclick="showAiWordPop('doesn\\'t', 94, '/ˈdʌz.ənt/', '/ˈdʌz.ənt/', 'Good reduction')">doesn't <small style="font-size:9px; opacity:0.8;">94%</small></span>
+          <span class="word-token" style="color:#34d399; border-bottom:2px solid #10b981;" onclick="showAiWordPop('play', 96, '/pleɪ/', '/pleɪ/', 'Clean diphthong')">play <small style="font-size:9px; opacity:0.8;">96%</small></span>
+          <span class="word-token" style="color:#34d399; border-bottom:2px solid #10b981;" onclick="showAiWordPop('for', 91, '/fɔːr/', '/fər/', 'Correct weak form')">for <small style="font-size:9px; opacity:0.8;">91%</small></span>
+          <span class="word-token" style="color:#34d399; border-bottom:2px solid #10b981;" onclick="showAiWordPop('the', 93, '/ðə/', '/ðə/', 'Good dental fricative')">the <small style="font-size:9px; opacity:0.8;">93%</small></span>
+          <span class="word-token" style="color:#fbbf24; border-bottom:2px solid #f59e0b;" onclick="showAiWordPop('money', 78, '/ˈmʌn.i/', '/ˈmɒn.i/', 'Vowel /ʌ/ sounded slightly like /ɒ/')">money <small style="font-size:9px; opacity:0.8;">78%</small></span>
+          <span class="word-token" style="color:#34d399; border-bottom:2px solid #10b981;" onclick="showAiWordPop('he', 95, '/hiː/', '/hiː/', 'Clean aspiration')">he <small style="font-size:9px; opacity:0.8;">95%</small></span>
+          <span class="word-token" style="color:#f87171; border-bottom:2px solid #ef4444;" id="activeTarget" onclick="showAiWordPop('wins', 68, '/wɪnz/', '/wɪns/', 'Final consonant /z/ was pronounced unvoiced as /s/')">wins <small style="font-size:9px; opacity:0.8;">68%</small></span>
+        `;
+      } else if (mode === 'wordflow' || mode === 'shadowing' || mode === 'bilingual') {
+        wordsGroup.innerHTML = `
+          <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'He')">He</span>
+          <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'doesn\\'t')">doesn't</span>
+          <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'play')">play</span>
+          <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'for')">for</span>
+          <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'the')">the</span>
+          <span class="word-token sung vocab-new" onclick="showWordPop(this, 'money')">money</span>
+          <span class="word-token sung vocab-learned" onclick="showWordPop(this, 'he')">he</span>
+          <span class="word-token highlight-beat vocab-new" id="activeTarget" onclick="showWordPop(this, 'wins')">wins</span>
+        `;
+      } else if (mode === 'scroller') {
+        wordsGroup.innerHTML = `<span>He doesn't play for the money he wins</span>`;
+      } else if (mode === 'quiz') {
+        wordsGroup.innerHTML = `
+          <span class="word-token sung">He</span>
+          <span class="word-token sung">doesn't</span>
+          <span class="word-token sung">play</span>
+          <span class="word-token sung">for</span>
+          <span class="word-token sung">the</span>
+          <span style="min-width:80px; height:34px; border:2px dashed #f59e0b; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; color:#fbbf24; font-weight:700; font-size:14px; padding:0 10px; cursor:pointer;" onclick="alert('Choose the correct word: [money] / [honey] / [sunny]')">? [money]</span>
+          <span class="word-token sung">he</span>
+          <span class="word-token highlight-beat">wins</span>
+        `;
+      }
+
+      updateBadge();
+    }
+
+    function showAiWordPop(word, score, targetIpa, spokenIpa, feedback) {
+      const pop = document.getElementById('popoverModal');
+      document.getElementById('popWordTitle').innerHTML = word + ` <span style="font-size:13px; color:#34d399; font-weight:800;">(Score: ${score}%)</span>`;
+      pop.innerHTML = `
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+          <div>
+            <div style="font-size:18px; font-weight:800; color:#fff;">${word} <span style="font-size:12px; color:${score >= 90 ? '#34d399' : score >= 70 ? '#fbbf24' : '#f87171'}; font-weight:700;">Score: ${score}%</span></div>
+            <div style="font-size:11px; color:#94a3b8;">Target: <code style="color:#2dd4bf;">${targetIpa}</code> · Spoken: <code style="color:#fbbf24;">${spokenIpa}</code></div>
+          </div>
+          <span style="font-size:10px; font-weight:800; background:rgba(16,185,129,0.2); color:#34d399; padding:2px 8px; border-radius:6px; height:fit-content;">AI PHONETICS</span>
+        </div>
+        <div style="background:#090d16; border-radius:8px; padding:10px; margin-bottom:12px; font-size:12px; border:1px solid rgba(255,255,255,0.06);">
+          <div style="font-size:10px; font-weight:700; color:#94a3b8; text-transform:uppercase;">Phonetic Coach Feedback</div>
+          <div style="color:#cbd5e1; margin-top:3px; line-height:1.4;">${feedback}</div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <button style="background:#0d9488; color:#fff; border:none; padding:8px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;" onclick="hideWordPop()">🔊 Listen Native</button>
+          <button style="background:#ef4444; color:#fff; border:none; padding:8px; border-radius:8px; font-weight:700; font-size:11px; cursor:pointer;" onclick="hideWordPop()">🎙️ Re-try Word</button>
+        </div>
+      `;
+      pop.classList.add('open');
+    }
+
+    function setSource(source) {
+      activeSource = source;
+      document.querySelectorAll('#sourceSelector .pill-btn').forEach(b => b.classList.remove('active-source'));
+      const idx = ['audio', 'video', 'spotify'].indexOf(source);
+      document.querySelectorAll('#sourceSelector .pill-btn')[idx].classList.add('active-source');
+
+      const stageContainer = document.getElementById('stageContainer');
+      const videoPane = document.getElementById('videoPane');
+      const spotifyBar = document.getElementById('spotifyBar');
+
+      if (source === 'video') {
+        stageContainer.classList.add('split-layout');
+        videoPane.classList.add('visible');
+        spotifyBar.classList.remove('visible');
+      } else if (source === 'spotify') {
+        stageContainer.classList.remove('split-layout');
+        videoPane.classList.remove('visible');
+        spotifyBar.classList.add('visible');
+      } else {
+        stageContainer.classList.remove('split-layout');
+        videoPane.classList.remove('visible');
+        spotifyBar.classList.remove('visible');
+      }
+
+      updateBadge();
+    }
+
+    function showWordPop(el, word) {
+      const pop = document.getElementById('popoverModal');
+      document.getElementById('popWordTitle').innerHTML = word + ' <span style="font-size:13px; color:#94a3b8; font-weight:400;">(word)</span>';
+      pop.classList.add('open');
+    }
+
+    function hideWordPop() {
+      document.getElementById('popoverModal').classList.remove('open');
+    }
+  </script>
+</body>
+</html>

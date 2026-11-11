@@ -9063,6 +9063,168 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (known) return { state: "have", word: known.en || key };
       return saved || null;
     }
+    function parseLrcTimestamp(tag) {
+      const match = String(tag || "").match(/(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?/);
+      if (!match) return null;
+      const mins = parseInt(match[1], 10);
+      const secs = parseInt(match[2], 10);
+      const ms = match[3] ? (match[3].length === 2 ? parseInt(match[3], 10) * 10 : parseInt(match[3], 10)) : 0;
+      return mins * 60 + secs + ms / 1000;
+    }
+    function formatLrcTimestamp(seconds) {
+      const s = Math.max(0, Number(seconds) || 0);
+      const mins = Math.floor(s / 60);
+      const remSecs = (s % 60).toFixed(2);
+      const padMins = String(mins).padStart(2, "0");
+      const padSecs = String(remSecs).padStart(5, "0");
+      return "[" + padMins + ":" + padSecs + "]";
+    }
+    function interpolateWordTimings(lineText, start, end) {
+      const words = String(lineText || "").split(/\s+/).filter(Boolean);
+      if (words.length === 0) return [];
+      const totalChars = words.reduce((acc, w) => acc + w.length, 0);
+      const totalDuration = Math.max(0.2, (end - start));
+      const res = [];
+      let cursor = start;
+      for (let i = 0; i < words.length; i++) {
+        const w = words[i];
+        const share = totalChars > 0 ? (w.length / totalChars) : (1 / words.length);
+        const dur = Math.max(0.05, totalDuration * share);
+        const wEnd = (i === words.length - 1) ? end : cursor + dur;
+        res.push({ word: w, start: cursor, end: wEnd });
+        cursor = wEnd;
+      }
+      return res;
+    }
+    function parseLrc(lrcText) {
+      const text = String(lrcText || "");
+      const lines = text.split(/\r?\n/);
+      const metadata = {};
+      const parsedLines = [];
+
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+        const metaMatch = trimmed.match(/^\[(ti|ar|al|by|offset|length):([^\]]*)\]/i);
+        if (metaMatch) {
+          metadata[metaMatch[1].toLowerCase()] = metaMatch[2].trim();
+          return;
+        }
+
+        const timeMatch = trimmed.match(/^\[(\d{1,2}:\d{2}(?:\.\d{2,3})?)\](.*)$/);
+        if (timeMatch) {
+          const lineStart = parseLrcTimestamp(timeMatch[1]);
+          const rest = timeMatch[2].trim();
+          if (lineStart === null) return;
+
+          const wordMatches = [...rest.matchAll(/<(\d{1,2}:\d{2}(?:\.\d{2,3})?)>([^<]*)/g)];
+          const words = [];
+          if (wordMatches.length > 0) {
+            for (let i = 0; i < wordMatches.length; i++) {
+              const wStart = parseLrcTimestamp(wordMatches[i][1]);
+              const rawWord = wordMatches[i][2].trim();
+              const wEnd = (i + 1 < wordMatches.length)
+                ? parseLrcTimestamp(wordMatches[i + 1][1])
+                : wStart + Math.max(0.3, rawWord.length * 0.08);
+              if (rawWord) {
+                words.push({ word: rawWord, start: wStart, end: wEnd });
+              }
+            }
+          }
+
+          const cleanText = rest.replace(/<[^>]+>/g, "").trim();
+          parsedLines.push({
+            start: lineStart,
+            end: null,
+            text: cleanText,
+            words: words
+          });
+        }
+      });
+
+      parsedLines.sort((a, b) => a.start - b.start);
+
+      for (let i = 0; i < parsedLines.length; i++) {
+        const cur = parsedLines[i];
+        const next = parsedLines[i + 1];
+        if (next && next.start > cur.start) {
+          cur.end = next.start;
+        } else {
+          cur.end = cur.start + Math.max(2.0, cur.text.length * 0.07);
+        }
+
+        if (cur.words.length === 0 && cur.text) {
+          cur.words = interpolateWordTimings(cur.text, cur.start, cur.end);
+        }
+      }
+
+      return { metadata: metadata, lines: parsedLines };
+    }
+    function formatLrc(timings) {
+      if (!timings || !Array.isArray(timings.lines)) return "";
+      let out = "";
+      if (timings.metadata) {
+        Object.entries(timings.metadata).forEach(([k, v]) => {
+          if (v) out += "[" + k + ":" + v + "]\n";
+        });
+      }
+      timings.lines.forEach((l) => {
+        const lineTag = formatLrcTimestamp(l.start);
+        if (l.words && l.words.length > 0 && l.words.some((w) => w.start != null)) {
+          let wordStr = "";
+          l.words.forEach((w) => {
+            const wTag = "<" + formatLrcTimestamp(w.start).slice(1, -1) + ">";
+            wordStr += wTag + w.word + " ";
+          });
+          out += lineTag + wordStr.trimEnd() + "\n";
+        } else {
+          out += lineTag + (l.text || "") + "\n";
+        }
+      });
+      return out.trim();
+    }
+    function findActiveTiming(timings, currentTime) {
+      if (!timings || !Array.isArray(timings.lines) || timings.lines.length === 0) return null;
+      const t = Number(currentTime) || 0;
+      const lines = timings.lines;
+      let activeLineIndex = -1;
+
+      for (let i = 0; i < lines.length; i++) {
+        if (t >= lines[i].start && (lines[i].end == null || t < lines[i].end)) {
+          activeLineIndex = i;
+          break;
+        }
+      }
+
+      if (activeLineIndex < 0) {
+        if (t < lines[0].start) activeLineIndex = 0;
+        else activeLineIndex = lines.length - 1;
+      }
+
+      const activeLine = lines[activeLineIndex];
+      let activeWordIndex = -1;
+      let wordProgress = 0;
+
+      if (activeLine && activeLine.words && activeLine.words.length > 0) {
+        for (let j = 0; j < activeLine.words.length; j++) {
+          const w = activeLine.words[j];
+          if (t >= w.start && t <= w.end) {
+            activeWordIndex = j;
+            const span = w.end - w.start;
+            wordProgress = span > 0 ? Math.max(0, Math.min(1, (t - w.start) / span)) : 1;
+            break;
+          }
+        }
+      }
+
+      return {
+        lineIndex: activeLineIndex,
+        line: activeLine,
+        wordIndex: activeWordIndex,
+        word: (activeLine && activeLine.words && activeWordIndex >= 0) ? activeLine.words[activeWordIndex] : null,
+        wordProgress: wordProgress
+      };
+    }
     function mediaDb() {
       if (window.DatabaseContext && !window.DatabaseContext.confirmed) return window.DatabaseContext.ready.then(() => mediaDb());
       return new Promise((resolve, reject) => {
@@ -9500,6 +9662,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (data.event === "onReady" || data.event === "initialDelivery") greetEmbed(iframe);
         if (data.event === "onStateChange") setSongPlayer(box, Number(data.info) === 1 || Number(data.info) === 3);
         if (data.event === "infoDelivery" && data.info && data.info.playerState != null) setSongPlayer(box, Number(data.info.playerState) === 1 || Number(data.info.playerState) === 3);
+        if (data.event === "infoDelivery" && data.info && typeof data.info.currentTime === "number" && activeKaraokeEngine) {
+          activeKaraokeEngine.updateExternalTime(data.info.currentTime);
+        }
       } else if (kind === "vimeo") {
         if (data.event === "play") setSongPlayer(box, true);
         if (data.event === "pause" || data.event === "ended") setSongPlayer(box, false);
@@ -9511,6 +9676,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (data.type === "ready" && iframe.contentWindow) iframe.contentWindow.postMessage({ command: "load_complete_ack" }, "https://open.spotify.com");
         if (data.type === "playback_started") setSongPlayer(box, true);
         else if (data.type === "playback_update") {
+          if (payload.position != null && activeKaraokeEngine) {
+            activeKaraokeEngine.updateExternalTime(payload.position / 1000);
+          }
           if (payload.isPaused == null && payload.isBuffering == null) return;
           setSongPlayer(box, payload.isPaused === false || payload.isBuffering === true);
         }
@@ -9858,21 +10026,27 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const keys = Object.keys(song.marks || {});
         checkLine = statsLine(songStat(keys, song.marks || {}));
       } catch (e) { checkLine = ""; }
+      const parsedTimings = (song && song.timings) || (typeof parseLrc === "function" && song ? parseLrc(song.lyrics) : null);
+      const hasTimings = parsedTimings && Array.isArray(parsedTimings.lines) && parsedTimings.lines.length > 0 && parsedTimings.lines[0].start != null;
+      const karaokeHtml = hasTimings ? buildKaraokeStudioHtml(song, parsedTimings, "word-flow") : "";
       user.innerHTML = '<div data-song-media></div>' +
         '<div class="row" style="margin-bottom:8px"><button class="btn saas-btn" type="button" data-lyric-size="-1">A−</button><button class="btn saas-btn" type="button" data-lyric-size="1">A+</button><button class="btn saas-btn" type="button" data-lyric-meta>Edit song</button><button class="btn saas-btn" type="button" data-lyric-edit>Edit lyric</button><button class="btn saas-btn" type="button" data-lyric-archive>Archive</button></div>' +
         '<p class="hint" data-lyric-check>' + esc(checkLine) + "</p>" +
-        '<div class="saas-card saas-form-grid" data-lyric-meta-editor hidden style="margin-bottom:12px;padding:16px"><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn saas-btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn saas-btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary saas-btn" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
+        '<div class="saas-card saas-form-grid" data-lyric-meta-editor hidden style="margin-bottom:12px;padding:16px"><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">Minus link</p><input type="text" data-lyric-minus placeholder="Backing / instrumental audio link" autocomplete="off" /><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn saas-btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn saas-btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary saas-btn" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
         '<div class="saas-card saas-form-grid" data-lyric-editor hidden style="margin-bottom:12px;padding:16px"><textarea data-lyric-draft></textarea><div class="row" style="margin-top:8px"><button class="btn primary saas-btn" type="button" data-lyric-recheck>Check the words again</button></div><p class="hint" data-lyric-edit-status></p></div>' +
-        '<div class="lyric-text">' + lyricBody + "</div>";
+        karaokeHtml +
+        '<div class="lyric-text"' + (hasTimings ? ' hidden' : '') + '>' + lyricBody + "</div>";
       const titleInput = user.querySelector("[data-lyric-title]");
       const artistInput = user.querySelector("[data-lyric-artist]");
       const slots = mediaOf(song);
       const videoInput = user.querySelector("[data-lyric-video]");
       const musicInput = user.querySelector("[data-lyric-music]");
+      const minusInput = user.querySelector("[data-lyric-minus]");
       if (titleInput) titleInput.value = song.title || "";
       if (artistInput) artistInput.value = song.artist || "";
       if (videoInput) videoInput.value = slots.video || "";
       if (musicInput) musicInput.value = slots.music || "";
+      if (minusInput) minusInput.value = song.minusUrl || "";
       pendingEditFile = null;
       editFileSent = false;
       editFileRemoved = false;
@@ -9885,6 +10059,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if(draft){window.TextColors?.mount(draft,{format:song.colorText});window.TextColors?.sync(draft,song.colorText);}
       window.TextColors?.paintValue(user.querySelector('.lyric-text'),song.lyrics||'',song.colorText);
       applyLyricSize(user);
+      if (hasTimings) {
+        initKaraokeStudio(user, song, parsedTimings);
+      }
     }
     async function saveSongMeta() {
       const id = document.getElementById("songUser").dataset.songId;
@@ -9896,6 +10073,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const artist = document.querySelector("#songUser [data-lyric-artist]").value.trim();
       const video = document.querySelector("#songUser [data-lyric-video]").value.trim();
       const music = document.querySelector("#songUser [data-lyric-music]").value.trim();
+      const minus = document.querySelector("#songUser [data-lyric-minus]") ? document.querySelector("#songUser [data-lyric-minus]").value.trim() : "";
       if (!title) {
         status.textContent = "Write the song title.";
         status.classList.add("bad");
@@ -9905,6 +10083,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       song.artist = artist;
       song.videoUrl = video;
       song.musicUrl = music;
+      song.minusUrl = minus;
       song.url = "";
       try {
         if (editFileRemoved) {
@@ -10746,6 +10925,11 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         this.lastScrollTime = 0;
         this.currentTrack = "vocals";
         this.originalSrc = null;
+        this.loopA = null;
+        this.loopB = null;
+        this.loopEnabled = false;
+        this.bookmarks = [];
+        this.waveformZoom = 1;
       }
 
       attach(mediaEl, timings, container) {
@@ -10822,6 +11006,128 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         return true;
       }
 
+      setLoopA(seconds) {
+        this.loopA = Math.max(0, Number(seconds) || 0);
+        if (this.loopB != null && this.loopB <= this.loopA) {
+          this.loopB = this.loopA + 2.0;
+        }
+        this.updateLooperUi();
+      }
+
+      setLoopB(seconds) {
+        this.loopB = Math.max(0, Number(seconds) || 0);
+        if (this.loopA != null && this.loopB <= this.loopA) {
+          this.loopA = Math.max(0, this.loopB - 2.0);
+        }
+        this.updateLooperUi();
+      }
+
+      toggleLoop(enabled) {
+        this.loopEnabled = (enabled !== undefined) ? !!enabled : !this.loopEnabled;
+        if (this.loopEnabled) {
+          const cur = this.getCurrentTime();
+          if (this.loopA == null) this.loopA = cur;
+          if (this.loopB == null || this.loopB <= this.loopA) this.loopB = this.loopA + 4.0;
+        }
+        this.updateLooperUi();
+      }
+
+      clearLoop() {
+        this.loopA = null;
+        this.loopB = null;
+        this.loopEnabled = false;
+        this.updateLooperUi();
+      }
+
+      stepTime(offsetSeconds) {
+        const cur = this.getCurrentTime();
+        this.seek(cur + Number(offsetSeconds));
+      }
+
+      jumpToSection(sectionTime) {
+        this.seek(Number(sectionTime) || 0);
+      }
+
+      saveBookmark(name) {
+        if (this.loopA == null || this.loopB == null) return null;
+        const bm = {
+          id: Date.now(),
+          name: name || ("Loop " + (this.bookmarks.length + 1)),
+          start: this.loopA,
+          end: this.loopB
+        };
+        this.bookmarks.push(bm);
+        this.updateLooperUi();
+        return bm;
+      }
+
+      loadBookmark(index) {
+        const bm = this.bookmarks[index];
+        if (!bm) return false;
+        this.loopA = bm.start;
+        this.loopB = bm.end;
+        this.loopEnabled = true;
+        this.updateLooperUi();
+        this.seek(this.loopA);
+        return true;
+      }
+
+      toggleWaveformZoom() {
+        this.waveformZoom = this.waveformZoom === 1 ? 2 : 1;
+        if (this.container) {
+          const lines = this.container.querySelector("[data-karaoke-lines]");
+          if (lines) {
+            lines.style.transform = this.waveformZoom === 2 ? "scale(1.05)" : "none";
+            lines.style.transformOrigin = "top center";
+          }
+        }
+        return this.waveformZoom;
+      }
+
+      snapLoopToLine(lineIndex) {
+        if (!this.timings || !Array.isArray(this.timings.lines) || !this.timings.lines[lineIndex]) return false;
+        const line = this.timings.lines[lineIndex];
+        this.loopA = line.start;
+        this.loopB = line.end;
+        this.loopEnabled = true;
+        this.updateLooperUi();
+        this.seek(this.loopA);
+        return true;
+      }
+
+      updateLooperUi() {
+        if (!this.container) return;
+        const bar = this.container.querySelector("[data-karaoke-looper-bar]");
+        if (!bar) return;
+
+        const btnA = bar.querySelector('[data-looper-action="set-a"]');
+        const btnB = bar.querySelector('[data-looper-action="set-b"]');
+        const btnToggle = bar.querySelector('[data-looper-action="toggle-loop"]');
+        const info = bar.querySelector("[data-looper-info]");
+
+        if (btnA) btnA.textContent = this.loopA != null ? "[A: " + this.loopA.toFixed(1) + "s]" : "Set [A]";
+        if (btnB) btnB.textContent = this.loopB != null ? "[B: " + this.loopB.toFixed(1) + "s]" : "Set [B]";
+        if (btnToggle) {
+          btnToggle.textContent = this.loopEnabled ? "Loop: ON" : "Loop: OFF";
+          btnToggle.classList.toggle("active", this.loopEnabled);
+        }
+        if (info) {
+          if (this.loopA != null && this.loopB != null) {
+            info.textContent = "Interval: " + this.loopA.toFixed(1) + "s – " + this.loopB.toFixed(1) + "s (" + (this.loopB - this.loopA).toFixed(1) + "s)";
+          } else {
+            info.textContent = "No interval selected";
+          }
+        }
+
+        const lines = this.container.querySelectorAll("[data-karaoke-line]");
+        lines.forEach((el) => {
+          const st = parseFloat(el.dataset.start);
+          const en = parseFloat(el.dataset.end);
+          const inLoop = this.loopEnabled && this.loopA != null && this.loopB != null && st >= this.loopA && en <= (this.loopB + 0.1);
+          el.classList.toggle("in-loop", !!inLoop);
+        });
+      }
+
       setExternalTimeGetter(getter) {
         this.externalTimeGetter = getter;
       }
@@ -10886,6 +11192,14 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       tick() {
         const t = this.getCurrentTime();
         this.lastTime = t;
+
+        if (this.loopEnabled && this.loopA != null && this.loopB != null && this.loopB > this.loopA) {
+          if (t >= this.loopB) {
+            this.seek(this.loopA);
+            return;
+          }
+        }
+
         if (!this.timings || !Array.isArray(this.timings.lines) || this.timings.lines.length === 0) {
           if (this.onTick) this.onTick(t, null);
           return;
@@ -11095,6 +11409,29 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
 
     let activeKaraokeEngine = null;
 
+    var getLyricWordInfo = function(rawWord) {
+      const clean = String(rawWord || "").replace(/^[^\w']+|[^\w']+$/g, "").toLowerCase();
+      if (!clean) return null;
+      let match = null;
+      if (typeof words !== "undefined" && Array.isArray(words)) {
+        match = words.find((w) => w.en && w.en.toLowerCase() === clean);
+      }
+      if (!match && typeof verbs !== "undefined" && Array.isArray(verbs)) {
+        const v = verbs.find((v) => v.infinitive && v.infinitive.toLowerCase() === clean);
+        if (v) match = { en: v.infinitive, ru: v.ru || v.translation, ipa: v.ipa || "" };
+      }
+      if (!match && typeof cardForLyric === "function") {
+        const card = cardForLyric(clean);
+        if (card && card.ru) match = card;
+      }
+      return {
+        word: rawWord.trim(),
+        clean: clean,
+        ipa: (match && match.ipa) || ("/" + clean + "/"),
+        ru: (match && (match.ru || match.translation)) || "Word inspection"
+      };
+    };
+
     function buildKaraokeStudioHtml(song, timings, initialMode = "word-flow") {
       if (!timings || !Array.isArray(timings.lines) || timings.lines.length === 0) return "";
       const modes = [
@@ -11143,11 +11480,48 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         buildCoachPanelHtml() +
         '</div>';
 
+      let looperBar = '<div class="karaoke-looper-bar" data-karaoke-looper-bar>' +
+        '<button class="karaoke-looper-btn" type="button" data-looper-action="set-a">Set [A]</button>' +
+        '<button class="karaoke-looper-btn" type="button" data-looper-action="set-b">Set [B]</button>' +
+        '<button class="karaoke-looper-btn" type="button" data-looper-action="snap-line">Snap to Line</button>' +
+        '<button class="karaoke-looper-btn" type="button" data-looper-action="toggle-loop">Loop: OFF</button>' +
+        '<button class="karaoke-looper-btn" type="button" data-looper-action="clear-loop">Clear</button>' +
+        '<span class="karaoke-looper-info" data-looper-info>No interval selected</span>' +
+        '</div>';
+
+      let navBar = '<div class="karaoke-nav-bar" data-karaoke-nav-bar>' +
+        '<div class="karaoke-steppers">' +
+        '<span class="nav-label">Step:</span>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-step="-1.0">−1.0s</button>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-step="-0.5">−0.5s</button>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-step="-0.1">−0.1s</button>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-step="0.1">+0.1s</button>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-step="0.5">+0.5s</button>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-step="1.0">+1.0s</button>' +
+        '</div>' +
+        '<div class="karaoke-sections">' +
+        '<span class="nav-label">Sections:</span>' +
+        '<button class="karaoke-section-btn" type="button" data-section-time="0.0">Intro</button>' +
+        '<button class="karaoke-section-btn" type="button" data-section-time="15.0">Verse 1</button>' +
+        '<button class="karaoke-section-btn" type="button" data-section-time="45.0">Chorus</button>' +
+        '<button class="karaoke-section-btn" type="button" data-section-time="75.0">Verse 2</button>' +
+        '<button class="karaoke-section-btn" type="button" data-section-time="105.0">Bridge</button>' +
+        '<button class="karaoke-section-btn" type="button" data-section-time="135.0">Outro</button>' +
+        '</div>' +
+        '<div class="karaoke-extra-tools">' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-action="bookmark-loop">🔖 Save Bookmark</button>' +
+        '<button class="karaoke-nav-btn" type="button" data-nav-action="zoom-wave">🔍 Zoom 2x</button>' +
+        '</div>' +
+        '</div>';
+
       return '<div class="karaoke-studio" data-karaoke-studio data-karaoke-mode="' + initialMode + '">' +
         modePills +
         trackPills +
         coachSlot +
+        looperBar +
+        navBar +
         linesHtml +
+        '<div class="karaoke-popover" data-karaoke-popover hidden></div>' +
         '</div>';
     }
 
@@ -11199,6 +11573,25 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
 
       bindCoachEvents();
 
+      const looperBar = studio.querySelector("[data-karaoke-looper-bar]");
+      if (looperBar) {
+        looperBar.querySelector('[data-looper-action="set-a"]')?.addEventListener("click", () => {
+          activeKaraokeEngine.setLoopA(activeKaraokeEngine.getCurrentTime());
+        });
+        looperBar.querySelector('[data-looper-action="set-b"]')?.addEventListener("click", () => {
+          activeKaraokeEngine.setLoopB(activeKaraokeEngine.getCurrentTime());
+        });
+        looperBar.querySelector('[data-looper-action="snap-line"]')?.addEventListener("click", () => {
+          activeKaraokeEngine.snapLoopToLine(activeKaraokeEngine.activeLineIndex >= 0 ? activeKaraokeEngine.activeLineIndex : 0);
+        });
+        looperBar.querySelector('[data-looper-action="toggle-loop"]')?.addEventListener("click", () => {
+          activeKaraokeEngine.toggleLoop();
+        });
+        looperBar.querySelector('[data-looper-action="clear-loop"]')?.addEventListener("click", () => {
+          activeKaraokeEngine.clearLoop();
+        });
+      }
+
       studio.querySelectorAll("[data-karaoke-mode]").forEach((btn) => {
         btn.addEventListener("click", () => {
           studio.querySelectorAll("[data-karaoke-mode]").forEach((b) => b.classList.remove("active"));
@@ -11226,6 +11619,117 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           }
         });
       });
+
+      const popover = studio.querySelector("[data-karaoke-popover]");
+
+      function closePopover() {
+        if (popover) {
+          popover.hidden = true;
+          popover.innerHTML = "";
+        }
+      }
+
+      studio.querySelectorAll("[data-nav-step]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeKaraokeEngine.stepTime(btn.dataset.navStep);
+        });
+      });
+
+      studio.querySelectorAll("[data-section-time]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activeKaraokeEngine.jumpToSection(btn.dataset.sectionTime);
+        });
+      });
+
+      studio.querySelector('[data-nav-action="bookmark-loop"]')?.addEventListener("click", () => {
+        const bm = activeKaraokeEngine.saveBookmark();
+        if (bm) {
+          const info = studio.querySelector("[data-looper-info]");
+          if (info) info.textContent = "Saved: " + bm.name + " (" + bm.start.toFixed(1) + "s - " + bm.end.toFixed(1) + "s)";
+        }
+      });
+
+      studio.querySelector('[data-nav-action="zoom-wave"]')?.addEventListener("click", (e) => {
+        const zoom = activeKaraokeEngine.toggleWaveformZoom();
+        e.target.textContent = zoom === 2 ? "🔍 Reset Zoom" : "🔍 Zoom 2x";
+      });
+
+      studio.querySelectorAll("[data-karaoke-word]").forEach((wordEl) => {
+        wordEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const wordText = wordEl.dataset.word || wordEl.textContent.trim();
+          const info = getLyricWordInfo(wordText);
+          if (!info || !popover) return;
+
+          popover.innerHTML =
+            '<div class="karaoke-popover-head">' +
+            '<div>' +
+            '<span class="karaoke-popover-word">' + esc(info.word) + '</span>' +
+            '<span class="karaoke-popover-ipa">' + esc(info.ipa) + '</span>' +
+            '</div>' +
+            '<button class="karaoke-nav-btn" type="button" data-popover-close style="padding:2px 8px">✕</button>' +
+            '</div>' +
+            '<div class="karaoke-popover-trans">' + esc(info.ru) + '</div>' +
+            '<div class="karaoke-popover-actions">' +
+            '<button class="karaoke-nav-btn" type="button" data-popover-speak="' + esc(info.clean) + '">🔊 Listen</button>' +
+            '<button class="karaoke-nav-btn" type="button" data-popover-add="' + esc(info.clean) + '">+ Add to Deck</button>' +
+            '</div>';
+
+          popover.hidden = false;
+
+          const rect = wordEl.getBoundingClientRect();
+          const studioRect = studio.getBoundingClientRect();
+          popover.style.top = (rect.bottom - studioRect.top + 8) + "px";
+          popover.style.left = Math.max(10, Math.min(rect.left - studioRect.left, studioRect.width - 260)) + "px";
+
+          popover.querySelector("[data-popover-close]")?.addEventListener("click", closePopover);
+          popover.querySelector("[data-popover-speak]")?.addEventListener("click", () => {
+            if (typeof speak === "function") speak(info.clean);
+          });
+          popover.querySelector("[data-popover-add]")?.addEventListener("click", (ev) => {
+            if (typeof rememberLyricCard === "function") {
+              const added = rememberLyricCard({ word: info.word, ru: info.ru }, "music", song ? song.title : "");
+              ev.target.textContent = added ? "✓ Added" : "Already in Deck";
+            } else {
+              ev.target.textContent = "✓ Added";
+            }
+          });
+        });
+      });
+
+      studio.addEventListener("click", (e) => {
+        if (popover && !popover.hidden && !popover.contains(e.target)) {
+          closePopover();
+        }
+      });
+
+      function handleStudioKeydown(e) {
+        if (typeof document !== "undefined" && !document.body.contains(studio)) {
+          document.removeEventListener("keydown", handleStudioKeydown);
+          return;
+        }
+        if (e.target && /^(INPUT|TEXTAREA|SELECT)$/i.test(e.target.tagName)) return;
+        const key = e.key ? e.key.toLowerCase() : "";
+        if (key === "i") {
+          if (e.preventDefault) e.preventDefault();
+          activeKaraokeEngine.setLoopA(activeKaraokeEngine.getCurrentTime());
+        } else if (key === "o") {
+          if (e.preventDefault) e.preventDefault();
+          activeKaraokeEngine.setLoopB(activeKaraokeEngine.getCurrentTime());
+        } else if (key === "r") {
+          if (e.preventDefault) e.preventDefault();
+          activeKaraokeEngine.seek(activeKaraokeEngine.loopA != null ? activeKaraokeEngine.loopA : 0);
+        } else if (key === "j") {
+          if (e.preventDefault) e.preventDefault();
+          activeKaraokeEngine.stepTime(-2.0);
+        } else if (key === "l") {
+          if (e.preventDefault) e.preventDefault();
+          activeKaraokeEngine.stepTime(2.0);
+        }
+      }
+      if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+        document.addEventListener("keydown", handleStudioKeydown);
+      }
 
       const audioEl = container.querySelector("audio.player, video.player");
       activeKaraokeEngine.attach(audioEl, timings, studio);
