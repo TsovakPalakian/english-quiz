@@ -691,24 +691,66 @@
       const user = document.getElementById("songUser");
       user.hidden = false;
       user.dataset.songId = song.id;
+      const cleanLyricStr = (typeof stripTimestamps === "function") ? stripTimestamps(song.lyrics || "") : (song.lyrics || "");
       let lyricBody = "";
-      try { lyricBody = lyricHtml(song.lyrics || "", song.marks || {}); }
-      catch (e) { lyricBody = esc(song.lyrics || ""); }
+      try { lyricBody = lyricHtml(cleanLyricStr, song.marks || {}); }
+      catch (e) { lyricBody = esc(cleanLyricStr); }
       let checkLine = "";
       try {
         const keys = Object.keys(song.marks || {});
         checkLine = statsLine(songStat(keys, song.marks || {}));
       } catch (e) { checkLine = ""; }
-      const parsedTimings = (song && song.timings) || (typeof parseLrc === "function" && song ? parseLrc(song.lyrics) : null);
+
+      let parsedTimings = (song && song.timings) || (typeof parseLrc === "function" && song ? parseLrc(song.lyrics) : null);
+      const hasLrc = parsedTimings && Array.isArray(parsedTimings.lines) && parsedTimings.lines.length > 0 && parsedTimings.lines[0].start != null;
+      if (!hasLrc && typeof generateAutoTimings === "function" && song && song.lyrics) {
+        parsedTimings = generateAutoTimings(song.lyrics, 180);
+      }
       const hasTimings = parsedTimings && Array.isArray(parsedTimings.lines) && parsedTimings.lines.length > 0 && parsedTimings.lines[0].start != null;
+
+      const savedPref = localStorage.getItem("enquiz_karaoke_mode");
+      const isKaraokeActive = savedPref !== null ? (savedPref === "1") : hasTimings;
+      const showKaraoke = isKaraokeActive && hasTimings;
       const karaokeHtml = hasTimings ? buildKaraokeStudioHtml(song, parsedTimings, "word-flow") : "";
+
+      const karaokeToggleHtml = '<label class="karaoke-mode-toggle" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;padding:4px 10px;border-radius:16px;background:var(--acc-s,#d0e8f6);border:1px solid var(--line,#c5dded);font-size:13px;font-weight:700;color:var(--acc,#0b649c);margin-left:auto">' +
+        '<input type="checkbox" data-karaoke-toggle ' + (isKaraokeActive ? 'checked' : '') + ' style="cursor:pointer;width:15px;height:15px;accent-color:var(--acc,#0b649c)" />' +
+        '<span>Karaoke mode</span>' +
+        '</label>';
+
       user.innerHTML = '<div data-song-media></div>' +
-        '<div class="row" style="margin-bottom:8px"><button class="btn saas-btn" type="button" data-lyric-size="-1">A−</button><button class="btn saas-btn" type="button" data-lyric-size="1">A+</button><button class="btn saas-btn" type="button" data-lyric-meta>Edit song</button><button class="btn saas-btn" type="button" data-lyric-edit>Edit lyric</button><button class="btn saas-btn" type="button" data-lyric-archive>Archive</button></div>' +
+        '<div class="row" style="margin-bottom:8px;align-items:center;flex-wrap:wrap;gap:8px">' +
+        '<button class="btn saas-btn" type="button" data-lyric-size="-1">A−</button>' +
+        '<button class="btn saas-btn" type="button" data-lyric-size="1">A+</button>' +
+        '<button class="btn saas-btn" type="button" data-lyric-meta>Edit song</button>' +
+        '<button class="btn saas-btn" type="button" data-lyric-edit>Edit lyric</button>' +
+        '<button class="btn saas-btn" type="button" data-lyric-archive>Archive</button>' +
+        karaokeToggleHtml +
+        '</div>' +
         '<p class="hint" data-lyric-check>' + esc(checkLine) + "</p>" +
         '<div class="saas-card saas-form-grid" data-lyric-meta-editor hidden style="margin-bottom:12px;padding:16px"><p class="label">Song title</p><input type="text" data-lyric-title autocomplete="off" /><p class="label">Artist</p><input type="text" data-lyric-artist placeholder="Band or singer" autocomplete="off" /><p class="label">Video link</p><input type="text" data-lyric-video placeholder="YouTube or another video link" autocomplete="off" /><div data-lyric-video-preview></div><p class="label">Music link</p><input type="text" data-lyric-music placeholder="Spotify, a music site, or a direct audio link" autocomplete="off" /><div data-lyric-music-preview></div><p class="label">Minus link</p><input type="text" data-lyric-minus placeholder="Backing / instrumental audio link" autocomplete="off" /><p class="label">File</p><div class="drop" data-lyric-drop>Drop a file here, or <button class="btn saas-btn" type="button" data-lyric-file-pick>choose a file</button><input type="file" data-lyric-file accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg" hidden /></div><p class="hint" data-lyric-file-name></p><p class="file-progress" data-lyric-file-progress hidden><span class="ring" data-lyric-file-ring style="--p:0"><b>0</b></span><span data-lyric-file-progress-text></span></p><div data-lyric-file-preview></div><div class="row" style="margin-top:8px"><button class="btn saas-btn" type="button" data-lyric-file-clear>Remove file</button><button class="btn primary saas-btn" type="button" data-lyric-meta-save>Save</button></div><p class="hint" data-lyric-meta-status></p></div>' +
-        '<div class="saas-card saas-form-grid" data-lyric-editor hidden style="margin-bottom:12px;padding:16px"><textarea data-lyric-draft></textarea><div class="row" style="margin-top:8px"><button class="btn primary saas-btn" type="button" data-lyric-recheck>Check the words again</button></div><p class="hint" data-lyric-edit-status></p></div>' +
-        karaokeHtml +
-        '<div class="lyric-text"' + (hasTimings ? ' hidden' : '') + '>' + lyricBody + "</div>";
+        '<div class="saas-card lyric-editor-card" data-lyric-editor hidden style="margin-bottom:12px;padding:20px;display:flex;flex-direction:column;gap:12px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:15px;color:var(--ink)">Edit lyric text</b><span class="hint">Full width editor</span></div>' +
+        '<textarea data-lyric-draft style="width:100%;min-height:280px;box-sizing:border-box;font-family:monospace;font-size:14px;line-height:1.6;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);resize:vertical"></textarea>' +
+        '<div class="row" style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">' +
+        '<button class="btn primary saas-btn" type="button" data-lyric-recheck>Check the words again</button>' +
+        '<div style="display:flex;gap:8px">' +
+        '<button class="btn saas-btn" type="button" data-lyric-auto-timings>Auto-calculate timings</button>' +
+        '<button class="btn saas-btn" type="button" data-lyric-strip-timings>Strip timestamps</button>' +
+        '</div>' +
+        '</div>' +
+        '<div data-lyric-source-timings style="margin-top:8px;border-top:1px dashed var(--line);padding-top:12px">' +
+        '<div style="font-size:13px;font-weight:700;margin-bottom:6px;color:var(--ink)">Per-source timing calibration (Audio / Video / Spotify):</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">' +
+        '<label style="font-size:12px;display:inline-flex;align-items:center;gap:4px">🎵 Audio MP3: <input type="number" step="0.05" data-offset-audio style="width:70px;padding:4px;border:1px solid var(--line);border-radius:4px" /> s</label>' +
+        '<label style="font-size:12px;display:inline-flex;align-items:center;gap:4px">▶️ Video: <input type="number" step="0.05" data-offset-video style="width:70px;padding:4px;border:1px solid var(--line);border-radius:4px" /> s</label>' +
+        '<label style="font-size:12px;display:inline-flex;align-items:center;gap:4px">🟢 Spotify: <input type="number" step="0.05" data-offset-spotify style="width:70px;padding:4px;border:1px solid var(--line);border-radius:4px" /> s</label>' +
+        '</div>' +
+        '</div>' +
+        '<p class="hint" data-lyric-edit-status></p>' +
+        '</div>' +
+        '<div data-karaoke-studio-wrapper ' + (showKaraoke ? '' : 'hidden') + '>' + karaokeHtml + '</div>' +
+        '<div class="lyric-text" ' + (showKaraoke ? 'hidden' : '') + '>' + lyricBody + "</div>";
       const titleInput = user.querySelector("[data-lyric-title]");
       const artistInput = user.querySelector("[data-lyric-artist]");
       const slots = mediaOf(song);
@@ -728,11 +770,70 @@
       paintSongMedia(song, user.querySelector("[data-song-media]"));
       refreshEditMedia();
       const draft = user.querySelector("[data-lyric-draft]");
-      if (draft) draft.value = song.lyrics;
+      if (draft) draft.value = song.lyrics || "";
       if(draft){window.TextColors?.mount(draft,{format:song.colorText});window.TextColors?.sync(draft,song.colorText);}
-      window.TextColors?.paintValue(user.querySelector('.lyric-text'),song.lyrics||'',song.colorText);
+      window.TextColors?.paintValue(user.querySelector('.lyric-text'),cleanLyricStr,song.colorText);
       applyLyricSize(user);
-      if (hasTimings) {
+
+      const offsets = song.timingOffsets || {};
+      const offsetAudio = user.querySelector("[data-offset-audio]");
+      const offsetVideo = user.querySelector("[data-offset-video]");
+      const offsetSpotify = user.querySelector("[data-offset-spotify]");
+      if (offsetAudio) offsetAudio.value = offsets.audio != null ? offsets.audio : 0;
+      if (offsetVideo) offsetVideo.value = offsets.video != null ? offsets.video : 0;
+      if (offsetSpotify) offsetSpotify.value = offsets.spotify != null ? offsets.spotify : 0;
+
+      const toggleEl = user.querySelector("[data-karaoke-toggle]");
+      if (toggleEl) {
+        toggleEl.addEventListener("change", () => {
+          const enabled = toggleEl.checked;
+          localStorage.setItem("enquiz_karaoke_mode", enabled ? "1" : "0");
+          const studioWrap = user.querySelector("[data-karaoke-studio-wrapper]");
+          const lyricTextEl = user.querySelector(".lyric-text");
+          if (studioWrap && lyricTextEl) {
+            studioWrap.hidden = !enabled;
+            lyricTextEl.hidden = enabled;
+            if (enabled && hasTimings && !activeKaraokeEngine) {
+              initKaraokeStudio(user, song, parsedTimings);
+            }
+          }
+        });
+      }
+
+      const autoTimingsBtn = user.querySelector("[data-lyric-auto-timings]");
+      if (autoTimingsBtn) {
+        autoTimingsBtn.addEventListener("click", () => {
+          const draftEl = user.querySelector("[data-lyric-draft]");
+          if (!draftEl) return;
+          if (typeof generateAutoTimings === "function" && typeof formatLrc === "function") {
+            const generated = generateAutoTimings(draftEl.value, 180);
+            draftEl.value = formatLrc(generated);
+            const status = user.querySelector("[data-lyric-edit-status]");
+            if (status) {
+              status.textContent = "Auto-timings generated (" + generated.lines.length + " lines). Click 'Check the words again' to save.";
+              status.classList.remove("bad");
+            }
+          }
+        });
+      }
+
+      const stripTimingsBtn = user.querySelector("[data-lyric-strip-timings]");
+      if (stripTimingsBtn) {
+        stripTimingsBtn.addEventListener("click", () => {
+          const draftEl = user.querySelector("[data-lyric-draft]");
+          if (!draftEl) return;
+          if (typeof stripTimestamps === "function") {
+            draftEl.value = stripTimestamps(draftEl.value);
+            const status = user.querySelector("[data-lyric-edit-status]");
+            if (status) {
+              status.textContent = "Timestamps removed. Click 'Check the words again' to save clean lyrics.";
+              status.classList.remove("bad");
+            }
+          }
+        });
+      }
+
+      if (showKaraoke) {
         initKaraokeStudio(user, song, parsedTimings);
       }
     }
@@ -1136,6 +1237,20 @@
           }
         }
         if (todo.length) await Promise.all(Array.from({ length: Math.min(3, todo.length) }, worker));
+        let parsedSongTimings = (typeof parseLrc === "function" && lyrics) ? parseLrc(lyrics) : null;
+        const hasLrc = parsedSongTimings && parsedSongTimings.lines && parsedSongTimings.lines.length > 0 && parsedSongTimings.lines[0].start != null;
+        if (!hasLrc && typeof generateAutoTimings === "function" && lyrics) {
+          parsedSongTimings = (editing && editing.timings) ? editing.timings : generateAutoTimings(lyrics, 180);
+        }
+
+        const offsetAudio = document.querySelector("#songUser [data-offset-audio]");
+        const offsetVideo = document.querySelector("#songUser [data-offset-video]");
+        const offsetSpotify = document.querySelector("#songUser [data-offset-spotify]");
+        const timingOffsets = (editing && editing.timingOffsets) ? Object.assign({}, editing.timingOffsets) : { audio: 0, video: 0, spotify: 0 };
+        if (offsetAudio && offsetAudio.value !== "") timingOffsets.audio = parseFloat(offsetAudio.value) || 0;
+        if (offsetVideo && offsetVideo.value !== "") timingOffsets.video = parseFloat(offsetVideo.value) || 0;
+        if (offsetSpotify && offsetSpotify.value !== "") timingOffsets.spotify = parseFloat(offsetSpotify.value) || 0;
+
         const song = {
           id: editing ? editing.id : (pendingLyricId || Date.now().toString(36)),
           title: title,
@@ -1143,9 +1258,12 @@
           url: editing ? (editing.url || "") : "",
           videoUrl: videoUrl,
           musicUrl: musicUrl,
+          minusUrl: editing ? (editing.minusUrl || "") : "",
           fileName: editing ? (editing.fileName || "") : (pendingLyricFile ? pendingLyricFile.name : ""),
           fileType: editing ? (editing.fileType || "") : (pendingLyricFile ? (pendingLyricFile.type || "") : ""),
           lyrics: lyrics,
+          timings: parsedSongTimings,
+          timingOffsets: timingOffsets,
           marks: marks,
           archived: editing ? !!editing.archived : false
         };
@@ -1603,13 +1721,35 @@
         this.loopEnabled = false;
         this.bookmarks = [];
         this.waveformZoom = 1;
+        this.offset = options.offset || 0;
+        this.song = options.song || null;
+        this.currentSource = options.source || "audio";
       }
 
-      attach(mediaEl, timings, container) {
+      setSource(sourceType) {
+        this.currentSource = sourceType || "audio";
+        if (this.song && typeof getSongTimingsForSource === "function") {
+          this.timings = getSongTimingsForSource(this.song, this.currentSource);
+        }
+        if (this.song && this.song.timingOffsets && this.song.timingOffsets[this.currentSource] != null) {
+          this.offset = Number(this.song.timingOffsets[this.currentSource]) || 0;
+        } else {
+          this.offset = 0;
+        }
+        this.tick();
+      }
+
+      setOffset(offsetSeconds) {
+        this.offset = Number(offsetSeconds) || 0;
+        this.tick();
+      }
+
+      attach(mediaEl, timings, container, song) {
         this.detach();
         this.mediaEl = mediaEl;
         this.timings = timings;
         this.container = container;
+        if (song) this.song = song;
 
         if (this.mediaEl) {
           this.originalSrc = this.mediaEl.currentSrc || this.mediaEl.src;
@@ -1863,7 +2003,10 @@
       }
 
       tick() {
-        const t = this.getCurrentTime();
+        let t = this.getCurrentTime();
+        if (this.offset) {
+          t = Math.max(0, t + this.offset);
+        }
         this.lastTime = t;
 
         if (this.loopEnabled && this.loopA != null && this.loopB != null && this.loopB > this.loopA) {
@@ -2207,8 +2350,12 @@
         activeKaraokeEngine.detach();
       }
 
+      const offsets = (song && song.timingOffsets) || {};
       activeKaraokeEngine = new KaraokeSyncEngine({
-        mode: studio.dataset.karaokeMode || "word-flow"
+        mode: studio.dataset.karaokeMode || "word-flow",
+        song: song,
+        offset: offsets.audio != null ? Number(offsets.audio) : 0,
+        source: "audio"
       });
 
       const coachSlot = studio.querySelector("[data-karaoke-coach-slot]");
@@ -2405,7 +2552,7 @@
       }
 
       const audioEl = container.querySelector("audio.player, video.player");
-      activeKaraokeEngine.attach(audioEl, timings, studio);
+      activeKaraokeEngine.attach(audioEl, timings, studio, song);
     }
 
     paintLyrics();

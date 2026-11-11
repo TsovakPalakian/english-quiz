@@ -6,6 +6,7 @@
 - Before editing code, briefly state your understanding in Russian.
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
 - Always attach visual screenshots or mockups demonstrating your understanding of any proposed UI changes or feature designs.
+- Mandatory: for all generated screenshots and mockups, always use the 'sky' theme.
 - Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
 - Mandatory: always attach final approved screenshots directly into the task's Markdown (.md) document in docs/ prior to implementation.
 - Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.

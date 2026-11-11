@@ -295,3 +295,79 @@
         wordProgress: wordProgress
       };
     }
+    function stripTimestamps(text) {
+      if (!text) return "";
+      return String(text)
+        .replace(/^\[(ti|ar|al|by|offset|length):[^\]]*\]\r?\n?/gmi, "")
+        .replace(/(?:\[\d{1,2}:\d{2}(?:\.\d{2,3})?\]|<\d{1,2}:\d{2}(?:\.\d{2,3})?>)/g, "")
+        .replace(/^[ \t]+/gm, "");
+    }
+    function generateAutoTimings(lyricsText, totalDuration = 180) {
+      const clean = stripTimestamps(lyricsText);
+      const rawLines = clean.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      if (rawLines.length === 0) return { metadata: {}, lines: [] };
+      const duration = Math.max(30, Number(totalDuration) || 180);
+      const introPad = 5.0;
+      const availableDuration = Math.max(10, duration - introPad - 5.0);
+      const totalChars = rawLines.reduce((acc, l) => acc + Math.max(5, l.length), 0);
+      let cursor = introPad;
+      const lines = [];
+
+      for (let i = 0; i < rawLines.length; i++) {
+        const lineText = rawLines[i];
+        const lineShare = Math.max(5, lineText.length) / totalChars;
+        const lineDur = Math.max(1.8, availableDuration * lineShare);
+        const lineStart = cursor;
+        const lineEnd = lineStart + lineDur;
+        const words = interpolateWordTimings(lineText, lineStart, lineEnd);
+        lines.push({
+          start: lineStart,
+          end: lineEnd,
+          text: lineText,
+          words: words
+        });
+        cursor = lineEnd + 0.3;
+      }
+      return { metadata: {}, lines: lines };
+    }
+    function getSongTimingsForSource(song, source = "audio") {
+      if (!song) return null;
+      let timings = null;
+      if (song.timings && typeof song.timings === "object") {
+        if (Array.isArray(song.timings.lines)) {
+          timings = song.timings;
+        } else if (song.timings[source] && Array.isArray(song.timings[source].lines)) {
+          timings = song.timings[source];
+        } else if (song.timings.audio && Array.isArray(song.timings.audio.lines)) {
+          timings = song.timings.audio;
+        }
+      }
+      if (!timings && typeof parseLrc === "function" && song.lyrics) {
+        const parsed = parseLrc(song.lyrics);
+        if (parsed && Array.isArray(parsed.lines) && parsed.lines.length > 0 && parsed.lines[0].start != null) {
+          timings = parsed;
+        }
+      }
+      if (!timings && song.lyrics && typeof generateAutoTimings === "function") {
+        timings = generateAutoTimings(song.lyrics, 180);
+      }
+      if (timings && song.timingOffsets && song.timingOffsets[source] != null) {
+        const offset = Number(song.timingOffsets[source]) || 0;
+        if (offset !== 0) {
+          return {
+            metadata: Object.assign({}, timings.metadata || {}, { offset: String(offset) }),
+            lines: (timings.lines || []).map((l) => ({
+              start: Math.max(0, l.start + offset),
+              end: l.end != null ? Math.max(0, l.end + offset) : null,
+              text: l.text,
+              words: (l.words || []).map((w) => ({
+                word: w.word,
+                start: Math.max(0, w.start + offset),
+                end: Math.max(0, w.end + offset)
+              }))
+            }))
+          };
+        }
+      }
+      return timings;
+    }

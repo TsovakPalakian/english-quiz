@@ -1887,21 +1887,25 @@ a.btn { text-decoration: none; }
 .song-line { min-width: 0; }
 .song-line b { font-weight: 800; }
 .song-line .plain { font-weight: 500; }
-.lyric-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 20px; font-weight: 700; line-height: 1.6; }
+.lyric-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 20px; font-weight: 700; line-height: 1.7; width: 100%; box-sizing: border-box; }
 .lyric-text button { border: 0; background: transparent; padding: 0 2px; font: inherit; font-weight: 800; color: var(--acc); text-decoration: underline; text-underline-offset: 3px; }
-.karaoke-studio { background: var(--card, #0f172a); border: 1px solid var(--acc, rgba(56, 189, 248, 0.2)); border-radius: 16px; padding: 16px; margin: 12px 0; display: flex; flex-direction: column; gap: 12px; }
-.karaoke-mode-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+[data-lyric-editor] { grid-column: 1 / -1 !important; width: 100% !important; }
+[data-lyric-editor] textarea[data-lyric-draft] { grid-column: 1 / -1 !important; width: 100% !important; min-height: 280px !important; box-sizing: border-box !important; }
+[data-lyric-editor] .row { grid-column: 1 / -1 !important; width: 100% !important; }
+.karaoke-studio { background: var(--card, #0f172a); border: 1px solid var(--acc, rgba(56, 189, 248, 0.2)); border-radius: 16px; padding: 16px; margin: 12px 0; display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.karaoke-mode-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; justify-content: center; }
 .karaoke-mode-btn { background: rgba(255, 255, 255, 0.05); color: var(--ink, #94a3b8); border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }
 .karaoke-mode-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
 .karaoke-mode-btn.active { background: #0284c7; color: #fff; border-color: #38bdf8; box-shadow: 0 0 12px rgba(56, 189, 248, 0.4); }
-.karaoke-lines { max-height: 380px; overflow-y: auto; scroll-behavior: smooth; padding: 20px 10px; display: flex; flex-direction: column; gap: 16px; }
-.karaoke-line { font-size: 20px; line-height: 1.5; font-weight: 700; opacity: 0.45; transition: opacity 0.2s ease, transform 0.2s ease; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.karaoke-lines { max-height: 380px; overflow-y: auto; scroll-behavior: smooth; padding: 20px 10px; display: flex; flex-direction: column; gap: 16px; text-align: center; align-items: center; }
+.karaoke-line { font-size: 20px; line-height: 1.5; font-weight: 700; opacity: 0.45; transition: opacity 0.2s ease, transform 0.2s ease; cursor: pointer; padding: 6px 16px; border-radius: 8px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 820px; margin: 0 auto; }
 .karaoke-line:hover { opacity: 0.8; background: rgba(255, 255, 255, 0.03); }
-.karaoke-line.active { opacity: 1; transform: scale(1.02); background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; }
+.karaoke-line.active { opacity: 1; transform: scale(1.02); background: var(--acc-s, rgba(56, 189, 248, 0.12)); border-left: none; box-shadow: 0 2px 12px rgba(11, 100, 156, 0.12); }
+.karaoke-words { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; text-align: center; gap: 4px; }
 .karaoke-word { display: inline-block; position: relative; margin-right: 4px; --word-progress: 0%; background: linear-gradient(90deg, #38bdf8 var(--word-progress), currentColor var(--word-progress)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .karaoke-word.sung { --word-progress: 100%; }
 .karaoke-word.active { text-shadow: 0 0 10px rgba(56, 189, 248, 0.8); }
-.karaoke-translation { font-size: 14px; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+.karaoke-translation { font-size: 14px; font-weight: 500; color: var(--mute, #94a3b8); margin-top: 4px; font-style: italic; text-align: center; }
 .karaoke-split-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 @media (max-width: 768px) { .karaoke-split-layout { grid-template-columns: 1fr; } }
 .karaoke-coach-panel { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 10px; }
