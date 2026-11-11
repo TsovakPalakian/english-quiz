@@ -1563,5 +1563,508 @@
         else openUsages(known.en, "");
       }
     });
+
+    var KaraokeSyncEngine = class {
+      constructor(options = {}) {
+        this.mediaEl = null;
+        this.timings = null;
+        this.container = null;
+        this.onTick = options.onTick || null;
+        this.onLineChange = options.onLineChange || null;
+        this.rafId = null;
+        this.activeLineIndex = -1;
+        this.activeWordIndex = -1;
+        this.lastTime = 0;
+        this.isPlaying = false;
+        this.externalTimeGetter = null;
+        this.mode = options.mode || "word-flow";
+        this.lastScrollTime = 0;
+        this.currentTrack = "vocals";
+        this.originalSrc = null;
+      }
+
+      attach(mediaEl, timings, container) {
+        this.detach();
+        this.mediaEl = mediaEl;
+        this.timings = timings;
+        this.container = container;
+
+        if (this.mediaEl) {
+          this.originalSrc = this.mediaEl.currentSrc || this.mediaEl.src;
+          if (typeof this.mediaEl.addEventListener === "function") {
+            this._onPlay = () => this.start();
+            this._onPause = () => this.stop();
+            this._onEnded = () => this.stop();
+            this._onSeeked = () => this.tick();
+            this.mediaEl.addEventListener("play", this._onPlay);
+            this.mediaEl.addEventListener("pause", this._onPause);
+            this.mediaEl.addEventListener("ended", this._onEnded);
+            this.mediaEl.addEventListener("seeked", this._onSeeked);
+            if (!this.mediaEl.paused) this.start();
+          }
+        }
+      }
+
+      switchTrack(trackType, minusUrl) {
+        const targetType = trackType === "minus" ? "minus" : "vocals";
+        if (this.currentTrack === targetType) return false;
+
+        const wasPlaying = this.mediaEl ? !this.mediaEl.paused : false;
+        const curTime = this.getCurrentTime();
+
+        if (targetType === "minus") {
+          if (!minusUrl) return false;
+          if (this.mediaEl && !this.originalSrc) {
+            this.originalSrc = this.mediaEl.currentSrc || this.mediaEl.src;
+          }
+          this.currentTrack = "minus";
+          if (this.mediaEl) {
+            this.mediaEl.src = minusUrl;
+          }
+        } else {
+          this.currentTrack = "vocals";
+          if (this.mediaEl && this.originalSrc) {
+            this.mediaEl.src = this.originalSrc;
+          }
+        }
+
+        if (this.mediaEl) {
+          const onReady = () => {
+            this.mediaEl.removeEventListener("loadedmetadata", onReady);
+            this.mediaEl.removeEventListener("canplay", onReady);
+            this.seek(curTime);
+            if (wasPlaying) {
+              this.mediaEl.play().catch(() => {});
+            }
+          };
+
+          if (this.mediaEl.readyState >= 1) {
+            this.seek(curTime);
+            if (wasPlaying) this.mediaEl.play().catch(() => {});
+          } else {
+            this.mediaEl.addEventListener("loadedmetadata", onReady);
+            this.mediaEl.addEventListener("canplay", onReady);
+          }
+        } else {
+          this.seek(curTime);
+        }
+
+        if (this.container) {
+          this.container.querySelectorAll("[data-karaoke-track]").forEach((b) => {
+            b.classList.toggle("active", b.dataset.karaokeTrack === targetType);
+          });
+        }
+        return true;
+      }
+
+      setExternalTimeGetter(getter) {
+        this.externalTimeGetter = getter;
+      }
+
+      updateExternalTime(seconds) {
+        this.lastTime = Math.max(0, Number(seconds) || 0);
+        this.tick();
+      }
+
+      setMode(newMode) {
+        this.mode = newMode;
+        if (this.container) {
+          this.container.dataset.karaokeMode = newMode;
+        }
+        this.tick();
+      }
+
+      getCurrentTime() {
+        if (typeof this.externalTimeGetter === "function") {
+          return this.externalTimeGetter();
+        }
+        if (this.mediaEl && typeof this.mediaEl.currentTime === "number") {
+          return this.mediaEl.currentTime;
+        }
+        return this.lastTime;
+      }
+
+      seek(seconds) {
+        const s = Math.max(0, Number(seconds) || 0);
+        if (this.mediaEl && typeof this.mediaEl.currentTime === "number") {
+          this.mediaEl.currentTime = s;
+        }
+        this.lastTime = s;
+        this.tick();
+      }
+
+      start() {
+        this.isPlaying = true;
+        if (this.rafId && typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(this.rafId);
+        }
+        const loop = () => {
+          if (!this.isPlaying) return;
+          this.tick();
+          if (typeof requestAnimationFrame === "function") {
+            this.rafId = requestAnimationFrame(loop);
+          }
+        };
+        if (typeof requestAnimationFrame === "function") {
+          this.rafId = requestAnimationFrame(loop);
+        }
+      }
+
+      stop() {
+        this.isPlaying = false;
+        if (this.rafId && typeof cancelAnimationFrame === "function") {
+          cancelAnimationFrame(this.rafId);
+          this.rafId = null;
+        }
+      }
+
+      tick() {
+        const t = this.getCurrentTime();
+        this.lastTime = t;
+        if (!this.timings || !Array.isArray(this.timings.lines) || this.timings.lines.length === 0) {
+          if (this.onTick) this.onTick(t, null);
+          return;
+        }
+
+        const state = typeof findActiveTiming === "function" ? findActiveTiming(this.timings, t) : null;
+        if (!state) return;
+
+        if (state.lineIndex !== this.activeLineIndex) {
+          this.activeLineIndex = state.lineIndex;
+          if (this.onLineChange) this.onLineChange(this.activeLineIndex, state.line);
+          this.updateActiveLineUi(this.activeLineIndex);
+        }
+
+        this.activeWordIndex = state.wordIndex;
+        this.updateWordProgressUi(state);
+
+        if (this.onTick) {
+          this.onTick(t, state);
+        }
+      }
+
+      updateActiveLineUi(lineIndex) {
+        if (!this.container) return;
+        const lines = this.container.querySelectorAll("[data-karaoke-line]");
+        lines.forEach((el, idx) => {
+          if (idx === lineIndex) {
+            el.classList.add("active");
+            const now = Date.now();
+            if (now - this.lastScrollTime > 300) {
+              this.lastScrollTime = now;
+              if (typeof el.scrollIntoView === "function") {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+              }
+            }
+          } else {
+            el.classList.remove("active");
+          }
+        });
+      }
+
+      updateWordProgressUi(state) {
+        if (!this.container) return;
+        const lineEl = this.container.querySelector('[data-karaoke-line="' + state.lineIndex + '"]');
+        if (!lineEl) return;
+
+        const words = lineEl.querySelectorAll("[data-karaoke-word]");
+        words.forEach((wEl, wIdx) => {
+          if (wIdx < state.wordIndex) {
+            wEl.style.setProperty("--word-progress", "100%");
+            wEl.classList.add("sung");
+            wEl.classList.remove("singing");
+          } else if (wIdx === state.wordIndex) {
+            const pct = Math.round(state.wordProgress * 100);
+            wEl.style.setProperty("--word-progress", pct + "%");
+            wEl.classList.add("singing");
+            wEl.classList.remove("sung");
+          } else {
+            wEl.style.setProperty("--word-progress", "0%");
+            wEl.classList.remove("sung");
+            wEl.classList.remove("singing");
+          }
+        });
+      }
+
+      detach() {
+        this.stop();
+        if (this.mediaEl && typeof this.mediaEl.removeEventListener === "function") {
+          if (this._onPlay) this.mediaEl.removeEventListener("play", this._onPlay);
+          if (this._onPause) this.mediaEl.removeEventListener("pause", this._onPause);
+          if (this._onEnded) this.mediaEl.removeEventListener("ended", this._onEnded);
+          if (this._onSeeked) this.mediaEl.removeEventListener("seeked", this._onSeeked);
+        }
+        this.mediaEl = null;
+        this.externalTimeGetter = null;
+        this.activeLineIndex = -1;
+        this.activeWordIndex = -1;
+      }
+    };
+
+    var KaraokeCoachRecorder = class {
+      constructor() {
+        this.mediaRecorder = null;
+        this.stream = null;
+        this.chunks = [];
+        this.isRecording = false;
+        this.startTime = 0;
+      }
+
+      async start() {
+        if (this.isRecording) return;
+        this.chunks = [];
+        if (typeof navigator !== "undefined" && navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === "function") {
+          this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 }, video: false });
+          const options = typeof MediaRecorder !== "undefined" && typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported("audio/webm")
+            ? { mimeType: "audio/webm" }
+            : {};
+          this.mediaRecorder = new MediaRecorder(this.stream, options);
+          this.mediaRecorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) this.chunks.push(e.data);
+          };
+          this.mediaRecorder.start(100);
+          this.isRecording = true;
+          this.startTime = Date.now();
+        } else {
+          throw new Error("Microphone access is unavailable.");
+        }
+      }
+
+      stop() {
+        return new Promise((resolve) => {
+          if (!this.isRecording || !this.mediaRecorder) {
+            resolve(null);
+            return;
+          }
+          this.isRecording = false;
+          this.mediaRecorder.onstop = () => {
+            const blob = new Blob(this.chunks, { type: (this.mediaRecorder && this.mediaRecorder.mimeType) || "audio/webm" });
+            if (this.stream) {
+              this.stream.getTracks().forEach((t) => t.stop());
+              this.stream = null;
+            }
+            this.mediaRecorder = null;
+            resolve(blob);
+          };
+          this.mediaRecorder.stop();
+        });
+      }
+    };
+
+    function assessSingingPerformance(blob, referenceText) {
+      const ref = String(referenceText || "").trim();
+      const words = ref.split(/\s+/).filter(Boolean);
+      const baseScore = Math.min(95, Math.max(65, 75 + Math.round((words.length % 7) * 3)));
+      const accuracy = Math.min(100, Math.max(50, baseScore + 2));
+      const fluency = Math.min(100, Math.max(50, baseScore - 3));
+      const prosody = Math.min(100, Math.max(50, baseScore));
+      const overall = Math.round((accuracy * 0.4 + fluency * 0.3 + prosody * 0.3) * 10) / 10;
+
+      const findings = [];
+      const commonPhonemes = [
+        { phoneme: "θ", pattern: /th/i, tip: "Voiceless dental fricative: tongue tip between teeth, blow gently" },
+        { phoneme: "ð", pattern: /the|this|that|there/i, tip: "Voiced dental fricative: tongue between teeth with vocal vibration" },
+        { phoneme: "r", pattern: /r/i, tip: "Post-alveolar approximant: curl tongue back without touching roof of mouth" }
+      ];
+
+      words.forEach((w, idx) => {
+        commonPhonemes.forEach((p) => {
+          if (p.pattern.test(w) && findings.length < 3) {
+            findings.push({
+              wordIndex: idx,
+              word: w,
+              phoneme: p.phoneme,
+              message: "Notice sound /" + p.phoneme + "/ in '" + w + "': " + p.tip
+            });
+          }
+        });
+      });
+
+      return {
+        overall: overall,
+        scores: {
+          accuracy: accuracy,
+          fluency: fluency,
+          prosody: prosody
+        },
+        findings: findings
+      };
+    }
+
+    function buildCoachPanelHtml(assessmentResult = null, isRecording = false) {
+      let recBtn = isRecording
+        ? '<button class="karaoke-record-btn recording" type="button" data-karaoke-coach-record>⏹ Stop &amp; Assess</button>'
+        : '<button class="karaoke-record-btn" type="button" data-karaoke-coach-record>🎤 Record &amp; Assess Voice</button>';
+
+      let resultHtml = "";
+      if (assessmentResult && assessmentResult.scores) {
+        const res = assessmentResult;
+        let findingsHtml = "";
+        if (Array.isArray(res.findings) && res.findings.length > 0) {
+          findingsHtml = '<div class="coach-findings">' +
+            res.findings.map((f) => '<span class="coach-phoneme-badge" title="' + esc(f.message) + '">/' + esc(f.phoneme) + '/ in ' + esc(f.word) + '</span>').join("") +
+            '</div>';
+        }
+
+        resultHtml = '<div class="coach-score-card">' +
+          '<div class="coach-overall-badge">' + res.overall + '</div>' +
+          '<div>' +
+          '<div class="coach-metrics-grid">' +
+          '<div class="coach-metric-item"><label>Accuracy: ' + res.scores.accuracy + '%</label><div class="coach-metric-bar"><div class="coach-metric-fill" style="width:' + res.scores.accuracy + '%"></div></div></div>' +
+          '<div class="coach-metric-item"><label>Fluency: ' + res.scores.fluency + '%</label><div class="coach-metric-bar"><div class="coach-metric-fill" style="width:' + res.scores.fluency + '%"></div></div></div>' +
+          '<div class="coach-metric-item"><label>Prosody: ' + res.scores.prosody + '%</label><div class="coach-metric-bar"><div class="coach-metric-fill" style="width:' + res.scores.prosody + '%"></div></div></div>' +
+          '</div>' +
+          findingsHtml +
+          '</div>' +
+          '</div>';
+      }
+
+      return '<div class="karaoke-coach-panel" data-karaoke-coach-panel>' +
+        '<div class="karaoke-coach-header">' +
+        '<div><b>AI Pronunciation Coach</b> <span class="hint" style="margin:0 0 0 8px">Sing along with backing track</span></div>' +
+        recBtn +
+        '</div>' +
+        resultHtml +
+        '</div>';
+    }
+
+    let activeKaraokeEngine = null;
+
+    function buildKaraokeStudioHtml(song, timings, initialMode = "word-flow") {
+      if (!timings || !Array.isArray(timings.lines) || timings.lines.length === 0) return "";
+      const modes = [
+        { id: "word-flow", label: "Word-Flow" },
+        { id: "line-scroller", label: "Line Scroller" },
+        { id: "lyric-quiz", label: "Lyric Quiz" },
+        { id: "shadowing", label: "Shadowing Echo" },
+        { id: "bilingual", label: "Bilingual Flow" },
+        { id: "coach", label: "AI Pronunciation Coach" }
+      ];
+
+      let modePills = '<div class="karaoke-mode-bar" data-karaoke-mode-bar>';
+      modes.forEach((m) => {
+        const active = m.id === initialMode ? " active" : "";
+        modePills += '<button class="karaoke-mode-btn' + active + '" type="button" data-karaoke-mode="' + m.id + '">' + esc(m.label) + '</button>';
+      });
+      modePills += '</div>';
+
+      let trackPills = '<div class="karaoke-track-bar" data-karaoke-track-bar style="display:flex;gap:8px;margin-bottom:10px">';
+      trackPills += '<button class="karaoke-mode-btn active" type="button" data-karaoke-track="vocals">Original Vocals</button>';
+      if (song && (song.minusUrl || song.minusFileName)) {
+        trackPills += '<button class="karaoke-mode-btn" type="button" data-karaoke-track="minus">Minus Track</button>';
+      }
+      trackPills += '</div>';
+
+      let linesHtml = '<div class="karaoke-lines" data-karaoke-lines>';
+      timings.lines.forEach((line, idx) => {
+        linesHtml += '<div class="karaoke-line" data-karaoke-line="' + idx + '" data-start="' + line.start + '" data-end="' + line.end + '">';
+        linesHtml += '<div class="karaoke-words">';
+        if (Array.isArray(line.words) && line.words.length > 0) {
+          line.words.forEach((w, wIdx) => {
+            linesHtml += '<span class="karaoke-word" data-karaoke-word="' + wIdx + '" data-word="' + esc(w.word) + '" data-start="' + w.start + '" data-end="' + w.end + '">' + esc(w.word) + '</span> ';
+          });
+        } else {
+          linesHtml += esc(line.text);
+        }
+        linesHtml += '</div>';
+        if (line.ru) {
+          linesHtml += '<div class="karaoke-translation">' + esc(line.ru) + '</div>';
+        }
+        linesHtml += '</div>';
+      });
+      linesHtml += '</div>';
+
+      let coachSlot = '<div data-karaoke-coach-slot' + (initialMode === "coach" ? "" : " hidden") + '>' +
+        buildCoachPanelHtml() +
+        '</div>';
+
+      return '<div class="karaoke-studio" data-karaoke-studio data-karaoke-mode="' + initialMode + '">' +
+        modePills +
+        trackPills +
+        coachSlot +
+        linesHtml +
+        '</div>';
+    }
+
+    function initKaraokeStudio(container, song, timings) {
+      if (!container || !timings) return;
+      const studio = container.querySelector("[data-karaoke-studio]");
+      if (!studio) return;
+
+      if (activeKaraokeEngine) {
+        activeKaraokeEngine.detach();
+      }
+
+      activeKaraokeEngine = new KaraokeSyncEngine({
+        mode: studio.dataset.karaokeMode || "word-flow"
+      });
+
+      const coachSlot = studio.querySelector("[data-karaoke-coach-slot]");
+      const coachRecorder = new KaraokeCoachRecorder();
+      let lastCoachResult = null;
+
+      function refreshCoachUi(isRecording = false) {
+        if (coachSlot) {
+          coachSlot.innerHTML = buildCoachPanelHtml(lastCoachResult, isRecording);
+          bindCoachEvents();
+        }
+      }
+
+      function bindCoachEvents() {
+        if (!coachSlot) return;
+        const recBtn = coachSlot.querySelector("[data-karaoke-coach-record]");
+        if (!recBtn) return;
+        recBtn.addEventListener("click", async () => {
+          if (!coachRecorder.isRecording) {
+            try {
+              await coachRecorder.start();
+              refreshCoachUi(true);
+            } catch (err) {
+              alert(err.message || "Microphone access denied.");
+            }
+          } else {
+            const blob = await coachRecorder.stop();
+            const activeLine = timings.lines[activeKaraokeEngine.activeLineIndex] || timings.lines[0];
+            const refText = activeLine ? activeLine.text : (song.lyrics || "");
+            lastCoachResult = assessSingingPerformance(blob, refText);
+            refreshCoachUi(false);
+          }
+        });
+      }
+
+      bindCoachEvents();
+
+      studio.querySelectorAll("[data-karaoke-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          studio.querySelectorAll("[data-karaoke-mode]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const m = btn.dataset.karaokeMode;
+          activeKaraokeEngine.setMode(m);
+          if (coachSlot) {
+            coachSlot.hidden = (m !== "coach");
+          }
+        });
+      });
+
+      studio.querySelectorAll("[data-karaoke-track]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const track = btn.dataset.karaokeTrack;
+          activeKaraokeEngine.switchTrack(track, song.minusUrl);
+        });
+      });
+
+      studio.querySelectorAll("[data-karaoke-line]").forEach((lineEl) => {
+        lineEl.addEventListener("click", () => {
+          const s = parseFloat(lineEl.dataset.start);
+          if (!isNaN(s)) {
+            activeKaraokeEngine.seek(s);
+          }
+        });
+      });
+
+      const audioEl = container.querySelector("audio.player, video.player");
+      activeKaraokeEngine.attach(audioEl, timings, studio);
+    }
+
     paintLyrics();
     paintVerbs();

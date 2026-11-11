@@ -51,6 +51,9 @@ export function telegramConfig(env=process.env){
 export async function resolveTelegramChats(env=process.env,{fetchImpl=globalThis.fetch,timeoutMs=5000}={}){
   const token=env.TELEGRAM_BOT_TOKEN||'';
   const siteUrl=env.APP_URL||env.LUMISCIA_API_URL||'';
+  const rawChat=env.TELEGRAM_CHAT_ID||'';
+  const envChats=parseTelegramChats(rawChat);
+
   if(siteUrl&&/^\d+:[A-Za-z0-9_-]+$/.test(token)){
     try{
       const response=await fetchImpl(`${siteUrl}/api/ci/telegram-recipients`,{
@@ -59,22 +62,22 @@ export async function resolveTelegramChats(env=process.env,{fetchImpl=globalThis
       });
       if(response.ok){
         const data=await response.json().catch(()=>null);
-        if(Array.isArray(data?.recipients)){
-          const activeIds=data.recipients
-            .map(r=>String(r.chatId||'').trim())
-            .filter(id=>/^-?\d+$/.test(id));
-          if(activeIds.length>0){
-            return [...new Set(activeIds)];
-          }
-          if(Array.isArray(data.allRecipients)&&data.allRecipients.length>0){
-            return [];
-          }
+        if(data&&typeof data==='object'){
+          const activeIds=Array.isArray(data.recipients)
+            ? data.recipients.map(r=>String(r.chatId||'').trim()).filter(id=>/^-?\d+$/.test(id))
+            : [];
+          const disabledIds=new Set(
+            Array.isArray(data.allRecipients)
+              ? data.allRecipients.filter(r=>r&&r.status==='disabled').map(r=>String(r.chatId||'').trim())
+              : []
+          );
+          const merged=[...new Set([...envChats, ...activeIds])].filter(id=>!disabledIds.has(id));
+          return merged;
         }
       }
     }catch(_){}
   }
-  const rawChat=env.TELEGRAM_CHAT_ID||'';
-  return parseTelegramChats(rawChat);
+  return envChats;
 }
 
 export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.fetch,maxRetries=3,baseDelayMs=1000,timeoutMs=30000,parseMode='HTML',chats=null}={}){
@@ -85,6 +88,7 @@ export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.
     return;
   }
   let lastError;
+  let deliveredCount=0;
   for(const targetChat of targets){
     for(let attempt=1;attempt<=maxRetries;attempt++){
       try{
@@ -105,9 +109,14 @@ export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.
           }
           throw Error(errMessage);
         }
+        deliveredCount++;
         break;
       }catch(err){
-        if(err.message?.startsWith('Telegram rejected')){throw err;}
+        if(err.message?.startsWith('Telegram rejected')){
+          lastError=err;
+          if(targets.length===1)throw err;
+          break;
+        }
         const isTimeout=err?.name==='TimeoutError'||err?.code===23||err?.code==='ETIMEDOUT';
         const rawCause=isTimeout?'timeout':(err?.cause?.code||err?.code||err?.message||'');
         const sanitizedCause=rawCause?': '+String(rawCause).replace(token,'[REDACTED]'):'';
@@ -116,10 +125,12 @@ export async function notifyTelegram(text,env=process.env,{fetchImpl=globalThis.
           if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
           continue;
         }
-        throw lastError||Error('Telegram notification could not be delivered.');
+        if(targets.length===1)throw lastError||Error('Telegram notification could not be delivered.');
+        break;
       }
     }
   }
+  if(deliveredCount===0&&lastError)throw lastError;
 }
 
 export function pipelineNotification(env=process.env){
@@ -159,6 +170,7 @@ export async function notifyTelegramDocument(document,env=process.env,{fetchImpl
   if(!/^lumiscia-ci-\d+-attempt-\d+\.txt$/.test(document?.name||'')||typeof document?.text!=='string')throw Error('Invalid CI log document.');
   const fileBytes=new Blob([sanitizeCILogs(document.text,env)],{type:'text/plain;charset=utf-8'});
   let lastError;
+  let deliveredCount=0;
   for(const targetChat of targets){
     const form=new FormData();form.set('chat_id',targetChat);
     form.set('document',fileBytes,document.name);
@@ -177,18 +189,25 @@ export async function notifyTelegramDocument(document,env=process.env,{fetchImpl
           }
           throw Error(errMessage);
         }
+        deliveredCount++;
         break;
       }catch(err){
-        if(err.message?.startsWith('Telegram rejected')){throw err;}
+        if(err.message?.startsWith('Telegram rejected')){
+          lastError=err;
+          if(targets.length===1)throw err;
+          break;
+        }
         lastError=Error('Telegram log file could not be delivered.');
         if(attempt<maxRetries){
           if(baseDelayMs>0)await new Promise(r=>setTimeout(r,baseDelayMs*Math.pow(2,attempt-1)));
           continue;
         }
-        throw lastError||Error('Telegram log file could not be delivered.');
+        if(targets.length===1)throw lastError||Error('Telegram log file could not be delivered.');
+        break;
       }
     }
   }
+  if(deliveredCount===0&&lastError)throw lastError;
 }
 
 if(process.argv[1]===fileURLToPath(import.meta.url)){
@@ -199,6 +218,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)){
       if(resolvedChats.length===0){
         console.log('No active Telegram recipients configured; skipping CI notification.');
       }else{
+        console.log(`Delivering CI notification to ${resolvedChats.length} recipient(s)...`);
         await notifyTelegram(pipelineNotification(),process.env,{chats:resolvedChats});
         if(shouldAttachCILogs()){
           try{await notifyTelegramDocument(await collectCILogs(),process.env,{chats:resolvedChats});}

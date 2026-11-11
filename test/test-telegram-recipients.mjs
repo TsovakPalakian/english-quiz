@@ -244,16 +244,16 @@ test('integrated worker /api/feedback/telegram-recipients and test endpoints', a
   }, {
     fetchImpl: async (url, opts) => worker.fetch(new Request(url, opts), env)
   });
-  // Must return only active recipients, excluding the disabled '1308341417'
-  assert.deepEqual(resolvedChats, ['-100123456789']);
+  // Must return active DB recipients combined with TELEGRAM_CHAT_ID, excluding the disabled '1308341417'
+  assert.deepEqual(resolvedChats.sort(), ['-100123456789', '987654321']);
 
-  // When all recipients are disabled
+  // When a recipient in TELEGRAM_CHAT_ID is explicitly disabled in the database
   await worker.fetch(new Request('https://test.invalid/api/feedback/telegram-recipients', {
     method: 'POST',
     headers: { Origin: 'https://test.invalid', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       recipients: [
-        { chatId: '1308341417', label: 'Dev Lead', status: 'disabled' },
+        { chatId: '987654321', label: 'Primary Dev', status: 'disabled' },
         { chatId: '-100123456789', label: 'Team Supergroup', status: 'disabled' }
       ]
     })
@@ -267,6 +267,32 @@ test('integrated worker /api/feedback/telegram-recipients and test endpoints', a
     fetchImpl: async (url, opts) => worker.fetch(new Request(url, opts), env)
   });
   assert.deepEqual(resolvedWhenAllDisabled, []);
+
+  // When database has no recipients, returns all from TELEGRAM_CHAT_ID
+  await worker.fetch(new Request('https://test.invalid/api/feedback/telegram-recipients', {
+    method: 'POST',
+    headers: { Origin: 'https://test.invalid', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recipients: [] })
+  }), env);
+
+  const resolvedEmptyDb = await resolveTelegramChats({
+    APP_URL: 'https://test.invalid',
+    TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: '1308341417, 719477513'
+  }, {
+    fetchImpl: async (url, opts) => worker.fetch(new Request(url, opts), env)
+  });
+  assert.deepEqual(resolvedEmptyDb.sort(), ['1308341417', '719477513']);
+
+  // When API endpoint fails (e.g. 500), falls back to TELEGRAM_CHAT_ID
+  const resolvedOnApiError = await resolveTelegramChats({
+    APP_URL: 'https://test.invalid',
+    TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
+    TELEGRAM_CHAT_ID: '1308341417'
+  }, {
+    fetchImpl: async () => new Response('Internal Error', { status: 500 })
+  });
+  assert.deepEqual(resolvedOnApiError, ['1308341417']);
 });
 
 test('preview.html and preview.js include Telegram alerts tab and view', () => {

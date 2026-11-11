@@ -172,3 +172,20 @@ test('notifyTelegramDocument delivers log file to all configured recipients when
   assert.equal(calls[0].chatId,'456');
   assert.equal(calls[1].chatId,'-1009876543210');
 });
+
+test('notifyTelegram continues delivery to remaining recipients when one recipient fails in multi-chat mode',async()=>{
+  const calls=[];
+  const multiEnv={...env,TELEGRAM_CHAT_ID:'111, 222'};
+  await notifyTelegram('Deploy success',multiEnv,{
+    maxRetries:1,
+    fetchImpl:async(url,options)=>{
+      const body=JSON.parse(options.body);
+      calls.push(body.chat_id);
+      if(body.chat_id==='111')return new Response(JSON.stringify({ok:false,description:'Forbidden: bot was blocked by the user'}),{status:403});
+      return Response.json({ok:true});
+    }
+  });
+  assert.equal(calls.length,2);
+  assert.equal(calls[0],'111');
+  assert.equal(calls[1],'222');
+});
