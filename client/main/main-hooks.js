@@ -856,7 +856,6 @@ function stageSaveSongMeta(){
   const managed=stageManagedSongReady();if(!stageOwnReady()&&!managed)return;
   const accountId=viewAccount?.id||'',generation=viewGen;
   const item=loadSongs().find(row=>row.id===stageDomId(document.getElementById('songUser').dataset.songId));if(!item)return;
-  if(editFileRemoved){window.LearningMain.unsupported('Изменение файла песни');return;}
   const file=!managed&&pendingEditFile&&!editFileSent?pendingEditFile:null;
   const read=key=>document.querySelector('#songUser [data-lyric-'+key+']').value.trim();
   const status=document.querySelector('#songUser [data-lyric-meta-status]');
@@ -884,7 +883,19 @@ function stageSaveSongMeta(){
     const changes={title,artist:read('artist'),videoUrl:read('video'),musicUrl:read('music')};
     const result=managed?await window.LearningMain.saveManagedLibrary(accountId,item,'song',changes):await window.LearningMain.saveLibrary(item,'song',changes);
     if(generation!==viewGen||accountId!==(viewAccount?.id||''))return;
-    let saved=result.item;
+    let saved=result.item||item;
+    if(typeof editFileRemoved!=='undefined'&&editFileRemoved){
+      if(saved.stageId&&(saved.fileName||saved.media_key)&&typeof window.LearningMain?.detachSongAudio==='function'){
+        const detached=await window.LearningMain.detachSongAudio(saved);
+        saved=detached?.item||saved;
+      }
+      if(typeof idbDeleteFile==='function')await idbDeleteFile(saved.id||saved.stageId).catch(()=>{});
+      if(typeof forgetBlobUrl==='function')forgetBlobUrl(saved.id||saved.stageId);
+      if(typeof dropSongFile==='function')await dropSongFile(saved.id||saved.stageId).catch(()=>{});
+      delete saved.fileName;delete saved.fileType;delete saved.media_key;
+      if(item!==saved){delete item.fileName;delete item.fileType;delete item.media_key;}
+      editFileRemoved=false;
+    }
     if(file){
       const uploaded=await stageUploadSongFile(saved,file,true);
       saved=uploaded.item||saved;

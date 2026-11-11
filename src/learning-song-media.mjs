@@ -40,4 +40,24 @@ export class SongMediaService extends PersonalService {
         result:{id,revision:updated.revision,item:{...libraryDto(updated),kind:'song'},media:{...metadata,key}}};
     });
   }
+  async detach(actor,id,body){
+    if(!Number.isSafeInteger(id)||id<1||!body||Object.keys(body).some(k=>!['mutationId','expectedRevision'].includes(k))
+      ||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<1)fail(400,'A saved song revision is required.');
+    return this.personal(actor,body,['detach-own-song',id],async profile=>{
+      if(!Number.isSafeInteger(profile)||profile<1)fail(503,'Invalid profile identity.');
+      const [row]=await this.db.read(`SELECT l.* FROM library_items l JOIN profile_library_items p ON p.item_id=l.id
+        WHERE p.profile_id=? AND l.id=? AND l.kind='song' AND l.scope='profile' AND l.owner_profile_id=? AND l.deleted_at IS NULL`,[profile,id,profile]);
+      if(!row)fail(404,'Own song not found.');
+      if(row.revision!==body.expectedRevision)fail(409,'Song changed. Reload before removing its audio.');
+      const content=JSON.parse(row.content_json);
+      delete content.fileName;
+      delete content.fileType;
+      content.updatedAt=new Date().toISOString();
+      const updated={...row,content_json:JSON.stringify(content),media_key:null,revision:body.expectedRevision+1};
+      return {statements:[s(`UPDATE library_items SET media_key=NULL,content_json=?,revision=revision+1 WHERE id=?
+        AND owner_profile_id=? AND scope='profile' AND kind='song' AND revision=? AND deleted_at IS NULL
+        AND EXISTS(SELECT 1 FROM profile_library_items p WHERE p.profile_id=? AND p.item_id=library_items.id)`,[updated.content_json,id,profile,body.expectedRevision,profile]),this.guard()],
+        result:{id,revision:updated.revision,item:{...libraryDto(updated),kind:'song'}}};
+    });
+  }
 }

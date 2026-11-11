@@ -42,6 +42,7 @@
   "Архивируется только личный текст.": "Only personal texts can be archived here.",
   "Удаляется только личный материал.": "Only personal content can be deleted here.",
   "Аудио доступно только для собственной сохранённой песни на разрешённом тестовом стенде.": "Audio uploads require your own saved song on the configured site.",
+  "Аудио можно удалить только у собственной сохранённой песни.": "Audio can only be removed from your own saved song.",
   "Выберите MP3, WAV или OGG.": "Select an MP3, WAV or OGG file.",
   "Нет серверного ID аккаунта или урока.": "The saved account or lesson ID is missing.",
   "Сначала сохраните урок и блок кнопкой Save Draft.": "Save the lesson and block using Save draft first.",

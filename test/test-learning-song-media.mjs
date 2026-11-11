@@ -95,6 +95,13 @@ test('Local audio HTTP: origin/session/owner gates, binary point upload and no p
     const head=await fetch(path,{method:'HEAD',headers:{Cookie:'own'}});assert.equal(head.status,200);assert.equal(head.headers.get('content-length'),'46');
     const saved=await fetch(path,{headers:{Cookie:'own',Range:'bytes=44-45'}});assert.equal(saved.status,206);assert.equal((await saved.arrayBuffer()).byteLength,2);assert.equal(productionReads,0);
     assert.equal((await fetch(url,options)).status,200,'Same mutation retry succeeds without another revision');
+    const deleteUrl=origin+'/api/library/'+f.songId+'/media';
+    const deleteRes=await fetch(deleteUrl,{method:'DELETE',headers:{Origin:origin,Cookie:'own','Content-Type':'application/json'},body:JSON.stringify({mutationId:crypto.randomUUID(),expectedRevision:2})});
+    assert.equal(deleteRes.status,200);
+    const deleteData=await deleteRes.json();
+    assert.equal(deleteData.revision,3);
+    assert.equal(deleteData.item.fileName,undefined);
+    assert.equal((await fetch(path,{headers:{Cookie:'own'}})).status,404,'Audio file is gone after detach');
   }finally{if(server){server.closeAllConnections();await new Promise(done=>server.close(done));}f.close();}
 });
 test('Audio browser retry preserves exact mutation after reload; bytes are not stored in localStorage',async()=>{
@@ -278,4 +285,30 @@ test('Missing local source, wrong owner keys and backup object quota fail closed
     assert.throws(()=>localMediaReferences(many),/object limit/);
     const empty={version:1,testOnly:true,tables:{library_items:[],lesson_blocks:[]}};assert.equal(writeLocalMediaBackup(emptyDirectory,empty).objects,0);assert.equal(verifyLocalMediaBackup(emptyDirectory,empty).totalBytes,0);
   }finally{rmSync(directory,{recursive:true});rmSync(emptyDirectory,{recursive:true});}
+});
+test('SongMediaService detach: clears media_key, fileName, fileType and increments revision',async()=>{
+  const f=fixture();
+  try{
+    await song(f);
+    const service=new SongMediaService(f.db,f.store);
+    const uploaded=await service.upload(f.own,f.songId,body(),wav());
+    assert.equal(uploaded.revision,2);
+    assert.equal(uploaded.item.fileName,'audio.wav');
+
+    await assert.rejects(service.detach(f.other,f.songId,{mutationId:crypto.randomUUID(),expectedRevision:2}),e=>e.status===404);
+    await assert.rejects(service.detach(f.own,f.songId,{mutationId:crypto.randomUUID(),expectedRevision:1}),e=>e.status===409);
+    await assert.rejects(service.detach(f.own,f.songId,{mutationId:crypto.randomUUID(),expectedRevision:2,unexpectedField:1}),e=>e.status===400);
+
+    const detached=await service.detach(f.own,f.songId,{mutationId:crypto.randomUUID(),expectedRevision:2});
+    assert.equal(detached.revision,3);
+    assert.equal(detached.item.fileName,undefined);
+    assert.equal(detached.item.fileType,undefined);
+
+    const [saved]=await new PersonalService(f.db).library(f.own);
+    assert.equal(saved.fileName,undefined);
+    assert.equal(saved.stageRevision,3);
+
+    const [row]=await f.db.read('SELECT media_key FROM library_items WHERE id=?',[f.songId]);
+    assert.equal(row.media_key,null);
+  }finally{f.close();}
 });

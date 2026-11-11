@@ -250,6 +250,136 @@ test('stageSaveSongMeta validates title and file format', () => {
   assert.equal(focused, true);
 });
 
+test('stageSaveSongMeta with editFileRemoved detaches song audio and saves cleanly without unsupported error', async () => {
+  let performed = false;
+  let detachCalled = false;
+  let installedSong = null;
+  const status = { textContent: '', classList: { add(cls) { this[cls] = true; } } };
+  const selectors = {
+    '#songUser [data-lyric-title]': { value: 'Yesterday' },
+    '#songUser [data-lyric-artist]': { value: 'The Beatles' },
+    '#songUser [data-lyric-video]': { value: 'https://youtube.com/watch?v=123' },
+    '#songUser [data-lyric-music]': { value: '' },
+    '#songUser [data-lyric-meta-status]': status
+  };
+  const song = { id: 'song1', stageId: 101, stageRevision: 2, stageScope: 'profile', title: 'Yesterday', fileName: 'yesterday.mp3', fileType: 'audio/mpeg' };
+  const context = {
+    authUser: { id: 'user', role: 'ADMIN' },
+    accountReady: true,
+    viewAccount: null,
+    viewGen: 0,
+    viewSwitching: false,
+    editFileRemoved: true,
+    pendingEditFile: null,
+    editFileSent: false,
+    loadSongs: () => [song],
+    writeSongs: () => {},
+    paintLyrics: () => {},
+    stagePaintCounts: () => {},
+    renderUserSong: () => {},
+    stageDomId: id => id,
+    document: {
+      addEventListener() {},
+      getElementById: () => ({ dataset: { songId: 'song1' } }),
+      querySelector: sel => selectors[sel] || null
+    },
+    window: {
+      LearningMain: {
+        notice() {},
+        unsupported(op) { throw new Error('Unsupported operation: ' + op); },
+        async saveLibrary(item, kind, changes) {
+          return { item: { ...item, ...changes, stageRevision: item.stageRevision + 1 } };
+        },
+        async detachSongAudio(item) {
+          detachCalled = true;
+          const copy = { ...item };
+          delete copy.fileName;
+          delete copy.fileType;
+          return { item: copy };
+        },
+        async perform(fn) {
+          performed = true;
+          return fn();
+        }
+      }
+    }
+  };
+
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js', import.meta.url), 'utf8'), context);
+  context.stageInstallLibrary = s => { installedSong = s; };
+  context.renderUserSong = () => {};
+  await context.stageSaveSongMeta();
+
+  assert.equal(performed, true, 'perform must be called');
+  assert.equal(detachCalled, true, 'detachSongAudio must be called when song had an attached file');
+  assert.equal(context.editFileRemoved, false, 'editFileRemoved must be reset to false');
+  assert.equal(installedSong.fileName, undefined, 'fileName must be removed');
+  assert.equal(song.fileName, undefined, 'fileName must be removed from item');
+  assert.equal(installedSong.title, 'Yesterday');
+});
+
+test('stageSaveSongMeta with editFileRemoved on song without file saves cleanly without calling unsupported or detach', async () => {
+  let performed = false;
+  let detachCalled = false;
+  let unsupportedCalled = false;
+  const status = { textContent: '', classList: { add() {} } };
+  const selectors = {
+    '#songUser [data-lyric-title]': { value: 'Song Without File' },
+    '#songUser [data-lyric-artist]': { value: 'Artist' },
+    '#songUser [data-lyric-video]': { value: '' },
+    '#songUser [data-lyric-music]': { value: '' },
+    '#songUser [data-lyric-meta-status]': status
+  };
+  const song = { id: 'song2', stageId: 102, stageRevision: 1, stageScope: 'profile', title: 'Old Title' };
+  const context = {
+    authUser: { id: 'user', role: 'ADMIN' },
+    accountReady: true,
+    viewAccount: null,
+    viewGen: 0,
+    viewSwitching: false,
+    editFileRemoved: true,
+    pendingEditFile: null,
+    editFileSent: false,
+    loadSongs: () => [song],
+    writeSongs: () => {},
+    paintLyrics: () => {},
+    stagePaintCounts: () => {},
+    renderUserSong: () => {},
+    stageDomId: id => id,
+    document: {
+      addEventListener() {},
+      getElementById: () => ({ dataset: { songId: 'song2' } }),
+      querySelector: sel => selectors[sel] || null
+    },
+    window: {
+      LearningMain: {
+        notice() {},
+        unsupported() { unsupportedCalled = true; },
+        async saveLibrary(item, kind, changes) {
+          return { item: { ...item, ...changes } };
+        },
+        async detachSongAudio() {
+          detachCalled = true;
+        },
+        async perform(fn) {
+          performed = true;
+          return fn();
+        }
+      }
+    }
+  };
+
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js', import.meta.url), 'utf8'), context);
+  context.stageInstallLibrary = s => { Object.assign(song, s); };
+  context.renderUserSong = () => {};
+  await context.stageSaveSongMeta();
+
+  assert.equal(performed, true, 'perform must be called');
+  assert.equal(unsupportedCalled, false, 'unsupported must not be called');
+  assert.equal(detachCalled, false, 'detachSongAudio must not be called when there was no attached file');
+  assert.equal(context.editFileRemoved, false, 'editFileRemoved must be reset to false');
+});
+
 test('Playwright Visual Verification of lyricadd validation errors', async () => {
   const root = resolve('rollback/production-assets');
   const server = createServer((req, res) => {
@@ -273,6 +403,8 @@ test('Playwright Visual Verification of lyricadd validation errors', async () =>
   try {
     browser = await launchChromium(chromium);
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    page.on('pageerror', err => console.log('PAGE_ERROR:', err));
+    page.on('console', msg => console.log('PAGE_LOG:', msg.text()));
 
     await page.route('**/api/**', async route => {
       const url = new URL(route.request().url());
@@ -332,6 +464,117 @@ test('Playwright Visual Verification of lyricadd validation errors', async () =>
     });
 
     await lyricAdd.screenshot({ path: resolve('docs/bug-9128379f-screenshot-3.png') });
+  } finally {
+    if (browser) await browser.close();
+    server.close();
+  }
+});
+
+test('Playwright Visual Verification of song meta remove file save without unsupported error', async () => {
+  const root = resolve('rollback/production-assets');
+  const server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
+    const path = url.pathname;
+    const file = resolve(root, path === '/' ? 'index.html' : '.' + path);
+    if (!file.startsWith(root + '/') || !existsSync(file)) {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    const contentType = file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : file.endsWith('.html') ? 'text/html' : 'application/octet-stream';
+    res.setHeader('Content-Type', contentType);
+    res.end(readFileSync(file));
+  });
+
+  await new Promise(done => server.listen(0, '127.0.0.1', done));
+  const port = server.address().port;
+  let browser;
+
+  try {
+    browser = await launchChromium(chromium);
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    page.on('pageerror', err => console.log('PAGE_ERROR:', err));
+    page.on('console', msg => console.log('PAGE_LOG:', msg.text()));
+
+    const mockSong = {
+      id: 'song-test-visual-1',
+      stageId: 101,
+      stageRevision: 1,
+      stageScope: 'profile',
+      kind: 'song',
+      title: 'Yesterday',
+      artist: 'The Beatles',
+      lyrics: 'Yesterday all my troubles seemed so far away',
+      fileName: 'yesterday.mp3',
+      fileType: 'audio/mpeg',
+      videoUrl: '',
+      musicUrl: ''
+    };
+
+    let detached = false;
+    let savedSong = null;
+
+    await page.route('**/api/**', async route => {
+      const url = new URL(route.request().url());
+      const path = url.pathname;
+      const method = route.request().method();
+      if (path === '/api/database-context') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ provider: 'd1', revision: 3, scope: 'site' }) });
+      if (path === '/api/auth/providers') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ google: true, microsoft: false, telegram: false }) });
+      if (path === '/api/me' || path === '/api/me/account') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: { id: 'teacher-fixture', role: 'ADMIN', name: 'teacher_yester' } }) });
+      if (path === '/api/me/state') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ bootstrap: true, stats: {}, added: [], songs: [mockSong], settings: {}, counts: { lessons: 1 }, stageActivity: {} }) });
+      if (path === '/api/me/songs') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ songs: [mockSong], next: null }) });
+      if (path === '/api/me/themes') return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ theme: 'light', themes: [], revision: 0, customRevision: 0 }) });
+      if (path === '/api/library/101/media' && method === 'DELETE') {
+        detached = true;
+        const updated = { ...mockSong, fileName: '', fileType: '', stageRevision: 2 };
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, revision: 2, item: updated }) });
+      }
+      if (path === '/api/library/101' && method === 'PATCH') {
+        savedSong = JSON.parse(route.request().postData() || '{}');
+        const updated = { ...mockSong, ...savedSong.changes, stageRevision: 2 };
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, revision: 2, item: updated }) });
+      }
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({}) });
+    });
+
+    await page.goto(`http://127.0.0.1:${port}`, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => !document.body.hasAttribute('data-shell-pending'));
+
+    await page.evaluate(song => {
+      authUser = { id: 'teacher-fixture', role: 'ADMIN', name: 'teacher_yester' };
+      accountReady = true;
+      authChecked = true;
+      if (typeof writeSongs === 'function') writeSongs([song]);
+      else {
+        localStorage.setItem('enquiz-songs', JSON.stringify([song]));
+        if (typeof songCache !== 'undefined') songCache = [song];
+      }
+      if (typeof renderUserSong === 'function') renderUserSong(song);
+      if (typeof show === 'function') show('song');
+    }, mockSong);
+
+    await page.waitForSelector('#song.on');
+    await page.waitForTimeout(200);
+
+    await page.click('#songUser [data-lyric-meta]');
+    await page.waitForTimeout(100);
+
+    const clearBtn = await page.$('#songUser [data-lyric-file-clear]');
+    assert.ok(clearBtn, 'Remove file button must be present in song meta editor');
+    await clearBtn.click();
+    await page.waitForTimeout(100);
+
+    const editor = await page.$('#songUser [data-lyric-meta-editor]');
+    if (editor) {
+      await editor.screenshot({ path: resolve('docs/bug-8257c7eb-screenshot-verification.png') });
+    }
+
+    await page.click('#songUser [data-lyric-meta-save]');
+    await page.waitForTimeout(500);
+
+    const banner = await page.$eval('#learning-main-notice', el => el ? el.textContent.trim() : '').catch(() => '');
+    assert.equal(banner.includes('is not supported'), false, 'Unsupported error must not appear');
+    assert.equal(detached, true, 'Song media must be detached via DELETE /api/library/:id/media');
   } finally {
     if (browser) await browser.close();
     server.close();

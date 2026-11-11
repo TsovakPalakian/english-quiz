@@ -156,7 +156,7 @@ export default {async fetch(request,env){
       ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
-      ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE');
+      ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE')||(songUpload&&method==='DELETE');
     const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&path==='/api/speakout/media'
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
@@ -324,6 +324,7 @@ export default {async fetch(request,env){
     if(path==='/api/me/theme')return json(await p.saveTheme(actor,value));
     if(path==='/api/me/custom-themes')return json(await p.saveCustomThemes(actor,value));
     if(lessonUpload&&method==='DELETE')return json(await new LessonMediaService(db,null).detach(actor,cardKey(lessonUpload[1]),cardKey(lessonUpload[2]),value));
+    if(songUpload&&method==='DELETE')return json(await new SongMediaService(db,null).detach(actor,cardKey(songUpload[1]),value));
     if(path==='/api/me/account')return json({user:actor,testReadonly:true,locked:true});
     if(path==='/api/me/themes'&&method==='GET')return json(await accountThemes(db,actor));
     if(path==='/api/me/state'){const state=await accountBootstrap(db,actor);state.archiveRevision=await new ArchiveService(db).revision();return json(state);}

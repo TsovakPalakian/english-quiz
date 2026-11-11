@@ -796,6 +796,10 @@
       if(!['audio/wav','audio/ogg','audio/mpeg'].includes(mime))throw new Error('Выберите MP3, WAV или OGG.');
       return binaryWrite('/api/library/'+encodeURIComponent(item.stageId)+'/media',{expectedRevision:item.stageRevision,mime},file,'audio',onProgress);
     },
+    async detachSongAudio(item){
+      if(!actorId||item.stageScope!=='profile'||!item.stageId)throw new Error('Аудио можно удалить только у собственной сохранённой песни.');
+      return write('/api/library/'+encodeURIComponent(item.stageId)+'/media','DELETE',{expectedRevision:item.stageRevision});
+    },
     setManagedVisibility:(accountId,type,id,expected,hidden)=>write('/api/admin/users/'+encodeURIComponent(accountId)+'/visibility','PATCH',{type,id,expected,hidden}),
     async setManagedLessonAccess(accountId,lessonId,expected,changes){
       if(!/^(?:[a-f0-9]{16,64}|[1-9]\d{0,15})$/.test(String(accountId))||!Number.isSafeInteger(lessonId)||lessonId<1)throw new Error('Нет серверного ID аккаунта или урока.');

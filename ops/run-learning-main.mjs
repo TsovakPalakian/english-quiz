@@ -109,6 +109,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       const lessonUpload=path.match(/^\/api\/lessons\/([A-Za-z0-9_-]{1,100})\/blocks\/([A-Za-z0-9_-]{1,100})\/media$/);
       const audioWrite=(mediaUpload||lessonUpload)&&req.method==='POST';
       const mediaDetach=lessonUpload&&req.method==='DELETE';
+      const songDetach=mediaUpload&&req.method==='DELETE';
       if(audioWrite&&!mediaStore)throw new StudyError(503,'Isolated audio storage unavailable.');
       const libraryWrite=(path==='/api/library' && req.method==='POST') || (libraryRoute && ['PATCH','DELETE'].includes(req.method));
       const activityWrite=path==='/api/stats/event'&&req.method==='POST';
@@ -120,11 +121,12 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
         || (progressRoute && req.method===(progressRoute[2]==='answers'?'POST':'PATCH'))
         || (responseRoute && req.method==='PUT');
       const lessonWrite=(path==='/api/lessons' && req.method==='POST') || (lessonRoute && ['PATCH','DELETE'].includes(req.method));
-      if(!supported && !lessonWrite && !ownCardWrite && !newCardWrite && !libraryWrite && !activityWrite && !audioWrite && !mediaDetach && !(inlineRoute&&req.method==='GET')&&!fileRead)throw new StudyError(path.startsWith('/api/') || ['/lookup','/translate'].includes(path)?501:404,'This operation is not migrated. No production fallback or write was attempted.');
+      if(!supported && !lessonWrite && !ownCardWrite && !newCardWrite && !libraryWrite && !activityWrite && !audioWrite && !mediaDetach && !songDetach && !(inlineRoute&&req.method==='GET')&&!fileRead)throw new StudyError(path.startsWith('/api/') || ['/lookup','/translate'].includes(path)?501:404,'This operation is not migrated. No production fallback or write was attempted.');
       const actor=await auth.current(req);
       if(path==='/api/me' && req.method==='GET'){json(200,{user:actor});return;}
       if(!actor)throw new StudyError(401,'Sign in with your existing account.');
       if(mediaDetach){json(200,await lessonMedia.detach(actor,entityKey(lessonUpload[1]),entityKey(lessonUpload[2]),await jsonBody(req)));return;}
+      if(songDetach){json(200,await songMedia.detach(actor,entityKey(mediaUpload[1]),await jsonBody(req)));return;}
       if(audioWrite){
         if(lessonUpload&&!['ADMIN','DEVELOPER'].includes(actor.role))throw new StudyError(403,'Only teacher/developer can upload lesson files.');
         const fields=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];
