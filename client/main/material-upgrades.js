@@ -92,7 +92,9 @@ lmPaintChrome=function(){
   materialChromeBefore();const picker=document.getElementById('lmPicker');if(!picker)return;
   document.getElementById('material')?.classList.toggle('is-exam',!!lmState?.examOwned);
   const blocks=[['text','Text'],['heading','Heading'],['task','Task'],['cards','Cards'],['vocab','Vocabulary'],['exercise','Questions'],['pdf','PDF'],['image','Image'],['audio','Audio'],['video','Video'],['file','File'],['link','Link'],['note','Note'],['phrase','Phrase'],['dialogue','Dialogue'],['reading','Reading'],['pronunciation','Pronunciation'],['table','Table'],['divider','Divider'],['wordcard','Word'],['rule','Rule']];
-  picker.innerHTML='<div class="lm-picker-head"><p>Add content</p><button class="lm-icon" type="button" data-lm-picker-close aria-label="Close">✕</button></div><div class="lm-picker-grid">'+blocks.map(([type,label])=>'<button type="button" data-add-block="'+type+'">'+label+'</button>'+(type==='text'?'<button type="button" data-material-answer>Answer</button>':'')).join('')+'<button type="button" data-material-group>Content group</button><button type="button" data-material-quiz-menu aria-expanded="false">Quiz</button></div><div class="lm-picker-grid" data-material-quiz-types hidden>'+window.MaterialQuiz.types.filter(type=>!lmState?.examOwned||type!=='Flip').map(type=>'<button type="button" data-add-block="quiz" data-quiz="'+type+'">'+type+'</button>').join('')+'</div>';
+  const quizTypes=window.MaterialQuiz?.types||['Choice','Select all','True / false','Type','Gap','Build','Match','Listen','Spell','Memory','Tap','Reverse','Letters','Definition','Odd one out','Hangman','Flip'];
+  if(!window.MaterialQuiz&&typeof window.ensureMaterialQuiz==='function')window.ensureMaterialQuiz();
+  picker.innerHTML='<div class="lm-picker-head"><p>Add content</p><button class="lm-icon" type="button" data-lm-picker-close aria-label="Close">✕</button></div><div class="lm-picker-grid">'+blocks.map(([type,label])=>'<button type="button" data-add-block="'+type+'">'+label+'</button>'+(type==='text'?'<button type="button" data-material-answer>Answer</button>':'')).join('')+'<button type="button" data-material-group>Content group</button><button type="button" data-material-quiz-menu aria-expanded="false">Quiz</button></div><div class="lm-picker-grid" data-material-quiz-types hidden>'+quizTypes.filter(type=>!lmState?.examOwned||type!=='Flip').map(type=>'<button type="button" data-add-block="quiz" data-quiz="'+type+'">'+type+'</button>').join('')+'</div>';
   if(lmState?.examOwned){picker.querySelector('[data-material-quiz-menu]')?.remove();const quizzes=picker.querySelector('[data-material-quiz-types]');quizzes.hidden=false;quizzes.querySelectorAll('button').forEach(button=>{button.textContent='Quiz \u2022 '+button.dataset.quiz;});}
 };
 document.addEventListener('click',event=>{
@@ -170,7 +172,7 @@ lmPreviewBlock=function(part){
   if(part.type==='heading'){const level=/^h[1-5]$/.test(part.level)?part.level:'h2';return '<'+level+'>'+esc(part.text||'')+'</'+level+'>';}
   if(part.type==='quiz'&&!lmState?.examOwned){
     if(part.quizType==='Pronunciation'||part.quizType==='Pronounce')return renderPronunciationExerciseHtml(part,false);
-    return window.MaterialQuiz.render(part,{values:materialWhole(part)?{0:part.response||part.items[0]?.typed||''}:Object.fromEntries((part.items||[]).map((item,i)=>[i,item.given??item.typed??item.picked??''])),locked:!!viewAccount,exam:false});
+    return window.MaterialQuiz?.render ? window.MaterialQuiz.render(part,{values:materialWhole(part)?{0:part.response||part.items[0]?.typed||''}:Object.fromEntries((part.items||[]).map((item,i)=>[i,item.given??item.typed??item.picked??''])),locked:!!viewAccount,exam:false}) : '<div class="material-quiz-loading">Loading quiz…</div>';
   }
   return materialPreviewBlockBefore(part);
 };
@@ -232,7 +234,7 @@ examFillAnswers=function(){
     else if(part.type==='exercise')panel.innerHTML=(part.items||[]).map((item,index)=>window.MaterialQuiz.render({...part,id:part.id+'-'+index,quizType:item.kind==='write'?'Type':'Choice',items:[{...item,answer:item.kind==='write'?item.write:item.answer}]},{exam:true,locked,values:{0:item.given??''},score:()=>materialScoreHtml(part,index),feedback:()=>feedback(index)}).replace('data-mq="'+part.id+'-'+index+'"','data-mq="'+part.id+'" data-mq-offset="'+index+'"')).join('');
   }
   for(const group of root.querySelectorAll('.lm-assignment')){const owner=(lmState.blocks||[]).find(part=>(part.assignmentId||'part-'+part.id)===group.dataset.assignment);if(owner&&!owner.contentGroup){const header=group.querySelector('header');header?.querySelectorAll('.material-maximum,.exam-task-score').forEach(node=>node.remove());header?.insertAdjacentHTML('beforeend','<span class="material-maximum">Maximum '+assessmentUnitMax(owner)+((reviewer||lmState.assessmentState==='published')?' · Score <span data-exam-task-earned="'+esc(group.dataset.assignment)+'"></span>':'')+'</span>');}}
-  window.MaterialQuiz.bind(root,{block:id=>(lmState.blocks||[]).find(part=>String(part.id)===id),locked:()=>canTuneStudentLessons()||lmState.studentSaved||!lmState.assessmentReady,
+  window.MaterialQuiz?.bind?.(root,{block:id=>(lmState.blocks||[]).find(part=>String(part.id)===id),locked:()=>canTuneStudentLessons()||lmState.studentSaved||!lmState.assessmentReady,
     get:(part,index)=>materialWhole(part)?part.response:part.items[index]?.given??'',
     set:(part,index,value)=>{if(materialWhole(part))part.response=value;else part.items[index].given=value;assessmentAutosave(lmState);}
   });
