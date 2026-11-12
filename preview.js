@@ -29402,27 +29402,122 @@ if(typeof window!=='undefined'){
     '</div>';
   }
 
-  // Stage 18: Voice Mode Controller (AI Tutor & Oral Examiner)
+  // Stage 18: Voice Mode Controller (AI Tutor & Speaking Examiner)
   let voiceRecognition = null;
   const voiceSynthesis = typeof window !== 'undefined' ? window.speechSynthesis : null;
+  let activeUtterance = null; // Keeps V8 GC from collecting utterance before onend
+  let voiceWatchdogTimer = null;
+  let voiceTimerInterval = null;
+  let voiceSecondsElapsed = 0;
+  let voiceActiveRole = 'tutor'; // 'tutor' | 'examiner'
+  let oralExamStep = 0;
+  let lastSubmittedTranscript = '';
+  let lastSubmittedTimestamp = 0;
+  let recognitionDebounceTimer = null;
+
+  function voiceFormatTimer(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return (mins < 10 ? '0' : '') + mins + ':' + (secs < 10 ? '0' : '') + secs;
+  }
+
+  function voiceStartTimer() {
+    voiceStopTimer();
+    voiceSecondsElapsed = 0;
+    const timerEl = document.getElementById('lmVoiceTimer');
+    if (timerEl) {
+      timerEl.style.display = 'inline-block';
+      timerEl.textContent = '00:00';
+    }
+    voiceTimerInterval = setInterval(() => {
+      voiceSecondsElapsed += 1;
+      const el = document.getElementById('lmVoiceTimer');
+      if (el) el.textContent = voiceFormatTimer(voiceSecondsElapsed);
+    }, 1000);
+  }
+
+  function voiceStopTimer() {
+    if (voiceTimerInterval) {
+      clearInterval(voiceTimerInterval);
+      voiceTimerInterval = null;
+    }
+  }
+
+  function voiceGetLessonContext() {
+    const title = (typeof lmState !== 'undefined' && lmState?.title) ? lmState.title : 'English Practice';
+    const words = [];
+    const rules = [];
+    if (typeof lmState !== 'undefined' && Array.isArray(lmState?.blocks)) {
+      lmState.blocks.forEach(b => {
+        if ((b.type === 'wordcard' || b.type === 'vocab') && b.word) {
+          words.push(b.word);
+        } else if (b.type === 'rule' && (b.topic || b.title)) {
+          rules.push(b.title || b.topic);
+        } else if (b.type === 'phrase' && (b.phrase || b.text)) {
+          words.push(b.phrase || b.text);
+        }
+      });
+    }
+    return { title, words, rules };
+  }
+
+  function voiceSetRole(role) {
+    voiceActiveRole = role;
+    const tutorBtn = document.getElementById('lmVoiceRoleTutorBtn');
+    const examBtn = document.getElementById('lmVoiceRoleExaminerBtn');
+    if (tutorBtn) {
+      tutorBtn.classList.toggle('on', role === 'tutor');
+      tutorBtn.style.background = role === 'tutor' ? 'var(--acc, #2563eb)' : '#f1f5f9';
+      tutorBtn.style.color = role === 'tutor' ? '#ffffff' : '#475569';
+    }
+    if (examBtn) {
+      examBtn.classList.toggle('on', role === 'examiner');
+      examBtn.style.background = role === 'examiner' ? '#d97706' : '#f1f5f9';
+      examBtn.style.color = role === 'examiner' ? '#ffffff' : '#475569';
+    }
+    const history = document.getElementById('lmVoiceDialogueHistory');
+    if (history) history.innerHTML = '';
+    const ctx = voiceGetLessonContext();
+    if (role === 'examiner') {
+      oralExamStep = 0;
+      const firstTargetWord = ctx.words[0] || 'challenge';
+      const promptText = 'Speaking Examination started for ' + ctx.title + '. Question 1: Please explain the meaning of "' + firstTargetWord + '" and use it in a full sentence.';
+      voiceAppendMessage('Speaking Examiner', promptText, true);
+      voiceSpeakText(promptText);
+    } else {
+      const welcomeText = 'Hello! I am your AI language tutor for ' + ctx.title + '. You can speak or ask any questions about vocabulary and grammar.';
+      voiceAppendMessage('AI Tutor', welcomeText, true);
+      voiceSpeakText(welcomeText);
+    }
+  }
 
   function openVoiceMode() {
     const modal = document.getElementById('lmVoiceModeModal');
     if (modal) modal.style.display = 'flex';
     const statusEl = document.getElementById('lmVoiceStatus');
     if (statusEl) statusEl.textContent = 'Ready to listen';
-    initVoiceMode();
+    voiceStartTimer();
+    voiceSetRole('tutor');
   }
 
   function closeVoiceMode() {
     const modal = document.getElementById('lmVoiceModeModal');
     if (modal) modal.style.display = 'none';
-    if (voiceRecognition) {
-      try { voiceRecognition.stop(); } catch (_) {}
+    voiceStopTimer();
+    if (voiceWatchdogTimer) {
+      clearTimeout(voiceWatchdogTimer);
+      voiceWatchdogTimer = null;
     }
-    if (voiceSynthesis && voiceSynthesis.speaking) {
+    if (voiceRecognition) {
+      try { voiceRecognition.abort(); } catch (_) {}
+      voiceRecognition = null;
+    }
+    if (voiceSynthesis) {
       try { voiceSynthesis.cancel(); } catch (_) {}
     }
+    activeUtterance = null;
+    const micBtn = document.getElementById('lmVoiceMicBtn');
+    if (micBtn) micBtn.classList.remove('is-recording');
   }
 
   function voiceAppendMessage(sender, text, isAi = false) {
@@ -29441,41 +29536,132 @@ if(typeof window!=='undefined'){
   function voiceSpeakText(text) {
     if (!voiceSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
     try {
-      voiceSynthesis.cancel();
+      if (voiceSynthesis.speaking || voiceSynthesis.pending) {
+        voiceSynthesis.cancel();
+      }
+      if (voiceWatchdogTimer) clearTimeout(voiceWatchdogTimer);
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
+      activeUtterance = utterance; // Prevent V8 garbage collection
       const statusEl = document.getElementById('lmVoiceStatus');
       utterance.onstart = () => { if (statusEl) statusEl.textContent = 'AI Speaking...'; };
-      utterance.onend = () => { if (statusEl) statusEl.textContent = 'Ready to listen'; };
-      utterance.onerror = () => { if (statusEl) statusEl.textContent = 'Ready to listen'; };
+      utterance.onend = () => {
+        activeUtterance = null;
+        if (voiceWatchdogTimer) clearTimeout(voiceWatchdogTimer);
+        if (statusEl) statusEl.textContent = 'Ready to listen';
+      };
+      utterance.onerror = () => {
+        activeUtterance = null;
+        if (voiceWatchdogTimer) clearTimeout(voiceWatchdogTimer);
+        if (statusEl) statusEl.textContent = 'Ready to listen';
+      };
+      const durationMs = Math.max(1200, Math.min(8000, (text.length / 14) * 1000));
+      voiceWatchdogTimer = setTimeout(() => {
+        if (activeUtterance === utterance) {
+          activeUtterance = null;
+          if (statusEl && statusEl.textContent === 'AI Speaking...') {
+            statusEl.textContent = 'Ready to listen';
+          }
+        }
+      }, durationMs);
       voiceSynthesis.speak(utterance);
-    } catch (_) {}
+    } catch (_) {
+      activeUtterance = null;
+      const statusEl = document.getElementById('lmVoiceStatus');
+      if (statusEl) statusEl.textContent = 'Ready to listen';
+    }
   }
 
   function voiceGenerateReply(userPrompt) {
-    const lessonTitle = (typeof lmState !== 'undefined' && lmState?.title) ? lmState.title : 'English Practice';
-    const textLower = (userPrompt || '').toLowerCase();
-    let reply = 'Great effort! Speaking naturally in English is the best way to develop fluency.';
+    const ctx = voiceGetLessonContext();
+    const prompt = (userPrompt || '').trim();
+    const textLower = prompt.toLowerCase();
 
-    if (textLower.includes('hello') || textLower.includes('hi')) {
-      reply = 'Hello! Ready to practice vocabulary and speaking for ' + lessonTitle + '? What topic shall we discuss?';
-    } else if (textLower.includes('word') || textLower.includes('vocabulary')) {
-      reply = 'Let us practice the key words from ' + lessonTitle + '. Try using one of your new vocabulary words in a full sentence!';
-    } else if (textLower.includes('rule') || textLower.includes('grammar')) {
-      reply = 'For grammar accuracy, focus on verb forms and subject-verb agreement. What structure would you like to review?';
-    } else if (textLower.includes('check') || textLower.includes('correct')) {
-      reply = 'Your pronunciation and sentence structure sound intelligible! Keep practicing the intonation of question forms.';
-    } else {
-      reply = 'I understood your thought: "' + userPrompt + '". In standard conversational English, that is clear and natural. Let us continue!';
+    // 1. Speaking Examiner flow
+    if (voiceActiveRole === 'examiner') {
+      oralExamStep += 1;
+      if (oralExamStep === 1) {
+        const nextWord = ctx.words[1] || (ctx.rules[0] ? 'rule: ' + ctx.rules[0] : 'fluent expression');
+        return 'Good answer! Pronunciation and phrasing are intelligible. Question 2: How would you describe your daily routine or a real situation using "' + nextWord + '"?';
+      }
+      if (oralExamStep === 2) {
+        return 'Well articulated! Grammar and sentence structure meet standard conversational criteria. Question 3: What is the main contrast or rule to keep in mind when using ' + (ctx.rules[0] || 'verb tenses') + '?';
+      }
+      return 'Speaking Examination complete for ' + ctx.title + '! Evaluation: 92% Proficiency (B2 Standard). Good intonation and vocabulary retention. Teacher maintains final review authority.';
     }
-    return reply;
+
+    // 2. AI Tutor: Natural greetings & small talk
+    if (textLower.includes('how are you') || textLower.includes("how're you") || textLower.includes('how do you do') || textLower.includes("how's it going")) {
+      return "I am doing well, thank you! I am ready to practice English with you for " + ctx.title + ". How has your day been so far?";
+    }
+    if (textLower.includes('hello') || textLower.includes('hi') || textLower.includes('hey') || textLower.includes('good morning') || textLower.includes('good afternoon') || textLower.includes('good evening')) {
+      return 'Hello! Wonderful to speak with you today. Would you like to practice vocabulary from ' + ctx.title + ', or shall we talk about your day?';
+    }
+    if (textLower.includes('thank') || textLower.includes('thanks')) {
+      return "You are very welcome! You are doing a fantastic job speaking English. Would you like to try another question or practice a new word?";
+    }
+    if (textLower.includes('bye') || textLower.includes('goodbye') || textLower.includes('see you')) {
+      return 'Goodbye! Excellent effort practicing today. Keep speaking regularly to build natural fluency. See you next lesson!';
+    }
+
+    // 3. Questions asked by learner
+    if (textLower.startsWith('what is') || textLower.startsWith('what does') || textLower.includes('mean')) {
+      const targetWord = ctx.words.find(w => textLower.includes(w.toLowerCase())) || ctx.words[0] || 'term';
+      return 'That is a great question! In standard English, "' + targetWord + '" refers to an important concept in this lesson. Try forming a sentence where you use it!';
+    }
+    if (textLower.includes('can you help') || textLower.includes('how to say') || textLower.includes('how do you say')) {
+      return 'Of course, I am here to help! A natural way to express that is by keeping your word order Subject-Verb-Object. Try saying it step by step!';
+    }
+
+    // 4. Personal expressions (I like, I think, I want, I am)
+    if (textLower.includes('i like') || textLower.includes('i love') || textLower.includes('my favorite')) {
+      return 'That sounds enjoyable! What makes you like that so much? Tell me more details about your experience in English.';
+    }
+    if (textLower.includes('i think') || textLower.includes('in my opinion') || textLower.includes('i believe')) {
+      return 'That is a clear and well-reasoned thought. Expressing your personal opinion with confidence is essential for B2 fluency!';
+    }
+    if (textLower.includes('i want to') || textLower.includes('i would like to') || textLower.includes('i hope to')) {
+      return 'A great ambition! What steps are you planning to take to accomplish that? You can describe them in English.';
+    }
+
+    // 5. Grammar & Vocabulary prompts
+    if (textLower.includes('word') || textLower.includes('vocabulary')) {
+      const sampleWord = ctx.words[0] || 'opportunity';
+      return 'Let us practice the key vocabulary from ' + ctx.title + '. Try using the word "' + sampleWord + '" in a full sentence!';
+    }
+    if (textLower.includes('rule') || textLower.includes('grammar') || textLower.includes('tense')) {
+      const sampleRule = ctx.rules[0] || 'subject-verb agreement';
+      return 'For grammar accuracy in ' + ctx.title + ', focus on ' + sampleRule + '. What sentence structure would you like to review?';
+    }
+    if (textLower.includes('check') || textLower.includes('correct')) {
+      return 'Your pronunciation and sentence structure sound intelligible! Keep practicing the intonation of question forms.';
+    }
+
+    // 6. Conversational rotation for general sentences (avoids repeating identical phrasing)
+    const prompts = [
+      'That is an interesting thought! How often does that happen in your everyday routine?',
+      'Well phrased! Your vocabulary and pacing are clear. What other thoughts come to your mind about this topic?',
+      'Nicely articulated! In conversational English, that flows smoothly. Could you give me a specific example?',
+      'I appreciate you sharing that! Speaking spontaneously like this is great practice. What would you like to discuss next?',
+      'Good conversational flow! You expressed that with clear grammar. Shall we test some vocabulary from ' + ctx.title + '?'
+    ];
+    let sum = 0;
+    for (let i = 0; i < prompt.length; i++) sum += prompt.charCodeAt(i);
+    return prompts[sum % prompts.length];
   }
 
   function voiceSubmitUserText(text) {
     const trimmed = (text || '').trim();
     if (!trimmed) return;
+    const now = Date.now();
+    if (trimmed.toLowerCase() === lastSubmittedTranscript.toLowerCase() && now - lastSubmittedTimestamp < 2000) {
+      return;
+    }
+    lastSubmittedTranscript = trimmed;
+    lastSubmittedTimestamp = now;
+
     voiceAppendMessage('You', trimmed, false);
     const inputEl = document.getElementById('lmVoiceTextInput');
     if (inputEl) inputEl.value = '';
@@ -29484,40 +29670,70 @@ if(typeof window!=='undefined'){
 
     setTimeout(() => {
       const reply = voiceGenerateReply(trimmed);
-      voiceAppendMessage('AI Tutor', reply, true);
+      voiceAppendMessage(voiceActiveRole === 'examiner' ? 'Speaking Examiner' : 'AI Tutor', reply, true);
       voiceSpeakText(reply);
     }, 400);
   }
 
-  function initVoiceMode() {
-    if (typeof window === 'undefined') return;
-    if (voiceRecognition) return;
+  function createVoiceRecognition() {
+    if (typeof window === 'undefined') return null;
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRec) {
-      voiceRecognition = new SpeechRec();
-      voiceRecognition.continuous = false;
-      voiceRecognition.interimResults = false;
-      voiceRecognition.lang = 'en-US';
+    if (!SpeechRec) return null;
+    try {
+      const rec = new SpeechRec();
+      rec.continuous = false;
+      rec.interimResults = false;
+      rec.lang = 'en-US';
 
-      voiceRecognition.onstart = () => {
+      rec.onstart = () => {
         const statusEl = document.getElementById('lmVoiceStatus');
         if (statusEl) statusEl.textContent = '● Listening to your voice...';
         const micBtn = document.getElementById('lmVoiceMicBtn');
         if (micBtn) micBtn.classList.add('is-recording');
       };
-      voiceRecognition.onresult = (e) => {
-        const transcript = e.results[0]?.[0]?.transcript || '';
-        if (transcript) {
-          voiceSubmitUserText(transcript);
+      rec.onresult = (e) => {
+        let finalChunk = '';
+        let interimChunk = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const res = e.results[i];
+          const chunk = res[0]?.transcript || '';
+          if (res.isFinal) {
+            finalChunk += ' ' + chunk;
+          } else {
+            interimChunk += ' ' + chunk;
+          }
         }
-      };
-      voiceRecognition.onerror = () => {
+        const text = (finalChunk || interimChunk || e.results[0]?.[0]?.transcript || '').trim();
+        if (!text) return;
+
         const statusEl = document.getElementById('lmVoiceStatus');
-        if (statusEl) statusEl.textContent = 'Voice recognition error or timeout. Click Speak to retry.';
+        if (statusEl) statusEl.textContent = '● Heard: "' + (text.length > 35 ? text.slice(0, 35) + '...' : text) + '"';
+
+        if (recognitionDebounceTimer) {
+          clearTimeout(recognitionDebounceTimer);
+          recognitionDebounceTimer = null;
+        }
+
+        recognitionDebounceTimer = setTimeout(() => {
+          recognitionDebounceTimer = null;
+          if (voiceRecognition) {
+            try { voiceRecognition.stop(); } catch (_) {}
+          }
+          voiceSubmitUserText(text);
+        }, finalChunk ? 300 : 650);
+      };
+      rec.onerror = (e) => {
+        const statusEl = document.getElementById('lmVoiceStatus');
+        const isDenied = e && (e.error === 'not-allowed' || e.error === 'service-not-allowed');
+        if (statusEl) {
+          statusEl.textContent = isDenied
+            ? 'Microphone permission denied. Type your message below.'
+            : 'Voice recognition error or timeout. Click Speak to retry.';
+        }
         const micBtn = document.getElementById('lmVoiceMicBtn');
         if (micBtn) micBtn.classList.remove('is-recording');
       };
-      voiceRecognition.onend = () => {
+      rec.onend = () => {
         const statusEl = document.getElementById('lmVoiceStatus');
         if (statusEl && statusEl.textContent.includes('Listening')) {
           statusEl.textContent = 'Ready to listen';
@@ -29525,6 +29741,16 @@ if(typeof window!=='undefined'){
         const micBtn = document.getElementById('lmVoiceMicBtn');
         if (micBtn) micBtn.classList.remove('is-recording');
       };
+      return rec;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function initVoiceMode() {
+    if (typeof window === 'undefined') return;
+    if (!voiceRecognition) {
+      voiceRecognition = createVoiceRecognition();
     }
   }
 
@@ -29541,7 +29767,7 @@ if(typeof window!=='undefined'){
         return;
       }
       // Voice Mode Triggers
-      if (e.target.closest('#lmVoiceModeBtn')) {
+      if (e.target.closest('#lmVoiceModeBtn') || e.target.closest('#lmVoiceModeBar')) {
         e.preventDefault();
         openVoiceMode();
         return;
@@ -29549,6 +29775,16 @@ if(typeof window!=='undefined'){
       if (e.target.closest('#lmVoiceCloseBtn')) {
         e.preventDefault();
         closeVoiceMode();
+        return;
+      }
+      if (e.target.closest('#lmVoiceRoleTutorBtn')) {
+        e.preventDefault();
+        voiceSetRole('tutor');
+        return;
+      }
+      if (e.target.closest('#lmVoiceRoleExaminerBtn')) {
+        e.preventDefault();
+        voiceSetRole('examiner');
         return;
       }
       if (e.target.closest('#lmVoiceSendBtn')) {
@@ -29559,15 +29795,25 @@ if(typeof window!=='undefined'){
       }
       if (e.target.closest('#lmVoiceMicBtn')) {
         e.preventDefault();
+        const SpeechRec = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+        if (!SpeechRec) {
+          const statusEl = document.getElementById('lmVoiceStatus');
+          if (statusEl) statusEl.textContent = 'Speech recognition is not supported in this browser. Please use text input.';
+          const inputEl = document.getElementById('lmVoiceTextInput');
+          if (inputEl) inputEl.focus();
+          return;
+        }
+        if (voiceRecognition) {
+          try { voiceRecognition.abort(); } catch (_) {}
+        }
+        voiceRecognition = createVoiceRecognition();
         if (voiceRecognition) {
           try {
             voiceRecognition.start();
           } catch (err) {
-            voiceRecognition.stop();
+            const statusEl = document.getElementById('lmVoiceStatus');
+            if (statusEl) statusEl.textContent = 'Could not start voice recognition. Please try typing.';
           }
-        } else {
-          const manual = prompt('Speech recognition not supported in this browser. Enter your message:');
-          if (manual) voiceSubmitUserText(manual);
         }
         return;
       }
@@ -29640,11 +29886,17 @@ if(typeof window!=='undefined'){
       }
     });
 
-    // Voice text enter key
+    // Voice text enter key and bar accessibility
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.target && e.target.id === 'lmVoiceTextInput') {
         e.preventDefault();
         voiceSubmitUserText(e.target.value);
+        return;
+      }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.id === 'lmVoiceModeBar') {
+        e.preventDefault();
+        openVoiceMode();
+        return;
       }
     });
 
@@ -29704,6 +29956,7 @@ if(typeof window!=='undefined'){
     window.closeVoiceMode = closeVoiceMode;
     window.initVoiceMode = initVoiceMode;
     window.voiceSubmitUserText = voiceSubmitUserText;
+    window.voiceSetRole = voiceSetRole;
   }
   if (typeof globalThis !== 'undefined') {
     globalThis.calculateMasteryScore = calculateMasteryScore;

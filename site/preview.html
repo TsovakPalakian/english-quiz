@@ -799,10 +799,11 @@
             <p class="hint" id="lmPdfImportStatus" hidden></p>
 
             <!-- Voice mode notification bar -->
-            <div class="lm-voice-mode-bar" style="padding:10px 14px; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.2); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div class="lm-voice-mode-bar" id="lmVoiceModeBar" role="button" tabindex="0" style="padding:10px 14px; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.2); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; cursor:pointer;" aria-label="Open Voice Mode">
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:16px;">🎙️</span>
-                <span style="font-size:12px; font-weight:700; color:var(--saas-text, #334155);">Voice Mode in Antigravity (AI Tutor & Oral Examiner)</span>
+                <span style="font-size:12px; font-weight:700; color:var(--saas-text, #334155);">Voice Mode in Antigravity (AI Tutor & Speaking Examiner)</span>
+                <span class="pill-badge" style="font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:rgba(37,99,235,0.12); color:#2563eb;">Open AI Tutor</span>
               </div>
               <small style="font-size:11px; color:#64748b;">AI answers may contain inaccuracies. Teacher maintains final review authority.</small>
             </div>
@@ -906,7 +907,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--saas-border, #e2e8f0); padding-bottom:12px;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-size:20px;">🎙️</span>
-                <h3 id="lmVoiceModalTitle" style="margin:0; font-size:16px; font-weight:800; color:var(--saas-text, #0f172a);">Voice Mode · AI Tutor & Oral Examiner</h3>
+                <h3 id="lmVoiceModalTitle" style="margin:0; font-size:16px; font-weight:800; color:var(--saas-text, #0f172a);">Voice Mode · AI Tutor & Speaking Examiner</h3>
               </div>
               <button type="button" id="lmVoiceCloseBtn" class="btn ghost saas-btn" style="font-size:18px; line-height:1; cursor:pointer;" aria-label="Close Voice Mode">&times;</button>
             </div>
@@ -914,6 +915,13 @@
             <!-- Mandatory Disclaimer (Screenshot 43) -->
             <div class="lm-voice-disclaimer" style="padding:10px 14px; background:#fef3c7; border:1px solid #f59e0b; border-radius:8px; font-size:12px; color:#92400e; font-weight:600; line-height:1.4;">
               ⚠️ AI-generated responses may contain inaccuracies. Double-check important facts and language rules with your teacher.
+            </div>
+
+            <!-- Role Selector: AI Tutor / Speaking Examiner -->
+            <div class="lm-voice-role-selector" style="display:flex; gap:8px; align-items:center;">
+              <span style="font-size:12px; font-weight:700; color:var(--saas-text, #475569);">Mode:</span>
+              <button type="button" id="lmVoiceRoleTutorBtn" class="pill-btn on" style="font-size:11px; padding:3px 10px; border-radius:6px; font-weight:700;">🤖 AI Tutor</button>
+              <button type="button" id="lmVoiceRoleExaminerBtn" class="pill-btn" style="font-size:11px; padding:3px 10px; border-radius:6px; font-weight:700;">🎓 Speaking Examiner</button>
             </div>
 
             <!-- Dialogue History -->
