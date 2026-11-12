@@ -108,9 +108,10 @@ test('Stage 16: Two-Factor Verification (Gemini AI + Teacher Final Word)', async
 
 test('Stage 18 & 19: Preview HTML and Teacher Verification Elements', () => {
   const htmlContent = fs.readFileSync(path.join(rootDir, 'site/preview.html'), 'utf8');
+  const lessonsJs = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
 
   // Voice mode button and modal
-  assert.ok(htmlContent.includes('id="lmVoiceModeBtn"'), 'lmVoiceModeBtn must exist in HTML');
+  assert.ok(htmlContent.includes('id="lmVoiceModeBtn"') || lessonsJs.includes('id="lmVoiceModeBtn"'), 'lmVoiceModeBtn must exist in HTML or practice bar');
   assert.ok(htmlContent.includes('id="lmApproveAllBlocksBtn"'), 'lmApproveAllBlocksBtn must exist in HTML');
   assert.ok(htmlContent.includes('id="lmVoiceModeModal"'), 'lmVoiceModeModal must exist in HTML');
 
@@ -121,7 +122,6 @@ test('Stage 18 & 19: Preview HTML and Teacher Verification Elements', () => {
   );
 
   // Lessons script contains teacher verify support
-  const lessonsJs = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
   assert.ok(lessonsJs.includes('data-block-teacher-verified'), 'data-block-teacher-verified must be in client/52-lessons.js');
   assert.ok(lessonsJs.includes('lmSyncTeacherVerifySummary'), 'lmSyncTeacherVerifySummary must be in client/52-lessons.js');
   assert.ok(lessonsJs.includes('lm-verified-badge'), 'lm-verified-badge must be in client/52-lessons.js');

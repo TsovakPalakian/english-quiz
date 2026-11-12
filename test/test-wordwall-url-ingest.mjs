@@ -311,6 +311,81 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
     assert.strictEqual(stateAfterVideoOff.count, '19', 'Active quiz count should return to 19');
     assert.strictEqual(stateAfterVideoOff.warningDisplay, 'none', 'Warning should be hidden again when Video choice is deselected');
     assert.strictEqual(stateAfterVideoOff.isInactivePill, true, 'Video choice pill should be inactive again');
+
+    // Verify Title & Description 18px headings and teacher verify pill
+    const basicInfoElements = await page.evaluate(() => {
+      const titleLabel = document.querySelector('label[for="lmTitle"]');
+      const descLabel = document.querySelector('label[for="lmDescription"]');
+      const verifyBtn = document.getElementById('lmTeacherVerifyBtn');
+      const verifyBadge = document.getElementById('lmTeacherVerifyBadge');
+      const approveAllBtn = document.getElementById('lmApproveAllBlocksBtn');
+      const previewBtn = document.getElementById('lmPreviewBtn');
+      const bottomRow = previewBtn?.parentElement;
+
+      return {
+        hasTitleHeadingClass: titleLabel?.classList.contains('lm-heading-label'),
+        hasDescHeadingClass: descLabel?.classList.contains('lm-heading-label'),
+        verifyBtnIsPillRed: verifyBtn?.classList.contains('pill-red'),
+        approveAllIsPillRed: approveAllBtn?.classList.contains('pill-red'),
+        previewHasPillBtn: previewBtn?.classList.contains('pill-btn'),
+        approveAllHasPillBtn: approveAllBtn?.classList.contains('pill-btn'),
+        bottomRowClass: bottomRow?.className
+      };
+    });
+    assert.strictEqual(basicInfoElements.hasTitleHeadingClass, true, 'Title should have lm-heading-label');
+    assert.strictEqual(basicInfoElements.hasDescHeadingClass, true, 'Description should have lm-heading-label');
+    assert.strictEqual(basicInfoElements.verifyBtnIsPillRed, true, 'Teacher verify button should start with pill-red');
+    assert.strictEqual(basicInfoElements.approveAllIsPillRed, true, 'Approve all button should start with pill-red');
+    assert.strictEqual(basicInfoElements.previewHasPillBtn, true, 'Preview button should have pill-btn class');
+    assert.strictEqual(basicInfoElements.approveAllHasPillBtn, true, 'Approve all button should have pill-btn class');
+
+    // Click Teacher Verify Pill -> should turn green
+    const stateAfterVerifyClick = await page.evaluate(() => {
+      const verifyBtn = document.getElementById('lmTeacherVerifyBtn');
+      verifyBtn?.click();
+      const badge = document.getElementById('lmTeacherVerifyBadge');
+      const approveAllBtn = document.getElementById('lmApproveAllBlocksBtn');
+      return {
+        verifyBtnIsPillGreen: verifyBtn?.classList.contains('pill-green'),
+        approveAllIsPillGreen: approveAllBtn?.classList.contains('pill-green'),
+        badgeText: badge?.textContent?.trim()
+      };
+    });
+    assert.strictEqual(stateAfterVerifyClick.verifyBtnIsPillGreen, true, 'Teacher verify button should become green after click');
+    assert.strictEqual(stateAfterVerifyClick.approveAllIsPillGreen, true, 'Approve all button should become green after verify click');
+    assert.ok(stateAfterVerifyClick.badgeText.includes('Reviewed & Approved'), 'Badge should show Reviewed & Approved');
+
+    // Click Teacher Verify Pill again -> should toggle back to red
+    const stateAfterVerifyUntoggle = await page.evaluate(() => {
+      const verifyBtn = document.getElementById('lmTeacherVerifyBtn');
+      verifyBtn?.click();
+      const badge = document.getElementById('lmTeacherVerifyBadge');
+      const approveAllBtn = document.getElementById('lmApproveAllBlocksBtn');
+      return {
+        verifyBtnIsPillRed: verifyBtn?.classList.contains('pill-red'),
+        approveAllIsPillRed: approveAllBtn?.classList.contains('pill-red'),
+        badgeText: badge?.textContent?.trim()
+      };
+    });
+    assert.strictEqual(stateAfterVerifyUntoggle.verifyBtnIsPillRed, true, 'Teacher verify button should toggle back to red');
+    assert.strictEqual(stateAfterVerifyUntoggle.approveAllIsPillRed, true, 'Approve all button should toggle back to red');
+    assert.ok(stateAfterVerifyUntoggle.badgeText.includes('Unreviewed'), 'Badge should show Unreviewed');
+
+    // Verify Row 3 in lmChromeHtml (.lm-modes-bar.seg)
+    const chromeRow3 = await page.evaluate(() => {
+      if (typeof window.lmPaintChrome === 'function') window.lmPaintChrome();
+      const slot = document.getElementById('lmChromeSlot');
+      const modesBar = slot?.querySelector('.lm-modes-bar.seg');
+      const buttons = modesBar ? Array.from(modesBar.querySelectorAll('button')).map(b => b.textContent.trim()) : [];
+      return {
+        hasModesBar: !!modesBar,
+        buttons
+      };
+    });
+    assert.strictEqual(chromeRow3.hasModesBar, true, 'lmChromeSlot should contain .lm-modes-bar.seg');
+    assert.ok(chromeRow3.buttons.includes('Day quiz'), 'Row 3 should contain Day quiz');
+    assert.ok(chromeRow3.buttons.includes('Focus Mode'), 'Row 3 should contain Focus Mode');
+    assert.ok(chromeRow3.buttons.includes('Voice Mode'), 'Row 3 should contain Voice Mode');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));

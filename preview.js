@@ -24739,7 +24739,7 @@ const STUDIO_CONSTELLATIONS = [{
       const tab = lmTab();
       const counts = lmBlockCounts(lmState);
       const tabs = [["overview", "Overview"], ["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
-      const tools = [["quiz", "Day quiz", false], ["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
+      const tools = [["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
       const tabBtns = tabs.map(pair => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? 'on' : '') + '" role="tab" aria-selected="' + (pair[0] === tab ? 'true' : 'false') + '">' + pair[1] + '</button>').join('');
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
@@ -24748,7 +24748,10 @@ const STUDIO_CONSTELLATIONS = [{
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
       const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools" role="tablist" aria-label="Lesson tools">' + toolBtns + (isDev ? (window.LearningWorkbench?.lessonSpeechButton() || '') : '') + (window.LearningWorkbench?.examButton() || '') + '</div></div>';
+      const modesBtns = '<button type="button" data-lm-tool="quiz">Day quiz</button>' +
+        '<button type="button" id="lmFocusPlayerBtn">Focus Mode</button>' +
+        '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>';
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (isDev ? (window.LearningWorkbench?.lessonSpeechButton() || '') : '') + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];
@@ -25588,6 +25591,19 @@ const STUDIO_CONSTELLATIONS = [{
         }
       });
       lmRoot.addEventListener("click", (event) => {
+        if (event.target.closest("#lmTeacherVerifyBtn")) {
+          event.preventDefault();
+          const chk = document.getElementById("lmTeacherVerifyCheckbox");
+          const val = !(chk && chk.checked);
+          if (chk) chk.checked = val;
+          if (lmState && Array.isArray(lmState.blocks)) {
+            lmState.blocks.forEach(b => { b.teacherVerified = val; });
+            lmRenderEditor();
+            lmSyncTeacherVerifySummary();
+            lmSchedule();
+          }
+          return;
+        }
         const tab = event.target.closest("[data-lm-tab]");
         if (tab) { lmSelectTab(tab.getAttribute("data-lm-tab")); return; }
         const tool = event.target.closest("[data-lm-tool]");
@@ -26350,19 +26366,42 @@ const STUDIO_CONSTELLATIONS = [{
       function lmSyncTeacherVerifySummary() {
         if (typeof document === "undefined") return;
         const chk = document.getElementById("lmTeacherVerifyCheckbox");
+        const btn = document.getElementById("lmTeacherVerifyBtn");
         const badge = document.getElementById("lmTeacherVerifyBadge");
-        if (!chk || !lmState || !Array.isArray(lmState.blocks) || lmState.blocks.length === 0) {
+        const approveAllBtn = document.getElementById("lmApproveAllBlocksBtn");
+        if (!lmState || !Array.isArray(lmState.blocks) || lmState.blocks.length === 0) {
           if (chk) chk.checked = false;
-          if (badge) badge.textContent = "Unreviewed";
+          if (btn) {
+            btn.className = "lm-teacher-pill-btn pill-red";
+            btn.innerHTML = "● Verified by Teacher";
+          }
+          if (badge) {
+            badge.style.color = "var(--bad)";
+            badge.textContent = "Unreviewed";
+          }
+          if (approveAllBtn) {
+            approveAllBtn.className = "btn secondary saas-btn lm-approve-all-btn pill-btn pill-red";
+            approveAllBtn.innerHTML = "● Approve all";
+          }
           return;
         }
         const total = lmState.blocks.length;
         const verifiedCount = lmState.blocks.filter(b => b.teacherVerified).length;
-        chk.checked = verifiedCount === total && total > 0;
+        const isAllVerified = verifiedCount === total && total > 0;
+        if (chk) chk.checked = isAllVerified;
+        if (btn) {
+          btn.className = "lm-teacher-pill-btn " + (isAllVerified ? "pill-green" : "pill-red");
+          btn.innerHTML = (isAllVerified ? "✓" : "●") + " Verified by Teacher";
+        }
         if (badge) {
-          badge.textContent = verifiedCount === total
+          badge.style.color = isAllVerified ? "var(--ok)" : "var(--bad)";
+          badge.textContent = isAllVerified
             ? "Reviewed & Approved (" + total + "/" + total + ")"
             : (verifiedCount > 0 ? "Partially Verified (" + verifiedCount + "/" + total + ")" : "Unreviewed (0/" + total + ")");
+        }
+        if (approveAllBtn) {
+          approveAllBtn.className = "btn secondary saas-btn lm-approve-all-btn pill-btn " + (isAllVerified ? "pill-green" : "pill-red");
+          approveAllBtn.innerHTML = isAllVerified ? "✓ Approved all" : "● Approve all";
         }
       }
 

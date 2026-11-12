@@ -270,7 +270,7 @@ test('Visual UI: Teacher sees Students · 3 while Developer sees Students · 6 o
     });
 
     const b1Card = page.locator('#groupList .day-row:has-text("B1 Group")');
-    await b1Card.waitFor({timeout: 5000});
+    await page.locator('#groupList .day-row:has-text("B1 Group"):has-text("Students · 3")').waitFor({timeout: 5000});
 
     const cardTextTeacher = (await b1Card.innerText()).replace(/\s+/g, ' ');
     assert.ok(cardTextTeacher.includes('Students · 3'), `Teacher must see Students · 3, saw: ${cardTextTeacher}`);
@@ -292,7 +292,7 @@ test('Visual UI: Teacher sees Students · 3 while Developer sees Students · 6 o
       if (typeof paintGroups === 'function') paintGroups();
     });
 
-    await page.waitForTimeout(100);
+    await page.locator('#groupList .day-row:has-text("B1 Group"):has-text("Students · 6")').waitFor({timeout: 5000});
     const cardTextDev = (await b1Card.innerText()).replace(/\s+/g, ' ');
     assert.ok(cardTextDev.includes('Students · 6'), `Developer must see Students · 6, saw: ${cardTextDev}`);
 

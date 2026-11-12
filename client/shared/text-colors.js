@@ -30,6 +30,9 @@
     const single=field.tagName==='INPUT';
     const rich=document.createElement('div');rich.className='text-color-rich'+(single?' is-single-line':'');rich.contentEditable='true';rich.setAttribute('role','textbox');rich.setAttribute('aria-multiline',String(!single));rich.setAttribute('aria-label',field.getAttribute('aria-label')||'Formatted text');
     rich.hidden=true;field.before(wrap);wrap.append(tools,field,rich);tools.append(palette);
+    const head=wrap.parentElement?.querySelector('.lm-field-head');if(head&&!options.richTools)head.append(tools);
+    rich.addEventListener('pointerdown',event=>{event.stopPropagation();});
+    rich.addEventListener('click',event=>{event.stopPropagation();});
     const state={field,rich,options,format:options.format,active:false};mounted.set(field,state);
     function update(){if(field.disabled||field.readOnly)return;const format=read(rich,!!options.richTools);field.value=format.runs.map(run=>run.text).join('');state.format=format;options.onChange?.(format);field.dispatchEvent(new Event('input',{bubbles:true}));}
     function activate(){
