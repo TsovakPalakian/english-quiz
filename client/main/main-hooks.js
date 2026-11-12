@@ -579,6 +579,30 @@ function stageStoreText(analyze){
   if(!stageOwnReady()&&!managed){window.LearningMain.notice('Дождитесь загрузки профиля.',true);return;}
   const accountId=viewAccount?.id||'',generation=viewGen;
   const title=document.getElementById('textTitle').value.trim(),text=document.getElementById('textBody').value.replace(/\r\n/g,'\n').trim();
+  const status=document.getElementById('textStatus');
+  if(!title){
+    const msg='Write the text title.';
+    if(status){status.textContent=msg;status.classList?.add?.('bad');}
+    window.LearningMain?.notice?.(msg,true);
+    const titleInput=document.getElementById('textTitle');
+    titleInput?.focus?.();
+    return;
+  }
+  if(!text){
+    const msg='Paste the text.';
+    if(status){status.textContent=msg;status.classList?.add?.('bad');}
+    window.LearningMain?.notice?.(msg,true);
+    const textInput=document.getElementById('textBody');
+    textInput?.focus?.();
+    return;
+  }
+  if(text.length>2000000){
+    const msg='That text is too long ('+text.length+' characters). Limit is 2000000.';
+    if(status){status.textContent=msg;status.classList?.add?.('bad');}
+    window.LearningMain?.notice?.(msg,true);
+    return;
+  }
+  if(status)status.classList?.remove?.('bad');
   const item=loadTexts().find(row=>row.id===openTextId)|| (stageTextDraft ||= {});
   const format=window.TextColors?.trim(window.TextColors.format(document.getElementById('textBody')),document.getElementById('textBody').value)||null;
   if(managed&&item.stageId&&item.stageScope!=='profile'){window.LearningMain.notice('Общие тексты нельзя менять в личном профиле.',true);return;}

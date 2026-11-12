@@ -6,7 +6,6 @@
 - Before editing code, briefly state your understanding in Russian.
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
 - Always attach visual screenshots or mockups demonstrating your understanding of any proposed UI changes or feature designs.
-- Mandatory: for all generated screenshots and mockups, always use the 'sky' theme.
 - Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
 - Mandatory: always attach final approved screenshots directly into the task's Markdown (.md) document in docs/ prior to implementation.
 - Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.
@@ -29,9 +28,6 @@
 - Edit site JavaScript only in client/; root preview.js is generated from client/*.js by `npm run build:preview` and is never edited by hand.
 - Edit chat JavaScript only in production/chat/; production/chat.js is generated from production/chat/*.js by the same command and is never edited by hand.
 - Always remove temporary and service scripts upon task completion; never leave scratch or validation files in the repository workspace.
-- Mandatory: at the end of every response, question, or task completion, move/stage all files belonging to the current task into Git changes (staged changes via git add), and ensure all other files that do not belong to the current task are unindexed and kept untracked/unstaged (never deleted, but moved to untracked) to keep the staged changes strictly isolated to the current task.
-- Mandatory: for every new task or new chat session, always create and activate a dedicated new changelist in JetBrains IDE (.idea/workspace.xml under ChangeListManager) named after the task/topic (or with prefix 'tmp-{sequence_number}' if no task number exists), ensuring all edits for that task remain isolated in their own changelist.
-- Mandatory: for parallel tasks or concurrent chats, automatically isolate execution by provisioning a dedicated git worktree ('git worktree add ../english-quiz-<task> -b task/<task>', using 'tmp-<sequence_number>' if no task number exists) with its own branch and JetBrains changelist, preventing collisions and file overwrites between simultaneous sessions; clean up the worktree upon task completion.
 - Jira Scope: для проекта `english-quiz` доступна и используется исключительно Jira Atlassian Cloud: `https://lumiscia.atlassian.net` (проект `TASK`, доска `https://lumiscia.atlassian.net/jira/software/projects/TASK/boards/1?filter=&groupBy=none`). Доступ осуществляется через `twg` / Atlassian Cloud. Использование корпоративной Jira (`jira.moscow.alfaintra.net`) в рамках этого проекта строго запрещено.
 
 # Zero-Compression Forensic Code Audit Protocol

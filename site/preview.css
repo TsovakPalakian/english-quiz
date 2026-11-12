@@ -2904,7 +2904,9 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-teacher-verify-status { font-size: 13px; font-weight: 600; }
 .lm-teacher-verify-status.status-red { color: var(--bad); }
 .lm-teacher-verify-status.status-green { color: var(--ok); }
-.lm-bottom-actions-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
+.lm-bottom-actions-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.lm-bottom-actions-row .lm-preview-btn { margin: 0 !important; }
+.lm-bottom-actions-row .lm-approve-all-btn { margin: 0 !important; }
 .lm-bottom-actions-row .pill-btn { border-radius: 9999px !important; padding: 9px 24px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; }
 .lm-preview-btn.pill-btn { background: var(--card); color: var(--acc); border: 1.5px solid var(--acc); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .flip-scene { perspective: 900px; margin: 8px 0 12px; cursor: pointer; }

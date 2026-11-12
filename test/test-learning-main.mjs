@@ -2033,6 +2033,71 @@ test('Managed removal waits for acknowledgement, filters exact ID/place and igno
   assert.equal(list.length,1);assert.equal(list[0].place,'phrasal');assert.equal(removed[1].account,'b'.repeat(32));
   const late=context.stageDeleteDefinition(host);context.viewGen++;context.viewAccount=null;pending.shift().resolve({revision:3});await late;assert.equal(list.length,1);
 });
+test('stageStoreText validates title and body locally before perform or network save',async()=>{
+  const notices=[],focused=[];
+  const status={
+    textContent:'',
+    classList:{
+      classes:new Set(),
+      add(c){this.classes.add(c);},
+      remove(c){this.classes.delete(c);},
+      contains(c){return this.classes.has(c);}
+    }
+  };
+  const elements={
+    textTitle:{value:'',focus(){focused.push('textTitle');}},
+    textBody:{value:'',focus(){focused.push('textBody');}},
+    textStatus:status,
+    textReadStatus:{}
+  };
+  let performCalled=false;
+  const context={
+    authUser:{id:'u1',role:'ADMIN'},accountReady:true,viewAccount:null,viewGen:1,viewSwitching:false,
+    openTextId:'',loadTexts:()=>[],stageInstallLibrary(){},showText(){},
+    document:{addEventListener(){},getElementById:id=>elements[id]},
+    window:{
+      LearningMain:{
+        notice:(msg,bad)=>notices.push({msg,bad}),
+        perform:async()=>{performCalled=true;}
+      }
+    }
+  };
+  runInNewContext(readFileSync(new URL('../client/main/main-hooks.js',import.meta.url),'utf8'),context);
+
+  // 1. Both empty -> fails on title
+  const res1=context.stageStoreText(false);
+  assert.equal(res1,undefined);
+  assert.equal(status.textContent,'Write the text title.');
+  assert.equal(status.classList.contains('bad'),true);
+  assert.equal(notices.at(-1)?.msg,'Write the text title.');
+  assert.equal(focused.at(-1),'textTitle');
+  assert.equal(performCalled,false);
+
+  // 2. Title set, text empty -> fails on text
+  elements.textTitle.value='Article Title';
+  const res2=context.stageStoreText(false);
+  assert.equal(res2,undefined);
+  assert.equal(status.textContent,'Paste the text.');
+  assert.equal(status.classList.contains('bad'),true);
+  assert.equal(notices.at(-1)?.msg,'Paste the text.');
+  assert.equal(focused.at(-1),'textBody');
+  assert.equal(performCalled,false);
+
+  // 3. Text exceeds 2000000 limit -> fails on length
+  elements.textBody.value='a'.repeat(2000001);
+  const res3=context.stageStoreText(false);
+  assert.equal(res3,undefined);
+  assert.equal(status.textContent,'That text is too long (2000001 characters). Limit is 2000000.');
+  assert.equal(status.classList.contains('bad'),true);
+  assert.equal(notices.at(-1)?.msg,'That text is too long (2000001 characters). Limit is 2000000.');
+  assert.equal(performCalled,false);
+
+  // 4. Valid title and text -> passes validation and invokes perform
+  elements.textBody.value='Valid body text';
+  context.stageStoreText(false);
+  assert.equal(performCalled,true);
+  assert.equal(status.classList.contains('bad'),false);
+});
 test('Managed text UI waits for acknowledgement and ignores a response after leaving the target',async()=>{
   const pending=[],saved=[],item={id:'text',stageId:'text',stageScope:'profile',stageRevision:1,title:'Old',text:'Body'};
   const elements={textTitle:{value:'New'},textBody:{value:'Body'},textStatus:{},textReadStatus:{}};

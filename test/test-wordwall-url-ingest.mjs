@@ -329,7 +329,8 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
         approveAllIsPillRed: approveAllBtn?.classList.contains('pill-red'),
         previewHasPillBtn: previewBtn?.classList.contains('pill-btn'),
         approveAllHasPillBtn: approveAllBtn?.classList.contains('pill-btn'),
-        bottomRowClass: bottomRow?.className
+        bottomRowClass: bottomRow?.className,
+        previewMarginRight: window.getComputedStyle(previewBtn).marginRight
       };
     });
     assert.strictEqual(basicInfoElements.hasTitleHeadingClass, true, 'Title should have lm-heading-label');
@@ -338,6 +339,7 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
     assert.strictEqual(basicInfoElements.approveAllIsPillRed, true, 'Approve all button should start with pill-red');
     assert.strictEqual(basicInfoElements.previewHasPillBtn, true, 'Preview button should have pill-btn class');
     assert.strictEqual(basicInfoElements.approveAllHasPillBtn, true, 'Approve all button should have pill-btn class');
+    assert.strictEqual(basicInfoElements.previewMarginRight, '0px', 'Preview button should have 0px margin to remain adjacent to Approve all');
 
     // Click Teacher Verify Pill -> should turn green
     const stateAfterVerifyClick = await page.evaluate(() => {

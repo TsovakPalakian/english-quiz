@@ -1237,12 +1237,14 @@ export function integratedWorker({accountWorker=accounts,authenticate=currentUse
         const breadcrumbsLimit=await setFeedbackBreadcrumbsLimit(db,body.breadcrumbsLimit);
         return json({ok:true,breadcrumbsLimit});
       }
-      if(path==='/api/ci/telegram-recipients'&&method==='GET'){
+      if(path==='/api/ci/telegram-recipients'){
+        if(!['GET','HEAD'].includes(method))throw new StudyError(405,'Use GET or HEAD.');
         const botToken=env?.TELEGRAM_BOT_TOKEN;
         if(!botToken)throw new StudyError(503,'Telegram bot is not configured.');
         const authHeader=request.headers.get('Authorization')||'';
         const expectedHeader='Bearer '+botToken;
         if(authHeader!==expectedHeader)throw new StudyError(401,'Unauthorized CI dispatch request.');
+        if(method==='HEAD')return new Response(null,{status:200,headers:{'Content-Type':'application/json','Cache-Control':'private, no-store'}});
         const db=studyDatabase(env);
         const allRecipients=await getTelegramRecipients(db);
         const activeRecipients=allRecipients.filter(r=>r.status==='active');

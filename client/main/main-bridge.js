@@ -192,7 +192,7 @@
     if((status===502||status===503||status===504||status===429)&&(path==='/api/lessons/parse-pdf'||entry.error?.includes?.('timed out')||entry.error?.includes?.('quota')||entry.error?.includes?.('Could not analyse this PDF')))return;
     if(status===0&&(entry.error?.includes?.('Personal changes are not saved yet')||entry.error?.includes?.('Wait for pending personal changes')||entry.error?.includes?.('Дождитесь сохранения личной очереди.')||entry.error?.includes?.('Unconfirmed operation')||entry.error?.includes?.('Select an exact shared card for this quiz')||entry.error?.includes?.('This draft is not saved')||entry.error?.includes?.('Нельзя однозначно выбрать общую карточку для квиза. Запись не отправлена.')||entry.error?.includes?.('Это несохранённый черновик. «Проверить сервер» уберёт его без записи в БД.')))return;
     if(status===0&&['GET','HEAD'].includes(String(entry.method||'GET').toUpperCase()))return;
-    if(status===0&&path==='/api/cards/lookup')return;
+    if(status===0&&(path==='/api/cards/lookup'||path==='/api/analyze'))return;
     // Stale Approve/Reject after a successful decision or group conflict is expected; do not fill the bug journal.
     if(status===409&&(path==='/api/groups'||/^\/api\/admin\/(registrations|changes)\/[^/]+\/(approve|reject)$/.test(path)))return;
     if(status===403&&['/api/admin/changes','/api/admin/registrations','/api/admin/users'].includes(path)&&(entry.error==='Teachers only.'||entry.error?.includes?.('Teachers only')))return;
@@ -236,7 +236,7 @@
     const requestBody=typeof options.body==='string'?options.body:options.body==null?'':'[binary]';
     const requestHeaders={'Content-Type':'application/json','X-Client-Bug':'1',...options.headers};
     bugRemember('request',{method,path:String(path).slice(0,300)});
-    const isIdempotent=method==='GET'||method==='HEAD';
+    const isIdempotent=method==='GET'||method==='HEAD'||path==='/api/analyze';
     let response,lastCause;
     const maxAttempts=isIdempotent?2:1;
     for(let attempt=1;attempt<=maxAttempts;attempt++){

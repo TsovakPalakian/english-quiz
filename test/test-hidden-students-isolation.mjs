@@ -267,12 +267,22 @@ test('Visual UI: Teacher sees Students · 3 while Developer sees Students · 6 o
       groupViewLevel = 'B1';
       await groupPull(true);
       window.enquizVisit('groups');
+      if (typeof loadGroupDirectory === 'function') {
+        await loadGroupDirectory(true);
+      }
     });
 
-    const b1Card = page.locator('#groupList .day-row:has-text("B1 Group")');
-    await page.locator('#groupList .day-row:has-text("B1 Group"):has-text("Students · 3")').waitFor({timeout: 5000});
+    await page.waitForFunction(() => {
+      const card = document.querySelector('#groupList .day-row');
+      const text = card?.innerText?.replace(/\s+/g, ' ') || '';
+      return text.includes('B1 Group') && text.includes('Students · 3') && text.includes('Lessons · 21');
+    }, { timeout: 5000 });
 
-    const cardTextTeacher = (await b1Card.innerText()).replace(/\s+/g, ' ');
+    const b1Card = page.locator('#groupList .day-row:has-text("B1 Group")');
+    const cardTextTeacher = await page.evaluate(() => {
+      const card = document.querySelector('#groupList .day-row');
+      return card?.innerText?.replace(/\s+/g, ' ') || '';
+    });
     assert.ok(cardTextTeacher.includes('Students · 3'), `Teacher must see Students · 3, saw: ${cardTextTeacher}`);
     assert.ok(!cardTextTeacher.includes('Students · 6'), `Teacher must NOT see Students · 6, saw: ${cardTextTeacher}`);
     assert.ok(cardTextTeacher.includes('Lessons · 21'), `Teacher must see Lessons · 21, saw: ${cardTextTeacher}`);
@@ -292,8 +302,16 @@ test('Visual UI: Teacher sees Students · 3 while Developer sees Students · 6 o
       if (typeof paintGroups === 'function') paintGroups();
     });
 
-    await page.locator('#groupList .day-row:has-text("B1 Group"):has-text("Students · 6")').waitFor({timeout: 5000});
-    const cardTextDev = (await b1Card.innerText()).replace(/\s+/g, ' ');
+    await page.waitForFunction(() => {
+      const card = document.querySelector('#groupList .day-row');
+      const text = card?.innerText?.replace(/\s+/g, ' ') || '';
+      return text.includes('B1 Group') && text.includes('Students · 6');
+    }, { timeout: 5000 });
+
+    const cardTextDev = await page.evaluate(() => {
+      const card = document.querySelector('#groupList .day-row');
+      return card?.innerText?.replace(/\s+/g, ' ') || '';
+    });
     assert.ok(cardTextDev.includes('Students · 6'), `Developer must see Students · 6, saw: ${cardTextDev}`);
 
   } finally {

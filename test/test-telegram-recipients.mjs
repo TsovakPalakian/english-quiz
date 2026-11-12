@@ -236,6 +236,32 @@ test('integrated worker /api/feedback/telegram-recipients and test endpoints', a
   assert.equal(ciJson.recipients[0].chatId, '-100123456789');
   assert.equal(ciJson.allRecipients.length, 2);
 
+  // 4. HEAD request with valid Bearer token -> 200 without body
+  const ciHeadAuthorized = await worker.fetch(new Request('https://test.invalid/api/ci/telegram-recipients', {
+    method: 'HEAD',
+    headers: { Authorization: 'Bearer ' + env.TELEGRAM_BOT_TOKEN }
+  }), env);
+  assert.equal(ciHeadAuthorized.status, 200);
+  assert.equal(ciHeadAuthorized.headers.get('Content-Type'), 'application/json');
+  const headBody = await ciHeadAuthorized.text();
+  assert.equal(headBody, '');
+
+  // 5. HEAD request without auth -> 401
+  const ciHeadUnauthorized = await worker.fetch(new Request('https://test.invalid/api/ci/telegram-recipients', {
+    method: 'HEAD'
+  }), env);
+  assert.equal(ciHeadUnauthorized.status, 401);
+
+  // 6. Unsupported method -> 405
+  const ciMethodNotAllowed = await worker.fetch(new Request('https://test.invalid/api/ci/telegram-recipients', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + env.TELEGRAM_BOT_TOKEN,
+      Origin: 'https://test.invalid'
+    }
+  }), env);
+  assert.equal(ciMethodNotAllowed.status, 405);
+
   // Test resolveTelegramChats using mock fetch against the worker
   const resolvedChats = await resolveTelegramChats({
     APP_URL: 'https://test.invalid',

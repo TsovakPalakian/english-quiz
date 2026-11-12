@@ -13,6 +13,8 @@ test('client bridge retry and error handling for GET vs mutation', async () => {
 
   // Verify status === 0 filter for GET/HEAD
   assert.ok(bridgeCode.includes("status===0&&['GET','HEAD'].includes(String(entry.method||'GET').toUpperCase())"));
+  assert.ok(bridgeCode.includes("isIdempotent=method==='GET'||method==='HEAD'||path==='/api/analyze'"));
+  assert.ok(bridgeCode.includes("path==='/api/cards/lookup'||path==='/api/analyze'"));
 });
 
 test('production asset builder translates read error message without Cyrillic', async () => {
