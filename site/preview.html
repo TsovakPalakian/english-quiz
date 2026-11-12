@@ -737,10 +737,10 @@
                   <div id="lmCurrentLessonInfo" style="font-size:13px; font-weight:600; color:#065f46;">
                     📚 Active Lesson: <strong id="lmCurrentLessonTitle"></strong> (<span id="lmCurrentLessonStats"></span>)
                   </div>
-                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--acc, #0284c7);">
-                    <span>Generate count:</span>
-                    <input type="number" id="lmTaskCountPerSection" value="3" min="1" max="100" step="1" style="width:44px; padding:6px 8px; font-size:13px; font-weight:700; border:1.5px solid var(--saas-border, #bae6fd); border-radius:6px; text-align:center;">
-                    <span id="lmTaskTotalSummary">(Total: 6)</span>
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--acc, #0284c7);">
+                    <span>Count:</span>
+                    <input type="number" id="lmTaskCountPerSection" value="3" min="1" max="100" step="1" style="width:48px; padding:6px 8px; font-size:13px; font-weight:700; border:1.5px solid var(--saas-border, #bae6fd); border-radius:6px; text-align:center;">
+                    <span id="lmTaskTotalSummary" style="display:none;">(Total: 6)</span>
                   </div>
                 </div>
 
@@ -814,8 +814,16 @@
               <h2>Basic information</h2>
               <span class="pill-badge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:rgba(16,185,129,0.1); color:#10b981;">Metadata</span>
             </div>
-            <label>Title<input id="lmTitle" type="text" data-meta="title" maxlength="80" /></label>
-            <label>Description<textarea id="lmDescription" data-meta="description" maxlength="240"></textarea></label>
+            <div class="lm-field-group" style="margin-bottom:16px;">
+              <label for="lmTitle" class="lm-heading-label">Title</label>
+              <input id="lmTitle" type="text" data-meta="title" maxlength="80" />
+            </div>
+            <div class="lm-field-group" style="margin-bottom:16px;">
+              <div class="lm-field-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <label for="lmDescription" class="lm-heading-label" style="margin:0;">Description</label>
+              </div>
+              <textarea id="lmDescription" data-meta="description" maxlength="240"></textarea>
+            </div>
             <div class="lm-four">
               <label>Date<span class="date-control"><input id="lmDate" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" maxlength="10" data-meta="date" /><button class="date-picker-btn" type="button" data-date-picker="lmDate" aria-label="Choose date"></button></span></label>
               <label>Class<input id="lmClass" type="text" data-meta="className" maxlength="40" /></label>
@@ -824,11 +832,12 @@
             </div>
 
             <!-- Teacher Verification Row -->
-            <div class="lm-teacher-verify-row" style="margin-top:14px; padding:10px 14px; background:rgba(16, 185, 129, 0.08); border:1px solid rgba(16, 185, 129, 0.25); border-radius:8px; display:flex; align-items:center; justify-content:space-between;">
-              <label style="font-size:13px; font-weight:700; color:#065f46; display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
-                <input type="checkbox" id="lmTeacherVerifyCheckbox" style="accent-color:#10b981; width:16px; height:16px;"> Verified by Teacher
-              </label>
-              <span style="font-size:11.5px; color:#047857; font-weight:600;" id="lmTeacherVerifyBadge">Reviewed & Approved</span>
+            <div class="lm-teacher-verify-row">
+              <button type="button" id="lmTeacherVerifyBtn" class="lm-teacher-pill-btn pill-red">
+                ● Verified by Teacher
+              </button>
+              <input type="checkbox" id="lmTeacherVerifyCheckbox" style="display:none;" aria-hidden="true" />
+              <span style="font-size:13px; font-weight:600;" id="lmTeacherVerifyBadge">Unreviewed</span>
             </div>
           </section>
           <div id="lmChromeSlot"></div>
@@ -883,11 +892,9 @@
                 </div>
               </div>
             </div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <button class="lm-preview-btn" type="button" id="lmPreviewBtn">Preview</button>
-              <button class="btn secondary saas-btn" type="button" id="lmFocusPlayerBtn" style="font-size:12.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">🎯 Focus Mode</button>
-              <button class="btn secondary saas-btn" type="button" id="lmVoiceModeBtn" style="font-size:12.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px;">🎙️ Voice Mode</button>
-              <button class="btn secondary saas-btn" type="button" id="lmApproveAllBlocksBtn" style="font-size:12.5px; font-weight:700; display:inline-flex; align-items:center; gap:6px; color:#047857;">✓ Approve All</button>
+            <div class="lm-bottom-actions-row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; margin-top:12px;">
+              <button class="lm-preview-btn pill-btn" type="button" id="lmPreviewBtn">Preview</button>
+              <button class="btn secondary saas-btn lm-approve-all-btn pill-btn pill-red" type="button" id="lmApproveAllBlocksBtn">● Approve all</button>
             </div>
           </section>
         </div>

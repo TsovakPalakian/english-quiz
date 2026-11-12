@@ -2893,9 +2893,20 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .accounts-group-create input,#adminGroupDetail input,#adminGroupDetail select { flex:1; min-width:160px; }
 :root[data-high-visibility="1"] .lm-assignment { border:3px solid var(--assignment-accent); background:var(--card); }
 .lm-chrome .seg { margin: 0 0 8px; border-radius: 16px; }
-.lm-daytools { display: flex; gap: 4px; margin-top: 0; background: var(--acc-s); border-radius: 16px; padding: 4px; }
-.lm-daytools button { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--acc); border-radius: 10px; min-height: 40px; padding: 8px 6px; font-weight: 800; }
-.lm-daytools button.on { background: var(--card); }
+.lm-daytools, .lm-modes-bar { display: flex; gap: 4px; margin-top: 0; background: var(--acc-s); border-radius: 16px; padding: 4px; }
+.lm-daytools button, .lm-modes-bar button { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--acc); border-radius: 10px; min-height: 40px; padding: 8px 6px; font-weight: 800; cursor: pointer; }
+.lm-daytools button.on, .lm-modes-bar button.on { background: var(--card); }
+.lm-heading-label { font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 8px; display: block; letter-spacing: -0.01em; }
+.lm-teacher-verify-row { padding: 12px 16px; background: var(--card); border: 1.5px solid var(--line); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; margin-top: 16px; }
+.lm-teacher-pill-btn { display: inline-flex; align-items: center; gap: 8px; padding: 6px 18px; border-radius: 9999px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s ease; border: 1.5px solid transparent; }
+.lm-teacher-pill-btn.pill-red, .lm-approve-all-btn.pill-red { background: var(--bad-s) !important; color: var(--bad) !important; border-color: var(--bad) !important; }
+.lm-teacher-pill-btn.pill-green, .lm-approve-all-btn.pill-green { background: var(--ok-s) !important; color: var(--ok) !important; border-color: var(--ok) !important; }
+.lm-teacher-verify-status { font-size: 13px; font-weight: 600; }
+.lm-teacher-verify-status.status-red { color: var(--bad); }
+.lm-teacher-verify-status.status-green { color: var(--ok); }
+.lm-bottom-actions-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 12px; }
+.lm-bottom-actions-row .pill-btn { border-radius: 9999px !important; padding: 9px 24px; font-size: 13.5px; font-weight: 700; cursor: pointer; border: 1.5px solid transparent; }
+.lm-preview-btn.pill-btn { background: var(--card); color: var(--acc); border: 1.5px solid var(--acc); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .flip-scene { perspective: 900px; margin: 8px 0 12px; cursor: pointer; }
 .flip-inner {
   position: relative;

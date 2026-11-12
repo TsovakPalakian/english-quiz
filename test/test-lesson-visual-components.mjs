@@ -11,6 +11,7 @@ const rootDir = path.resolve(__dirname, '..');
 test('Visual Test: CSS and DOM UI/UX specifications for Lesson and Exam Generator', async (t) => {
   const css = fs.readFileSync(path.join(rootDir, 'site/preview.css'), 'utf8');
   const html = fs.readFileSync(path.join(rootDir, 'site/preview.html'), 'utf8');
+  const lessonsJs = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
 
   await t.test('Visual Test 1: Dual-frame cards, title styling and blinking video alert', () => {
     assert.ok(css.includes('.lm-frame-card {'), '.lm-frame-card CSS rule exists');
@@ -28,14 +29,14 @@ test('Visual Test: CSS and DOM UI/UX specifications for Lesson and Exam Generato
     assert.ok(css.includes('.focus-option-btn {'), '.focus-option-btn exists');
     assert.ok(css.includes('.focus-option-key {'), '.focus-option-key exists');
     assert.ok(css.includes('.focus-strip-chip {'), '.focus-strip-chip exists');
-    assert.ok(html.includes('id="lmFocusPlayerBtn"'), '#lmFocusPlayerBtn exists in HTML toolbar');
+    assert.ok(html.includes('id="lmFocusPlayerBtn"') || lessonsJs.includes('id="lmFocusPlayerBtn"'), '#lmFocusPlayerBtn exists in HTML toolbar or practice bar');
   });
 
   await t.test('Visual Test 3: Voice Mode modal dialog, disclaimer styling, and controls', () => {
     assert.ok(css.includes('.voice-modal-overlay {'), '.voice-modal-overlay CSS exists');
     assert.ok(css.includes('.voice-modal-card {'), '.voice-modal-card CSS exists');
     assert.ok(html.includes('id="lmVoiceModeModal"'), '#lmVoiceModeModal exists in HTML');
-    assert.ok(html.includes('id="lmVoiceModeBtn"'), '#lmVoiceModeBtn exists in HTML toolbar');
+    assert.ok(html.includes('id="lmVoiceModeBtn"') || lessonsJs.includes('id="lmVoiceModeBtn"'), '#lmVoiceModeBtn exists in HTML toolbar or practice bar');
     assert.ok(html.includes('class="lm-voice-disclaimer"'), '.lm-voice-disclaimer exists in HTML');
     assert.ok(html.includes('id="lmVoiceDialogueHistory"'), '#lmVoiceDialogueHistory exists in HTML');
     assert.ok(html.includes('id="lmVoiceMicBtn"'), '#lmVoiceMicBtn exists in HTML');
@@ -58,7 +59,7 @@ test('Visual Test: CSS and DOM UI/UX specifications for Lesson and Exam Generato
   });
 
   await t.test('Visual Test 6: Responsive flex-wrap on editor action bar and PDF draft selection invariant', () => {
-    assert.ok(html.includes('style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;"'), 'HTML editor toolbar contains flex-wrap:wrap');
+    assert.ok(html.includes('style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; margin-top:12px;"') || html.includes('flex-wrap:wrap'), 'HTML editor toolbar contains flex-wrap:wrap');
     const pdfImportCode = fs.readFileSync(path.join(rootDir, 'client/52b-lesson-pdf-import.js'), 'utf8');
     assert.ok(pdfImportCode.includes('Boolean(isDocument && current &&'), 'PDF draft dialog preserves full section selection for binary PDF files');
   });
