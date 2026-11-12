@@ -28977,7 +28977,10 @@ if(typeof document!=='undefined'){
       if (!text && hasBlocks) {
         text = lmExtractLessonContextText(lmState);
       }
-      if (!text) return;
+      if (!text) {
+        if (status) status.textContent = 'Enter a script or topic description first.';
+        return;
+      }
       if (status) status.textContent = isExam ? (hasBlocks ? 'Generating exam tasks…' : 'Generating exam structure…') : (hasBlocks ? 'Generating lesson tasks…' : 'Generating lesson structure…');
       try {
         await lmGenerateLessonFromScript(text);
