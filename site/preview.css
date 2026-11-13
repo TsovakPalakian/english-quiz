@@ -3298,6 +3298,94 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-pdf-ring.is-indeterminate { background:conic-gradient(var(--accent,#0caf83) 90deg,var(--line,#d8e4e2) 0); animation:lm-pdf-turn 3s linear infinite; }
 .lm-pdf-ring.is-indeterminate>span { animation:lm-pdf-turn 3s linear infinite reverse; }
 @keyframes lm-pdf-turn { to { transform:rotate(360deg); } }
+
+/* Clean Numeric Input Without Arrows */
+.lm-no-spin,
+#lmTaskCountPerSection {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+.lm-no-spin::-webkit-inner-spin-button,
+.lm-no-spin::-webkit-outer-spin-button,
+#lmTaskCountPerSection::-webkit-inner-spin-button,
+#lmTaskCountPerSection::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+/* Unified Progress Box for All Generation Tabs */
+.lm-progress-box {
+  margin-top: 14px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+.lm-progress-box.is-indeterminate {
+  background: #f0f9ff;
+  border-color: #7dd3fc;
+}
+.lm-progress-box.is-success {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+.lm-progress-track {
+  width: 100%;
+  height: 9px;
+  background: #e2e8f0;
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.lm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7 0%, #059669 100%);
+  border-radius: 9999px;
+  transition: width 0.25s ease;
+}
+.lm-progress-fill.is-done {
+  background: #059669;
+}
+@keyframes lmSpin {
+  100% { transform: rotate(360deg); }
+}
+.lm-spin {
+  display: inline-block;
+  animation: lmSpin 1s linear infinite;
+}
+
+/* Undo Generation Button & Banner */
+.lm-undo-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #ecfdf5;
+  border: 1.5px solid #10b981;
+  border-radius: 8px;
+}
+.btn-undo {
+  background: #ffffff;
+  color: #dc2626;
+  border: 1.5px solid #fca5a5;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+.btn-undo:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
 @media(prefers-reduced-motion:reduce) { .lm-pdf-ring.is-indeterminate,.lm-pdf-ring.is-indeterminate>span { animation:none; } }
 #material[data-lm-kind="exam"] .lm-pdf-import,
 #material[data-lm-kind="exam"] #lmPdfImportStatus { display: none !important; }

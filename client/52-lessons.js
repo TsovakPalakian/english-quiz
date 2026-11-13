@@ -2570,14 +2570,35 @@
         const lessonTabBtn = document.getElementById("lmTabBtnLesson");
         const titleEl = document.getElementById("lmCurrentLessonTitle");
         const statsEl = document.getElementById("lmCurrentLessonStats");
-        const hasBlocks = !!(lmState && Array.isArray(lmState.blocks) && lmState.blocks.length > 0);
+        const appendBadge = document.getElementById("lmAppendModeBadge");
+        const appendTitle = document.getElementById("lmAppendModeLessonTitle");
+        const appendStats = document.getElementById("lmAppendModeLessonStats");
+
+        const hasExisting = Boolean(
+          typeof window.lmHasExistingLesson === "function"
+            ? window.lmHasExistingLesson(lmState)
+            : (lmState && ((Array.isArray(lmState.blocks) && lmState.blocks.length > 0) || lmState.title || lmState.description || lmState.id))
+        );
+
+        if (appendBadge) {
+          if (hasExisting) {
+            appendBadge.style.display = "flex";
+            if (appendTitle) appendTitle.textContent = lmState.title || "Untitled Lesson";
+            if (appendStats) {
+              const bCount = (lmState.blocks || []).length;
+              appendStats.textContent = bCount + " block" + (bCount === 1 ? "" : "s") + (lmState.published ? " · Published" : " · Draft");
+            }
+          } else {
+            appendBadge.style.display = "none";
+          }
+        }
 
         if (lessonTabBtn) {
-          if (hasBlocks) {
+          if (hasExisting) {
             lessonTabBtn.hidden = false;
             if (titleEl) titleEl.textContent = lmState.title || "Untitled Lesson";
             if (statsEl) {
-              const bCount = lmState.blocks.length;
+              const bCount = (lmState.blocks || []).length;
               statsEl.textContent = bCount + " block" + (bCount === 1 ? "" : "s") + " active";
             }
           } else {
@@ -2683,11 +2704,346 @@
         if (genTasksBtn && !genTasksBtn.dataset.initialized) {
           genTasksBtn.dataset.initialized = "1";
           genTasksBtn.addEventListener("click", () => {
-            if (typeof window.lmGenerateLessonFromScript === "function") {
-              window.lmGenerateLessonFromScript("", lmState?.title || "Lesson Tasks");
+            lmGenerateComplementTasks();
+          });
+        }
+
+        const undoBtn = document.getElementById("lmUndoGenerationBtn");
+        if (undoBtn && !undoBtn.dataset.initialized) {
+          undoBtn.dataset.initialized = "1";
+          undoBtn.addEventListener("click", () => {
+            lmUndoLastGeneration();
+          });
+        }
+      }
+
+      let lmLastGenerationSnapshot = null;
+
+      function lmSetLastGenerationSnapshot(ids) {
+        if (Array.isArray(ids) && ids.length) {
+          lmLastGenerationSnapshot = { blockIds: ids, timestamp: Date.now() };
+        }
+      }
+      window.lmSetLastGenerationSnapshot = lmSetLastGenerationSnapshot;
+
+      function lmShowTabProgress(tabKey, label, percent) {
+        if (typeof document === "undefined") return;
+        const wrapId = tabKey === "lesson" ? "lmComplementProgressWrap" : (tabKey === "file" ? "lmFileProgressWrap" : (tabKey === "url" ? "lmUrlProgressWrap" : "lmScriptProgressWrap"));
+        const textId = tabKey === "lesson" ? "lmComplementProgressText" : (tabKey === "file" ? "lmFileProgressText" : (tabKey === "url" ? "lmUrlProgressText" : "lmScriptProgressText"));
+        const barId = tabKey === "lesson" ? "lmComplementProgressBar" : (tabKey === "file" ? "lmFileProgressBar" : (tabKey === "url" ? "lmUrlProgressBar" : "lmScriptProgressBar"));
+        const pctId = tabKey === "lesson" ? "lmComplementProgressPercent" : (tabKey === "file" ? "lmFileProgressPercent" : (tabKey === "url" ? "lmUrlProgressPercent" : "lmScriptProgressPercent"));
+
+        const wrap = document.getElementById(wrapId);
+        const text = document.getElementById(textId);
+        const bar = document.getElementById(barId);
+        const pct = document.getElementById(pctId);
+
+        if (wrap) wrap.style.display = "block";
+        if (text && label) text.textContent = label;
+        if (pct && Number.isFinite(percent)) pct.textContent = Math.round(percent) + "%";
+        if (bar && Number.isFinite(percent)) {
+          bar.style.width = Math.min(100, Math.max(0, percent)) + "%";
+          if (percent >= 100) bar.classList.add("is-done");
+          else bar.classList.remove("is-done");
+        }
+      }
+
+      function lmHideTabProgress(tabKey) {
+        if (typeof document === "undefined") return;
+        const wrapId = tabKey === "lesson" ? "lmComplementProgressWrap" : (tabKey === "file" ? "lmFileProgressWrap" : (tabKey === "url" ? "lmUrlProgressWrap" : "lmScriptProgressWrap"));
+        const wrap = document.getElementById(wrapId);
+        if (wrap) wrap.style.display = "none";
+      }
+
+      function lmExtractLessonVocabularyPool(lesson) {
+        if (!lesson || !Array.isArray(lesson.blocks)) return [];
+        const pool = [];
+        const seen = new Set();
+        lesson.blocks.forEach((b) => {
+          if (b.type === "wordcard" || b.type === "word") {
+            const word = String(b.word || b.en || "").trim();
+            const meaning = String(b.ru || b.data?.ru || b.pdfVocabulary?.meaning || b.translation || b.meaning || word).trim();
+            const example = String(b.example || b.sourceExample || (b.data?.example) || "").trim();
+            if (word && !seen.has(word.toLowerCase())) {
+              seen.add(word.toLowerCase());
+              pool.push({ word, meaning, example });
+            }
+          } else if (b.type === "vocab" || b.tab === "words") {
+            if (Array.isArray(b.items)) {
+              b.items.forEach((it) => {
+                const w = String(it.word || "").trim();
+                const m = String(it.translation || it.meaning || it.ru || w).trim();
+                if (w && !seen.has(w.toLowerCase())) {
+                  seen.add(w.toLowerCase());
+                  pool.push({ word: w, meaning: m, example: it.example || "" });
+                }
+              });
+            } else if (b.word) {
+              const w = String(b.word).trim();
+              const m = String(b.translation || b.ru || b.meaning || w).trim();
+              if (w && !seen.has(w.toLowerCase())) {
+                seen.add(w.toLowerCase());
+                pool.push({ word: w, meaning: m, example: b.example || "" });
+              }
+            }
+          } else if (b.type === "phrase" || b.tab === "phrases") {
+            if (Array.isArray(b.items)) {
+              b.items.forEach((it) => {
+                const p = String(it.phrase || "").trim();
+                const m = String(it.translation || it.meaning || it.ru || p).trim();
+                if (p && !seen.has(p.toLowerCase())) {
+                  seen.add(p.toLowerCase());
+                  pool.push({ word: p, meaning: m, example: it.example || "" });
+                }
+              });
+            }
+          } else if (b.type === "cards" && Array.isArray(b.items)) {
+            b.items.forEach((it) => {
+              const f = String(it.front || "").trim();
+              const bk = String(it.back || f).trim();
+              if (f && !seen.has(f.toLowerCase())) {
+                seen.add(f.toLowerCase());
+                pool.push({ word: f, meaning: bk, example: it.example || "" });
+              }
+            });
+          }
+        });
+
+        if (pool.length < 3) {
+          const fallbackPairs = [
+            { word: "superstition", meaning: "суеверие", example: "Many traditions are based on superstition." },
+            { word: "black cat", meaning: "черная кошка", example: "A black cat is seen as a sign of luck in some countries." },
+            { word: "break a mirror", meaning: "разбить зеркало", example: "Breaking a mirror is said to bring bad luck." },
+            { word: "spill salt", meaning: "просыпать соль", example: "If you spill salt, throw some over your shoulder." },
+            { word: "knock on wood", meaning: "постучать по дереву", example: "Knock on wood to prevent misfortune." },
+            { word: "lucky charm", meaning: "талисман на удачу", example: "She carries a lucky charm in her pocket." },
+            { word: "bad omen", meaning: "дурной знак", example: "The storm was considered a bad omen." },
+            { word: "believe in", meaning: "верить в", example: "Do you believe in premonitions?" },
+            { word: "afraid of", meaning: "бояться чего-либо", example: "Never be afraid of the unknown." },
+            { word: "worry about", meaning: "беспокоиться о", example: "Don't worry about superstition." }
+          ];
+          fallbackPairs.forEach((fp) => {
+            if (!seen.has(fp.word.toLowerCase())) {
+              seen.add(fp.word.toLowerCase());
+              pool.push(fp);
             }
           });
         }
+        return pool;
+      }
+
+      function lmEnsureWordsInLesson(wordsToAdd) {
+        if (!lmState || !Array.isArray(lmState.blocks) || !Array.isArray(wordsToAdd) || !wordsToAdd.length) return [];
+        const existingWords = new Set();
+        lmState.blocks.forEach((b) => {
+          if (b.type === "wordcard" || b.type === "word") {
+            const w = String(b.word || b.en || "").trim().toLowerCase();
+            if (w) existingWords.add(w);
+          } else if (b.tab === "words" && Array.isArray(b.items)) {
+            b.items.forEach((it) => {
+              if (it.word) existingWords.add(String(it.word).trim().toLowerCase());
+            });
+          }
+        });
+
+        const createdWordBlocks = [];
+        wordsToAdd.forEach((item) => {
+          const w = String(item.word || "").trim();
+          if (!w || existingWords.has(w.toLowerCase())) return;
+          existingWords.add(w.toLowerCase());
+          const newCard = {
+            id: lmId(),
+            type: "wordcard",
+            tab: "words",
+            collapsed: false,
+            word: w,
+            en: w,
+            ru: item.meaning || w,
+            example: item.example || ""
+          };
+          createdWordBlocks.push(newCard);
+          lmState.blocks.push(newCard);
+        });
+        return createdWordBlocks;
+      }
+
+      async function lmGenerateComplementTasks() {
+        if (!lmState || !canEditLessons()) return;
+        const counts = lmGetTaskCounts();
+        const selectedTypes = lmGetSelectedQuizTypes();
+        const activeTypes = selectedTypes.length > 0 ? selectedTypes : ["Match"];
+        const genBtn = document.getElementById("lmGenerateTasksBtn");
+        const undoWrap = document.getElementById("lmUndoGenerationWrap");
+        const undoCountEl = document.getElementById("lmUndoCount");
+
+        const totalToGenerate = Math.min(30, Math.max(1, counts.total));
+        if (totalToGenerate <= 0) return;
+
+        if (genBtn) {
+          genBtn.disabled = true;
+          genBtn.innerHTML = '<span class="lm-spin">⚙️</span> Generating ' + totalToGenerate + ' Tasks...';
+        }
+        if (undoWrap) undoWrap.style.display = "none";
+
+        lmShowTabProgress("lesson", "Extracting vocabulary and analyzing lesson context...", 20);
+        await new Promise((r) => setTimeout(r, 200));
+
+        const vocabPool = lmExtractLessonVocabularyPool(lmState);
+        lmShowTabProgress("lesson", "Generating " + totalToGenerate + " tasks distributed across selected quiz types...", 50);
+        await new Promise((r) => setTimeout(r, 250));
+
+        const sectionsToFill = [];
+        if (counts.cw > 0) sectionsToFill.push({ tab: "classwork", count: counts.cw });
+        if (counts.hw > 0) sectionsToFill.push({ tab: "homework", count: counts.hw });
+        if (!sectionsToFill.length) sectionsToFill.push({ tab: "homework", count: totalToGenerate });
+
+        const createdTaskBlocks = [];
+        const wordsUsedInTasks = [];
+
+        sectionsToFill.forEach((sec) => {
+          const isHw = sec.tab === "homework";
+          const countForSec = Math.min(totalToGenerate, sec.count);
+          for (let i = 0; i < countForSec; i++) {
+            const quizType = activeTypes[(createdTaskBlocks.length) % activeTypes.length] || "Match";
+            const targetObj = vocabPool[(createdTaskBlocks.length) % vocabPool.length] || { word: "vocabulary", meaning: "словарь" };
+            wordsUsedInTasks.push(targetObj);
+
+            if (quizType === "Match") {
+              const p1 = vocabPool[(i * 3) % vocabPool.length];
+              const p2 = vocabPool[(i * 3 + 1) % vocabPool.length];
+              const p3 = vocabPool[(i * 3 + 2) % vocabPool.length];
+              const pairs = [p1, p2, p3].filter(Boolean);
+              pairs.forEach((p) => wordsUsedInTasks.push(p));
+
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: (isHw ? "HW Match: " : "CW Match: ") + (lmState.title || "Lesson") + " (Set " + (i + 1) + ")",
+                quizType: "Match",
+                items: pairs.map((p) => ({ left: p.word, right: p.meaning })),
+                pdfTeacherNotes: "Match each English term with its Russian meaning."
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Choice") {
+              const d1 = vocabPool[(i + 1) % vocabPool.length]?.meaning || "Alternative meaning";
+              const d2 = vocabPool[(i + 2) % vocabPool.length]?.meaning || "Opposite meaning";
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: (isHw ? "HW Choice: " : "CW Choice: ") + targetObj.word,
+                quizType: "Choice",
+                items: [{
+                  prompt: "Select the meaning of \"" + targetObj.word + "\":",
+                  options: [targetObj.meaning, d1, d2],
+                  answer: 0
+                }],
+                pdfTeacherNotes: targetObj.word + " matches: " + targetObj.meaning
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Gap") {
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: (isHw ? "HW Gap: " : "CW Gap: ") + targetObj.word,
+                quizType: "Gap",
+                items: [{
+                  shown: "We need to understand ___ in context.",
+                  answer: targetObj.word,
+                  hint: "First letter: " + (targetObj.word[0] || "")
+                }]
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else {
+              const block = lmBlank("quiz", quizType);
+              block.tab = sec.tab;
+              block.title = (isHw ? "HW " : "CW ") + quizType + ": " + targetObj.word;
+              if (block.items && block.items[0]) {
+                if (block.items[0].prompt !== undefined) block.items[0].prompt = "Practice " + targetObj.word;
+                if (block.items[0].answer !== undefined) block.items[0].answer = targetObj.word;
+                if (block.items[0].word !== undefined) block.items[0].word = targetObj.word;
+                if (block.items[0].left !== undefined) { block.items[0].left = targetObj.word; block.items[0].right = targetObj.meaning; }
+              }
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            }
+          }
+        });
+
+        lmShowTabProgress("lesson", "Syncing new words to Words vocabulary list...", 80);
+        await new Promise((r) => setTimeout(r, 150));
+
+        const newlyAddedWords = lmEnsureWordsInLesson(wordsUsedInTasks);
+
+        lmShowTabProgress("lesson", "Done! " + createdTaskBlocks.length + " tasks generated.", 100);
+
+        const allNewBlockIds = createdTaskBlocks.map((b) => b.id).concat(newlyAddedWords.map((b) => b.id));
+        lmLastGenerationSnapshot = {
+          blockIds: allNewBlockIds,
+          taskCount: createdTaskBlocks.length,
+          wordCount: newlyAddedWords.length
+        };
+
+        if (undoWrap) {
+          undoWrap.style.display = "flex";
+          if (undoCountEl) undoCountEl.textContent = String(allNewBlockIds.length);
+          const statusText = document.getElementById("lmUndoStatusText");
+          if (statusText) {
+            statusText.textContent = "✅ Generated " + createdTaskBlocks.length + " tasks" + (newlyAddedWords.length ? (" and added " + newlyAddedWords.length + " words to Words list") : "") + "!";
+          }
+        }
+
+        lmSyncLessonComplementTab();
+        lmRenderEditor();
+        lmSchedule();
+        lmPersist();
+
+        const targetTab = sectionsToFill[0]?.tab || "homework";
+        lmSelectTab(targetTab);
+
+        if (genBtn) {
+          genBtn.disabled = false;
+          lmSyncTaskTotalSummary();
+        }
+      }
+
+      function lmUndoLastGeneration() {
+        if (!lmState || !lmLastGenerationSnapshot || !Array.isArray(lmState.blocks)) return;
+        const idsToRemove = new Set(lmLastGenerationSnapshot.blockIds);
+        lmState.blocks = lmState.blocks.filter((b) => !idsToRemove.has(b.id));
+
+        const undoWrap = document.getElementById("lmUndoGenerationWrap");
+        if (undoWrap) undoWrap.style.display = "none";
+
+        lmHideTabProgress("lesson");
+        lmSyncLessonComplementTab();
+        lmRenderEditor();
+        lmSchedule();
+        lmPersist();
+
+        const statusEl = document.getElementById("lmScriptStatus");
+        if (statusEl) {
+          statusEl.textContent = "✓ Generation undone. Lesson restored.";
+          setTimeout(() => { if (statusEl.textContent.includes("undone")) statusEl.textContent = ""; }, 4000);
+        }
+        lmLastGenerationSnapshot = null;
       }
 
       function lmSyncGenerateControls() {
@@ -2726,35 +3082,49 @@
       function lmGetTaskCountPerSection() {
         if (typeof document === "undefined") return 3;
         const countInput = document.getElementById("lmTaskCountPerSection");
-        const count = parseInt(countInput ? countInput.value : "3", 10);
-        return isNaN(count) || count < 1 ? 3 : count;
+        let count = parseInt(countInput ? String(countInput.value).replace(/\D/g, "") : "3", 10);
+        if (isNaN(count) || count < 1) count = 3;
+        if (count > 30) count = 30;
+        return count;
       }
 
       function lmGetTaskCounts() {
-        if (typeof document === "undefined") return { cw: 3, hw: 3, perSection: 3, total: 6 };
-        const countInput = document.getElementById("lmTaskCountPerSection");
-        const count = parseInt(countInput ? countInput.value : "3", 10);
-        const perSection = isNaN(count) || count < 1 ? 3 : count;
+        if (typeof document === "undefined") return { cw: 3, hw: 3, perSection: 3, total: 3 };
+        const perSection = lmGetTaskCountPerSection();
         const cwEl = document.getElementById("lmQuizClasswork");
         const hwEl = document.getElementById("lmQuizHomework");
-        const cwChecked = cwEl ? cwEl.checked : true;
+        const cwChecked = cwEl ? cwEl.checked : false;
         const hwChecked = hwEl ? hwEl.checked : true;
         const cw = cwChecked ? perSection : 0;
         const hw = hwChecked ? perSection : 0;
+        let total = cw + hw;
+        if (total > 30) total = 30;
         return {
           cw,
           hw,
           perSection,
-          total: cw + hw
+          total: total > 0 ? total : perSection
         };
       }
 
       function lmSyncTaskTotalSummary() {
         if (typeof document === "undefined") return;
         const summaryEl = document.getElementById("lmTaskTotalSummary");
-        if (!summaryEl) return;
+        const countInput = document.getElementById("lmTaskCountPerSection");
+        const genBtn = document.getElementById("lmGenerateTasksBtn");
+        if (countInput) {
+          let val = parseInt(String(countInput.value).replace(/\D/g, ""), 10);
+          if (!isNaN(val) && val > 30) {
+            countInput.value = "30";
+          }
+        }
         const counts = lmGetTaskCounts();
-        summaryEl.textContent = "(Total: " + counts.total + ")";
+        if (summaryEl) {
+          summaryEl.textContent = "(Total: " + counts.total + " tasks)";
+        }
+        if (genBtn && !genBtn.disabled) {
+          genBtn.textContent = "Generate " + counts.total + " Tasks for Current Lesson \u2192";
+        }
       }
 
       function lmInitQuizOptions() {
@@ -2785,7 +3155,22 @@
         }
         if (countInput && !countInput.dataset.initialized) {
           countInput.dataset.initialized = "1";
-          countInput.addEventListener("input", lmSyncTaskTotalSummary);
+          countInput.addEventListener("input", () => {
+            let val = countInput.value.replace(/\D/g, "");
+            if (val !== "") {
+              let num = parseInt(val, 10);
+              if (num > 30) num = 30;
+              countInput.value = String(num);
+            }
+            lmSyncTaskTotalSummary();
+          });
+          countInput.addEventListener("blur", () => {
+            let num = parseInt(countInput.value.replace(/\D/g, ""), 10);
+            if (isNaN(num) || num < 1) num = 1;
+            if (num > 30) num = 30;
+            countInput.value = String(num);
+            lmSyncTaskTotalSummary();
+          });
           countInput.addEventListener("change", lmSyncTaskTotalSummary);
         }
 
@@ -2974,6 +3359,11 @@
       window.lmSyncLessonComplementTab = lmSyncLessonComplementTab;
       window.lmSwitchImportTab = lmSwitchImportTab;
       window.lmSyncTeacherVerifySummary = lmSyncTeacherVerifySummary;
+      window.lmGenerateComplementTasks = lmGenerateComplementTasks;
+      window.lmUndoLastGeneration = lmUndoLastGeneration;
+      window.lmShowTabProgress = lmShowTabProgress;
+      window.lmHideTabProgress = lmHideTabProgress;
+      window.lmSelectTab = lmSelectTab;
 
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);

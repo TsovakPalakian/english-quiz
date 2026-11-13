@@ -672,6 +672,20 @@
               <span class="pill-badge" id="lmFrameModeBadge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:var(--acc-s, rgba(37,99,235,0.1)); color:var(--acc, #2563eb);">AI Generator</span>
             </div>
             <div class="lm-import-methods card saas-card" style="padding:16px; margin-bottom:14px; border:1px solid var(--saas-border, #e2e8f0); border-radius:12px; background:var(--saas-card, #ffffff);">
+              <!-- Persistent Append Mode Indicator -->
+              <div id="lmAppendModeBadge" class="lm-append-mode-banner" style="display:none; background:#eff6ff; border:1.5px solid #60a5fa; border-radius:8px; padding:10px 14px; margin-bottom:14px; justify-content:space-between; align-items:center; font-size:12.5px; color:#1e40af;">
+                <div>
+                  <div style="font-weight:800; display:flex; align-items:center; gap:6px;">
+                    <span>🛡️</span>
+                    <span>Active Lesson: <strong id="lmAppendModeLessonTitle">Superstitions and Prepositions</strong> (<span id="lmAppendModeLessonStats">26 blocks</span>)</span>
+                  </div>
+                  <div style="font-size:11.5px; color:#2563eb; margin-top:2px;">
+                    <strong>Append Mode Active:</strong> Materials generated in any tab will be safely added as new blocks. Existing blocks and metadata will never be overwritten.
+                  </div>
+                </div>
+                <span class="pill-badge" style="background:#2563eb; color:#fff; font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:4px; text-transform:uppercase;">Append Only</span>
+              </div>
+
               <!-- 4 Generation Tabs -->
               <div class="lm-tabs-bar" role="tablist" style="display:flex; gap:6px; border-bottom:2px solid var(--saas-border, #e0f2fe); padding-bottom:10px; margin-bottom:16px;">
                 <button type="button" class="tab-btn active" id="lmTabBtnFile" role="tab" aria-selected="true" aria-controls="lmTabPaneFile">📁 File / PDF</button>
@@ -687,6 +701,18 @@
                   <small>Upload any file format (.pdf, .docx, .txt, .md, .json, .csv) or click to browse</small>
                   <input type="file" data-lesson-pdf-import-file accept="*/*" tabindex="-1" aria-hidden="true" />
                 </label>
+                <div id="lmFileProgressWrap" class="lm-progress-box" style="display:none;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; font-weight:700; color:#065f46; display:flex; align-items:center; gap:8px;">
+                      <span class="lm-spin">⏳</span>
+                      <span id="lmFileProgressText">Analyzing document and extracting lesson material...</span>
+                    </span>
+                    <span id="lmFileProgressPercent" style="font-size:13px; font-weight:800; color:#047857;">0%</span>
+                  </div>
+                  <div class="lm-progress-track">
+                    <div id="lmFileProgressBar" class="lm-progress-fill" style="width:0%;"></div>
+                  </div>
+                </div>
                 <div class="lm-note-box" style="margin-top:14px; font-size:12px; color:var(--acc, #0284c7); background:var(--acc-s, rgba(2,132,199,0.08)); padding:10px 14px; border-radius:8px; display:flex; align-items:center; gap:8px;">
                   <span>💡 <strong>Direct PDF Analysis:</strong> Gemini AI parses the document structure autonomously.</span>
                 </div>
@@ -698,6 +724,18 @@
                   <div style="display:flex; gap:8px;">
                     <input type="url" id="lmUrlInput" class="saas-input" style="flex:1; font-size:13px; padding:10px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="https://wordwall.net/resource/... or https://quizlet.com/..." />
                     <button type="button" class="btn primary saas-btn" id="lmUrlFetchBtn" disabled style="font-weight:700; white-space:nowrap; padding:10px 22px;">Fetch &amp; Import Lesson</button>
+                  </div>
+                  <div id="lmUrlProgressWrap" class="lm-progress-box" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size:13px; font-weight:700; color:#065f46; display:flex; align-items:center; gap:8px;">
+                        <span class="lm-spin">⏳</span>
+                        <span id="lmUrlProgressText">Analyzing resource and extracting lesson material...</span>
+                      </span>
+                      <span id="lmUrlProgressPercent" style="font-size:13px; font-weight:800; color:#047857;">0%</span>
+                    </div>
+                    <div class="lm-progress-track">
+                      <div id="lmUrlProgressBar" class="lm-progress-fill" style="width:0%;"></div>
+                    </div>
                   </div>
                   <div class="hint" style="font-size:12px; color:var(--saas-text-muted, #64748b); display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <span>Supported:</span>
@@ -722,6 +760,18 @@
                     </div>
                   </div>
                   <textarea id="lmScriptInput" class="saas-textarea" style="min-height:140px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; line-height:1.5; padding:12px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="Paste lesson script, syllabus outline, or topic description. E.g.:&#10;&#10;Title: Travel and Transport&#10;Words: detour - объезд, commuter - пригородный пассажир&#10;Rule: Phrasal verbs of travel"></textarea>
+                  <div id="lmScriptProgressWrap" class="lm-progress-box" style="display:none;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <span style="font-size:13px; font-weight:700; color:#065f46; display:flex; align-items:center; gap:8px;">
+                        <span class="lm-spin">⏳</span>
+                        <span id="lmScriptProgressText">Structuring script and generating lesson tasks...</span>
+                      </span>
+                      <span id="lmScriptProgressPercent" style="font-size:13px; font-weight:800; color:#047857;">0%</span>
+                    </div>
+                    <div class="lm-progress-track">
+                      <div id="lmScriptProgressBar" class="lm-progress-fill" style="width:0%;"></div>
+                    </div>
+                  </div>
                   <div style="display:flex; justify-content:flex-end; margin-top:2px;">
                     <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" disabled style="font-weight:700; padding:10px 22px;">Generate Lesson Draft &rarr;</button>
                   </div>
@@ -739,8 +789,9 @@
                   </div>
                   <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--acc, #0284c7);">
                     <span>Count:</span>
-                    <input type="number" id="lmTaskCountPerSection" value="3" min="1" max="100" step="1" style="width:48px; padding:6px 8px; font-size:13px; font-weight:700; border:1.5px solid var(--saas-border, #bae6fd); border-radius:6px; text-align:center;">
-                    <span id="lmTaskTotalSummary" style="display:none;">(Total: 6)</span>
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" id="lmTaskCountPerSection" class="lm-no-spin" value="3" maxlength="2" style="width:44px; padding:6px 4px; font-size:13px; font-weight:700; border:1.5px solid var(--saas-border, #bae6fd); border-radius:6px; text-align:center;">
+                    <span class="pill-badge" id="lmCountMaxBadge" style="font-size:11px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:600;">Max 30</span>
+                    <span id="lmTaskTotalSummary" style="font-size:12px; color:#0369a1; font-weight:700;">(Total: 3 tasks)</span>
                   </div>
                 </div>
 
@@ -769,6 +820,30 @@
                 <!-- Flashing Video Alert Banner (localized to Tab 4) -->
                 <div id="lmVideoChoiceWarning" class="lm-blink-alert" style="display:none; background:#ef4444; color:#ffffff; font-weight:800; font-size:12px; padding:10px 14px; border-radius:8px; margin-top:12px; text-align:center;">
                   ⚠️ ВНИМАНИЕ! ВЫБРАН КВИЗ С ВИДЕО (VIDEO CHOICE) — НЕ ЗАБУДЬТЕ ДОБАВИТЬ ВИДЕОФАЙЛ MP4 ИЛИ ССЫЛКУ!
+                </div>
+
+                <!-- Tab 4 Progress Bar -->
+                <div id="lmComplementProgressWrap" class="lm-progress-box" style="display:none; margin-top:14px;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:13px; font-weight:700; color:#065f46; display:flex; align-items:center; gap:8px;">
+                      <span class="lm-spin">⏳</span>
+                      <span id="lmComplementProgressText">Generating tasks for current lesson...</span>
+                    </span>
+                    <span id="lmComplementProgressPercent" style="font-size:13px; font-weight:800; color:#047857;">0%</span>
+                  </div>
+                  <div class="lm-progress-track">
+                    <div id="lmComplementProgressBar" class="lm-progress-fill" style="width:0%;"></div>
+                  </div>
+                </div>
+
+                <!-- Undo Generation Banner -->
+                <div id="lmUndoGenerationWrap" class="lm-undo-banner" style="display:none;">
+                  <div>
+                    <span id="lmUndoStatusText" style="font-size:13px; font-weight:700; color:#065f46;">✅ Successfully generated tasks!</span>
+                  </div>
+                  <button type="button" class="btn-undo" id="lmUndoGenerationBtn">
+                    <span>↩</span> Undo Generation (Remove <span id="lmUndoCount">3</span> tasks)
+                  </button>
                 </div>
 
                 <div style="display:flex; justify-content:flex-end; align-items:center; margin-top:14px;">
