@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractFunction } from './helpers/extract-function.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, '..');
@@ -92,6 +93,72 @@ test('TASK-53: Existing unpublished lesson (draft) is preserved without wiping',
   const html = fs.readFileSync(path.join(rootDir, 'site/preview.html'), 'utf8');
   assert.ok(html.includes('id="lmAppendModeBadge"'), 'preview.html must include lmAppendModeBadge');
   assert.ok(html.includes('Append Mode Active'), 'preview.html must display Append Mode Active text');
+});
+
+test('TASK-54: Thematic expansion pool enriches vocabulary with phrasal verbs, idioms, and collocations', () => {
+  const code = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
+  assert.ok(code.includes('THEMATIC_VOCABULARY_BANKS'), 'Must define THEMATIC_VOCABULARY_BANKS');
+  assert.ok(code.includes('phrasalVerbs:'), 'Must include phrasal verbs bank');
+  assert.ok(code.includes('idioms:'), 'Must include idioms bank');
+  assert.ok(code.includes('collocations:'), 'Must include collocations bank');
+
+  // Verify extraction of expansion pool
+  const lessonFixture = {
+    title: 'Superstitions and Prepositions',
+    description: 'A lesson about common omens and superstitions',
+    blocks: [
+      { id: 'w1', type: 'wordcard', tab: 'words', word: 'superstition', ru: 'суеверие' },
+      { id: 'w2', type: 'wordcard', tab: 'words', word: 'black cat', ru: 'черная кошка' },
+      { id: 'w3', type: 'wordcard', tab: 'words', word: 'lucky charm', ru: 'талисман' }
+    ]
+  };
+
+  // Extract function and test pool growth
+  const extractFn = extractFunction(code, 'lmExtractLessonVocabularyPool');
+  const thematicFn = extractFunction(code, 'lmGetThematicExpansionPool');
+  const banksVar = extractFunction(code, 'THEMATIC_VOCABULARY_BANKS');
+
+  const runner = new Function('lesson', banksVar + '\n' + thematicFn + '\n' + extractFn + '\nreturn lmExtractLessonVocabularyPool(lesson, 20);');
+  const pool = runner(lessonFixture);
+
+  assert.ok(pool.length >= 20, 'Vocabulary pool must expand to at least 20 unique items');
+  const words = pool.map(p => p.word.toLowerCase());
+  const uniqueWords = new Set(words);
+  assert.equal(words.length, uniqueWords.size, 'Every item in expanded pool must be unique (no duplicates)');
+
+  // Verify phrasal verbs, idioms, and collocations exist in pool
+  assert.ok(pool.some(p => p.expressionType === 'PHRASAL_VERB'), 'Pool must contain phrasal verbs');
+  assert.ok(pool.some(p => p.expressionType === 'IDIOM'), 'Pool must contain idioms');
+  assert.ok(pool.some(p => p.expressionType === 'COLLOCATION'), 'Pool must contain collocations');
+});
+
+test('TASK-54: Strict deduplication in Homework and Classwork blocks', () => {
+  const code = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
+
+  // Verify duplicate tracking set exists in lmGenerateComplementTasks
+  assert.ok(code.includes('const existingTasksInSec = new Set();'), 'Must track existing tasks in section to prevent duplicate cards');
+  assert.ok(code.includes('existingTasksInSec.has(sig)'), 'Must check signature against existing tasks');
+  assert.ok(code.includes('existingTasksInSec.add((quizType + "::" + targetObj.word).toLowerCase());'), 'Must register newly created task in existing set');
+  assert.ok(code.includes('block.targetWord = targetObj.word;'), 'Must record targetWord on task block');
+});
+
+test('TASK-54: Words tab includes visual divider and supplementary badges for newly generated material', () => {
+  const code = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
+
+  // Verify divider insertion in lmEnsureWordsInLesson
+  assert.ok(code.includes('isSupplementaryDivider: true'), 'lmEnsureWordsInLesson must insert supplementary divider');
+  assert.ok(code.includes('✨ Supplementary Material · Дополнительные материалы (Generated)'), 'Divider must have clear title');
+  assert.ok(code.includes('supplementary: true'), 'New cards must be tagged with supplementary: true');
+
+  // Verify lmWordCardHtml renders tags
+  assert.ok(code.includes('lm-supplementary-tag'), 'lmWordCardHtml must render lm-supplementary-tag');
+  assert.ok(code.includes('lm-expression-type-tag'), 'lmWordCardHtml must render lm-expression-type-tag');
+
+  // Verify CSS contains supplementary divider and tag styles
+  const css = fs.readFileSync(path.join(rootDir, 'site/preview.css'), 'utf8');
+  assert.ok(css.includes('.lm-supplementary-divider'), 'CSS must define .lm-supplementary-divider');
+  assert.ok(css.includes('.lm-supplementary-tag'), 'CSS must define .lm-supplementary-tag');
+  assert.ok(css.includes('.lm-expression-type-tag'), 'CSS must define .lm-expression-type-tag');
 });
 
 test('TASK-53: Visual test with Playwright - verifies clean input, progress bar, and complement generation', async () => {

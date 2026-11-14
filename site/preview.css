@@ -9622,6 +9622,59 @@ td.td-focused-col {
   border-radius: 6px;
   border: 1px solid #a7f3d0;
 }
+.pronounce-score-badge.needs-work {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+.lm-supplementary-divider {
+  display: flex;
+  align-items: center;
+  margin: 20px 0 12px 0;
+  gap: 12px;
+  width: 100%;
+}
+.lm-supplementary-divider-line {
+  flex: 1;
+  height: 2px;
+  background: #cbd5e1;
+}
+.lm-supplementary-divider-badge {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 5px 14px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lm-supplementary-tag {
+  background: #ede9fe;
+  color: #6d28d9;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  margin-left: 6px;
+  display: inline-block;
+}
+.lm-expression-type-tag {
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  display: inline-block;
+}
+.lm-block.is-supplementary {
+  border-left: 4px solid #8b5cf6 !important;
+  background: #faf5ff !important;
+}
 
 /* Full Focus Mode Interactive Player (Stage 14 & 15) */
 .focus-player-overlay {

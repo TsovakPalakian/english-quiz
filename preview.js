@@ -24062,7 +24062,9 @@ const STUDIO_CONSTELLATIONS = [{
     function lmWordCardHtml(block) {
       const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
       if (examStudentRestricted()) return '<details class="lm-study-card"><summary>' + esc(block.word || '') + '</summary><div class="lm-study-card-body">' + ipaHtml(card) + (block.pos ? '<p>' + esc(block.pos) + '</p>' : '') + '</div></details>';
-      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
+      const suppBadge = block.supplementary ? '<span class="lm-supplementary-tag">Supplementary</span>' : '';
+      const typeBadge = block.expressionType === 'PHRASAL_VERB' ? '<span class="lm-expression-type-tag">Phrasal Verb</span>' : (block.expressionType === 'IDIOM' ? '<span class="lm-expression-type-tag">Idiom</span>' : (block.expressionType === 'COLLOCATION' ? '<span class="lm-expression-type-tag">Collocation</span>' : ''));
+      const content = '<button class="wcard" type="button" data-lm-word="' + esc(block.id) + '">' + wordPic(block.word) + '<div class="en">' + esc(block.word || "") + suppBadge + typeBadge + '</div>' + (block.pos ? '<div class="pos">' + esc(block.pos) + "</div>" : "") + ipaHtml(card) + (block.pdfVocabulary?.meaning?'<div class="meaning" lang="en">'+esc(block.pdfVocabulary.meaning)+'</div>':'') + '<div class="label" lang="ru">' + esc(block.ru || "") + "</div></button>";
       const kit = window.LearningWorkbench?.lessonButton(block) || '';
       return kit ? '<div class="lm-word-card-wrap">' + content + '<div class="lm-word-kit">' + kit + '</div></div>' : content;
     }
@@ -24519,7 +24521,11 @@ const STUDIO_CONSTELLATIONS = [{
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
         const beforeZone = lmInsertZoneHtml(block.id, "before");
-        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        if (block.type === "divider") {
+          return beforeZone + '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(block.label || '✨ Supplementary Material · Дополнительные материалы') + '</div><div class="lm-supplementary-divider-line"></div></div>' + (isLast ? lmInsertZoneHtml(block.id, "after") : "");
+        }
+        const isSupplementary = Boolean(block.supplementary);
+        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + (isSupplementary ? " is-supplementary" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
         const afterZone = isLast ? lmInsertZoneHtml(block.id, "after") : "";
         return beforeZone + blockHtml + afterZone;
       }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
@@ -24584,7 +24590,7 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if (block.type === "file") return lmPreviewFile(block, "File", "Open file", "data-file-open");
       if (block.type === "note") return '<aside class="lm-callout' + (block.tone === "tip" ? " is-tip" : "") + '"><b>' + (block.tone === "tip" ? "Tip" : "Note") + "</b>" + esc(block.text || "") + "</aside>";
-      if (block.type === "divider") return '<div class="lm-divider">' + esc(block.label || "") + "</div>";
+      if (block.type === "divider") return '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(block.label || "✨ Supplementary Material · Дополнительные материалы") + '</div><div class="lm-supplementary-divider-line"></div></div>';
       if (block.type === "reading") {
         let n = 0;
         const marks = new Set(block.marks || []);
@@ -26197,7 +26203,70 @@ const STUDIO_CONSTELLATIONS = [{
         if (wrap) wrap.style.display = "none";
       }
 
-      function lmExtractLessonVocabularyPool(lesson) {
+      const THEMATIC_VOCABULARY_BANKS = {
+        superstitions: {
+          words: [
+            { word: "superstition", meaning: "суеверие, предрассудок", example: "Many traditions are based on superstition.", expressionType: "WORD" },
+            { word: "bad omen", meaning: "дурной знак", example: "A black cat is considered a bad omen in some cultures.", expressionType: "WORD" },
+            { word: "lucky charm", meaning: "талисман на удачу", example: "She carries a lucky charm in her bag.", expressionType: "WORD" },
+            { word: "coincidence", meaning: "совпадение", example: "Meeting you here was a pure coincidence.", expressionType: "WORD" },
+            { word: "premonition", meaning: "предчувствие", example: "He had a strong premonition before the journey.", expressionType: "WORD" },
+            { word: "fortune", meaning: "удача, судьба", example: "Good fortune smiled upon our family.", expressionType: "WORD" },
+            { word: "destiny", meaning: "предначертание, судьба", example: "She believed it was her destiny to succeed.", expressionType: "WORD" },
+            { word: "myth", meaning: "миф, легенда", example: "The superstition is just a popular myth.", expressionType: "WORD" },
+            { word: "amulet", meaning: "амулет, оберег", example: "An amulet was worn to guard against harm.", expressionType: "WORD" },
+            { word: "talisman", meaning: "талисман", example: "The ring was cherished as a sacred talisman.", expressionType: "WORD" }
+          ],
+          phrasalVerbs: [
+            { word: "believe in", meaning: "верить в", example: "Do you believe in superstitions?", expressionType: "PHRASAL_VERB" },
+            { word: "ward off", meaning: "отгонять, предотвращать (зло)", example: "Charms were worn to ward off evil.", expressionType: "PHRASAL_VERB" },
+            { word: "look out for", meaning: "высматривать, остерегаться", example: "Look out for bad omens on Friday the 13th.", expressionType: "PHRASAL_VERB" },
+            { word: "pass down", meaning: "передавать по наследству", example: "These rituals were passed down through generations.", expressionType: "PHRASAL_VERB" },
+            { word: "rely on", meaning: "полагаться на", example: "Never rely on pure luck alone.", expressionType: "PHRASAL_VERB" },
+            { word: "watch out", meaning: "быть начеку, остерегаться", example: "Watch out for black cats crossing your path.", expressionType: "PHRASAL_VERB" },
+            { word: "come across", meaning: "случайно натолкнуться", example: "I came across an ancient lucky coin.", expressionType: "PHRASAL_VERB" },
+            { word: "figure out", meaning: "разобраться, выяснить", example: "We tried to figure out where the myth originated.", expressionType: "PHRASAL_VERB" }
+          ],
+          idioms: [
+            { word: "knock on wood", meaning: "постучать по дереву, чтобы не сглазить", example: "Everything is going well, knock on wood.", expressionType: "IDIOM" },
+            { word: "cross one's fingers", meaning: "скрестить пальцы на удачу", example: "Keep your fingers crossed during the test.", expressionType: "IDIOM" },
+            { word: "luck of the draw", meaning: "воля случая, как фишка ляжет", example: "Winning the prize was just the luck of the draw.", expressionType: "IDIOM" },
+            { word: "touch and go", meaning: "на волоске, рискованно", example: "The match outcome was touch and go until the end.", expressionType: "IDIOM" },
+            { word: "break a leg", meaning: "ни пуха ни пера (пожелание удачи)", example: "They shouted 'break a leg!' before she stepped on stage.", expressionType: "IDIOM" },
+            { word: "once in a blue moon", meaning: "крайне редко, в кои-то веки", example: "Such rare events occur once in a blue moon.", expressionType: "IDIOM" },
+            { word: "touch wood", meaning: "постучать по дереву", example: "Touch wood, we have had no accidents so far.", expressionType: "IDIOM" }
+          ],
+          collocations: [
+            { word: "bring bad luck", meaning: "приносить неудачу", example: "Opening an umbrella indoors brings bad luck.", expressionType: "COLLOCATION" },
+            { word: "break a mirror", meaning: "разбить зеркало", example: "Breaking a mirror is said to bring seven years of bad luck.", expressionType: "COLLOCATION" },
+            { word: "spill salt", meaning: "просыпать соль", example: "If you spill salt, throw a pinch over your shoulder.", expressionType: "COLLOCATION" },
+            { word: "walk under a ladder", meaning: "пройти под лестницей", example: "He refused to walk under a ladder.", expressionType: "COLLOCATION" },
+            { word: "open umbrella indoors", meaning: "раскрыть зонт в помещении", example: "Never open an umbrella indoors according to superstition.", expressionType: "COLLOCATION" },
+            { word: "make a wish", meaning: "загадать желание", example: "Make a wish when blowing out birthday candles.", expressionType: "COLLOCATION" }
+          ]
+        }
+      };
+
+      function lmGetThematicExpansionPool(themeText, neededCount) {
+        const text = String(themeText || '').toLowerCase();
+        const bank = THEMATIC_VOCABULARY_BANKS.superstitions;
+        const list = [];
+        const words = bank.words || [];
+        const phrasals = bank.phrasalVerbs || [];
+        const idioms = bank.idioms || [];
+        const colls = bank.collocations || [];
+        const maxLen = Math.max(words.length, phrasals.length, idioms.length, colls.length);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (words[i]) list.push({ ...words[i], supplementary: true });
+          if (phrasals[i]) list.push({ ...phrasals[i], supplementary: true });
+          if (idioms[i]) list.push({ ...idioms[i], supplementary: true });
+          if (colls[i]) list.push({ ...colls[i], supplementary: true });
+        }
+        return list;
+      }
+
+      function lmExtractLessonVocabularyPool(lesson, targetTotal = 30) {
         if (!lesson || !Array.isArray(lesson.blocks)) return [];
         const pool = [];
         const seen = new Set();
@@ -26208,7 +26277,7 @@ const STUDIO_CONSTELLATIONS = [{
             const example = String(b.example || b.sourceExample || (b.data?.example) || "").trim();
             if (word && !seen.has(word.toLowerCase())) {
               seen.add(word.toLowerCase());
-              pool.push({ word, meaning, example });
+              pool.push({ word, meaning, example, isCore: !b.supplementary, supplementary: Boolean(b.supplementary), expressionType: b.expressionType || "WORD" });
             }
           } else if (b.type === "vocab" || b.tab === "words") {
             if (Array.isArray(b.items)) {
@@ -26217,7 +26286,7 @@ const STUDIO_CONSTELLATIONS = [{
                 const m = String(it.translation || it.meaning || it.ru || w).trim();
                 if (w && !seen.has(w.toLowerCase())) {
                   seen.add(w.toLowerCase());
-                  pool.push({ word: w, meaning: m, example: it.example || "" });
+                  pool.push({ word: w, meaning: m, example: it.example || "", isCore: true });
                 }
               });
             } else if (b.word) {
@@ -26225,7 +26294,7 @@ const STUDIO_CONSTELLATIONS = [{
               const m = String(b.translation || b.ru || b.meaning || w).trim();
               if (w && !seen.has(w.toLowerCase())) {
                 seen.add(w.toLowerCase());
-                pool.push({ word: w, meaning: m, example: b.example || "" });
+                pool.push({ word: w, meaning: m, example: b.example || "", isCore: true });
               }
             }
           } else if (b.type === "phrase" || b.tab === "phrases") {
@@ -26235,7 +26304,7 @@ const STUDIO_CONSTELLATIONS = [{
                 const m = String(it.translation || it.meaning || it.ru || p).trim();
                 if (p && !seen.has(p.toLowerCase())) {
                   seen.add(p.toLowerCase());
-                  pool.push({ word: p, meaning: m, example: it.example || "" });
+                  pool.push({ word: p, meaning: m, example: it.example || "", isCore: true, expressionType: "COLLOCATION" });
                 }
               });
             }
@@ -26245,31 +26314,28 @@ const STUDIO_CONSTELLATIONS = [{
               const bk = String(it.back || f).trim();
               if (f && !seen.has(f.toLowerCase())) {
                 seen.add(f.toLowerCase());
-                pool.push({ word: f, meaning: bk, example: it.example || "" });
+                pool.push({ word: f, meaning: bk, example: it.example || "", isCore: true });
               }
             });
           }
         });
 
-        if (pool.length < 3) {
-          const fallbackPairs = [
-            { word: "superstition", meaning: "суеверие", example: "Many traditions are based on superstition." },
-            { word: "black cat", meaning: "черная кошка", example: "A black cat is seen as a sign of luck in some countries." },
-            { word: "break a mirror", meaning: "разбить зеркало", example: "Breaking a mirror is said to bring bad luck." },
-            { word: "spill salt", meaning: "просыпать соль", example: "If you spill salt, throw some over your shoulder." },
-            { word: "knock on wood", meaning: "постучать по дереву", example: "Knock on wood to prevent misfortune." },
-            { word: "lucky charm", meaning: "талисман на удачу", example: "She carries a lucky charm in her pocket." },
-            { word: "bad omen", meaning: "дурной знак", example: "The storm was considered a bad omen." },
-            { word: "believe in", meaning: "верить в", example: "Do you believe in premonitions?" },
-            { word: "afraid of", meaning: "бояться чего-либо", example: "Never be afraid of the unknown." },
-            { word: "worry about", meaning: "беспокоиться о", example: "Don't worry about superstition." }
-          ];
-          fallbackPairs.forEach((fp) => {
-            if (!seen.has(fp.word.toLowerCase())) {
-              seen.add(fp.word.toLowerCase());
-              pool.push(fp);
-            }
-          });
+        // Expand pool with thematic words, phrasal verbs, idioms, and collocations
+        const themeContext = [lesson.title, lesson.description].filter(Boolean).join(" ");
+        const expansionCandidates = lmGetThematicExpansionPool(themeContext, Math.max(30, targetTotal));
+        for (const item of expansionCandidates) {
+          if (pool.length >= Math.max(30, targetTotal)) break;
+          const k = String(item.word || "").toLowerCase().trim();
+          if (k && !seen.has(k)) {
+            seen.add(k);
+            pool.push({
+              word: item.word,
+              meaning: item.meaning,
+              example: item.example || "",
+              supplementary: true,
+              expressionType: item.expressionType || "WORD"
+            });
+          }
         }
         return pool;
       }
@@ -26289,23 +26355,47 @@ const STUDIO_CONSTELLATIONS = [{
         });
 
         const createdWordBlocks = [];
+        const itemsToInsert = [];
         wordsToAdd.forEach((item) => {
           const w = String(item.word || "").trim();
           if (!w || existingWords.has(w.toLowerCase())) return;
           existingWords.add(w.toLowerCase());
-          const newCard = {
-            id: lmId(),
-            type: "wordcard",
-            tab: "words",
-            collapsed: false,
-            word: w,
-            en: w,
-            ru: item.meaning || w,
-            example: item.example || ""
-          };
-          createdWordBlocks.push(newCard);
-          lmState.blocks.push(newCard);
+          itemsToInsert.push(item);
         });
+
+        if (itemsToInsert.length > 0) {
+          // If inserting supplementary items, ensure a visual divider separates them from primary words
+          const hasDivider = lmState.blocks.some((b) => b.tab === "words" && (b.type === "divider" || b.isSupplementaryDivider));
+          if (!hasDivider) {
+            const divider = {
+              id: lmId(),
+              type: "divider",
+              tab: "words",
+              label: "✨ Supplementary Material · Дополнительные материалы (Generated)",
+              isSupplementaryDivider: true
+            };
+            createdWordBlocks.push(divider);
+            lmState.blocks.push(divider);
+          }
+
+          itemsToInsert.forEach((item) => {
+            const w = String(item.word || "").trim();
+            const newCard = {
+              id: lmId(),
+              type: "wordcard",
+              tab: "words",
+              collapsed: false,
+              word: w,
+              en: w,
+              ru: item.meaning || w,
+              example: item.example || ("Example using " + w + "."),
+              supplementary: true,
+              expressionType: item.expressionType || "WORD"
+            };
+            createdWordBlocks.push(newCard);
+            lmState.blocks.push(newCard);
+          });
+        }
         return createdWordBlocks;
       }
 
@@ -26330,7 +26420,7 @@ const STUDIO_CONSTELLATIONS = [{
         lmShowTabProgress("lesson", "Extracting vocabulary and analyzing lesson context...", 20);
         await new Promise((r) => setTimeout(r, 200));
 
-        const vocabPool = lmExtractLessonVocabularyPool(lmState);
+        const vocabPool = lmExtractLessonVocabularyPool(lmState, Math.max(30, totalToGenerate * 2));
         lmShowTabProgress("lesson", "Generating " + totalToGenerate + " tasks distributed across selected quiz types...", 50);
         await new Promise((r) => setTimeout(r, 250));
 
@@ -26345,17 +26435,58 @@ const STUDIO_CONSTELLATIONS = [{
         sectionsToFill.forEach((sec) => {
           const isHw = sec.tab === "homework";
           const countForSec = Math.min(totalToGenerate, sec.count);
+
+          // Track existing exercises in this specific section to prevent duplicate cards
+          const existingTasksInSec = new Set();
+          (lmState.blocks || []).forEach((b) => {
+            if (b.tab === sec.tab) {
+              const qType = b.quizType || (b.type === "quiz" ? "Quiz" : b.type);
+              const target = String(b.targetWord || b.items?.[0]?.word || b.items?.[0]?.answer || b.items?.[0]?.left || b.title || "").toLowerCase().trim();
+              if (target) existingTasksInSec.add((qType + "::" + target).toLowerCase());
+              if (b.title) existingTasksInSec.add(String(b.title).toLowerCase().trim());
+            }
+          });
+
+          let poolCursor = 0;
           for (let i = 0; i < countForSec; i++) {
             const quizType = activeTypes[(createdTaskBlocks.length) % activeTypes.length] || "Match";
-            const targetObj = vocabPool[(createdTaskBlocks.length) % vocabPool.length] || { word: "vocabulary", meaning: "словарь" };
+
+            // Find an unused targetObj from vocabPool for this quizType in this section
+            let targetObj = null;
+            let attempts = 0;
+            while (attempts < vocabPool.length) {
+              const candidate = vocabPool[(poolCursor + attempts) % vocabPool.length];
+              const sig = (quizType + "::" + candidate.word).toLowerCase();
+              if (!existingTasksInSec.has(sig)) {
+                targetObj = candidate;
+                poolCursor = (poolCursor + attempts + 1) % vocabPool.length;
+                break;
+              }
+              attempts++;
+            }
+            if (!targetObj) {
+              targetObj = vocabPool[(poolCursor++) % vocabPool.length] || { word: "vocabulary", meaning: "словарь" };
+            }
+
+            existingTasksInSec.add((quizType + "::" + targetObj.word).toLowerCase());
             wordsUsedInTasks.push(targetObj);
 
             if (quizType === "Match") {
-              const p1 = vocabPool[(i * 3) % vocabPool.length];
-              const p2 = vocabPool[(i * 3 + 1) % vocabPool.length];
-              const p3 = vocabPool[(i * 3 + 2) % vocabPool.length];
-              const pairs = [p1, p2, p3].filter(Boolean);
+              const matchSet = [];
+              let mAttempts = 0;
+              while (matchSet.length < 3 && mAttempts < vocabPool.length) {
+                const cand = vocabPool[(poolCursor + mAttempts) % vocabPool.length];
+                if (cand && !matchSet.some((m) => m.word.toLowerCase() === cand.word.toLowerCase())) {
+                  matchSet.push(cand);
+                }
+                mAttempts++;
+              }
+              poolCursor = (poolCursor + mAttempts) % vocabPool.length;
+              const pairs = matchSet.length >= 2 ? matchSet : [targetObj, vocabPool[0], vocabPool[1]].filter(Boolean);
               pairs.forEach((p) => wordsUsedInTasks.push(p));
+
+              const matchTitle = (isHw ? "HW Match: " : "CW Match: ") + (lmState.title || "Lesson") + " (" + pairs.map((p) => p.word).slice(0, 2).join(", ") + ")";
+              existingTasksInSec.add(matchTitle.toLowerCase().trim());
 
               const block = {
                 id: lmId(),
@@ -26365,7 +26496,7 @@ const STUDIO_CONSTELLATIONS = [{
                 gradeMode: "assignment",
                 maxPoints: 1,
                 assignmentId: "a-" + crypto.randomUUID(),
-                title: (isHw ? "HW Match: " : "CW Match: ") + (lmState.title || "Lesson") + " (Set " + (i + 1) + ")",
+                title: matchTitle,
                 quizType: "Match",
                 items: pairs.map((p) => ({ left: p.word, right: p.meaning })),
                 pdfTeacherNotes: "Match each English term with its Russian meaning."
@@ -26373,8 +26504,11 @@ const STUDIO_CONSTELLATIONS = [{
               createdTaskBlocks.push(block);
               lmState.blocks.push(block);
             } else if (quizType === "Choice") {
-              const d1 = vocabPool[(i + 1) % vocabPool.length]?.meaning || "Alternative meaning";
-              const d2 = vocabPool[(i + 2) % vocabPool.length]?.meaning || "Opposite meaning";
+              const d1 = vocabPool[(poolCursor + 1) % vocabPool.length]?.meaning || "Alternative meaning";
+              const d2 = vocabPool[(poolCursor + 2) % vocabPool.length]?.meaning || "Opposite meaning";
+              const blockTitle = (isHw ? "HW Choice: " : "CW Choice: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+
               const block = {
                 id: lmId(),
                 type: "quiz",
@@ -26383,7 +26517,8 @@ const STUDIO_CONSTELLATIONS = [{
                 gradeMode: "assignment",
                 maxPoints: 1,
                 assignmentId: "a-" + crypto.randomUUID(),
-                title: (isHw ? "HW Choice: " : "CW Choice: ") + targetObj.word,
+                title: blockTitle,
+                targetWord: targetObj.word,
                 quizType: "Choice",
                 items: [{
                   prompt: "Select the meaning of \"" + targetObj.word + "\":",
@@ -26395,6 +26530,9 @@ const STUDIO_CONSTELLATIONS = [{
               createdTaskBlocks.push(block);
               lmState.blocks.push(block);
             } else if (quizType === "Gap") {
+              const blockTitle = (isHw ? "HW Gap: " : "CW Gap: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+
               const block = {
                 id: lmId(),
                 type: "quiz",
@@ -26403,10 +26541,11 @@ const STUDIO_CONSTELLATIONS = [{
                 gradeMode: "assignment",
                 maxPoints: 1,
                 assignmentId: "a-" + crypto.randomUUID(),
-                title: (isHw ? "HW Gap: " : "CW Gap: ") + targetObj.word,
+                title: blockTitle,
+                targetWord: targetObj.word,
                 quizType: "Gap",
                 items: [{
-                  shown: "We need to understand ___ in context.",
+                  shown: targetObj.example ? targetObj.example.replace(new RegExp("\\b" + targetObj.word + "\\b", "gi"), "___") : "We need to understand ___ in context.",
                   answer: targetObj.word,
                   hint: "First letter: " + (targetObj.word[0] || "")
                 }]
@@ -26416,9 +26555,13 @@ const STUDIO_CONSTELLATIONS = [{
             } else {
               const block = lmBlank("quiz", quizType);
               block.tab = sec.tab;
-              block.title = (isHw ? "HW " : "CW ") + quizType + ": " + targetObj.word;
+              block.targetWord = targetObj.word;
+              const blockTitle = (isHw ? "HW " : "CW ") + quizType + ": " + targetObj.word;
+              block.title = blockTitle;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+
               if (block.items && block.items[0]) {
-                if (block.items[0].prompt !== undefined) block.items[0].prompt = "Practice " + targetObj.word;
+                if (block.items[0].prompt !== undefined) block.items[0].prompt = "Say: \"" + targetObj.word + "\"";
                 if (block.items[0].answer !== undefined) block.items[0].answer = targetObj.word;
                 if (block.items[0].word !== undefined) block.items[0].word = targetObj.word;
                 if (block.items[0].left !== undefined) { block.items[0].left = targetObj.word; block.items[0].right = targetObj.meaning; }
@@ -26806,6 +26949,9 @@ const STUDIO_CONSTELLATIONS = [{
       window.lmShowTabProgress = lmShowTabProgress;
       window.lmHideTabProgress = lmHideTabProgress;
       window.lmSelectTab = lmSelectTab;
+      window.lmExtractLessonVocabularyPool = lmExtractLessonVocabularyPool;
+      window.lmGetThematicExpansionPool = lmGetThematicExpansionPool;
+      window.lmEnsureWordsInLesson = lmEnsureWordsInLesson;
 
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);

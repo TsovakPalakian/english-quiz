@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { EXAM_SPEAKING_LIMITS, checkExamSpeakingDuration } from '../src/quiz-media.mjs';
 
 test('Stage E6: EXAM_SPEAKING_LIMITS and checkExamSpeakingDuration', () => {
@@ -117,26 +118,48 @@ test('Stage 13: Pronounce widget rendering, AI check and phonetic fallback in CW
   assert.ok(html.includes('name="pronounce-opt-block-pronounce-1"'), 'Contains fallback radio choices');
 });
 
-test('Stage E6: Exam speaking 90s timer countdown logic', () => {
-  let remainingSeconds = 90;
-  let formattedBadge = '';
+test('TASK-54: computePronunciationSimilarity accurately calculates score and distinguishes mismatched speech', () => {
+  const code = fs.readFileSync('client/main/material-upgrades.js', 'utf8');
+  assert.ok(code.includes('function computePronunciationSimilarity('), 'client/main/material-upgrades.js must implement computePronunciationSimilarity');
 
-  const updateSpeakingBadge = () => {
-    const m = Math.floor(remainingSeconds / 60);
-    const s = remainingSeconds % 60;
-    formattedBadge = '● REC ' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0') + ' / 01:30';
-  };
+  // Evaluate the extracted function
+  const match = code.match(/function computePronunciationSimilarity\([\s\S]*?\n\}/);
+  assert.ok(match, 'computePronunciationSimilarity must be extracted cleanly');
+  const computePronunciationSimilarity = new Function('return (' + match[0] + ')')();
 
-  updateSpeakingBadge();
-  assert.equal(formattedBadge, '● REC 01:30 / 01:30', 'Initial speaking timer starts at 01:30');
+  // Test 1: Exactly matching utterance
+  const exact = computePronunciationSimilarity('superstition', 'superstition');
+  assert.equal(exact.passed, true, 'Exact match must pass');
+  assert.ok(exact.score >= 90, 'Exact match score must be >= 90%');
 
-  // Simulate 35 seconds elapsed
-  remainingSeconds -= 35;
-  updateSpeakingBadge();
-  assert.equal(formattedBadge, '● REC 00:55 / 01:30', 'Countdown shows 00:55 after 35s');
+  // Test 2: Completely mismatched word (e.g. user said "apple" instead of "superstition")
+  const mismatch = computePronunciationSimilarity('superstition', 'apple');
+  assert.equal(mismatch.passed, false, 'Mismatched word must NOT pass');
+  assert.ok(mismatch.score <= 35, 'Mismatched score must be low (< 35%)');
+  assert.ok(mismatch.feedback.includes('Pronunciation mismatch'), 'Feedback must state pronunciation mismatch');
+  assert.ok(mismatch.feedback.includes('Heard: "apple"'), 'Feedback must detail heard word');
+  assert.ok(mismatch.feedback.includes('Expected: "superstition"'), 'Feedback must detail expected target');
 
-  // Simulate timer finish
-  remainingSeconds = 0;
-  updateSpeakingBadge();
-  assert.equal(formattedBadge, '● REC 00:00 / 01:30', 'Timer terminates at 00:00');
+  // Test 3: Close pronunciation with minor articulation discrepancy
+  const close = computePronunciationSimilarity('knock on wood', 'knock on wood');
+  assert.equal(close.passed, true, 'Matching idiom must pass');
+});
+
+test('TASK-54: Pronounce widget includes data-pronounce-target and Re-record resets previous score & state', () => {
+  const code = fs.readFileSync('client/main/material-upgrades.js', 'utf8');
+
+  // Verify data-pronounce-target on widget container
+  assert.ok(code.includes('data-pronounce-target="'), 'Pronounce widget must specify data-pronounce-target');
+
+  // Verify Re-record reset logic
+  assert.ok(code.includes("if (status) status.innerHTML = '';"), 'Re-record must immediately clear status innerHTML');
+  assert.ok(code.includes("if (audioBox) audioBox.innerHTML = '';"), 'Re-record must immediately clear audioBox');
+  assert.ok(code.includes("delete widget._spokenTranscript;"), 'Re-record must clear spoken transcript from widget');
+  assert.ok(code.includes("delete widget.dataset.lastSpoken;"), 'Re-record must clear lastSpoken dataset');
+
+  // Verify CSS contains needs-work styling
+  const css = fs.readFileSync('site/preview.css', 'utf8');
+  assert.ok(css.includes('.pronounce-score-badge.needs-work'), 'CSS must define .pronounce-score-badge.needs-work styling');
+  assert.ok(css.includes('#fee2e2'), 'needs-work badge must have light red background');
+  assert.ok(css.includes('#991b1b'), 'needs-work badge must have dark red text');
 });

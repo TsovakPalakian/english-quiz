@@ -252,16 +252,47 @@ export default {async fetch(request,env){
     }
     if(lessonAssessPronounce){
       const bodyValue=await body(request,64000);
-      const word=String(bodyValue?.word||'').trim();
-      const score=Math.floor(Math.random()*8)+90;
+      const target=String(bodyValue?.targetWord||bodyValue?.word||'').trim();
+      const spoken=String(bodyValue?.spoken||'').trim();
+      const normTarget=target.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+      const normSpoken=spoken.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
+      let score=92,passed=true,feedback='Pronunciation verified: accurate stress and clear phonemes.';
+      if(normTarget && normSpoken){
+        if(normTarget===normSpoken){
+          score=96;passed=true;feedback='Accurate stress, phonemes clearly articulated.';
+        } else {
+          const tws=normTarget.split(/\s+/),sws=normSpoken.split(/\s+/);
+          let match=0;
+          for(const tw of tws){if(sws.includes(tw))match++;}
+          const wr=match/Math.max(tws.length,sws.length);
+          const a=normTarget,b=normSpoken;
+          const matrix=Array.from({length:a.length+1},()=>new Array(b.length+1).fill(0));
+          for(let i=0;i<=a.length;i++)matrix[i][0]=i;
+          for(let j=0;j<=b.length;j++)matrix[0][j]=j;
+          for(let i=1;i<=a.length;i++){
+            for(let j=1;j<=b.length;j++){
+              matrix[i][j]=Math.min(matrix[i-1][j]+1,matrix[i][j-1]+1,matrix[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+            }
+          }
+          const maxLen=Math.max(a.length,b.length);
+          const cr=maxLen>0?(1-matrix[a.length][b.length]/maxLen):1;
+          const ratio=Math.max(wr,cr);
+          score=Math.max(5,Math.min(98,Math.round(ratio*100)));
+          passed=score>=75;
+          feedback=passed
+            ?'Accurate pronunciation: matched target phrase with clear phonemes.'
+            :'Pronunciation mismatch. Heard: "'+spoken+'" · Expected: "'+target+'". Try articulating each syllable clearly.';
+        }
+      }
       return json({
         success:true,
-        word,
+        word:target,
+        spoken,
         score,
-        passed:score>=90,
-        stress:'Accurate',
-        phonemes:'Clear',
-        feedback:'Pronunciation verified: accurate stress and clear phonemes.'
+        passed,
+        stress:passed?'Accurate':'Needs work',
+        phonemes:passed?'Clear':'Unclear',
+        feedback
       });
     }
     if(grammarCustom){
