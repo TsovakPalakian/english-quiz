@@ -38,6 +38,13 @@
 - **Требование**: Обеспечение генерации валидных структур данных без пустых полей для типов `Type`, `Definition`, `Odd one out`, `Select all`, `Build`, `Tap`, `Reverse`, `Flip`, `Smart Flashcard`, `Memory`, `Listen`.
 - **Исходный код**: [`client/52-lessons.js#L3010-L3130`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L3010-L3130), [`src/quiz-review-content.mjs#L26-L48`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/quiz-review-content.mjs#L26-L48).
 
+### 1.6. Блокировка pointer events диалогом `#learning-main-banner` в CI (`test-local-workbench-launch-ui.mjs`)
+- **Проблема**: В CI при выполнении `test/test-local-workbench-launch-ui.mjs:64:80` вызов `page.locator('[data-workbench-mine]:visible').click()` падает по тайм-ауту 30000ms: `<dialog open="" role="alertdialog" id="learning-main-banner" aria-label="Notification" data-compact-notices="true" aria-describedby="learning-main-status">…</dialog> intercepts pointer events`.
+- **Причина**: При смене роли на `u1` через выпадающий список `#local-workbench-role` происходит сетевой запрос смены роли и перезагрузка страницы `location.reload()`. Прерванные сетевые запросы (`AbortError`) или фоновые уведомления вызывают `notice(error.message, true)` в [`client/main/main-bridge.js#L322-L324`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L322-L324), что открывает модальный диалог `<dialog open="" role="alertdialog" id="learning-main-banner">`. В строке [`test/test-local-workbench-launch-ui.mjs#L45`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-local-workbench-launch-ui.mjs#L45) уже предусмотрено закрытие баннера: `if(await page.locator('#learning-main-banner').isVisible()) await page.locator('#learning-main-dismiss').click();`, но во вспомогательной функции `switchRole` ([`test/test-local-workbench-launch-ui.mjs#L56-L59`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-local-workbench-launch-ui.mjs#L56-L59)) закрытие отсутствовало.
+- **Требование**:
+  1. В [`test/test-local-workbench-launch-ui.mjs#L56-L59`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-local-workbench-launch-ui.mjs#L56-L59) в функцию `switchRole` добавить закрытие баннера при его наличии: `if(await page.locator('#learning-main-banner').isVisible()) await page.locator('#learning-main-dismiss').click();`.
+  2. В [`client/main/main-bridge.js#L322`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L322) подавлять всплытие системного модального уведомления для прерванных запросов `error?.name === 'AbortError'`.
+
 ---
 
 ## 2. Утвержденные визуальные макеты
@@ -101,3 +108,4 @@
 - 🟩 **Этап 7**: Разработка автоматизированных тестов:
   - Создание тестов в `test/test-lesson-task55-unified.mjs` с проверкой блокировки публикации, автосворачивания, порядка сортировки карточек и работы True / false.
 - 🟩 **Этап 8**: Итоговая верификация и подготовка обобщенного коммита.
+- 🟩 **Этап 9**: Устранение перехвата кликов модальным диалогом `#learning-main-banner` в `test/test-local-workbench-launch-ui.mjs` и подавление модальных алертов при `AbortError` в `client/main/main-bridge.js`.

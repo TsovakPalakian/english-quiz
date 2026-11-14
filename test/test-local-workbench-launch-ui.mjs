@@ -56,6 +56,7 @@ test('full local shell exposes one isolated workbench across roles without produ
     const switchRole=async id=>{
       const b=page.locator('[data-workbench-close]:visible, .meta:visible [data-nav-back]');if(await b.count())await b.first().click();
       await page.locator('#local-workbench-role').selectOption(id);await page.waitForFunction(id=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id===id,id);
+      if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
     };
     const expandReview=()=>page.locator('.learning-kit-dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
     await switchRole('teacher');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();

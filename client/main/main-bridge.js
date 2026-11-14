@@ -319,7 +319,7 @@
       if(path==='/api/logout'){actorId='';confirmedThemes={};themeRevision=0;customRevision=0;personalReady=false;cards.clear();collections.clear();quizzes.clear();try{window.ContentCache.clear();}catch(e){}}
       return value;
     }catch(error){
-      const suppressNotice=options.quietBug===true||((error.status===404||error.status===410)&&path.startsWith('/api/accounts/invites'));
+      const suppressNotice=options.quietBug===true||error?.name==='AbortError'||((error.status===404||error.status===410)&&path.startsWith('/api/accounts/invites'));
       if(error.status!==401&&!suppressNotice)notice(error.message,true);
       throw error;
     }
