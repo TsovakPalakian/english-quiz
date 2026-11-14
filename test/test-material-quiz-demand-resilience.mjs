@@ -54,6 +54,12 @@ test('lmPaintChrome safely degrades when MaterialQuiz is not yet loaded', () => 
   assert.doesNotMatch(picker.innerHTML, /data-quiz="Flip"/, 'Flip must be excluded in exam mode');
 });
 
+test('examFillAnswers safely degrades when MaterialQuiz is not yet loaded', () => {
+  const source = readFileSync(new URL('../client/main/material-upgrades.js', import.meta.url), 'utf8');
+  assert.ok(source.includes('Loading quiz\\u2026') || source.includes('Loading quiz…'), 'Must include loading quiz fallback');
+  assert.ok(source.includes('Loading exercise\\u2026') || source.includes('Loading exercise…'), 'Must include loading exercise fallback');
+});
+
 test('Playwright visual verification: navigation from daysetup to material does not crash when MaterialQuiz is not loaded', async () => {
   const root = resolve('rollback/production-assets');
   const mimeTypes = {
