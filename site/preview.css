@@ -9853,6 +9853,13 @@ td.td-focused-col {
 }
 
 /* Teacher Verification & Voice Mode (Stages 16-19) */
+#lmPublish.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: auto;
+  filter: grayscale(0.5);
+}
+
 .lm-verified-badge {
   display: inline-flex;
   align-items: center;

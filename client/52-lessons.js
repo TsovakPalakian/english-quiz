@@ -615,7 +615,13 @@
     }
     function lmBlocksFor(tab) {
       const id = tab || lmTab();
-      return (lmState && lmState.blocks || []).filter((block) => (block.tab || "overview") === id);
+      const raw = (lmState && lmState.blocks || []).filter((block) => (block.tab || "overview") === id);
+      if (id === "classwork" || id === "homework") {
+        const unverified = raw.filter((b) => !b.teacherVerified);
+        const verified = raw.filter((b) => !!b.teacherVerified);
+        return unverified.concat(verified);
+      }
+      return raw;
     }
     function lmWordCardHtml(block) {
       const card = { word: block.word, en: block.word, ru: block.ru || "", uk: block.uk || "", us: block.us || "", data: block.data || null };
@@ -957,11 +963,12 @@
     function lmHead(block, label, isFirst, isLast) {
       const copy = contentCopyButton('material', block.id, lmState.examOwned ? 'exam-block' : 'lesson', lmState.id, 'lm-icon');
       const newBadge = block.id === lmLastAddedBlockId ? '<span class="lm-new-badge">New</span>' : '';
+      const verifiedBadge = block.teacherVerified ? '<span class="lm-verified-badge" title="Verified by Teacher">✓ Verified by Teacher</span>' : '';
       const topDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const upDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const downDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const bottomDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
-      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + verifiedBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
     }
     function lmQuestions(block) {
       return (block.items || []).map((question, index) => {
@@ -1201,6 +1208,19 @@
           const videoHtml = block.mediaId ? lmMedia(block.mediaId, "video") : (block.url ? lmVideoFrame(block.url, block.title) : "");
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + (question.transcript ? '<p class="hint">Transcript: ' + esc(question.transcript) + '</p>' : '') + lmPreviewChoices(block, index, question) + "</div>").join("");
           return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+        }
+        if (kind === "True / false") {
+          const questions = (block.items || []).map((question, index) => {
+            const name = "pv-" + block.id + "-" + index;
+            const picked = question.picked;
+            const opts = [
+              '<label class="lm-opt"><input type="radio" name="' + name + '" data-pick="' + block.id + ':' + index + ':true"' + (picked === 'true' ? ' checked' : '') + ' /> True</label>',
+              '<label class="lm-opt"><input type="radio" name="' + name + '" data-pick="' + block.id + ':' + index + ':false"' + (picked === 'false' ? ' checked' : '') + ' /> False</label>'
+            ].join("");
+            const mark = question.marked ? '<p class="lm-result ' + (question.correct ? 'is-ok' : 'is-no') + '">' + (question.correct ? '✓ Correct' : '✗ Incorrect (Answer: ' + (String(question.answer) === 'true' ? 'True' : 'False') + ')') + '</p>' : '';
+            return '<div class="lm-q"><b>' + esc(question.prompt || "Statement") + '</b>' + opts + mark + '</div>';
+          }).join("");
+          return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + '</p>';
         }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
@@ -1998,7 +2018,11 @@
           const block = lmBlock(verifyToggle.dataset.blockTeacherVerified);
           if (block) {
             block.teacherVerified = !!verifyToggle.checked;
+            if (block.teacherVerified) {
+              block.collapsed = true;
+            }
             lmSyncTeacherVerifySummary();
+            lmRenderEditor();
             lmSchedule();
           }
           return;
@@ -2007,7 +2031,10 @@
           const chk = document.getElementById("lmTeacherVerifyCheckbox");
           const val = !!(chk && chk.checked);
           if (lmState && Array.isArray(lmState.blocks)) {
-            lmState.blocks.forEach(b => { b.teacherVerified = val; });
+            lmState.blocks.forEach(b => {
+              b.teacherVerified = val;
+              if (val) b.collapsed = true;
+            });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
             lmSchedule();
@@ -2151,7 +2178,10 @@
           const bits = pick.dataset.pick.split(":");
           const block = lmBlock(bits[0]);
           const question = block && block.items && block.items[Number(bits[1])];
-          if (question) question.picked = Number(bits[2]);
+          if (question) {
+            const val = bits[2];
+            question.picked = (val === "true" || val === "false") ? val : Number(val);
+          }
         }
       });
       lmRoot.addEventListener("click", (event) => {
@@ -2161,7 +2191,10 @@
           const val = !(chk && chk.checked);
           if (chk) chk.checked = val;
           if (lmState && Array.isArray(lmState.blocks)) {
-            lmState.blocks.forEach(b => { b.teacherVerified = val; });
+            lmState.blocks.forEach(b => {
+              b.teacherVerified = val;
+              if (val) b.collapsed = true;
+            });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
             lmSchedule();
@@ -2297,7 +2330,10 @@
         if (event.target.closest("#lmApproveAllBlocksBtn")) {
           event.preventDefault();
           if (lmState && Array.isArray(lmState.blocks)) {
-            lmState.blocks.forEach(b => { b.teacherVerified = true; });
+            lmState.blocks.forEach(b => {
+              b.teacherVerified = true;
+              b.collapsed = true;
+            });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
             lmSchedule();
@@ -2414,10 +2450,18 @@
         if (quizCheck) {
           const block = lmBlock(quizCheck.dataset.quizCheck);
           if (block) {
-            const score = block.items.reduce((sum, question) => sum + (Number(question.picked) === Number(question.answer) ? 1 : 0), 0);
+            const isTf = block.quizType === "True / false";
+            const score = block.items.reduce((sum, question) => {
+              const ok = isTf
+                ? String(question.picked).toLowerCase() === String(question.answer).toLowerCase()
+                : Number(question.picked) === Number(question.answer);
+              if (isTf) { question.marked = true; question.correct = ok; }
+              return sum + (ok ? 1 : 0);
+            }, 0);
             block.score = score + " / " + block.items.length;
             const out = lmRoot.querySelector('[data-quiz-score="' + block.id + '"]');
             if (out) out.textContent = block.score;
+            if (isTf) lmRenderPreview();
             lmSchedule();
           }
           return;
@@ -2540,6 +2584,13 @@
       document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
       document.getElementById("lmPublish").addEventListener("click", () => {
         if (!canEditLessons()) return;
+        if (!lmState?.examOwned) {
+          const reviewable = (lmState && Array.isArray(lmState.blocks)) ? lmState.blocks.filter(b => b.type !== 'divider') : [];
+          if (!reviewable.length || reviewable.some(b => !b.teacherVerified)) {
+            lmNote("Cannot publish: verify all lesson materials and quizzes first. You can only save as draft.");
+            return;
+          }
+        }
         lmSortWordcardsForPublish();
         lmState.published = true;
         lmState.mode = "preview";
@@ -3110,6 +3161,366 @@
               };
               createdTaskBlocks.push(block);
               lmState.blocks.push(block);
+            } else if (quizType === "True / false") {
+              const isTruthful = (createdTaskBlocks.length % 2 === 0);
+              const word = targetObj.word;
+              const meaning = targetObj.meaning;
+              const example = targetObj.example;
+              let statement = "";
+              let note = "";
+              if (isTruthful) {
+                if (example && example.toLowerCase().includes(word.toLowerCase())) {
+                  statement = 'In the context "' + example + '", the word "' + word + '" translates as "' + meaning + '".';
+                } else {
+                  statement = 'The word "' + word + '" correctly translates to Russian as "' + meaning + '".';
+                }
+                note = 'Statement is TRUE: "' + word + '" means "' + meaning + '".';
+              } else {
+                const distractor = vocabPool.find((v) => v.word.toLowerCase() !== word.toLowerCase() && v.meaning !== meaning) || { word: "experiment", meaning: "научный эксперимент" };
+                statement = 'The word "' + word + '" translates to Russian as "' + distractor.meaning + '".';
+                note = 'Statement is FALSE: "' + word + '" means "' + meaning + '", not "' + distractor.meaning + '".';
+              }
+              const blockTitle = (isHw ? "HW True / false: " : "CW True / false: ") + word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: word,
+                quizType: "True / false",
+                items: [{
+                  prompt: statement,
+                  answer: isTruthful ? "true" : "false"
+                }],
+                pdfTeacherNotes: note
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Type") {
+              const blockTitle = (isHw ? "HW Type: " : "CW Type: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Type",
+                items: [{
+                  prompt: "Type the English word for: \"" + targetObj.meaning + "\"",
+                  answer: targetObj.word
+                }],
+                pdfTeacherNotes: "Answer: " + targetObj.word
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Definition") {
+              const d1 = vocabPool[(poolCursor + 1) % vocabPool.length]?.word || "alternative";
+              const d2 = vocabPool[(poolCursor + 2) % vocabPool.length]?.word || "opposite";
+              const blockTitle = (isHw ? "HW Definition: " : "CW Definition: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Definition",
+                items: [{
+                  prompt: "Select the word that matches the meaning: \"" + targetObj.meaning + (targetObj.example ? ' (' + targetObj.example + ')' : '') + "\"",
+                  word: targetObj.word,
+                  options: [targetObj.word, d1, d2],
+                  answer: 0
+                }],
+                pdfTeacherNotes: targetObj.word + ": " + targetObj.meaning
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Odd one out") {
+              const related1 = targetObj.word;
+              const related2 = vocabPool[(poolCursor + 1) % vocabPool.length]?.word || "custom";
+              const related3 = vocabPool[(poolCursor + 2) % vocabPool.length]?.word || "tradition";
+              const oddWords = ["microwave", "refrigerator", "algebra", "telescope", "submarine"];
+              const oddWord = oddWords[createdTaskBlocks.length % oddWords.length];
+              const options = [related1, related2, oddWord, related3];
+              const blockTitle = (isHw ? "HW Odd one out: " : "CW Odd one out: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Odd one out",
+                items: [{
+                  prompt: "Choose the odd one out that does not fit the lesson topic:",
+                  options: options,
+                  answer: 2
+                }],
+                pdfTeacherNotes: "Odd word: " + oddWord
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Select all") {
+              const rel1 = targetObj.word;
+              const rel2 = vocabPool[(poolCursor + 1) % vocabPool.length]?.word || "context";
+              const unrel1 = "gravity";
+              const unrel2 = "calculation";
+              const options = [rel1, unrel1, rel2, unrel2];
+              const blockTitle = (isHw ? "HW Select all: " : "CW Select all: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Select all",
+                items: [{
+                  prompt: "Select all terms related to the current lesson context:",
+                  options: options,
+                  answers: [0, 2]
+                }],
+                pdfTeacherNotes: "Correct options: " + rel1 + ", " + rel2
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Build") {
+              const sentence = targetObj.example || ("We learned the word " + targetObj.word + " today.");
+              const words = sentence.replace(/[.,!?;:]/g, '').trim().split(/\s+/);
+              const shuffledParts = [...words].sort(() => Math.random() - 0.5).join(" ");
+              const cleanAnswer = words.join(" ");
+              const blockTitle = (isHw ? "HW Build: " : "CW Build: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Build",
+                items: [{
+                  parts: shuffledParts,
+                  answer: cleanAnswer
+                }],
+                pdfTeacherNotes: "Assemble sentence: " + cleanAnswer
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Tap") {
+              const sentence = targetObj.example || ("People often mention " + targetObj.word + " in conversation.");
+              const blockTitle = (isHw ? "HW Tap: " : "CW Tap: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Tap",
+                items: [{
+                  text: sentence,
+                  answer: targetObj.word
+                }],
+                pdfTeacherNotes: "Tap the target word: " + targetObj.word
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Reverse") {
+              const blockTitle = (isHw ? "HW Reverse: " : "CW Reverse: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Reverse",
+                items: [{
+                  front: targetObj.meaning,
+                  back: targetObj.word
+                }],
+                pdfTeacherNotes: targetObj.meaning + " -> " + targetObj.word
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Flip") {
+              const blockTitle = (isHw ? "HW Flip: " : "CW Flip: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Flip",
+                items: [{
+                  front: targetObj.word,
+                  back: targetObj.meaning
+                }],
+                pdfTeacherNotes: targetObj.word + " -> " + targetObj.meaning
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Smart Flashcard") {
+              const blockTitle = (isHw ? "HW Flashcard: " : "CW Flashcard: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Smart Flashcard",
+                items: [{
+                  front: targetObj.word,
+                  back: targetObj.meaning,
+                  example: targetObj.example || ("Usage: " + targetObj.word)
+                }],
+                pdfTeacherNotes: targetObj.word + " · " + targetObj.meaning
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Memory") {
+              const matchSet = [];
+              let mAttempts = 0;
+              while (matchSet.length < 4 && mAttempts < vocabPool.length) {
+                const cand = vocabPool[(poolCursor + mAttempts) % vocabPool.length];
+                if (cand && !matchSet.some((m) => m.word.toLowerCase() === cand.word.toLowerCase())) {
+                  matchSet.push(cand);
+                }
+                mAttempts++;
+              }
+              poolCursor = (poolCursor + mAttempts) % vocabPool.length;
+              const pairs = matchSet.length >= 2 ? matchSet : [targetObj, vocabPool[0], vocabPool[1]].filter(Boolean);
+              const blockTitle = (isHw ? "HW Memory: " : "CW Memory: ") + (lmState.title || "Lesson") + " (" + pairs.map((p) => p.word).slice(0, 2).join(", ") + ")";
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                quizType: "Memory",
+                memorySize: pairs.length,
+                items: pairs.map((p) => ({ left: p.word, right: p.meaning })),
+                pdfTeacherNotes: "Memory match: " + pairs.map((p) => p.word).join(", ")
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Listen") {
+              const blockTitle = (isHw ? "HW Listen: " : "CW Listen: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Listen",
+                items: [{
+                  prompt: "Listen to the pronunciation and spell the word:",
+                  word: targetObj.word,
+                  answer: targetObj.word
+                }],
+                pdfTeacherNotes: "Target word: " + targetObj.word
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Pronounce") {
+              const blockTitle = (isHw ? "HW Pronounce: " : "CW Pronounce: ") + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: "Pronounce",
+                items: [{
+                  prompt: "Say: \"" + targetObj.word + "\"",
+                  word: targetObj.word,
+                  ipa: targetObj.ipa || "",
+                  answer: targetObj.word
+                }],
+                pdfTeacherNotes: "Pronunciation target: " + targetObj.word
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
+            } else if (quizType === "Spell" || quizType === "Letters" || quizType === "Hangman") {
+              const blockTitle = (isHw ? "HW " : "CW ") + quizType + ": " + targetObj.word;
+              existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const block = {
+                id: lmId(),
+                type: "quiz",
+                tab: sec.tab,
+                collapsed: false,
+                gradeMode: "assignment",
+                maxPoints: 1,
+                assignmentId: "a-" + crypto.randomUUID(),
+                title: blockTitle,
+                targetWord: targetObj.word,
+                quizType: quizType,
+                items: [{
+                  word: targetObj.word,
+                  hint: targetObj.meaning
+                }],
+                pdfTeacherNotes: quizType + " practice for: " + targetObj.word + " (" + targetObj.meaning + ")"
+              };
+              createdTaskBlocks.push(block);
+              lmState.blocks.push(block);
             } else {
               const block = lmBlank("quiz", quizType);
               block.tab = sec.tab;
@@ -3119,7 +3530,7 @@
               existingTasksInSec.add(blockTitle.toLowerCase().trim());
 
               if (block.items && block.items[0]) {
-                if (block.items[0].prompt !== undefined) block.items[0].prompt = "Say: \"" + targetObj.word + "\"";
+                if (block.items[0].prompt !== undefined) block.items[0].prompt = "Practice: \"" + targetObj.word + "\"";
                 if (block.items[0].answer !== undefined) block.items[0].answer = targetObj.word;
                 if (block.items[0].word !== undefined) block.items[0].word = targetObj.word;
                 if (block.items[0].left !== undefined) { block.items[0].left = targetObj.word; block.items[0].right = targetObj.meaning; }
@@ -3455,6 +3866,16 @@
         const btn = document.getElementById("lmTeacherVerifyBtn");
         const badge = document.getElementById("lmTeacherVerifyBadge");
         const approveAllBtn = document.getElementById("lmApproveAllBlocksBtn");
+        const publishBtn = document.getElementById("lmPublish");
+        if (lmState && lmState.examOwned) {
+          if (publishBtn) {
+            publishBtn.disabled = false;
+            publishBtn.classList.remove("is-disabled");
+            publishBtn.removeAttribute("aria-disabled");
+            publishBtn.title = "Publish";
+          }
+          return;
+        }
         if (!lmState || !Array.isArray(lmState.blocks) || lmState.blocks.length === 0) {
           if (chk) chk.checked = false;
           if (btn) {
@@ -3469,10 +3890,17 @@
             approveAllBtn.className = "btn secondary saas-btn lm-approve-all-btn pill-btn pill-red";
             approveAllBtn.innerHTML = "● Approve all";
           }
+          if (publishBtn) {
+            publishBtn.disabled = true;
+            publishBtn.classList.add("is-disabled");
+            publishBtn.setAttribute("aria-disabled", "true");
+            publishBtn.title = "Publish locked: lesson has no materials yet";
+          }
           return;
         }
-        const total = lmState.blocks.length;
-        const verifiedCount = lmState.blocks.filter(b => b.teacherVerified).length;
+        const reviewableBlocks = lmState.blocks.filter((b) => b.type !== 'divider');
+        const total = reviewableBlocks.length;
+        const verifiedCount = reviewableBlocks.filter((b) => b.teacherVerified).length;
         const isAllVerified = verifiedCount === total && total > 0;
         if (chk) chk.checked = isAllVerified;
         if (btn) {
@@ -3488,6 +3916,19 @@
         if (approveAllBtn) {
           approveAllBtn.className = "btn secondary saas-btn lm-approve-all-btn pill-btn " + (isAllVerified ? "pill-green" : "pill-red");
           approveAllBtn.innerHTML = isAllVerified ? "✓ Approved all" : "● Approve all";
+        }
+        if (publishBtn) {
+          if (isAllVerified) {
+            publishBtn.disabled = false;
+            publishBtn.classList.remove("is-disabled");
+            publishBtn.removeAttribute("aria-disabled");
+            publishBtn.title = "Publish lesson";
+          } else {
+            publishBtn.disabled = true;
+            publishBtn.classList.add("is-disabled");
+            publishBtn.setAttribute("aria-disabled", "true");
+            publishBtn.title = "Publish locked: " + (total - verifiedCount) + " unreviewed item(s) remain. Verify all blocks to publish.";
+          }
         }
       }
 
