@@ -3,7 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
+const DatabaseSync = typeof process.getBuiltinModule === 'function'
+  ? process.getBuiltinModule('node:sqlite')?.DatabaseSync
+  : null;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
