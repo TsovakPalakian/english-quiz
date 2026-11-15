@@ -1112,5 +1112,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initSession();
   await loadManifestData();
   await loadProgress();
-  await loadMainDocument('studentBook', state.savedPages['1A'] || 1);
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedLesson = (urlParams.get('lesson') || '').toUpperCase();
+  if (requestedLesson === '1D') {
+    switchLesson('1D');
+  } else {
+    await loadMainDocument('studentBook', state.savedPages['1A'] || 1);
+  }
 });

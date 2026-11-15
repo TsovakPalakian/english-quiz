@@ -142,7 +142,11 @@
     $('seEdit').hidden=editing||!canEdit;
     $('seAnswers').hidden=editing||!doc.published||!doc.blocks.some(block=>!block.contentGroup&&(['quiz','exercise','task'].includes(block.type)||block.type==='text'&&block.answerEnabled));
     $('seBlocks').innerHTML=editing?doc.blocks.map(block=>'<article class="se-block lm-block'+(block.collapsed?' is-shut':'')+'" data-se-block="'+escape(block.id)+'">'+head(block).replace('>'+caption(block.type)+'</span>', '>'+(block.contentGroup?'Content group':block.answerEnabled?'Answer':caption(block.type))+'</span>')+'<div class="lm-body">'+assignment(block)+editor(block)+'</div></article>').join(''):readBlocks();
-    if(!doc.blocks.length)$('seBlocks').innerHTML='<p class="lm-lead">Nothing on this page yet.</p>';
+    if(!doc.blocks.length){
+      const isA1Unit1=location?.level==='A1'&&location?.unit===0&&(location?.lesson===0||location?.lesson===3);
+      const studioLink=isA1Unit1?'<div style="margin-top:20px; padding:16px; border:1px solid rgba(59,130,246,0.3); border-radius:8px; background:rgba(59,130,246,0.06); text-align:center;"><p style="margin:0 0 12px 0; font-weight:600; color:#3b82f6;">Interactive Pearson Speakout A1 Studio is available for this lesson.</p><a href="/speakout/?lesson='+(location.lesson===3?'1D':'1A')+'" class="lm-btn lm-btn-primary" style="display:inline-block; text-decoration:none; padding:8px 18px;">Open Speakout Studio</a></div>':'';
+      $('seBlocks').innerHTML='<p class="lm-lead">Nothing on this page yet.</p>'+studioLink;
+    }
     if(editing)root.querySelectorAll('[data-se-field], [data-se-item-field]').forEach(field=>{
       if(!field.matches('textarea,input[type=text]'))return;const name=field.dataset.seField||field.dataset.seItemField;if(['criteria','url','remoteUrl','ipa','answer','write'].includes(name))return;
       const part=doc.blocks.find(part=>part.id===field.closest('[data-se-block]').dataset.seBlock),key=name+':'+(field.closest('[data-se-item]')?.dataset.seItem??'');
