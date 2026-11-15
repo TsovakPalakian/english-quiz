@@ -211,6 +211,7 @@ lmPreviewBlock=function(part){
   if(part.type==='heading'){const level=/^h[1-5]$/.test(part.level)?part.level:'h2';return '<'+level+'>'+esc(part.text||'')+'</'+level+'>';}
   if(part.type==='quiz'&&!lmState?.examOwned){
     if(part.quizType==='Pronunciation'||part.quizType==='Pronounce')return renderPronunciationExerciseHtml(part,false);
+    if(part.quizType==='True / false')return materialPreviewBlockBefore(part);
     return window.MaterialQuiz?.render ? window.MaterialQuiz.render(part,{values:materialWhole(part)?{0:part.response||part.items[0]?.typed||''}:Object.fromEntries((part.items||[]).map((item,i)=>[i,item.given??item.typed??item.picked??''])),locked:!!viewAccount,exam:false}) : '<div class="material-quiz-loading">Loading quiz…</div>';
   }
   return materialPreviewBlockBefore(part);

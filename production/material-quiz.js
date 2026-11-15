@@ -22,9 +22,19 @@
       const given=values[index]??'',prompt=item.prompt||item.front||item.shown||item.text||(['Spell'].includes(kind)?item.word:'')||kind;
       let answer;
       if(kind==='Flip')answer='<button class="lm-btn" type="button" data-mq-flip="'+index+'">'+esc(item.front)+'</button><div data-mq-back="'+index+'" hidden>'+esc(item.back)+'</div>';
-      else if(['Choice','Odd one out','Select all','True / false'].includes(kind)){
-        const choices=kind==='True / false'?['True','False']:item.options||[],multiple=kind==='Select all';
-        answer=choices.map((value,oi)=>{const option=kind==='True / false'?String(oi===0):oi,checked=multiple?selected(given).includes(oi):String(given)===String(option);return '<label><input type="'+(multiple?'checkbox':'radio')+'" name="mq-'+esc(block.id)+'-'+index+'" data-mq-choice="'+index+'" value="'+esc(option)+'"'+(checked?' checked':'')+lock+'> '+esc(value)+'</label>';}).join('');
+      else if(kind==='True / false'){
+        let promptText=String(item.prompt||'Statement');
+        const sayMatch=promptText.match(/Say:\s*["']([^"']+)["']/i);
+        if(sayMatch)promptText='The word "'+sayMatch[1]+'" correctly translates to Russian.';
+        const picked=String(given??'');
+        const opts='<div class="lm-tf-options">'+
+          '<button type="button" class="lm-tf-btn'+(picked==='true'?' selected':'')+'" data-mq-choice="'+index+'" value="true"'+lock+'>True'+(picked==='true'?' ✓':'')+'</button>'+
+          '<button type="button" class="lm-tf-btn'+(picked==='false'?' selected':'')+'" data-mq-choice="'+index+'" value="false"'+lock+'>False'+(picked==='false'?' ✓':'')+'</button>'+
+          '</div>';
+        return '<div class="material-question lm-tf-card" data-mq-question="'+index+'"><div class="lm-tf-statement"><strong>Statement:</strong> '+esc(promptText)+'</div>'+opts+(options.feedback?.(index)||'')+'</div>';
+      }else if(['Choice','Odd one out','Select all'].includes(kind)){
+        const choices=item.options||[],multiple=kind==='Select all';
+        answer=choices.map((value,oi)=>{const option=oi,checked=multiple?selected(given).includes(oi):String(given)===String(option);return '<label><input type="'+(multiple?'checkbox':'radio')+'" name="mq-'+esc(block.id)+'-'+index+'" data-mq-choice="'+index+'" value="'+esc(option)+'"'+(checked?' checked':'')+lock+'> '+esc(value)+'</label>';}).join('');
       }else if(kind==='Tap')answer='<div class="material-tokens">'+String(item.text||'').split(/\s+/).map(word=>'<button class="lm-btn" type="button" data-mq-tap="'+index+'" data-word="'+esc(word)+'"'+lock+'>'+esc(word)+'</button>').join('')+'</div>'+field(index,given,'readonly');
       else if(kind==='Hangman'&&!options.exam){const game=hangman(item,given);answer='<p class="material-token-answer" data-mq-mask="'+index+'">'+esc(game.mask)+'</p><div class="material-tokens">'+'abcdefghijklmnopqrstuvwxyz'.split('').map(letter=>'<button class="lm-btn" type="button" data-mq-hangman="'+index+'" data-word="'+letter+'"'+(options.locked||game.done||game.letters.includes(letter)?' disabled':'')+'>'+letter+'</button>').join('')+'</div><p data-mq-misses="'+index+'">'+game.misses+' / 6</p>';}
       else if(['Build','Letters','Hangman'].includes(kind)){
@@ -33,7 +43,7 @@
       }else answer=(kind==='Listen'?'<button class="lm-icon" type="button" data-mq-speak="'+index+'" aria-label="Listen" title="Listen"><i data-lucide="volume-2"></i></button>':'')+field(index,given)+(kind==='Spell'?(options.voice?.(index)||''):'');
       return '<div class="material-question" data-mq-question="'+index+'">'+head(index,kind==='Listen'?'Listen':prompt)+answer+(options.feedback?.(index)||'')+'</div>';
     }).join('');
-    return '<div class="material-quiz" data-mq="'+esc(block.id)+'" data-mq-kind="'+esc(kind)+'">'+body+(!options.exam&&kind!=='Flip'&&kind!=='Memory'?'<button class="lm-btn" type="button" data-mq-check>Check</button><p data-mq-result role="status"></p>':'')+'</div>';
+    return '<div class="material-quiz'+(kind==='True / false'?' lm-tf-block':'')+'" data-mq="'+esc(block.id)+'" data-mq-kind="'+esc(kind)+'">'+body+(!options.exam&&kind!=='Flip'&&kind!=='Memory'?'<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check'+(kind==='True / false'?' lm-tf-check':'')+'" type="button" data-mq-check>'+(kind==='True / false'?'Check answer':'Check')+'</button></div><p data-mq-result role="status"></p>':'')+'</div>';
   }
   const bindings=new WeakMap();
   function bind(root,context){
@@ -48,6 +58,16 @@
     root.addEventListener('input',event=>{const field=event.target.closest('[data-mq-input]'),widget=field?.closest('[data-mq]');if(!widget)return;const ctx=bindings.get(root),block=ctx.block(widget.dataset.mq);if(block)update(widget,block,Number(field.dataset.mqInput)+Number(widget.dataset.mqOffset||0),field.value);});
     root.addEventListener('click',event=>{
       const button=event.target.closest('button'),widget=button?.closest('[data-mq]');if(!widget)return;const ctx=bindings.get(root),block=ctx.block(widget.dataset.mq);if(!block)return;
+      if(button.hasAttribute('data-mq-choice')){
+        const index=Number(button.dataset.mqChoice)+Number(widget.dataset.mqOffset||0),value=button.value;
+        update(widget,block,index,value);
+        widget.querySelectorAll('button[data-mq-choice="'+button.dataset.mqChoice+'"]').forEach(btn=>{
+          const sel=btn.value===value;
+          btn.classList.toggle('selected',sel);
+          btn.textContent=(btn.value==='true'?'True':'False')+(sel?' ✓':'');
+        });
+        return;
+      }
       if(button.hasAttribute('data-mq-speak')){speechSynthesis.cancel();const voice=new SpeechSynthesisUtterance(block.items[button.dataset.mqSpeak].prompt||'');voice.lang='en-US';speechSynthesis.speak(voice);return;}
       if(ctx.locked?.())return;
       if(button.hasAttribute('data-mq-flip')){const back=widget.querySelector('[data-mq-back="'+button.dataset.mqFlip+'"]');back.hidden=!back.hidden;return;}
@@ -74,6 +94,15 @@
           else if(kind==='Select all')ok=JSON.stringify([...selected(value)].sort((a,b)=>a-b))===JSON.stringify([...(item.answers||[])].sort((a,b)=>a-b));
           else ok=norm(value)===norm(item.answer??item.back??item.word);
           if(ok)correct++;
+          if(kind==='True / false'){
+            const qEl=widget.querySelector('[data-mq-question="'+index+'"]');
+            if(qEl){
+              let fb=qEl.querySelector('.lm-tf-feedback');
+              if(!fb){fb=document.createElement('div');fb.className='lm-tf-feedback';qEl.appendChild(fb);}
+              fb.className='lm-tf-feedback '+(ok?'is-ok':'is-no');
+              fb.textContent=ok?'✓ Correct! (+1 pt)':('✗ Incorrect (Correct answer: '+(String(item.answer).toLowerCase()==='true'?'True':'False')+')');
+            }
+          }
         });widget.querySelector('[data-mq-result]').textContent=correct+' / '+items.length;ctx.check?.(block);
       }
     });

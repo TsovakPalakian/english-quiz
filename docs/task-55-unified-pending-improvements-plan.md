@@ -64,6 +64,14 @@
   - При перемещении карточек вверх/вниз или переносе в свернутый контейнер проверенных материалов порядковые номера автоматически пересчитываются строго внутри своей вкладки.
 - **Исходный код**: [`client/52-lessons.js#L963-L972`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L963-L972), [`client/52-lessons.js#L1074-L1095`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1074-L1095), [`client/52-lessons.js#L1271-L1280`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1271-L1280).
 
+### 1.8. Перехват рендеринга квизов модулем `client/main/material-upgrades.js` и `production/material-quiz.js`
+- **Проблема**: В продакшене при загрузке `production/catalog-loader.js` динамически подгружается `production/material-quiz.js` и активируется надстройка `client/main/material-upgrades.js`. В строке [`client/main/material-upgrades.js#L212-L215`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/material-upgrades.js#L212-L215) функция `lmPreviewBlock` переопределена: для всех квизов (`part.type === 'quiz' && !lmState?.examOwned`) вызов делегируется в `window.MaterialQuiz.render(part)`.
+- В [`production/material-quiz.js#L25-L27`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L25-L27) метод `render` обрабатывает `True / false` через общий блок `['Choice','Odd one out','Select all','True / false']`, выводя `<b>Say: "..."</b>`, нативные круглые радиокнопки `<input type="radio">` и кнопку `<button data-mq-check>Check</button>`. В результате новый код предпросмотра из `client/52-lessons.js` в продакшене перехватывался и не доходил до экрана даже после полного сброса кэша.
+- **Требование**:
+  1. В [`client/main/material-upgrades.js#L213`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/material-upgrades.js#L213) исключить `part.quizType === 'True / false'` из перехвата `MaterialQuiz.render`, направляя его в `materialPreviewBlockBefore(part)` (целевой рендерер из `client/52-lessons.js`).
+  2. В [`production/material-quiz.js#L25-L36`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/production/material-quiz.js#L25-L36) обновить рендеринг `True / false`, добавив нормализацию `Say: "..."` в блок утверждения `Statement:`, стилизованные кнопки `.lm-tf-btn` и кнопку `Check answer`, чтобы при любых прямых вызовах `MaterialQuiz.render` отображалась идентичная верстка.
+  3. Пересобрать продакшн-бандл `preview.js` и продакшн-ассеты.
+
 ---
 
 ## 2. Утвержденные визуальные макеты
@@ -137,3 +145,8 @@
 - 🟩 **Этап 10**: Физическое сворачивание всех проверенных заданий секции в единый раскрываемый контейнер `<details class="lm-verified-accordion">` внизу страницы, освобождающий все экранное пространство для активных заданий.
 - 🟩 **Этап 11**: Раздельная независимая порядковая нумерация заданий для `Classwork` и `Homework` (`Task 1`, `Task 2`, ...) в редакторе карточек и в предпросмотре урока.
 - 🟩 **Этап 12**: Доведение верстки карточки `True / false` до точного соответствия утвержденному макету (Скриншот 3 / Скриншот 5): стилизованные горизонтальные кнопки-плашки `[ True ]` и `[ False ]`, контейнер утверждения, нормализация старых prompt'ов `Say: "..."` и кнопка `Check answer` с блоком баллов.
+- 🟩 **Этап 13**: Устранение перехвата рендеринга `True / false` модулем `client/main/material-upgrades.js` и синхронизация `production/material-quiz.js`:
+  - В `client/main/material-upgrades.js#L213` пропустить `part.quizType === 'True / false'` напрямую в `materialPreviewBlockBefore(part)`.
+  - В `production/material-quiz.js#L25-L36` добавить нормализацию `Say: "..."` и верстку с `.lm-tf-options`, `.lm-tf-btn`, `Check answer`.
+  - Запустить сборку `npm run build:preview` и `node ops/build-learning-production-assets.mjs`.
+  - Запустить тесты `test/test-lesson-task55-unified.mjs`.

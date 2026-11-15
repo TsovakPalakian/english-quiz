@@ -227,3 +227,32 @@ test('TASK-55 Test 9: Pixel-perfect True / false card with styled button cards a
   assert.ok(css.includes('.lm-tf-btn.selected'), 'preview.css must style .lm-tf-btn.selected');
   assert.ok(css.includes('.lm-tf-feedback'), 'preview.css must style .lm-tf-feedback');
 });
+
+test('TASK-55 Test 10: Production material-upgrades and material-quiz True / false bypass and alignment', async () => {
+  const upgrades = fs.readFileSync('client/main/material-upgrades.js', 'utf8');
+  const matQuiz = fs.readFileSync('production/material-quiz.js', 'utf8');
+
+  // Verify material-upgrades.js does not hijack True / false with legacy renderer
+  assert.ok(
+    upgrades.includes("if(part.quizType==='True / false')return materialPreviewBlockBefore(part);"),
+    'material-upgrades.js must delegate True / false directly to materialPreviewBlockBefore'
+  );
+
+  // Verify production/material-quiz.js dedicated True / false formatting
+  assert.ok(
+    matQuiz.includes("kind==='True / false'"),
+    'material-quiz.js must have dedicated branch for True / false'
+  );
+  assert.ok(
+    matQuiz.includes('lm-tf-btn'),
+    'material-quiz.js must render styled lm-tf-btn buttons'
+  );
+  assert.ok(
+    matQuiz.includes('lm-tf-statement'),
+    'material-quiz.js must render lm-tf-statement'
+  );
+  assert.ok(
+    matQuiz.includes('Check answer'),
+    'material-quiz.js must render "Check answer" button'
+  );
+});
