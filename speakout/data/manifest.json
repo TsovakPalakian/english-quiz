@@ -1,0 +1,3914 @@
+{
+  "course": "Speakout 3rd Edition",
+  "level": "A1",
+  "unit": 1,
+  "unitTitle": "Welcome",
+  "lessonId": "1A",
+  "lessonTitle": "Hello",
+  "subTitle": "Greetings, countries, and verb be (singular)",
+  "pages": {
+    "studentBook": [
+      8,
+      9
+    ],
+    "vocabBank": [
+      125
+    ],
+    "grammarBank": [
+      96
+    ]
+  },
+  "documents": {
+    "studentBook": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Student's Book.pdf",
+    "teacherResources": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Teacher Resources/SO3_A1_SB_AK.pdf",
+    "photocopiables": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1A_Grammar.pdf",
+    "videoscripts": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Videos/Speakout_A1_SB_Videoscripts.pdf"
+  },
+  "videoDirectory": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Videos",
+  "audio": {
+    "classAudio": [
+      {
+        "id": "1.01",
+        "title": "Lesson 1A Exercise 1A & 1B",
+        "filename": "009_SO3_A1_SB_1A_Audio_1_01.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/009_SO3_A1_SB_1A_Audio_1_01.mp3"
+      },
+      {
+        "id": "1.02",
+        "title": "Lesson 1A Exercise 2A",
+        "filename": "010_SO3_A1_SB_1A_Audio_1_02.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/010_SO3_A1_SB_1A_Audio_1_02.mp3"
+      },
+      {
+        "id": "1.03",
+        "title": "Lesson 1A Exercise 2C",
+        "filename": "011_SO3_A1_SB_1A_Audio_1_03.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/011_SO3_A1_SB_1A_Audio_1_03.mp3"
+      },
+      {
+        "id": "VB1.01",
+        "title": "Vocabulary Bank 1A Countries and Nationalities",
+        "filename": "018_SO3_A1_SB_1A_Audio_VB1_01.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/018_SO3_A1_SB_1A_Audio_VB1_01.mp3"
+      }
+    ],
+    "workbookAudio": [
+      {
+        "id": "WB1.01",
+        "title": "Workbook 1A Exercise 1",
+        "filename": "SO3_A1_WB_1A_Audio_1_01.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1A_Audio_1_01.mp3"
+      },
+      {
+        "id": "WB1.02",
+        "title": "Workbook 1A Exercise 2",
+        "filename": "SO3_A1_WB_1A_Audio_1_02.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1A_Audio_1_02.mp3"
+      },
+      {
+        "id": "WB1.03",
+        "title": "Workbook 1A Exercise 3",
+        "filename": "SO3_A1_WB_1A_Audio_1_03.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1A_Audio_1_03.mp3"
+      },
+      {
+        "id": "WB1.04",
+        "title": "Workbook 1A Exercise 4",
+        "filename": "SO3_A1_WB_1A_Audio_1_04.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1A_Audio_1_04.mp3"
+      }
+    ]
+  },
+  "photocopiables": [
+    {
+      "id": "1A_Grammar",
+      "title": "Grammar: Verb be (singular)",
+      "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1A_Grammar.pdf"
+    },
+    {
+      "id": "1A_Vocab",
+      "title": "Vocabulary: Countries and nationalities",
+      "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1A_Vocab.pdf"
+    }
+  ],
+  "vocabulary": [
+    {
+      "word": "Bye",
+      "pos": "interjection",
+      "ipa": "baɪ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a short form of goodbye",
+      "example": "Bye, Dave. See you tomorrow."
+    },
+    {
+      "word": "Good afternoon",
+      "pos": "phr",
+      "ipa": "ɡʊd ˌɑːftəˈnuːn",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a form of hello you use  in the afternoon",
+      "example": "Good afternoon, class. "
+    },
+    {
+      "word": "Good evening",
+      "pos": "phr",
+      "ipa": "ɡʊd ˈiːvnɪŋ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a form of hello you use  in the evening",
+      "example": "Good evening. Welcome to Bill's restaurant. "
+    },
+    {
+      "word": "Good morning",
+      "pos": "phr",
+      "ipa": "ɡʊd ˈmɔːnɪŋ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a form of hello you use in the morning",
+      "example": "Good morning, Maya. How are you?"
+    },
+    {
+      "word": "Good night",
+      "pos": "phr",
+      "ipa": "ɡʊd naɪt",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a form of goodbye you use when you leave someone at night, or before you go to sleep",
+      "example": "Good night. Sleep well. "
+    },
+    {
+      "word": "Goodbye",
+      "pos": "interjection",
+      "ipa": "ɡʊdˈbaɪ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "something you say when you leave someone",
+      "example": "Goodbye. See you in the morning."
+    },
+    {
+      "word": "Hello",
+      "pos": "interjection",
+      "ipa": "həˈləʊ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "something you say when you meet someone",
+      "example": "Hello, I'm Mr Green. "
+    },
+    {
+      "word": "Hey",
+      "pos": "interjection",
+      "ipa": "heɪ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a shout used to get someone’s attention or to show surprise, interest, or annoyance",
+      "example": "Hey, Samira. Nice to meet you. "
+    },
+    {
+      "word": "Hi",
+      "pos": "interjection",
+      "ipa": "haɪ",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a short form of hello",
+      "example": "Hi.  Are you a student here? "
+    },
+    {
+      "word": "See you",
+      "pos": "phr",
+      "ipa": "siː juː",
+      "topic": "Greetings & Goodbyes",
+      "definition": "a form of  goodbye when you know you will see someone again",
+      "example": "See you. Have a good evening."
+    },
+    {
+      "word": "American",
+      "pos": "adj",
+      "ipa": "əˈmerɪkən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from the US",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Argentina",
+      "pos": "n",
+      "ipa": "ˌɑːdʒənˈtiːnə",
+      "topic": "Countries & Nationalities",
+      "definition": "a large country in the southern part of South America",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Argentinian",
+      "pos": "adj",
+      "ipa": "ˌɑːdʒənˈtɪniən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Argentina",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Australia",
+      "pos": "n",
+      "ipa": "ɒˈstreɪliə",
+      "topic": "Countries & Nationalities",
+      "definition": "a large island between the Indian Ocean and the southern Pacific Ocean",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Australian",
+      "pos": "adj",
+      "ipa": "ɒˈstreɪliən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Australia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Brazil",
+      "pos": "n",
+      "ipa": "brəˈzɪl",
+      "topic": "Countries & Nationalities",
+      "definition": "a large country in South America",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Brazilian",
+      "pos": "adj",
+      "ipa": "brəˈzɪliən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Brazil",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "British",
+      "pos": "adj",
+      "ipa": "ˈbrɪtɪʃ",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from the UK",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "China",
+      "pos": "n",
+      "ipa": "ˈtʃaɪnə",
+      "topic": "Countries & Nationalities",
+      "definition": "a very large country in Asia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Chinese",
+      "pos": "adj",
+      "ipa": "ˌtʃaɪˈniːz",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from China",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Colombia",
+      "pos": "n",
+      "ipa": "kəˈlʌmbiə",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in northern South America",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Colombian",
+      "pos": "adj",
+      "ipa": "kəˈlʌmbiə",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Colombia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "France",
+      "pos": "n",
+      "ipa": "frɑːns",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in western Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "French",
+      "pos": "adj",
+      "ipa": "frentʃ",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from France",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "German",
+      "pos": "adj",
+      "ipa": "ˈdʒɜːməni",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in central Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Germany",
+      "pos": "n",
+      "ipa": "ˈdʒɜːmən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Germany",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "India",
+      "pos": "n",
+      "ipa": "ˈɪndiə",
+      "topic": "Countries & Nationalities",
+      "definition": "a large country in South Asia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Indian",
+      "pos": "adj",
+      "ipa": "ˈɪndiən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from India",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Italian",
+      "pos": "adj",
+      "ipa": "ˈɪtəli",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in southern Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Italy",
+      "pos": "n",
+      "ipa": "ɪˈtæliən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Italy",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Japan",
+      "pos": "n",
+      "ipa": "dʒəˈpæn",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in East Asia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Japanese",
+      "pos": "adj",
+      "ipa": "ˌdʒæpəˈniːz",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Japan",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Mexican",
+      "pos": "adj",
+      "ipa": "ˈmeksəkəʊ",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Mexico",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Mexico",
+      "pos": "n",
+      "ipa": "ˈmeksɪkən",
+      "topic": "Countries & Nationalities",
+      "definition": "a country south of the US",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Poland",
+      "pos": "n",
+      "ipa": "ˈpəʊlənd",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in central Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Polish",
+      "pos": "adj",
+      "ipa": "ˈpəʊlɪʃ",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Poland",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "South Africa",
+      "pos": "n",
+      "ipa": "saʊθ ˈæfrɪkə",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in southern Africa",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "South African",
+      "pos": "adj",
+      "ipa": "saʊθ ˈæfrɪkən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from South Africa",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "South Korea",
+      "pos": "n",
+      "ipa": "saʊθ kəˈriːə",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in East Asia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "South Korean",
+      "pos": "adj",
+      "ipa": "saʊθ kəˌriːən",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from South Korea",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Spain",
+      "pos": "n",
+      "ipa": "speɪn",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in southwest Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Spanish",
+      "pos": "adj",
+      "ipa": "ˈspænɪʃ",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Spain",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Swiss",
+      "pos": "adj",
+      "ipa": "swɪs",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Switzerland",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Switzerland",
+      "pos": "n",
+      "ipa": "ˈswɪtsələnd",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in western Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "the UK",
+      "pos": "n",
+      "ipa": "ðə ˌjuː ˈke",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in northwest Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "the US/the USA",
+      "pos": "n",
+      "ipa": "ðə juː es/ðə juː es ˈeɪ",
+      "topic": "Countries & Nationalities",
+      "definition": "ðə ˌjuː ˈes/ðə ˌjuː es ˈeɪ",
+      "example": "a country in North America"
+    },
+    {
+      "word": "Turkey",
+      "pos": "n",
+      "ipa": "ˈtɜːki",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in West Asia and southeast Europe",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Turkish",
+      "pos": "adj",
+      "ipa": "ˈtɜːkɪʃ ",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Turkey",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Vietnam",
+      "pos": "n",
+      "ipa": "ˌvjetˈnæm",
+      "topic": "Countries & Nationalities",
+      "definition": "a country in southeast Asia",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "Vietnamese",
+      "pos": "adj",
+      "ipa": "ˌvjetnəˈmiːz",
+      "topic": "Countries & Nationalities",
+      "definition": "someone from Vietnam",
+      "example": "countries and nationalities"
+    },
+    {
+      "word": "actor",
+      "pos": "n",
+      "ipa": "ˈæktə",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who is in a play or a film",
+      "example": "He is an actor in my favourite film."
+    },
+    {
+      "word": "artist",
+      "pos": "n",
+      "ipa": "ˈɑːtɪst",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who makes art, paints, draws, etc",
+      "example": "They're artists and they live in Brazil."
+    },
+    {
+      "word": "bus driver",
+      "pos": "n",
+      "ipa": "bʌs ˈdraɪvə",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who drives a bus",
+      "example": "The bus driver takes the children to school in the morning."
+    },
+    {
+      "word": "businessman/businesswoman",
+      "pos": "n",
+      "ipa": "ˈbɪznəsmən/ˈbɪznəsˌwʊmən",
+      "topic": "Countries & Nationalities",
+      "definition": "ˈbɪznəsˌmən/ˈbɪznəsˌwʊmən",
+      "example": "a man or woman who works in business"
+    },
+    {
+      "word": "digital designer",
+      "pos": "n",
+      "ipa": "ˈdɪdʒətl dɪˈzaɪnə",
+      "topic": "Countries & Nationalities",
+      "definition": "ˌdɪdʒətl dɪˈzaɪnə",
+      "example": "someone who uses technology to make websites, apps, etc"
+    },
+    {
+      "word": "football player",
+      "pos": "n",
+      "ipa": "ˈfʊtbɔːl ˈpleɪə",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who plays football",
+      "example": "Karol is a football player in Germany."
+    },
+    {
+      "word": "nurse",
+      "pos": "n",
+      "ipa": "nɜːs",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who looks after people, often in a hospital",
+      "example": "We're nurses in a hospital in Madrid."
+    },
+    {
+      "word": "office worker",
+      "pos": "n",
+      "ipa": "ˈɒfɪs ˈwɜːkə",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who works in an office",
+      "example": "They're office workers for a computer company."
+    },
+    {
+      "word": "police officer",
+      "pos": "n",
+      "ipa": "pəˈliːs ˈɒfəsə",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who works in the police",
+      "example": "My sister is a police officer in Australia."
+    },
+    {
+      "word": "shop assistant",
+      "pos": "n",
+      "ipa": "ʃɒp əˈsɪstənt",
+      "topic": "Countries & Nationalities",
+      "definition": "someone who helps customers in a shop",
+      "example": "Pablo is a shop assistant in a big shoe shop."
+    }
+  ],
+  "grammar": {
+    "topic": "Verb be: singular (I, you, he/she/it)",
+    "affirmative": [
+      {
+        "subject": "I",
+        "form": "'m (am)",
+        "example": "I'm from Canada."
+      },
+      {
+        "subject": "You",
+        "form": "'re (are)",
+        "example": "You're in room 4."
+      },
+      {
+        "subject": "He / She / It",
+        "form": "'s (is)",
+        "example": "He's from Spain. It's in Europe."
+      }
+    ],
+    "questions": [
+      {
+        "question": "Where are you from?",
+        "answer": "I'm from Italy."
+      },
+      {
+        "question": "Are you a student?",
+        "answer": "Yes, I am. / No, I'm not."
+      },
+      {
+        "question": "Is she a teacher?",
+        "answer": "Yes, she is. / No, she isn't."
+      }
+    ]
+  },
+  "exercises": [
+    {
+      "id": "ex1",
+      "section": "Vocabulary: Hello and Goodbye",
+      "type": "categorization",
+      "instruction": "Categorize the expressions into Hello or Goodbye.",
+      "items": [
+        {
+          "phrase": "Good morning",
+          "category": "Hello"
+        },
+        {
+          "phrase": "See you later",
+          "category": "Goodbye"
+        },
+        {
+          "phrase": "Good afternoon",
+          "category": "Hello"
+        },
+        {
+          "phrase": "Good night",
+          "category": "Goodbye"
+        },
+        {
+          "phrase": "Hi",
+          "category": "Hello"
+        },
+        {
+          "phrase": "Bye",
+          "category": "Goodbye"
+        }
+      ]
+    },
+    {
+      "id": "ex2",
+      "section": "Grammar: Verb be (singular)",
+      "type": "fill_in_blank",
+      "instruction": "Complete the sentences with am, is, or are.",
+      "questions": [
+        {
+          "id": "q1",
+          "text": "1. I _____ from Spain.",
+          "answer": "am",
+          "contracted": "'m"
+        },
+        {
+          "id": "q2",
+          "text": "2. Where _____ you from?",
+          "answer": "are"
+        },
+        {
+          "id": "q3",
+          "text": "3. She _____ a student.",
+          "answer": "is",
+          "contracted": "'s"
+        },
+        {
+          "id": "q4",
+          "text": "4. He _____ from Tokyo.",
+          "answer": "is",
+          "contracted": "'s"
+        },
+        {
+          "id": "q5",
+          "text": "5. _____ you from Poland? Yes, I am.",
+          "answer": "Are"
+        }
+      ]
+    },
+    {
+      "id": "ex3",
+      "section": "Listening & Speaking: Countries & Nationalities",
+      "type": "matching",
+      "instruction": "Match each country with its nationality.",
+      "pairs": [
+        {
+          "country": "Australia",
+          "nationality": "Australian"
+        },
+        {
+          "country": "Brazil",
+          "nationality": "Brazilian"
+        },
+        {
+          "country": "China",
+          "nationality": "Chinese"
+        },
+        {
+          "country": "Italy",
+          "nationality": "Italian"
+        },
+        {
+          "country": "Spain",
+          "nationality": "Spanish"
+        },
+        {
+          "country": "United Kingdom",
+          "nationality": "British"
+        }
+      ]
+    }
+  ],
+  "answerKeys": {
+    "studentBook": {
+      "ex1": "Hello: Good morning, Good afternoon, Hi. Goodbye: See you later, Good night, Bye.",
+      "ex2": "1. am ('m), 2. are, 3. is ('s), 4. is ('s), 5. Are",
+      "ex3": "Australia -> Australian, Brazil -> Brazilian, China -> Chinese, Italy -> Italian, Spain -> Spanish, United Kingdom -> British"
+    },
+    "workbook": {
+      "ex1": "1 are, 2 'm, 3 's, 4 are, 5 're, 6 isn't",
+      "ex2": "1 American, 2 British, 3 Italian, 4 Spanish, 5 Polish"
+    }
+  },
+  "lesson1b": {
+    "lessonId": "1B",
+    "lessonTitle": "Two jobs",
+    "subTitle": "Jobs, articles a/an, present simple be: he, she, it",
+    "pages": {
+      "studentBook": [
+        10,
+        11
+      ],
+      "vocabBank": [
+        126
+      ],
+      "grammarBank": [
+        96
+      ]
+    },
+    "audio": {
+      "classAudio": [
+        {
+          "id": "1.04",
+          "title": "Lesson 1B Pronunciation: Word stress in jobs",
+          "filename": "012_SO3_A1_SB_1B_Audio_1_04.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/012_SO3_A1_SB_1B_Audio_1_04.mp3"
+        },
+        {
+          "id": "1.0X",
+          "title": "Lesson 1B Grammar: be (he, she, it)",
+          "filename": "013_SO3_A1_SB_1B_Audio_1_0X.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/013_SO3_A1_SB_1B_Audio_1_0X.mp3"
+        },
+        {
+          "id": "VB1.02",
+          "title": "Vocabulary Bank 1B Jobs Part 1",
+          "filename": "019_SO3_A1_SB_1B_Audio_VB1_02.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/019_SO3_A1_SB_1B_Audio_VB1_02.mp3"
+        },
+        {
+          "id": "VB1.03",
+          "title": "Vocabulary Bank 1B Jobs Part 2",
+          "filename": "020_SO3_A1_SB_1B_Audio_VB1_03.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/020_SO3_A1_SB_1B_Audio_VB1_03.mp3"
+        }
+      ],
+      "workbookAudio": [
+        {
+          "id": "WB1.05",
+          "title": "Workbook 1B Listening: Two Jobs",
+          "filename": "SO3_A1_WB_1B_Audio_1_05.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1B_Audio_1_05.mp3"
+        }
+      ]
+    },
+    "photocopiables": [
+      {
+        "id": "1B_Vocab",
+        "title": "Vocabulary: Jobs & a/an",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1B_Vocab.pdf"
+      },
+      {
+        "id": "1B_Grammar",
+        "title": "Grammar: Verb be (he, she, it)",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1B_Grammar.pdf"
+      }
+    ],
+    "reading": [
+      {
+        "name": "Carol Harris",
+        "jobWeek": "doctor",
+        "jobWeekend": "singer",
+        "happy": "yes",
+        "text": "Carol Harris is a doctor from London. In the week, she works at a hospital. At the weekend, she is a singer in a band. Is she happy? Yes, she is!"
+      },
+      {
+        "name": "Silvio Rossi",
+        "jobWeek": "taxi driver",
+        "jobWeekend": "waiter",
+        "happy": "yes",
+        "text": "Silvio Rossi is from Rome. In the week, he is a taxi driver in the city. At the weekend, he is a waiter in an Italian restaurant. He loves food and people. Is he happy? Yes, he is!"
+      }
+    ],
+    "vocabulary": [
+      {
+        "word": "doctor",
+        "pos": "n",
+        "ipa": "ˈdɒktə",
+        "topic": "Jobs",
+        "definition": "someone who looks after people who are ill",
+        "example": "She's not well – please call a doctor."
+      },
+      {
+        "word": "singer",
+        "pos": "n",
+        "ipa": "ˈsɪŋə ",
+        "topic": "Jobs",
+        "definition": "someone who sings",
+        "example": "He's a famous singer in Japan."
+      },
+      {
+        "word": "taxi driver",
+        "pos": "n",
+        "ipa": "ˈtæksi ˈdraɪvə",
+        "topic": "Jobs",
+        "definition": "ˈtæksi ˌdraɪvə",
+        "example": "someone who drives a taxi"
+      },
+      {
+        "word": "teacher",
+        "pos": "n",
+        "ipa": "ˈtiːtʃə",
+        "topic": "Jobs",
+        "definition": "someone who teaches in a school, university, etc",
+        "example": "Our English teacher is from Australia."
+      },
+      {
+        "word": "waiter",
+        "pos": "n",
+        "ipa": "ˈweɪtə",
+        "topic": "Jobs",
+        "definition": "someone who gives people food and drink in a restaurant",
+        "example": "Jason is a waiter in an Italian restaurant."
+      },
+      {
+        "word": "actor",
+        "pos": "n",
+        "ipa": "ˈæktə",
+        "topic": "Jobs",
+        "definition": "someone who is in a play or a film",
+        "example": "He is an actor in my favourite film."
+      },
+      {
+        "word": "artist",
+        "pos": "n",
+        "ipa": "ˈɑːtɪst",
+        "topic": "Jobs",
+        "definition": "someone who makes art, paints, draws, etc",
+        "example": "They're artists and they live in Brazil."
+      },
+      {
+        "word": "bus driver",
+        "pos": "n",
+        "ipa": "bʌs ˈdraɪvə",
+        "topic": "Jobs",
+        "definition": "ˈbʌs ˌdraɪvə",
+        "example": "someone who drives a bus"
+      },
+      {
+        "word": "businessman/businesswoman",
+        "pos": "n",
+        "ipa": "ˈbɪznəsmən/ˈbɪznəsˌwʊmən",
+        "topic": "Jobs",
+        "definition": "ˈbɪznəsˌmən/ˈbɪznəsˌwʊmən",
+        "example": "a man or woman who works in business"
+      },
+      {
+        "word": "digital designer",
+        "pos": "n",
+        "ipa": "ˈdɪdʒətl dɪˈzaɪnə",
+        "topic": "Jobs",
+        "definition": "ˌdɪdʒətl dɪˈzaɪnə",
+        "example": "someone who uses technology to make websites, apps, etc"
+      },
+      {
+        "word": "football player",
+        "pos": "n",
+        "ipa": "ˈfʊtbɔːl ˈpleɪə",
+        "topic": "Jobs",
+        "definition": "ˈfʊtbɔːl ˌpleɪə",
+        "example": "someone who plays football"
+      },
+      {
+        "word": "nurse",
+        "pos": "n",
+        "ipa": "nɜːs",
+        "topic": "Jobs",
+        "definition": "someone who looks after people, often in a hospital",
+        "example": "We're nurses in a hospital in Madrid."
+      },
+      {
+        "word": "office worker",
+        "pos": "n",
+        "ipa": "ˈɒfɪs ˈwɜːkə",
+        "topic": "Jobs",
+        "definition": "ˈɒfɪs ˌwɜːkə",
+        "example": "someone who works in an office"
+      },
+      {
+        "word": "police officer",
+        "pos": "n",
+        "ipa": "pəˈliːs ˈɒfəsə",
+        "topic": "Jobs",
+        "definition": "pəˈliːs ˌɒfəsə",
+        "example": "someone who works in the police"
+      },
+      {
+        "word": "shop assistant",
+        "pos": "n",
+        "ipa": "ʃɒp əˈsɪstənt",
+        "topic": "Jobs",
+        "definition": "ˈʃɒp əˌsɪstənt",
+        "example": "someone who helps customers in a shop"
+      }
+    ],
+    "exercises": [
+      {
+        "id": "ex1b_jobs_articles",
+        "section": "Vocabulary: Jobs & Articles a/an",
+        "type": "matching",
+        "instruction": "Select the correct article (a / an) for each job.",
+        "pairs": [
+          {
+            "job": "doctor",
+            "article": "a"
+          },
+          {
+            "job": "actor",
+            "article": "an"
+          },
+          {
+            "job": "artist",
+            "article": "an"
+          },
+          {
+            "job": "nurse",
+            "article": "a"
+          },
+          {
+            "job": "office worker",
+            "article": "an"
+          },
+          {
+            "job": "police officer",
+            "article": "a"
+          }
+        ]
+      },
+      {
+        "id": "ex1b_reading_profiles",
+        "section": "Reading: Two Jobs Profiles",
+        "type": "fill_in_blank",
+        "instruction": "Read the profiles of Carol and Silvio and complete their jobs.",
+        "questions": [
+          {
+            "id": "rp1",
+            "prompt": "Carol Harris (in the week):",
+            "answer": "doctor"
+          },
+          {
+            "id": "rp2",
+            "prompt": "Carol Harris (at the weekend):",
+            "answer": "singer"
+          },
+          {
+            "id": "rp3",
+            "prompt": "Silvio Rossi (in the week):",
+            "answer": "taxi driver"
+          },
+          {
+            "id": "rp4",
+            "prompt": "Silvio Rossi (at the weekend):",
+            "answer": "waiter"
+          }
+        ]
+      },
+      {
+        "id": "ex1b_grammar_be",
+        "section": "Grammar Focus: Verb be (he, she, it)",
+        "type": "fill_in_blank",
+        "instruction": "Complete the sentences with is, isn't, or Is.",
+        "questions": [
+          {
+            "id": "g1",
+            "text": "1. Carol _____ a doctor from London.",
+            "answer": "is"
+          },
+          {
+            "id": "g2",
+            "text": "2. She _____ a teacher in the week.",
+            "answer": "isn't"
+          },
+          {
+            "id": "g3",
+            "text": "3. _____ Silvio from Rome? Yes, he is.",
+            "answer": "Is"
+          },
+          {
+            "id": "g4",
+            "text": "4. He _____ a waiter at the weekend.",
+            "answer": "is"
+          },
+          {
+            "id": "g5",
+            "text": "5. _____ it an Italian restaurant? Yes, it is.",
+            "answer": "Is"
+          }
+        ]
+      }
+    ],
+    "answerKeys": {
+      "studentBook": {
+        "vocab1B": "1 A, 2 E, 3 D, 4 C, 5 B. ('teacher' is not in the photos.)",
+        "stress": "1 a doctor, 2 a teacher, 3 a waiter, 4 a taxi driver, 5 a singer",
+        "reading4B": "Carol: doctor, singer, yes. Silvio: taxi driver, waiter, yes.",
+        "grammar5A": "2 is, 3 isn't, is, 4 is, 5 Is",
+        "grammarBank1": "2 It's, 3 He's, 4 isn't, 5 Is she, 6 Yes, she is."
+      },
+      "workbook": {
+        "ex1A": "1 actor, 2 nurse, 3 police officer, 4 shop assistant, 5 office worker, 6 digital designer",
+        "ex2A": "1 is, 2 isn't, 3 Is, 4 is, 5 isn't"
+      }
+    }
+  },
+  "lesson1c": {
+    "lessonId": "1C",
+    "lessonTitle": "Checking in",
+    "subTitle": "Functional Language: How to ask and answer simple questions & The Alphabet",
+    "pages": {
+      "studentBook": [
+        12,
+        13
+      ],
+      "vocabBank": [
+        126
+      ],
+      "grammarBank": [
+        96
+      ]
+    },
+    "audio": {
+      "classAudio": [
+        {
+          "id": "1.05",
+          "title": "Lesson 1C Initialisms (BBC, EU, OK, UK, USA, www)",
+          "filename": "014_SO3_A1_SB_1C_Audio_1_05.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/014_SO3_A1_SB_1C_Audio_1_05.mp3"
+        },
+        {
+          "id": "1.06",
+          "title": "Lesson 1C Alphabet Phonemic Sound Groups",
+          "filename": "015_SO3_A1_SB_1C_Audio_1_06.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/015_SO3_A1_SB_1C_Audio_1_06.mp3"
+        },
+        {
+          "id": "1.07",
+          "title": "Lesson 1C Hotel Registration Conversations 1–3",
+          "filename": "016_SO3_A1_SB_1C_Audio_1_07.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/016_SO3_A1_SB_1C_Audio_1_07.mp3"
+        },
+        {
+          "id": "1.08",
+          "title": "Lesson 1C How to ask and answer simple questions",
+          "filename": "017_SO3_A1_SB_1C_Audio_1_08.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/017_SO3_A1_SB_1C_Audio_1_08.mp3"
+        }
+      ],
+      "workbookAudio": [
+        {
+          "id": "WB1.06",
+          "title": "Workbook 1C Audio 1.06",
+          "filename": "SO3_A1_WB_1C_Audio_1_06.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1C_Audio_1_06.mp3"
+        },
+        {
+          "id": "WB1.07",
+          "title": "Workbook 1C Audio 1.07",
+          "filename": "SO3_A1_WB_1C_Audio_1_07.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1C_Audio_1_07.mp3"
+        },
+        {
+          "id": "WB1.08",
+          "title": "Workbook 1C Audio 1.08",
+          "filename": "SO3_A1_WB_1C_Audio_1_08.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1C_Audio_1_08.mp3"
+        },
+        {
+          "id": "WB1.09",
+          "title": "Workbook 1C Audio 1.09",
+          "filename": "SO3_A1_WB_1C_Audio_1_09.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1C_Audio_1_09.mp3"
+        },
+        {
+          "id": "WB1.10",
+          "title": "Workbook 1C Audio 1.10",
+          "filename": "SO3_A1_WB_1C_Audio_1_10.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1C_Audio_1_10.mp3"
+        },
+        {
+          "id": "WB1.11",
+          "title": "Workbook 1C Audio 1.11",
+          "filename": "SO3_A1_WB_1C_Audio_1_11.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_1C_Audio_1_11.mp3"
+        }
+      ]
+    },
+    "photocopiables": [
+      {
+        "id": "1C_Howto",
+        "title": "Functional Language: How to ask and answer simple questions",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1C_Howto.pdf"
+      }
+    ],
+    "alphabetSoundGroups": [
+      {
+        "sound": "/eɪ/",
+        "anchor": "name",
+        "letters": [
+          "A",
+          "H",
+          "J",
+          "K"
+        ]
+      },
+      {
+        "sound": "/iː/",
+        "anchor": "three",
+        "letters": [
+          "B",
+          "C",
+          "D",
+          "E",
+          "G",
+          "P",
+          "T",
+          "V"
+        ]
+      },
+      {
+        "sound": "/e/",
+        "anchor": "ten",
+        "letters": [
+          "F",
+          "L",
+          "M",
+          "N",
+          "S",
+          "X",
+          "Z"
+        ]
+      },
+      {
+        "sound": "/aɪ/",
+        "anchor": "nine",
+        "letters": [
+          "I",
+          "Y"
+        ]
+      },
+      {
+        "sound": "/əʊ/",
+        "anchor": "no",
+        "letters": [
+          "O"
+        ]
+      },
+      {
+        "sound": "/uː/",
+        "anchor": "you",
+        "letters": [
+          "Q",
+          "U",
+          "W"
+        ]
+      },
+      {
+        "sound": "/ɑː/",
+        "anchor": "car",
+        "letters": [
+          "R"
+        ]
+      }
+    ],
+    "initialisms": [
+      {
+        "code": "BBC",
+        "full": "British Broadcasting Corporation"
+      },
+      {
+        "code": "EU",
+        "full": "European Union"
+      },
+      {
+        "code": "OK",
+        "full": "All Correct"
+      },
+      {
+        "code": "UK",
+        "full": "United Kingdom"
+      },
+      {
+        "code": "USA",
+        "full": "United States of America"
+      },
+      {
+        "code": "www",
+        "full": "World Wide Web"
+      }
+    ],
+    "hotelGuests": [
+      {
+        "guest": "Guest 1",
+        "firstName": "Imogen",
+        "surname": "Clarke",
+        "room": "204"
+      },
+      {
+        "guest": "Guest 2",
+        "firstName": "Amelia",
+        "surname": "Menzie",
+        "phone": "913 845 660"
+      },
+      {
+        "guest": "Guest 3",
+        "firstName": "Eduardo",
+        "surname": "Lopez",
+        "address": "7 River Road"
+      }
+    ],
+    "vocabulary": [
+      {
+        "word": "A",
+        "pos": "n",
+        "ipa": "eɪ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "A",
+        "example": "/"
+      },
+      {
+        "word": "B",
+        "pos": "n",
+        "ipa": "biː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "B",
+        "example": "/"
+      },
+      {
+        "word": "C",
+        "pos": "n",
+        "ipa": "siː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "C",
+        "example": "/"
+      },
+      {
+        "word": "D",
+        "pos": "n",
+        "ipa": "diː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "D",
+        "example": "/"
+      },
+      {
+        "word": "E",
+        "pos": "n",
+        "ipa": "iː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "E",
+        "example": "/"
+      },
+      {
+        "word": "F",
+        "pos": "n",
+        "ipa": "ef",
+        "topic": "The Alphabet & Checking in",
+        "definition": "F",
+        "example": "/"
+      },
+      {
+        "word": "G",
+        "pos": "n",
+        "ipa": "dʒiː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "G",
+        "example": "/"
+      },
+      {
+        "word": "H",
+        "pos": "n",
+        "ipa": "eɪtʃ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "H",
+        "example": "/"
+      },
+      {
+        "word": "I",
+        "pos": "n",
+        "ipa": "aɪ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "I",
+        "example": "/"
+      },
+      {
+        "word": "J",
+        "pos": "n",
+        "ipa": "dʒeɪ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "J",
+        "example": "/"
+      },
+      {
+        "word": "K",
+        "pos": "n",
+        "ipa": "keɪ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "K",
+        "example": "/"
+      },
+      {
+        "word": "L",
+        "pos": "n",
+        "ipa": "el",
+        "topic": "The Alphabet & Checking in",
+        "definition": "L",
+        "example": "/"
+      },
+      {
+        "word": "M",
+        "pos": "n",
+        "ipa": "em",
+        "topic": "The Alphabet & Checking in",
+        "definition": "M",
+        "example": "/"
+      },
+      {
+        "word": "N",
+        "pos": "n",
+        "ipa": "en",
+        "topic": "The Alphabet & Checking in",
+        "definition": "N",
+        "example": "/"
+      },
+      {
+        "word": "O",
+        "pos": "n",
+        "ipa": "əʊ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "O",
+        "example": "/"
+      },
+      {
+        "word": "P",
+        "pos": "n",
+        "ipa": "piː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "P",
+        "example": "/"
+      },
+      {
+        "word": "Q",
+        "pos": "n",
+        "ipa": "kjuː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "Q",
+        "example": "/"
+      },
+      {
+        "word": "R",
+        "pos": "n",
+        "ipa": "ɑː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "R",
+        "example": "/"
+      },
+      {
+        "word": "S",
+        "pos": "n",
+        "ipa": "es",
+        "topic": "The Alphabet & Checking in",
+        "definition": "S",
+        "example": "/"
+      },
+      {
+        "word": "T",
+        "pos": "n",
+        "ipa": "tiː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "T",
+        "example": "/"
+      },
+      {
+        "word": "U",
+        "pos": "n",
+        "ipa": "juː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "U",
+        "example": "/"
+      },
+      {
+        "word": "V",
+        "pos": "n",
+        "ipa": "viː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "V",
+        "example": "/"
+      },
+      {
+        "word": "W",
+        "pos": "n",
+        "ipa": "ˈdʌbəljuː",
+        "topic": "The Alphabet & Checking in",
+        "definition": "W",
+        "example": "/"
+      },
+      {
+        "word": "X",
+        "pos": "n",
+        "ipa": "eks",
+        "topic": "The Alphabet & Checking in",
+        "definition": "X",
+        "example": "/"
+      },
+      {
+        "word": "Y",
+        "pos": "n",
+        "ipa": "waɪ",
+        "topic": "The Alphabet & Checking in",
+        "definition": "Y",
+        "example": "/"
+      },
+      {
+        "word": "Z",
+        "pos": "n",
+        "ipa": "zed",
+        "topic": "The Alphabet & Checking in",
+        "definition": "Z",
+        "example": "/"
+      },
+      {
+        "word": "first name",
+        "pos": "phr",
+        "ipa": "fɜːst neɪm",
+        "topic": "The Alphabet & Checking in",
+        "definition": "ˈfɜːst neɪm",
+        "example": "your given name, not your surname or family name"
+      },
+      {
+        "word": "phone number",
+        "pos": "phr",
+        "ipa": "fəʊn ˈnʌmbə",
+        "topic": "The Alphabet & Checking in",
+        "definition": "ˈfəʊn ˌnʌmbə",
+        "example": "the number that you use to telephone a person"
+      },
+      {
+        "word": "repeat",
+        "pos": "v",
+        "ipa": "rɪˈpiːt",
+        "topic": "The Alphabet & Checking in",
+        "definition": "to say or write something again",
+        "example": "Sorry, can you repeat that, please?"
+      },
+      {
+        "word": "spell",
+        "pos": "v",
+        "ipa": "spel",
+        "topic": "The Alphabet & Checking in",
+        "definition": "to write or say the letters in order to make a word ",
+        "example": "How do you spell 'Marika'?"
+      },
+      {
+        "word": "surname",
+        "pos": "n",
+        "ipa": "ˈsɜːneɪm",
+        "topic": "The Alphabet & Checking in",
+        "definition": "your family name, not your first name",
+        "example": "How do you spell your surname?"
+      },
+      {
+        "word": "what's",
+        "pos": "phr",
+        "ipa": "wɒts",
+        "topic": "The Alphabet & Checking in",
+        "definition": "the short form of ‘what is’",
+        "example": "What's your name? "
+      }
+    ],
+    "exercises": [
+      {
+        "id": "ex1c_alphabet_sounds",
+        "section": "Pronunciation: Alphabet Sound Groups",
+        "type": "matching",
+        "instruction": "Assign each letter to its matching vowel sound group.",
+        "groups": [
+          {
+            "sound": "/eɪ/",
+            "anchor": "name",
+            "letters": [
+              "A",
+              "H",
+              "J",
+              "K"
+            ]
+          },
+          {
+            "sound": "/iː/",
+            "anchor": "three",
+            "letters": [
+              "B",
+              "C",
+              "D",
+              "E",
+              "G",
+              "P",
+              "T",
+              "V"
+            ]
+          },
+          {
+            "sound": "/e/",
+            "anchor": "ten",
+            "letters": [
+              "F",
+              "L",
+              "M",
+              "N",
+              "S",
+              "X",
+              "Z"
+            ]
+          },
+          {
+            "sound": "/aɪ/",
+            "anchor": "nine",
+            "letters": [
+              "I",
+              "Y"
+            ]
+          },
+          {
+            "sound": "/əʊ/",
+            "anchor": "no",
+            "letters": [
+              "O"
+            ]
+          },
+          {
+            "sound": "/uː/",
+            "anchor": "you",
+            "letters": [
+              "Q",
+              "U",
+              "W"
+            ]
+          },
+          {
+            "sound": "/ɑː/",
+            "anchor": "car",
+            "letters": [
+              "R"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ex1c_hotel_registration",
+        "section": "Functional Language: Hotel Guest Registration Form",
+        "type": "fill_in_blank",
+        "instruction": "Listen to Track 1.07 and complete the guest registration details.",
+        "fields": [
+          {
+            "id": "hf1",
+            "label": "Guest 1 (Correct First Name)",
+            "answer": "Imogen"
+          },
+          {
+            "id": "hf2",
+            "label": "Guest 1 (Surname)",
+            "answer": "Clarke"
+          },
+          {
+            "id": "hf3",
+            "label": "Guest 2 (Phone Number)",
+            "answer": "913 845 660"
+          },
+          {
+            "id": "hf4",
+            "label": "Guest 3 (Street Address)",
+            "answer": "7 River Road"
+          }
+        ]
+      },
+      {
+        "id": "ex1c_how_to_dialogue",
+        "section": "How to... Ask and Answer Simple Questions",
+        "type": "fill_in_blank",
+        "instruction": "Complete the questions with spell, repeat, surname, or first name.",
+        "items": [
+          {
+            "id": "ht1",
+            "text": "1. What's your _____ name? Amelia.",
+            "answer": "first"
+          },
+          {
+            "id": "ht2",
+            "text": "2. How do you _____ your surname?",
+            "answer": "spell"
+          },
+          {
+            "id": "ht3",
+            "text": "3. What's your _____ number?",
+            "answer": "phone"
+          },
+          {
+            "id": "ht4",
+            "text": "4. Can you _____ that, please?",
+            "answer": "repeat"
+          },
+          {
+            "id": "ht5",
+            "text": "5. What's your _____? Clarke.",
+            "answer": "surname"
+          }
+        ]
+      }
+    ],
+    "answerKeys": {
+      "studentBook": {
+        "initialisms": "BBC: British Broadcasting Corporation, EU: European Union, OK: All correct, UK: United Kingdom, USA: United States of America, www: World Wide Web",
+        "alphabetSounds": "1 /eɪ/: A H J K, 2 /iː/: B C D E G P T V, 3 /e/: F L M N S X Z, 4 /aɪ/: I Y, 5 /əʊ/: O, 6 /uː/: Q U W, 7 /ɑː/: R",
+        "registration": "Conversation 1: Imogen Clarke, Conversation 2: 913 845 660, Conversation 3: 7 River Road",
+        "howTo": "2 spell, 3 phone, repeat, 4 surname, 5 first name"
+      },
+      "workbook": {
+        "ex1A": "2 K, 4 P, 5 F, 6 N, 7 I, 8 O, 9 U, 10 R",
+        "ex3B": "1 Isabel Fernandez, 2 Spanish, 3 5 Lennox Street Bristol, 4 713 9205"
+      }
+    }
+  },
+  "lesson1d": {
+    "lessonId": "1D",
+    "lessonTitle": "BBC Video Lesson: Street Interviews & Vlogs",
+    "subTitle": "Personal possessions & What's in your bag?",
+    "pages": {
+      "studentBook": [
+        14,
+        15
+      ],
+      "vocabBank": [
+        127
+      ],
+      "grammarBank": [
+        96
+      ]
+    },
+    "videos": {
+      "streetInterviews": {
+        "id": "street_interviews",
+        "title": "BBC Street Interviews: What's your name? What's in your bag?",
+        "filename": "SO3 A1 U1 BBC StreetInt.mp4",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Videos/SO3 A1 U1 BBC StreetInt.mp4"
+      },
+      "vlogs": {
+        "id": "vlogs",
+        "title": "BBC Vlogs: Where are you from?",
+        "filename": "SO3 A1 U1 BBC Vlogs.mp4",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Videos/SO3 A1 U1 BBC Vlogs.mp4"
+      }
+    },
+    "audio": [
+      {
+        "id": "VB1.04",
+        "title": "Vocabulary Bank Common Objects Audio",
+        "filename": "021_SO3_A1_SB_1D_Audio_VB1_04.mp3",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/021_SO3_A1_SB_1D_Audio_VB1_04.mp3"
+      }
+    ],
+    "videoscripts": {
+      "vlogs": [
+        {
+          "speaker": "Beatriz",
+          "country": "Portugal",
+          "text": "Hi, I'm Beatriz and I'm from Portugal."
+        },
+        {
+          "speaker": "Mo",
+          "country": "China",
+          "text": "Hello, my name is Mo. I come from China."
+        },
+        {
+          "speaker": "Anna",
+          "country": "Australia",
+          "text": "Hi, my name's Anna. I'm from Queensland, Australia."
+        },
+        {
+          "speaker": "Brian",
+          "country": "United States",
+          "text": "Hi. My name's Brian. I'm from the United States."
+        },
+        {
+          "speaker": "Kayo",
+          "country": "Japan",
+          "text": "My name's Kayo. I'm from Japan."
+        },
+        {
+          "speaker": "Phil",
+          "country": "England",
+          "text": "Hi, I'm Phil. I'm from England."
+        },
+        {
+          "speaker": "Holly",
+          "country": "England",
+          "text": "Hi, I'm Holly and I'm from Nottingham in England."
+        },
+        {
+          "speaker": "Daniel",
+          "country": "Poland",
+          "text": "Hi. My name is Daniel. I'm from Poland."
+        },
+        {
+          "speaker": "Sonia",
+          "country": "Serbia",
+          "text": "Hello. My name is Sonia and I'm from Serbia."
+        },
+        {
+          "speaker": "Lucia",
+          "country": "Spain",
+          "text": "My name's Lucia. I'm from Spain."
+        }
+      ],
+      "streetInterviews": {
+        "spelling": [
+          {
+            "speaker": "William",
+            "spelling": "W-I-L-L-I-A-M",
+            "quote": "My name is William and it's spelt W-I-L-L-I-A-M."
+          },
+          {
+            "speaker": "Rachael",
+            "spelling": "R-A-C-H-A-E-L",
+            "quote": "My name is Rachael. R-A-C-H-A-E-L."
+          },
+          {
+            "speaker": "Chris",
+            "spelling": "C-H-R-I-S",
+            "quote": "My name is Chris. C-H-R-I-S."
+          },
+          {
+            "speaker": "Sharron",
+            "spelling": "S-H-A-R-R-O-N",
+            "quote": "Sharron. And that's S-H-A, double-R, O-N."
+          },
+          {
+            "speaker": "Ian",
+            "spelling": "I-A-N",
+            "quote": "My name's Ian. That is spelt I-A-N."
+          },
+          {
+            "speaker": "Simnit",
+            "spelling": "S-I-M-N-I-T",
+            "quote": "Simnit, and it's spelt S-I-M-N-I-T."
+          },
+          {
+            "speaker": "Layan",
+            "spelling": "L-A-Y-A-N",
+            "quote": "So it's Layan, and it's L-A-Y-A-N."
+          },
+          {
+            "speaker": "Tom",
+            "spelling": "T-O-M",
+            "quote": "My name is Tom. That's T-O-M."
+          }
+        ],
+        "bags": [
+          {
+            "speaker": "William",
+            "items": [
+              "sandwich"
+            ],
+            "quote": "I have a sandwich in my bag."
+          },
+          {
+            "speaker": "Rachael",
+            "items": [
+              "bottle of water",
+              "purse",
+              "keys"
+            ],
+            "quote": "I have a bottle of water. I have my purse, my keys."
+          },
+          {
+            "speaker": "Chris",
+            "items": [
+              "laptop",
+              "notebook"
+            ],
+            "quote": "I have a laptop and a notebook."
+          },
+          {
+            "speaker": "Sharron",
+            "items": [
+              "bottle of water",
+              "notebook",
+              "banana"
+            ],
+            "quote": "I have a bottle of water, a notebook and a banana."
+          },
+          {
+            "speaker": "Ian",
+            "items": [
+              "laptop",
+              "mobile"
+            ],
+            "quote": "I have a laptop and a mobile."
+          },
+          {
+            "speaker": "Simnit",
+            "items": [
+              "umbrella",
+              "mobile phone",
+              "purse"
+            ],
+            "quote": "I have an umbrella, my mobile phone and my purse."
+          },
+          {
+            "speaker": "Biba",
+            "items": [
+              "mobile phone",
+              "wallet"
+            ],
+            "quote": "In my bag I have my phone and my wallet."
+          },
+          {
+            "speaker": "Layan",
+            "items": [
+              "wallet",
+              "make-up"
+            ],
+            "quote": "So I have my wallet and some make-up."
+          },
+          {
+            "speaker": "Tom",
+            "items": [
+              "laptop",
+              "books"
+            ],
+            "quote": "I have my laptop and two books."
+          }
+        ]
+      }
+    },
+    "vocabulary": [
+      {
+        "word": "bag",
+        "pos": "n",
+        "ipa": "bæɡ",
+        "topic": "Common Objects",
+        "definition": "a strong container you use to carry things",
+        "example": "I have three books in my school bag."
+      },
+      {
+        "word": "banana",
+        "pos": "n",
+        "ipa": "bəˈnɑːnə",
+        "topic": "Common Objects",
+        "definition": "a long, thin, yellow fruit",
+        "example": "Bananas are my favourite fruit."
+      },
+      {
+        "word": "book",
+        "pos": "n",
+        "ipa": "bʊk",
+        "topic": "Common Objects",
+        "definition": "paper pages inside a cover that you can read or write in",
+        "example": "My English book is yellow and green."
+      },
+      {
+        "word": "bottle of water",
+        "pos": "n",
+        "ipa": "ˈbɒtl əv ˈwɔːtə",
+        "topic": "Common Objects",
+        "definition": "ˌbɒtl əv ˈwɔːtə",
+        "example": "a plastic, glass, etc, container for water and other liquids"
+      },
+      {
+        "word": "key",
+        "pos": "n",
+        "ipa": "kiː",
+        "topic": "Common Objects",
+        "definition": "a small metal thing that you use to open and close doors",
+        "example": "I have two keys – one for my house and one for my car."
+      },
+      {
+        "word": "laptop",
+        "pos": "n",
+        "ipa": "ˈlæptɒp",
+        "topic": "Common Objects",
+        "definition": "a small computer that you can carry with you",
+        "example": "They work a lot on their laptops."
+      },
+      {
+        "word": "make-up",
+        "pos": "n",
+        "ipa": "ˈmeɪkʌp",
+        "topic": "Common Objects",
+        "definition": "coloured substances you put on your face, eyes, etc ",
+        "example": "I have some make-up in my bag."
+      },
+      {
+        "word": "mobile phone",
+        "pos": "n",
+        "ipa": "ˈməʊbaɪl fəʊn",
+        "topic": "Common Objects",
+        "definition": "ˌməʊbaɪl ˈfəʊn",
+        "example": "a phone you can carry with you"
+      },
+      {
+        "word": "notebook",
+        "pos": "n",
+        "ipa": "ˈnəʊtbʊk",
+        "topic": "Common Objects",
+        "definition": "a small book for you to write in",
+        "example": "I have a notebook for my German classes."
+      },
+      {
+        "word": "purse",
+        "pos": "n",
+        "ipa": "pɜːs",
+        "topic": "Common Objects",
+        "definition": "a very small bag that women keep money in",
+        "example": "She has money in her purse for a taxi."
+      },
+      {
+        "word": "sandwich",
+        "pos": "n",
+        "ipa": "ˈsænwɪdʒ",
+        "topic": "Common Objects",
+        "definition": "two pieces of bread with cheese, meat, egg, etc between them",
+        "example": "On Mondays we have sandwiches for lunch."
+      },
+      {
+        "word": "umbrella",
+        "pos": "n",
+        "ipa": "ʌmˈbrelə",
+        "topic": "Common Objects",
+        "definition": "an object you hold above you in the rain or hot sun",
+        "example": "My umbrella is black and small."
+      },
+      {
+        "word": "wallet",
+        "pos": "n",
+        "ipa": "ˈwɒlɪt",
+        "topic": "Common Objects",
+        "definition": "a small flat case that you carry for money, bank cards, etc.",
+        "example": "He has a photo of his children in his wallet."
+      }
+    ],
+    "exercises": [
+      {
+        "id": "ex1d_names",
+        "section": "View: Spelling Names",
+        "type": "fill_in_blank",
+        "instruction": "Watch the video and complete the spelling of each person's name.",
+        "items": [
+          {
+            "speaker": "1. W _ _ _ _ _ M",
+            "answer": "William"
+          },
+          {
+            "speaker": "2. R _ _ _ _ _ L",
+            "answer": "Rachael"
+          },
+          {
+            "speaker": "3. C _ _ _ S",
+            "answer": "Chris"
+          },
+          {
+            "speaker": "4. S _ _ _ _ _ N",
+            "answer": "Sharron"
+          },
+          {
+            "speaker": "5. I _ N",
+            "answer": "Ian"
+          },
+          {
+            "speaker": "6. S _ _ _ _ T",
+            "answer": "Simnit"
+          },
+          {
+            "speaker": "7. L _ _ _ N",
+            "answer": "Layan"
+          },
+          {
+            "speaker": "8. T _ M",
+            "answer": "Tom"
+          }
+        ]
+      },
+      {
+        "id": "ex1d_bags",
+        "section": "View: What's in your bag?",
+        "type": "bag_categorization",
+        "instruction": "Assign objects to Bag A (Simnit) or Bag B (Tom).",
+        "bagA_owner": "Simnit",
+        "bagA_items": [
+          "umbrella",
+          "mobile phone",
+          "purse"
+        ],
+        "bagB_owner": "Tom",
+        "bagB_items": [
+          "laptop",
+          "two books"
+        ],
+        "available_items": [
+          "umbrella",
+          "mobile phone",
+          "purse",
+          "laptop",
+          "two books",
+          "banana",
+          "sandwich"
+        ]
+      },
+      {
+        "id": "ex1d_grammar",
+        "section": "Grammar: a / an & have / has",
+        "type": "fill_in_blank",
+        "instruction": "Fill in the correct form (a, an, have, has).",
+        "questions": [
+          {
+            "id": "g1",
+            "text": "1. I have _____ umbrella.",
+            "answer": "an"
+          },
+          {
+            "id": "g2",
+            "text": "2. I _____ a bottle of water and _____ banana.",
+            "answer": "have, a",
+            "parts": [
+              "have",
+              "a"
+            ]
+          },
+          {
+            "id": "g3",
+            "text": "3. She _____ a laptop and two books.",
+            "answer": "has"
+          },
+          {
+            "id": "g4",
+            "text": "4. They _____ three notebooks.",
+            "answer": "have"
+          },
+          {
+            "id": "g5",
+            "text": "5. He has _____ apple and _____ sandwich.",
+            "answer": "an, a",
+            "parts": [
+              "an",
+              "a"
+            ]
+          }
+        ]
+      }
+    ],
+    "answerKeys": {
+      "preview": {
+        "bagA": "an umbrella, a mobile phone, a purse",
+        "bagB": "a laptop, two books"
+      },
+      "view2A": [
+        "1 H",
+        "2 A",
+        "3 B",
+        "4 E",
+        "5 I",
+        "6 D",
+        "7 G",
+        "8 C",
+        "9 F"
+      ],
+      "view2B": {
+        "2": "Rachael",
+        "4": "Sharron",
+        "7": "Biba",
+        "8": "Layan"
+      },
+      "view3A": {
+        "Bag A": "Speaker D (Simnit)",
+        "Bag B": "Speaker F (Tom)"
+      },
+      "view3C": {
+        "1": "G (Biba)",
+        "2": "A (Rachael)",
+        "3": "F (Tom)",
+        "4": "D (Simnit)",
+        "5": "E (Sharron)",
+        "6": "H (William)"
+      },
+      "grammar4A": [
+        "1 an",
+        "2 have, a, a",
+        "3 have, a",
+        "4 have",
+        "5 has"
+      ],
+      "grammarBank1": [
+        "1 a",
+        "2 a",
+        "3 an",
+        "4 a",
+        "5 a",
+        "6 an",
+        "7 a",
+        "8 an",
+        "9 a",
+        "10 a"
+      ],
+      "workbook1D": {
+        "ex1B": [
+          "1 purses",
+          "2 wallets",
+          "3 umbrellas",
+          "4 laptops",
+          "5 apples",
+          "6 American passports",
+          "7 mobile phones",
+          "8 countries"
+        ]
+      }
+    }
+  },
+  "unit1Review": {
+    "id": "unit1_review",
+    "title": "Unit 1 Review & Check",
+    "subTitle": "Review of Grammar, Vocabulary, Phonics & Sound and Spelling",
+    "pages": {
+      "studentBook": [
+        16,
+        17
+      ],
+      "workbook": [
+        8,
+        9
+      ]
+    },
+    "phonicsLab": {
+      "schwa": {
+        "sound": "/ə/",
+        "title": "The Weak Vowel: Schwa",
+        "description": "In unstressed syllables, vowels often reduce to the short, neutral sound /ə/.",
+        "examples": [
+          {
+            "word": "Japan",
+            "ipa": "/dʒəˈpæn/",
+            "detail": "The first syllable 'Ja-' is unstressed: /dʒə/."
+          },
+          {
+            "word": "doctor",
+            "ipa": "/ˈdɒktə/",
+            "detail": "The second syllable '-tor' is unstressed: /tə/."
+          },
+          {
+            "word": "number",
+            "ipa": "/ˈnʌmbə/",
+            "detail": "The second syllable '-ber' is unstressed: /bə/."
+          }
+        ]
+      },
+      "pluralEndings": [
+        {
+          "sound": "/s/",
+          "title": "Unvoiced Plural /s/",
+          "rule": "After unvoiced consonants: /p/, /t/, /k/, /f/, /θ/.",
+          "example": "ticket -> tickets (/ˈtɪkɪts/)"
+        },
+        {
+          "sound": "/z/",
+          "title": "Voiced Plural /z/",
+          "rule": "After voiced consonants & vowel sounds: /b/, /d/, /g/, /v/, /l/, /m/, /n/, vowels.",
+          "example": "bag -> bags (/bæɡz/)"
+        },
+        {
+          "sound": "/ɪz/",
+          "title": "Sibilant Plural /ɪz/",
+          "rule": "After sibilant sounds: /s/, /z/, /ʃ/, /tʃ/, /dʒ/.",
+          "example": "bus -> buses (/ˈbʌsɪz/)"
+        }
+      ]
+    },
+    "exercises": [
+      {
+        "id": "ex_rev_countries",
+        "title": "Review 1A: Countries vs Nationalities",
+        "instruction": "Choose the correct word (country or nationality) to complete each sentence.",
+        "items": [
+          {
+            "id": "rc1",
+            "sentence": "1. She is from _____.",
+            "options": [
+              "Mexico",
+              "Mexican"
+            ],
+            "answer": "Mexico"
+          },
+          {
+            "id": "rc2",
+            "sentence": "2. Paulo is _____.",
+            "options": [
+              "Argentina",
+              "Argentinian"
+            ],
+            "answer": "Argentinian"
+          },
+          {
+            "id": "rc3",
+            "sentence": "3. They live in _____.",
+            "options": [
+              "the UK",
+              "British"
+            ],
+            "answer": "the UK"
+          },
+          {
+            "id": "rc4",
+            "sentence": "4. We are _____.",
+            "options": [
+              "the USA",
+              "American"
+            ],
+            "answer": "American"
+          },
+          {
+            "id": "rc5",
+            "sentence": "5. Rome is a city in _____.",
+            "options": [
+              "Italy",
+              "Italian"
+            ],
+            "answer": "Italy"
+          }
+        ]
+      },
+      {
+        "id": "ex_rev_be",
+        "title": "Review 2A: Present Simple be",
+        "instruction": "Complete the questions and short answers with the correct form of be.",
+        "items": [
+          {
+            "id": "rb1",
+            "text": "A: _____ you a student? (Are / Am)",
+            "answer": "Are"
+          },
+          {
+            "id": "rb2",
+            "text": "B: Yes, I _____.",
+            "answer": "am"
+          },
+          {
+            "id": "rb3",
+            "text": "A: _____ you from France?",
+            "answer": "Are"
+          },
+          {
+            "id": "rb4",
+            "text": "B: No, I _____ not.",
+            "answer": "'m"
+          }
+        ]
+      },
+      {
+        "id": "ex_rev_jobs",
+        "title": "Review 4A: Jobs & Articles a/an",
+        "instruction": "Write the job with the correct article a or an.",
+        "items": [
+          {
+            "id": "rj1",
+            "prompt": "Australia / bus driver",
+            "answer": "an Australian bus driver"
+          },
+          {
+            "id": "rj2",
+            "prompt": "UK / waiter",
+            "answer": "a British waiter"
+          },
+          {
+            "id": "rj3",
+            "prompt": "Poland / singer",
+            "answer": "a Polish singer"
+          }
+        ]
+      },
+      {
+        "id": "ex_rev_greetings",
+        "title": "Review 5A & 5B: Chronological Greetings",
+        "instruction": "Order the daily greetings from earliest in the morning to night (1 to 4).",
+        "items": [
+          {
+            "id": "rg1",
+            "greeting": "Good morning",
+            "order": 1,
+            "time": "Early morning"
+          },
+          {
+            "id": "rg2",
+            "greeting": "Good afternoon",
+            "order": 2,
+            "time": "12:00 – 18:00"
+          },
+          {
+            "id": "rg3",
+            "greeting": "Good evening",
+            "order": 3,
+            "time": "18:00 – 22:00"
+          },
+          {
+            "id": "rg4",
+            "greeting": "Good night",
+            "order": 4,
+            "time": "Bedtime"
+          }
+        ]
+      },
+      {
+        "id": "ex_rev_check",
+        "title": "Review 7B: Language Consolidation",
+        "instruction": "Complete each sentence with one word from Unit 1.",
+        "items": [
+          {
+            "id": "rk1",
+            "sentence": "1. What _____ your name?",
+            "answer": "is"
+          },
+          {
+            "id": "rk2",
+            "sentence": "2. How many _____ are in the bag?",
+            "answer": "words"
+          },
+          {
+            "id": "rk3",
+            "sentence": "3. He _____ an umbrella.",
+            "answer": "has"
+          },
+          {
+            "id": "rk4",
+            "sentence": "4. She is from Warsaw, so she is _____.",
+            "answer": "Polish"
+          },
+          {
+            "id": "rk5",
+            "sentence": "5. Maria _____ a bus ticket.",
+            "answer": "has"
+          },
+          {
+            "id": "rk6",
+            "sentence": "6. Where are you _____?",
+            "answer": "from"
+          },
+          {
+            "id": "rk7",
+            "sentence": "7. What are their phone _____?",
+            "answer": "numbers"
+          },
+          {
+            "id": "rk8",
+            "sentence": "8. He _____ here today.",
+            "answer": "isn't"
+          }
+        ]
+      }
+    ],
+    "answerKeys": {
+      "grammar1A": "2 Mexico, 3 Argentinian, 4 the UK, 5 American, 6 Italy",
+      "grammar2A": "1 Are, 2 am, 3 Are, 4 'm",
+      "vocab4A": "2 an Australian bus driver, 3 a British waiter, 4 a Polish singer",
+      "vocab5B": "1 Good morning, 2 Good afternoon, 3 Good evening, 4 Good night",
+      "phonics6A": "Schwa /ə/ in Japan, doctor, number. Plural endings: /ɪz/ in buses, /z/ in bags, /s/ in tickets.",
+      "check7B": "1 is, 2 words, 3 has, 4 Polish, 5 has, 6 from, 7 numbers, 8 isn't"
+    }
+  },
+  "unit1Test": {
+    "testId": "unit1_test_a",
+    "title": "Speakout 3rd Edition A1 Unit 1 Test (Version A)",
+    "totalMarks": 50,
+    "passMark": 30,
+    "meritMark": 38,
+    "distinctionMark": 45,
+    "audio": {
+      "id": "UT1.01",
+      "title": "Unit 1 Test Listening Track (UT1.01)",
+      "filename": "SO3_A1_Tests_UT_1_Audio_UT1_01.mp3",
+      "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Tests/Speakout_A1_Tests Audio/SO3_A1_Tests_UT_1_Audio_UT1_01.mp3"
+    },
+    "sections": {
+      "grammar": {
+        "title": "Grammar (20 marks)",
+        "part1": {
+          "instruction": "Choose the correct words to complete the conversations.",
+          "marks": 8,
+          "items": [
+            {
+              "id": "g1_1",
+              "text": "1 A: I (1) 'm / 're Petros.",
+              "options": [
+                "'m",
+                "'re"
+              ],
+              "answer": "'m"
+            },
+            {
+              "id": "g1_2",
+              "text": "1 B: Hi Petros! I (2) 'm / are Hana.",
+              "options": [
+                "'m",
+                "are"
+              ],
+              "answer": "'m"
+            },
+            {
+              "id": "g1_3",
+              "text": "2 A: (3) Am / Are you a student?",
+              "options": [
+                "Am",
+                "Are"
+              ],
+              "answer": "Are"
+            },
+            {
+              "id": "g1_4",
+              "text": "2 B: No, I (4) 'm / 're not.",
+              "options": [
+                "'m",
+                "'re"
+              ],
+              "answer": "'m"
+            },
+            {
+              "id": "g1_5",
+              "text": "3 A: (5) Am / Are you from Germany?",
+              "options": [
+                "Am",
+                "Are"
+              ],
+              "answer": "Are"
+            },
+            {
+              "id": "g1_6",
+              "text": "3 B: Yes, I (6) 'm / am.",
+              "options": [
+                "'m",
+                "am"
+              ],
+              "answer": "am"
+            },
+            {
+              "id": "g1_7",
+              "text": "4 A: I (7) 'm / are from Beijing.",
+              "options": [
+                "'m",
+                "are"
+              ],
+              "answer": "'m"
+            },
+            {
+              "id": "g1_8",
+              "text": "4 B: (8) Am / Are you Chinese?",
+              "options": [
+                "Am",
+                "Are"
+              ],
+              "answer": "Are"
+            }
+          ]
+        },
+        "part2": {
+          "instruction": "Complete the sentences with is or isn't.",
+          "marks": 7,
+          "items": [
+            {
+              "id": "g2_1",
+              "text": "1 My sister _____ a student. (+)",
+              "answer": "is"
+            },
+            {
+              "id": "g2_2",
+              "text": "2 Paris _____ in India. (-)",
+              "answer": "isn't"
+            },
+            {
+              "id": "g2_3",
+              "text": "3 Yun _____ from Korea. (+)",
+              "answer": "is"
+            },
+            {
+              "id": "g2_4",
+              "text": "4 Where _____ the airport?",
+              "answer": "is"
+            },
+            {
+              "id": "g2_5",
+              "text": "5 _____ Melbourne in Australia?",
+              "answer": "Is"
+            },
+            {
+              "id": "g2_6",
+              "text": "6 She _____ in my class. (-)",
+              "answer": "isn't"
+            },
+            {
+              "id": "g2_7",
+              "text": "7 What _____ your name?",
+              "answer": "is"
+            }
+          ]
+        },
+        "part3": {
+          "instruction": "Correct the error in each sentence.",
+          "marks": 5,
+          "items": [
+            {
+              "id": "g3_1",
+              "sentence": "1 I have [a] email.",
+              "wrong": "a",
+              "answer": "an"
+            },
+            {
+              "id": "g3_2",
+              "sentence": "2 She [have] a new phone.",
+              "wrong": "have",
+              "answer": "has"
+            },
+            {
+              "id": "g3_3",
+              "sentence": "3 I have [glass].",
+              "wrong": "glass",
+              "answer": "glasses"
+            },
+            {
+              "id": "g3_4",
+              "sentence": "4 You [has] a sandwich.",
+              "wrong": "has",
+              "answer": "have"
+            },
+            {
+              "id": "g3_5",
+              "sentence": "5 New York is [a] American city.",
+              "wrong": "a",
+              "answer": "an"
+            }
+          ]
+        }
+      },
+      "vocabulary": {
+        "title": "Vocabulary (20 marks)",
+        "part4": {
+          "instruction": "Complete the nationalities by adding the missing letters.",
+          "marks": 8,
+          "items": [
+            {
+              "id": "v4_1",
+              "country": "Germany",
+              "prompt": "Germ _ _",
+              "answer": "an",
+              "full": "German"
+            },
+            {
+              "id": "v4_2",
+              "country": "Colombia",
+              "prompt": "Colomb _ _ _",
+              "answer": "ian",
+              "full": "Colombian"
+            },
+            {
+              "id": "v4_3",
+              "country": "Turkey",
+              "prompt": "Turk _ _ _",
+              "answer": "ish",
+              "full": "Turkish"
+            },
+            {
+              "id": "v4_4",
+              "country": "China",
+              "prompt": "Chin _ _ _",
+              "answer": "ese",
+              "full": "Chinese"
+            },
+            {
+              "id": "v4_5",
+              "country": "Mexico",
+              "prompt": "Mexic _ _",
+              "answer": "an",
+              "full": "Mexican"
+            },
+            {
+              "id": "v4_6",
+              "country": "Spain",
+              "prompt": "Span _ _ _",
+              "answer": "ish",
+              "full": "Spanish"
+            },
+            {
+              "id": "v4_7",
+              "country": "Japan",
+              "prompt": "Japan _ _ _",
+              "answer": "ese",
+              "full": "Japanese"
+            },
+            {
+              "id": "v4_8",
+              "country": "Brazil",
+              "prompt": "Brazil _ _ _",
+              "answer": "ian",
+              "full": "Brazilian"
+            }
+          ]
+        },
+        "part5": {
+          "instruction": "Unscramble the letters to make jobs.",
+          "marks": 7,
+          "items": [
+            {
+              "id": "v5_1",
+              "scramble": "c t o a r",
+              "answer": "actor"
+            },
+            {
+              "id": "v5_2",
+              "scramble": "r n s u e",
+              "answer": "nurse"
+            },
+            {
+              "id": "v5_3",
+              "scramble": "p o s h   s s a s t i n a t",
+              "answer": "shop assistant"
+            },
+            {
+              "id": "v5_4",
+              "scramble": "b s u   i r r v e d",
+              "answer": "bus driver"
+            },
+            {
+              "id": "v5_5",
+              "scramble": "s a r i t t",
+              "answer": "artist"
+            },
+            {
+              "id": "v5_6",
+              "scramble": "l l f o o a b t   p l y a r e",
+              "answer": "football player"
+            },
+            {
+              "id": "v5_7",
+              "scramble": "s o s w s b e n u m i a n",
+              "answer": "businesswoman"
+            }
+          ]
+        },
+        "part6": {
+          "instruction": "Match the word halves to make everyday objects.",
+          "marks": 5,
+          "items": [
+            {
+              "id": "v6_1",
+              "partA": "1 lap",
+              "partB": "C top",
+              "answer": "laptop"
+            },
+            {
+              "id": "v6_2",
+              "partA": "2 umb",
+              "partB": "D rella",
+              "answer": "umbrella"
+            },
+            {
+              "id": "v6_3",
+              "partA": "3 wal",
+              "partB": "A let",
+              "answer": "wallet"
+            },
+            {
+              "id": "v6_4",
+              "partA": "4 note",
+              "partB": "E book",
+              "answer": "notebook"
+            },
+            {
+              "id": "v6_5",
+              "partA": "5 sand",
+              "partB": "B wich",
+              "answer": "sandwich"
+            }
+          ]
+        }
+      },
+      "howTo": {
+        "title": "How to... & Functional Language (10 marks)",
+        "part7": {
+          "instruction": "Match the questions (1–5) with the answers (A–E).",
+          "marks": 5,
+          "items": [
+            {
+              "id": "h7_1",
+              "question": "1 What's your name?",
+              "answer": "C"
+            },
+            {
+              "id": "h7_2",
+              "question": "2 What's your address?",
+              "answer": "E"
+            },
+            {
+              "id": "h7_3",
+              "question": "3 What's your phone number?",
+              "answer": "B"
+            },
+            {
+              "id": "h7_4",
+              "question": "4 How do you spell your first name?",
+              "answer": "D"
+            },
+            {
+              "id": "h7_5",
+              "question": "5 How do you spell your surname?",
+              "answer": "A"
+            }
+          ]
+        },
+        "part8": {
+          "instruction": "Choose the correct words to complete the functional sentences.",
+          "marks": 5,
+          "items": [
+            {
+              "id": "h8_1",
+              "text": "1 (Thank / Thanks) you.",
+              "options": [
+                "Thank",
+                "Thanks"
+              ],
+              "answer": "Thank"
+            },
+            {
+              "id": "h8_2",
+              "text": "2 That's (right / minute).",
+              "options": [
+                "right",
+                "minute"
+              ],
+              "answer": "right"
+            },
+            {
+              "id": "h8_3",
+              "text": "3 Just a (moment / wait).",
+              "options": [
+                "moment",
+                "wait"
+              ],
+              "answer": "moment"
+            },
+            {
+              "id": "h8_4",
+              "text": "4 Can you (minute / repeat) that, please?",
+              "options": [
+                "minute",
+                "repeat"
+              ],
+              "answer": "repeat"
+            },
+            {
+              "id": "h8_5",
+              "text": "5 No, that's (name / wrong).",
+              "options": [
+                "name",
+                "wrong"
+              ],
+              "answer": "wrong"
+            }
+          ]
+        }
+      }
+    },
+    "answerKeys": {
+      "grammar": {
+        "part1": "1 'm, 2 'm, 3 Are, 4 'm, 5 Are, 6 am, 7 'm, 8 Are",
+        "part2": "1 is, 2 isn't, 3 is, 4 is, 5 Is, 6 isn't, 7 is",
+        "part3": "1 an, 2 has, 3 glasses, 4 have, 5 an"
+      },
+      "vocabulary": {
+        "part4": "1 an, 2 ian, 3 ish, 4 ese, 5 an, 6 ish, 7 ese, 8 ian",
+        "part5": "1 actor, 2 nurse, 3 shop assistant, 4 bus driver, 5 artist, 6 football player, 7 businesswoman",
+        "part6": "1 C, 2 D, 3 A, 4 E, 5 B"
+      },
+      "howTo": {
+        "part7": "1 C, 2 E, 3 B, 4 D, 5 A",
+        "part8": "1 Thank, 2 right, 3 moment, 4 repeat, 5 wrong"
+      }
+    }
+  },
+  "lesson2a": {
+    "lessonId": "2A",
+    "lessonTitle": "Where are they?",
+    "subTitle": "Numbers 11-100, common adjectives, present simple be: we, you, they",
+    "pages": {
+      "studentBook": [
+        18,
+        19
+      ],
+      "vocabBank": [
+        128
+      ],
+      "grammarBank": [
+        98
+      ]
+    },
+    "audio": {
+      "classAudio": [
+        {
+          "id": "2.01",
+          "title": "Numbers 11-100 Pronunciation",
+          "filename": "028_SO3_A1_SB_2A_Audio_2_01.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/028_SO3_A1_SB_2A_Audio_2_01.mp3"
+        },
+        {
+          "id": "2.02",
+          "title": "Word Stress in Numbers (-teen vs -ty)",
+          "filename": "029_SO3_A1_SB_2A_Audio_2_02.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/029_SO3_A1_SB_2A_Audio_2_02.mp3"
+        },
+        {
+          "id": "2.03",
+          "title": "Compound Numbers Listening",
+          "filename": "030_SO3_A1_SB_2A_Audio_2_03.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/030_SO3_A1_SB_2A_Audio_2_03.mp3"
+        },
+        {
+          "id": "2.0X",
+          "title": "Grammar be (plural) Drill",
+          "filename": "031_SO3_A1_SB_2A_Audio_2_0X.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/031_SO3_A1_SB_2A_Audio_2_0X.mp3"
+        },
+        {
+          "id": "VB2.01",
+          "title": "Vocabulary Bank Common Adjectives Audio",
+          "filename": "038_SO3_A1_SB_2A_Audio_VB2_01.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/038_SO3_A1_SB_2A_Audio_VB2_01.mp3"
+        }
+      ],
+      "workbookAudio": [
+        {
+          "id": "WB2.01",
+          "title": "Workbook Lesson 2A Numbers Audio",
+          "filename": "SO3_A1_WB_2A_Audio_2_01.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_2A_Audio_2_01.mp3"
+        },
+        {
+          "id": "WB2.02",
+          "title": "Workbook Lesson 2A Adjectives Audio",
+          "filename": "SO3_A1_WB_2A_Audio_2_02.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_2A_Audio_2_02.mp3"
+        },
+        {
+          "id": "WB2.03",
+          "title": "Workbook Lesson 2A Grammar be Audio",
+          "filename": "SO3_A1_WB_2A_Audio_2_03.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_2A_Audio_2_03.mp3"
+        }
+      ]
+    },
+    "photocopiables": [
+      {
+        "id": "2A_Grammar",
+        "title": "Grammar: Present Simple be (we, you, they)",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_2A_Grammar.pdf"
+      },
+      {
+        "id": "2A_Vocab",
+        "title": "Vocabulary: Numbers & Common Adjectives",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_2A_Vocab.pdf"
+      }
+    ],
+    "reading": [
+      {
+        "location": "Photo A (England)",
+        "country": "England",
+        "description": "Cold weather, beautiful mountains, very old buildings.",
+        "adjectives": [
+          "cold",
+          "beautiful",
+          "old"
+        ]
+      },
+      {
+        "location": "Photo B (England)",
+        "country": "England",
+        "description": "Small town, friendly local people, good cafés.",
+        "adjectives": [
+          "small",
+          "friendly",
+          "good"
+        ]
+      },
+      {
+        "location": "Photo C (Wales)",
+        "country": "Wales",
+        "description": "Long walk in the national park, tired tourists, hot sunny day, happy group.",
+        "adjectives": [
+          "tired",
+          "hot",
+          "happy"
+        ]
+      }
+    ],
+    "vocabulary": [
+      {
+        "word": "eleven",
+        "pos": "number",
+        "ipa": "ɪˈlevən",
+        "topic": "Numbers 11-100",
+        "definition": "number eleven",
+        "example": ""
+      },
+      {
+        "word": "twelve",
+        "pos": "number",
+        "ipa": "twelv",
+        "topic": "Numbers 11-100",
+        "definition": "number twelve",
+        "example": ""
+      },
+      {
+        "word": "thirteen",
+        "pos": "number",
+        "ipa": "ˌθɜːˈtiːn",
+        "topic": "Numbers 11-100",
+        "definition": "θɜːˈtiːn",
+        "example": ""
+      },
+      {
+        "word": "fourteen",
+        "pos": "number",
+        "ipa": "ˌfɔːˈtiːn",
+        "topic": "Numbers 11-100",
+        "definition": "fɔːˈtiːn",
+        "example": ""
+      },
+      {
+        "word": "fifteen",
+        "pos": "number",
+        "ipa": "ˌfɪfˈtiːn",
+        "topic": "Numbers 11-100",
+        "definition": "fɪfˈtiːn",
+        "example": ""
+      },
+      {
+        "word": "sixteen",
+        "pos": "number",
+        "ipa": "ˌsɪkˈstiːn",
+        "topic": "Numbers 11-100",
+        "definition": "sɪkˈstiːn",
+        "example": ""
+      },
+      {
+        "word": "seventeen",
+        "pos": "number",
+        "ipa": "ˌsevənˈtiːn",
+        "topic": "Numbers 11-100",
+        "definition": "number seventeen",
+        "example": ""
+      },
+      {
+        "word": "eighteen",
+        "pos": "number",
+        "ipa": "ˌeɪˈtiːn",
+        "topic": "Numbers 11-100",
+        "definition": "eɪˈtiːn",
+        "example": ""
+      },
+      {
+        "word": "nineteen",
+        "pos": "number",
+        "ipa": "ˌnaɪnˈtiːn",
+        "topic": "Numbers 11-100",
+        "definition": "naɪnˈtiːn",
+        "example": ""
+      },
+      {
+        "word": "twenty",
+        "pos": "number",
+        "ipa": "ˈtwenti",
+        "topic": "Numbers 11-100",
+        "definition": "number twenty",
+        "example": ""
+      },
+      {
+        "word": "thirty",
+        "pos": "number",
+        "ipa": "ˈθɜːti",
+        "topic": "Numbers 11-100",
+        "definition": "number thirty",
+        "example": ""
+      },
+      {
+        "word": "forty",
+        "pos": "number",
+        "ipa": "ˈfɔːti",
+        "topic": "Numbers 11-100",
+        "definition": "number forty",
+        "example": ""
+      },
+      {
+        "word": "fifty",
+        "pos": "number",
+        "ipa": "ˈfɪfti",
+        "topic": "Numbers 11-100",
+        "definition": "number fifty",
+        "example": ""
+      },
+      {
+        "word": "sixty",
+        "pos": "number",
+        "ipa": "ˈsɪksti",
+        "topic": "Numbers 11-100",
+        "definition": "number sixty",
+        "example": ""
+      },
+      {
+        "word": "seventy",
+        "pos": "number",
+        "ipa": "ˈsevənti",
+        "topic": "Numbers 11-100",
+        "definition": "number seventy",
+        "example": ""
+      },
+      {
+        "word": "eighty",
+        "pos": "number",
+        "ipa": "ˈeɪti",
+        "topic": "Numbers 11-100",
+        "definition": "number eighty",
+        "example": ""
+      },
+      {
+        "word": "ninety",
+        "pos": "number",
+        "ipa": "ˈnaɪnti",
+        "topic": "Numbers 11-100",
+        "definition": "number ninety",
+        "example": ""
+      },
+      {
+        "word": "a hundred",
+        "pos": "number",
+        "ipa": "ə ˈhʌndrɪd",
+        "topic": "Numbers 11-100",
+        "definition": "number a hundred",
+        "example": ""
+      },
+      {
+        "word": "bad",
+        "pos": "adj",
+        "ipa": "bæd",
+        "topic": "Common Adjectives",
+        "definition": "I'm late for work. It's a bad start to my day.",
+        "example": ""
+      },
+      {
+        "word": "beautiful",
+        "pos": "adj",
+        "ipa": "ˈbjuːtəfəl",
+        "topic": "Common Adjectives",
+        "definition": "What a beautiful baby!",
+        "example": ""
+      },
+      {
+        "word": "big",
+        "pos": "adj",
+        "ipa": "bɪɡ",
+        "topic": "Common Adjectives",
+        "definition": "China is a very big country. ",
+        "example": ""
+      },
+      {
+        "word": "cold",
+        "pos": "adj",
+        "ipa": "kəʊld",
+        "topic": "Common Adjectives",
+        "definition": "The mountains in England are cold.",
+        "example": ""
+      },
+      {
+        "word": "difficult",
+        "pos": "adj",
+        "ipa": "ˈdɪfɪkəlt",
+        "topic": "Common Adjectives",
+        "definition": "Our English class is difficult.",
+        "example": ""
+      },
+      {
+        "word": "easy",
+        "pos": "adj",
+        "ipa": "ˈiːzi",
+        "topic": "Common Adjectives",
+        "definition": "I like French. It's an easy language for me.",
+        "example": ""
+      },
+      {
+        "word": "favourite",
+        "pos": "adj",
+        "ipa": "ˈfeɪvərət",
+        "topic": "Common Adjectives",
+        "definition": "My favourite colour is red.",
+        "example": ""
+      },
+      {
+        "word": "friendly",
+        "pos": "adj",
+        "ipa": "ˈfrendli",
+        "topic": "Common Adjectives",
+        "definition": "Sylvie is a friendly student in my class. She says 'hello' to everyone.",
+        "example": ""
+      },
+      {
+        "word": "good",
+        "pos": "adj",
+        "ipa": "ɡʊd",
+        "topic": "Common Adjectives",
+        "definition": "Our new bike is very good.",
+        "example": ""
+      },
+      {
+        "word": "happy",
+        "pos": "adj",
+        "ipa": "ˈhæpi",
+        "topic": "Common Adjectives",
+        "definition": "The dog is very happy in the park.",
+        "example": ""
+      },
+      {
+        "word": "hot",
+        "pos": "adj",
+        "ipa": "hɒt",
+        "topic": "Common Adjectives",
+        "definition": "The sun is hot in the summer. ",
+        "example": ""
+      },
+      {
+        "word": "new",
+        "pos": "adj",
+        "ipa": "njuː",
+        "topic": "Common Adjectives",
+        "definition": "Do you like my new phone?",
+        "example": ""
+      },
+      {
+        "word": "old",
+        "pos": "adj",
+        "ipa": "əʊld",
+        "topic": "Common Adjectives",
+        "definition": "London is a very old city.",
+        "example": ""
+      },
+      {
+        "word": "old",
+        "pos": "adj",
+        "ipa": "əʊld",
+        "topic": "Common Adjectives",
+        "definition": "My grandmother is 86. She's old.",
+        "example": ""
+      },
+      {
+        "word": "sad",
+        "pos": "adj",
+        "ipa": "sæd",
+        "topic": "Common Adjectives",
+        "definition": "This film is very sad.",
+        "example": ""
+      },
+      {
+        "word": "small",
+        "pos": "adj",
+        "ipa": "smɔːl",
+        "topic": "Common Adjectives",
+        "definition": "The restaurant only has two tables. It’s very small.",
+        "example": ""
+      },
+      {
+        "word": "tired",
+        "pos": "adj",
+        "ipa": "taɪəd",
+        "topic": "Common Adjectives",
+        "definition": "to feel that you want to sleep",
+        "example": "It’s 4 a.m. We're very tired. "
+      },
+      {
+        "word": "young",
+        "pos": "adj",
+        "ipa": "jʌŋ",
+        "topic": "Common Adjectives",
+        "definition": "Janek is two years old. He's very young.",
+        "example": ""
+      }
+    ],
+    "exercises": [
+      {
+        "id": "ex2a_word_stress",
+        "title": "Pronunciation: Word Stress in Numbers (-teen vs -ty)",
+        "type": "stress_comparator",
+        "instruction": "Listen to Track 2.02. Notice that -teen numbers are stressed on the second syllable, while -ty numbers are stressed on the first syllable.",
+        "pairs": [
+          {
+            "teen": "thirteen",
+            "teenIpa": "/ˌθɜːˈtiːn/",
+            "teenStress": "thir-TEEN",
+            "ty": "thirty",
+            "tyIpa": "/ˈθɜːti/",
+            "tyStress": "THIR-ty"
+          },
+          {
+            "teen": "fourteen",
+            "teenIpa": "/ˌfɔːˈtiːn/",
+            "teenStress": "four-TEEN",
+            "ty": "forty",
+            "tyIpa": "/ˈfɔːti/",
+            "tyStress": "FOR-ty"
+          },
+          {
+            "teen": "fifteen",
+            "teenIpa": "/ˌfɪfˈtiːn/",
+            "teenStress": "fif-TEEN",
+            "ty": "fifty",
+            "tyIpa": "/ˈfɪfti/",
+            "tyStress": "FIF-ty"
+          },
+          {
+            "teen": "sixteen",
+            "teenIpa": "/ˌsɪkˈstiːn/",
+            "teenStress": "six-TEEN",
+            "ty": "sixty",
+            "tyIpa": "/ˈsɪksti/",
+            "tyStress": "SIX-ty"
+          },
+          {
+            "teen": "seventeen",
+            "teenIpa": "/ˌsevənˈtiːn/",
+            "teenStress": "seven-TEEN",
+            "ty": "seventy",
+            "tyIpa": "/ˈsevənti/",
+            "tyStress": "SEV-en-ty"
+          },
+          {
+            "teen": "eighteen",
+            "teenIpa": "/ˌeɪˈtiːn/",
+            "teenStress": "eigh-TEEN",
+            "ty": "eighty",
+            "tyIpa": "/ˈeɪti/",
+            "tyStress": "EIGH-ty"
+          },
+          {
+            "teen": "nineteen",
+            "teenIpa": "/ˌnaɪnˈtiːn/",
+            "teenStress": "nine-TEEN",
+            "ty": "ninety",
+            "tyIpa": "/ˈnaɪnti/",
+            "tyStress": "NINE-ty"
+          }
+        ]
+      },
+      {
+        "id": "ex2a_compound_numbers",
+        "title": "Vocabulary: Compound Numbers 11–100",
+        "type": "fill_in_blank",
+        "instruction": "Write the compound number in words or digits as indicated.",
+        "items": [
+          {
+            "id": "cn1",
+            "prompt": "49",
+            "answer": "forty-nine"
+          },
+          {
+            "id": "cn2",
+            "prompt": "73",
+            "answer": "seventy-three"
+          },
+          {
+            "id": "cn3",
+            "prompt": "56",
+            "answer": "fifty-six"
+          },
+          {
+            "id": "cn4",
+            "prompt": "67",
+            "answer": "sixty-seven"
+          },
+          {
+            "id": "cn5",
+            "prompt": "34",
+            "answer": "thirty-four"
+          },
+          {
+            "id": "cn6",
+            "prompt": "98",
+            "answer": "ninety-eight"
+          },
+          {
+            "id": "cn7",
+            "prompt": "52",
+            "answer": "fifty-two"
+          },
+          {
+            "id": "cn8",
+            "prompt": "25",
+            "answer": "twenty-five"
+          },
+          {
+            "id": "cn9",
+            "prompt": "88",
+            "answer": "eighty-eight"
+          }
+        ]
+      },
+      {
+        "id": "ex2a_reading_tf",
+        "title": "Reading: Where are they? (England & Wales)",
+        "type": "true_false",
+        "instruction": "Read the profiles of Photos A, B, and C. Decide if the statements are True (T) or False (F).",
+        "items": [
+          {
+            "id": "rtf1",
+            "statement": "1. Photo A shows mountains in Wales.",
+            "answer": "F",
+            "correction": "Photo A shows mountains in England."
+          },
+          {
+            "id": "rtf2",
+            "statement": "2. The buildings in Photo A are old.",
+            "answer": "T",
+            "correction": ""
+          },
+          {
+            "id": "rtf3",
+            "statement": "3. The town in Photo B is big.",
+            "answer": "F",
+            "correction": "The town in Photo B is small."
+          },
+          {
+            "id": "rtf4",
+            "statement": "4. The people in Photo B are friendly.",
+            "answer": "T",
+            "correction": ""
+          },
+          {
+            "id": "rtf5",
+            "statement": "5. The tourists in Photo C are tired.",
+            "answer": "T",
+            "correction": ""
+          },
+          {
+            "id": "rtf6",
+            "statement": "6. The weather in Photo C is cold.",
+            "answer": "F",
+            "correction": "The weather in Photo C is hot."
+          }
+        ]
+      },
+      {
+        "id": "ex2a_grammar_be",
+        "title": "Grammar: Present Simple be (we, you, they)",
+        "type": "fill_in_blank",
+        "instruction": "Complete each sentence with the correct form: 're (are) or aren't.",
+        "items": [
+          {
+            "id": "gb1",
+            "sentence": "1. We _____ in England today.",
+            "answer": "'re",
+            "alt": "are"
+          },
+          {
+            "id": "gb2",
+            "sentence": "2. They _____ shop assistants. (+)",
+            "answer": "'re",
+            "alt": "are"
+          },
+          {
+            "id": "gb3",
+            "sentence": "3. Are they from Scotland? No, they _____.",
+            "answer": "aren't",
+            "alt": "are not"
+          },
+          {
+            "id": "gb4",
+            "sentence": "4. Where _____ you from?",
+            "answer": "are",
+            "alt": "are"
+          },
+          {
+            "id": "gb5",
+            "sentence": "5. We _____ tired. We're very energetic! (-)",
+            "answer": "aren't",
+            "alt": "are not"
+          },
+          {
+            "id": "gb6",
+            "sentence": "6. They _____ at university in Manchester.",
+            "answer": "'re",
+            "alt": "are"
+          }
+        ]
+      },
+      {
+        "id": "ex2a_adjectives_pairs",
+        "title": "Vocabulary Bank: Opposite Adjectives",
+        "type": "matching",
+        "instruction": "Match each adjective with its opposite.",
+        "pairs": [
+          {
+            "adj": "big",
+            "opposite": "small"
+          },
+          {
+            "adj": "hot",
+            "opposite": "cold"
+          },
+          {
+            "adj": "young",
+            "opposite": "old"
+          },
+          {
+            "adj": "happy",
+            "opposite": "sad"
+          },
+          {
+            "adj": "good",
+            "opposite": "bad"
+          },
+          {
+            "adj": "easy",
+            "opposite": "difficult"
+          }
+        ]
+      }
+    ],
+    "answerKeys": {
+      "studentBook": {
+        "numbers1B": "11 eleven, 12 twelve, 13 thirteen, 14 fourteen, 15 fifteen, 16 sixteen, 17 seventeen, 18 eighteen, 19 nineteen, 20 twenty",
+        "numbers1D": "60 sixty, 70 seventy, 80 eighty, 90 ninety, 100 a hundred",
+        "wordStress2A": "thir-TEEN vs THIR-ty, four-TEEN vs FOR-ty, fif-TEEN vs FIF-ty, six-TEEN vs SIX-ty, seven-TEEN vs SEV-en-ty, eigh-TEEN vs EIGH-ty, nine-TEEN vs NINE-ty",
+        "compound3A": "2 forty-nine, 3 seventy-three, 4 fifty-six",
+        "compound3B": "sixty-seven, thirty-four, ninety-eight, fifty-two, twenty-five, eighty-eight",
+        "reading5B": "A England, B England, C Wales",
+        "reading5C": "2 F, 3 F, 4 T, 5 T, 6 F",
+        "adjectives5D": "1 old, 2 cold, 3 tired, 4 friendly, 5 small",
+        "grammar6A": "1/2 we, 're, 3 Are, 4 aren't",
+        "grammarBank2": "2 We're shop assistants, 3 Are they from Scotland?, 4 They're Mr Vega and Ms Fox, 5 Where are you?, 6 They aren't here, 7 We're at university, 8 Are they here?"
+      },
+      "workbook": {
+        "ex1A": "11 eleven, 12 twelve, 13 thirteen, 14 fourteen, 15 fifteen, 16 sixteen, 17 seventeen, 18 eighteen, 19 nineteen, 20 twenty",
+        "ex2A": "1 big, 2 cold, 3 old, 4 happy, 5 bad, 6 difficult",
+        "ex3A": "1 We're, 2 Are they, 3 aren't, 4 They're, 5 Are you, 6 're"
+      }
+    }
+  },
+  "lesson2b": {
+    "lessonId": "2B",
+    "lessonTitle": "Family and friends",
+    "subTitle": "Family members, people, possessive 's and possessive adjectives",
+    "pages": {
+      "studentBook": [
+        20,
+        21
+      ],
+      "vocabBank": [
+        128
+      ],
+      "grammarBank": [
+        98
+      ]
+    },
+    "audio": {
+      "classAudio": [
+        {
+          "id": "2.04",
+          "title": "Family Listening: Five People Profiles",
+          "filename": "032_SO3_A1_SB_2B_Audio_2_04.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/032_SO3_A1_SB_2B_Audio_2_04.mp3"
+        },
+        {
+          "id": "2.05",
+          "title": "Pronunciation: Syllables and Sound /ð/",
+          "filename": "033_SO3_A1_SB_2B_Audio_2_05.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/033_SO3_A1_SB_2B_Audio_2_05.mp3"
+        },
+        {
+          "id": "VB2.02",
+          "title": "Vocabulary Bank: Family Members Audio",
+          "filename": "039_SO3_A1_SB_2B_Audio_VB2_02.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/039_SO3_A1_SB_2B_Audio_VB2_02.mp3"
+        },
+        {
+          "id": "VB2.03",
+          "title": "Vocabulary Bank: People Words Audio",
+          "filename": "040_SO3_A1_SB_2B_Audio_VB2_03.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Class Audio/040_SO3_A1_SB_2B_Audio_VB2_03.mp3"
+        }
+      ],
+      "workbookAudio": [
+        {
+          "id": "WB2.04",
+          "title": "Workbook Lesson 2B Audio 1 (Family)",
+          "filename": "SO3_A1_WB_2B_Audio_2_04.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_2B_Audio_2_04.mp3"
+        },
+        {
+          "id": "WB2.05",
+          "title": "Workbook Lesson 2B Audio 2 (Possessive Adjectives)",
+          "filename": "SO3_A1_WB_2B_Audio_2_05.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_2B_Audio_2_05.mp3"
+        },
+        {
+          "id": "WB2.06",
+          "title": "Workbook Lesson 2B Audio 3 (Pronunciation /ð/)",
+          "filename": "SO3_A1_WB_2B_Audio_2_06.mp3",
+          "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Workbook Audio/SO3_A1_WB_2B_Audio_2_06.mp3"
+        }
+      ]
+    },
+    "photocopiables": [
+      {
+        "id": "2B_Grammar",
+        "title": "Grammar: Possessive Adjectives and 's",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_2B_Grammar.pdf"
+      },
+      {
+        "id": "2B_Vocab",
+        "title": "Vocabulary: Family & Friends",
+        "path": "/Users/tsovakpalakian/Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1/Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_2B_Vocab.pdf"
+      }
+    ],
+    "profiles": [
+      {
+        "name": "Mia",
+        "age": 8,
+        "country": "Italy",
+        "jobOrStudies": "student at school",
+        "relation": "Mark's daughter"
+      },
+      {
+        "name": "Jessica",
+        "age": 45,
+        "country": "France",
+        "jobOrStudies": "has a restaurant",
+        "relation": "Thomas's sister"
+      },
+      {
+        "name": "Justin",
+        "age": 21,
+        "country": "the UK",
+        "jobOrStudies": "writer for a magazine",
+        "relation": "Emma's brother"
+      },
+      {
+        "name": "Emma",
+        "age": 18,
+        "country": "the UK",
+        "jobOrStudies": "student at university",
+        "relation": "Justin's sister"
+      },
+      {
+        "name": "David",
+        "age": 38,
+        "country": "Colombia",
+        "jobOrStudies": "doctor",
+        "relation": "Mariana's husband and father of Matas & Antonella"
+      }
+    ],
+    "vocabulary": [
+      {
+        "word": "brother",
+        "pos": "n",
+        "ipa": "ˈbrʌðə",
+        "topic": "Family",
+        "definition": "I have a brother called Wilhelm.",
+        "example": ""
+      },
+      {
+        "word": "children",
+        "pos": "n",
+        "ipa": "ˈtʃɪldrən",
+        "topic": "Family",
+        "definition": "They have two children, a boy and a girl.",
+        "example": ""
+      },
+      {
+        "word": "daughter",
+        "pos": "n",
+        "ipa": "ˈdɔːtə",
+        "topic": "Family",
+        "definition": "She has two daughters and one son.",
+        "example": ""
+      },
+      {
+        "word": "father",
+        "pos": "n",
+        "ipa": "ˈfɑːðə ",
+        "topic": "Family",
+        "definition": "My father's name is David.",
+        "example": ""
+      },
+      {
+        "word": "husband",
+        "pos": "n",
+        "ipa": "ˈhʌzbənd",
+        "topic": "Family",
+        "definition": "This is my husband, Juan.",
+        "example": ""
+      },
+      {
+        "word": "mother",
+        "pos": "n",
+        "ipa": "ˈmʌðə",
+        "topic": "Family",
+        "definition": "Our mother is Brazilian.",
+        "example": ""
+      },
+      {
+        "word": "parents",
+        "pos": "n",
+        "ipa": "ˈpeərənts",
+        "topic": "Family",
+        "definition": "My parents are very friendly.",
+        "example": ""
+      },
+      {
+        "word": "sister",
+        "pos": "n",
+        "ipa": "ˈsɪstə",
+        "topic": "Family",
+        "definition": "Janet and Abby are sisters.",
+        "example": ""
+      },
+      {
+        "word": "son",
+        "pos": "n",
+        "ipa": "sʌn",
+        "topic": "Family",
+        "definition": "Her son was born in 2013.",
+        "example": ""
+      },
+      {
+        "word": "wife",
+        "pos": "n",
+        "ipa": "waɪf",
+        "topic": "Family",
+        "definition": "Simon's wife is from Switzerland.",
+        "example": ""
+      },
+      {
+        "word": "baby",
+        "pos": "n",
+        "ipa": "ˈbeɪbi",
+        "topic": "People & Friends",
+        "definition": "My baby girl's name is Malaika.",
+        "example": ""
+      },
+      {
+        "word": "boy",
+        "pos": "n",
+        "ipa": "bɔɪ",
+        "topic": "People & Friends",
+        "definition": "The boy is seven years old.",
+        "example": ""
+      },
+      {
+        "word": "child",
+        "pos": "n",
+        "ipa": "tʃaɪld",
+        "topic": "People & Friends",
+        "definition": "I have one child, a girl called Carmen.",
+        "example": ""
+      },
+      {
+        "word": "friend",
+        "pos": "n",
+        "ipa": "frend",
+        "topic": "People & Friends",
+        "definition": "My friend Santosh is a very nice person.",
+        "example": ""
+      },
+      {
+        "word": "girl",
+        "pos": "n",
+        "ipa": "ɡɜːl",
+        "topic": "People & Friends",
+        "definition": "Three girls in my English class are from Japan.",
+        "example": ""
+      },
+      {
+        "word": "man",
+        "pos": "n",
+        "ipa": "mæn",
+        "topic": "People & Friends",
+        "definition": "This man is 95. He's very old.",
+        "example": ""
+      },
+      {
+        "word": "person",
+        "pos": "n",
+        "ipa": "ˈpɜːsən",
+        "topic": "People & Friends",
+        "definition": "She's a very friendly person.",
+        "example": ""
+      },
+      {
+        "word": "woman",
+        "pos": "n",
+        "ipa": "ˈwʊmən",
+        "topic": "People & Friends",
+        "definition": "That woman is Piotr's wife.",
+        "example": ""
+      }
+    ],
+    "exercises": [
+      {
+        "id": "ex2b_family_tree",
+        "title": "Vocabulary: Family Tree Roles",
+        "type": "matching",
+        "instruction": "Identify family members and their relationships.",
+        "pairs": [
+          {
+            "term": "mother",
+            "relation": "female parent"
+          },
+          {
+            "term": "father",
+            "relation": "male parent"
+          },
+          {
+            "term": "husband",
+            "relation": "married man"
+          },
+          {
+            "term": "wife",
+            "relation": "married woman"
+          },
+          {
+            "term": "son",
+            "relation": "male child"
+          },
+          {
+            "term": "daughter",
+            "relation": "female child"
+          },
+          {
+            "term": "brother",
+            "relation": "male sibling"
+          },
+          {
+            "term": "sister",
+            "relation": "female sibling"
+          }
+        ]
+      },
+      {
+        "id": "ex2b_possessive_adjectives",
+        "title": "Grammar: Possessive Adjectives (my, your, his, her, its, our, their)",
+        "type": "fill_in_blank",
+        "instruction": "Complete the sentences with the correct possessive adjective.",
+        "items": [
+          {
+            "id": "pa1",
+            "sentence": "1. I have a brother. _____ name is Mark.",
+            "answer": "His"
+          },
+          {
+            "id": "pa2",
+            "sentence": "2. She is from France and _____ husband is from Spain.",
+            "answer": "her"
+          },
+          {
+            "id": "pa3",
+            "sentence": "3. We love _____ new English class.",
+            "answer": "our"
+          },
+          {
+            "id": "pa4",
+            "sentence": "4. They are doctors and _____ hospital is in London.",
+            "answer": "their"
+          },
+          {
+            "id": "pa5",
+            "sentence": "5. This is a big company. What is _____ name?",
+            "answer": "its"
+          },
+          {
+            "id": "pa6",
+            "sentence": "6. Are you with _____ sister today?",
+            "answer": "your"
+          }
+        ]
+      },
+      {
+        "id": "ex2b_pronunciation_th",
+        "title": "Pronunciation: Sound /ð/ & Syllable Counts",
+        "type": "categorization",
+        "instruction": "Listen to Track 2.05. Identify words with 1 syllable vs 2 syllables.",
+        "items": [
+          {
+            "word": "wife",
+            "syllables": 1,
+            "hasVoicedTh": false
+          },
+          {
+            "word": "son",
+            "syllables": 1,
+            "hasVoicedTh": false
+          },
+          {
+            "word": "brother",
+            "syllables": 2,
+            "hasVoicedTh": true
+          },
+          {
+            "word": "sister",
+            "syllables": 2,
+            "hasVoicedTh": false
+          },
+          {
+            "word": "father",
+            "syllables": 2,
+            "hasVoicedTh": true
+          },
+          {
+            "word": "mother",
+            "syllables": 2,
+            "hasVoicedTh": true
+          },
+          {
+            "word": "their",
+            "syllables": 1,
+            "hasVoicedTh": true
+          },
+          {
+            "word": "this",
+            "syllables": 1,
+            "hasVoicedTh": true
+          }
+        ]
+      },
+      {
+        "id": "ex2b_profiles_matching",
+        "title": "Listening: My Family Photos (Track 2.04)",
+        "type": "matching",
+        "instruction": "Match each person from Track 2.04 with their details.",
+        "items": [
+          {
+            "name": "Mia",
+            "age": "8",
+            "country": "Italy",
+            "job": "student at school"
+          },
+          {
+            "name": "Jessica",
+            "age": "45",
+            "country": "France",
+            "job": "has a restaurant"
+          },
+          {
+            "name": "Justin",
+            "age": "21",
+            "country": "the UK",
+            "job": "writer for a magazine"
+          },
+          {
+            "name": "Emma",
+            "age": "18",
+            "country": "the UK",
+            "job": "student at university"
+          },
+          {
+            "name": "David",
+            "age": "38",
+            "country": "Colombia",
+            "job": "doctor"
+          }
+        ]
+      }
+    ],
+    "answerKeys": {
+      "studentBook": {
+        "family1": "1 Justin and Emma in B; Matas and Antonella in D. 2 Thomas and Jessica in C; David and Mariana in D. 3 David and Mariana (parents) and Matas and Antonella (children) in D. 4 Mark (father) and Mia (daughter) in A; David (father) and Antonella (daughter) in D. 5 Mariana (mother) and Matas (son) in D.",
+        "syllables2B": "One syllable: wife, son. Two syllables: brother, sister, husband, parents, children, father, daughter, mother.",
+        "listening4B": "1 Jessica, 2 David, 3 Justin and Emma, 4 Mia",
+        "listening4C": "Mia (8, Italy, student at school), Jessica (45, France, has a restaurant), Justin (21, the UK, writer for a magazine), Emma (18, the UK, student at university), David (38, Colombia, doctor)",
+        "grammar5A": "2 My, her; 3 Their; 4 its; 5 His; 6 your",
+        "grammar5B": "I -> my, you -> your, he -> his, she -> her, it -> its, we -> our, they -> their",
+        "grammarBank1": "1 your, 2 my, 3 Our, 4 her, 5 Our, 6 His, 7 he, 8 He's, 9 their, 10 It's",
+        "grammarBank2": "1 your, 2 our, their, 3 her, its, 4 your, his"
+      },
+      "workbook": {
+        "ex1": "1 brother, 2 mother, 3 parents, 4 husband, 5 son, 6 children",
+        "ex2": "1 his, 2 their, 3 Her, 4 your, 5 Our, 6 my, 7 its",
+        "ex3": "1 Mark's, 2 David's, 3 Jessica's, 4 Emma's"
+      }
+    }
+  }
+}

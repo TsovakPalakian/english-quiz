@@ -53,9 +53,27 @@ export function createStageServer({db,personas,launchCode=randomBytes(24).toStri
     res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     const json=(status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});res.end(JSON.stringify(value));};
     try {
-      const origin=`http://127.0.0.1:${server.address().port}`;
-      if (req.headers.host!==new URL(origin).host) throw new StudyError(403,'Localhost only.');
-      const url=new URL(req.url,origin);
+      const reqHost = req.headers.host || '127.0.0.1';
+      const url = new URL(req.url, `http://${reqHost}`);
+      if (url.pathname.startsWith('/api/speakout') || url.pathname === '/speakout' || url.pathname.startsWith('/speakout/')) {
+        const hostOnly = (req.headers.host || '').split(':')[0];
+        const speakoutHosts = ['127.0.0.1', 'localhost', 'lumiscia.org', 'www.lumiscia.org'];
+        if (!speakoutHosts.includes(hostOnly) && process.env.ALLOW_EXTERNAL_STAGE !== 'true') {
+          throw new StudyError(403, 'Localhost only.');
+        }
+        if (url.pathname === '/speakout' || url.pathname.startsWith('/speakout/')) {
+          const rest = url.pathname === '/speakout' || url.pathname === '/speakout/' ? '/' : url.pathname.slice('/speakout'.length);
+          req.url = rest + url.search;
+        }
+        const { handleRequest } = await import('../speakout/server/server.js');
+        handleRequest(req, res);
+        return;
+      }
+      const origin = `http://127.0.0.1:${server.address().port}`;
+      const allowedHosts = ['127.0.0.1', 'localhost', 'lumiscia.org'];
+      const hostOnly = (req.headers.host || '').split(':')[0];
+      const isAllowedHost = req.headers.host === new URL(origin).host || allowedHosts.includes(hostOnly) || process.env.ALLOW_EXTERNAL_STAGE === 'true';
+      if (!isAllowedHost) throw new StudyError(403, 'Localhost only.');
       const mutating=!['GET','HEAD'].includes(req.method);
       if (mutating && req.headers.origin!==origin) throw new StudyError(403,'Invalid request origin.');
       if (req.method==='GET' && ['/','/app.js','/app.css'].includes(url.pathname)) {
@@ -109,10 +127,11 @@ export function createStageServer({db,personas,launchCode=randomBytes(24).toStri
 if (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {
     const {server,launchCode}=createStageServer({db:openLocalStudyDatabase(),personas:snapshotPersonas()});
-    server.listen(8788,'127.0.0.1',()=>{
+    const bindHost = process.env.HOST || process.env.STAGE_HOST || '127.0.0.1';
+    server.listen(8788, bindHost, () => {
       mkdirSync(resolve(root,'rollback'),{recursive:true,mode:0o700});
-      writeFileSync(resolve(root,'rollback/learning-stage-local.json'),JSON.stringify({origin:'http://127.0.0.1:8788',launchCode,pid:process.pid}),{mode:0o600});
-      console.log('Local test interface: http://127.0.0.1:8788/#code='+launchCode);
+      writeFileSync(resolve(root,'rollback/learning-stage-local.json'),JSON.stringify({origin:`http://${bindHost}:8788`,launchCode,pid:process.pid}),{mode:0o600});
+      console.log(`Local test interface: http://${bindHost}:8788/#code=`+launchCode);
       console.log('Local demonstration-session code only; database credentials stay on the server.');
     });
     server.on('error',()=>{console.error('Cannot bind local test port 8788.');process.exitCode=1;});

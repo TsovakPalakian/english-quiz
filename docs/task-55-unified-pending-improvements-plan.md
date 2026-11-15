@@ -15,23 +15,32 @@
 - **Требование**: Кнопка `#lmPublish` должна быть некликабельной (`disabled = true`, класс `is-disabled`, курсор `not-allowed`, иконка замка `🔒`) до тех пор, пока абсолютно все блоки урока не будут проверены преподавателем (`hasUnverified === false`). Доступно только сохранение черновика (`#lmSave` «Save draft»). При попытке клика отображается уведомление о необходимости предварительной проверки всех материалов.
 - **Исходный код**: [`client/52-lessons.js#L3452-L3492`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L3452-L3492), [`site/preview.html#L658-L660`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.html#L658-L660).
 
-### 1.2. Автоматическое сворачивание проверенных блоков со статусом в шапке
-- **Проблема**: При выставлении отметки `[✓] Verified by Teacher` в [`client/52-lessons.js#L1996-L2005`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1996-L2005) карточка остается развернутой, загромождая экран. В шапке блока [`client/52-lessons.js#L957-L965`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L957-L965) статус верификации отсутствует.
-- **Требование**: При установке чекбокса верификации карточка автоматически сворачивается (`block.collapsed = true`), а в шапке блока (`.lm-block-head`) отображается зеленый бейдж `✓ Verified by Teacher`, видимый в свернутом состоянии.
-- **Исходный код**: [`client/52-lessons.js#L957-L965`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L957-L965), [`client/52-lessons.js#L1996-L2005`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1996-L2005).
+### 1.2. Физическое сворачивание всех проверенных блоков в единый раскрываемый контейнер
+- **Проблема**: Если блоки верифицируются преподавателем и сворачиваются индивидуально, их заголовки продолжают занимать много вертикального пространства страницы (10–20 строк), вынуждая прокручивать экран.
+- **Требование**:
+  - Все проверенные преподавателем блоки (`teacherVerified === true`) физически объединяются в единый раскрываемый аккордеон-контейнер (`<details class="lm-verified-accordion">`) в нижней части секции.
+  - В свернутом состоянии контейнер занимает ровно одну строку: `▶ Verified materials & quizzes · N items (Click to expand)`.
+  - При клике на заголовок контейнер раскрывается, показывая входящие в него проверенные задания.
+  - Каждое проверенное задание внутри контейнера снабжено зеленым бейджем `✓ Verified by Teacher`.
+- **Исходный код**: [`client/52-lessons.js#L957-L975`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L957-L975), [`client/52-lessons.js#L1074-L1095`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1074-L1095).
 
 ### 1.3. Приоритетный порядок квизов: непроверенные вверху, проверенные смещены вниз
-- **Проблема**: В [`client/52-lessons.js#L616-L619`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L616-L619) блоки выводятся в порядке их физического добавления в массив. Преподавателю приходится прокручивать проверенные задания, чтобы найти новые.
+- **Проблема**: В [`client/52-lessons.js#L616-L619`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L616-L619) блоки выводятся в порядке их физического добавления в массив. Преподавателю приходится искать новые задания среди уже проверенных.
 - **Требование**:
-  - Все новые и еще не проверенные квизы (`!block.teacherVerified`) располагаются в верхней части списка секции.
-  - Вновь сгенерированные блоки добавляются наверх секции.
-  - При подтверждении проверки карточка закрывается и смещается вниз списка секции к проверенным заданиям.
-- **Исходный код**: [`client/52-lessons.js#L616-L619`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L616-L619), [`client/52-lessons.js#L1067-L1089`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1067-L1089).
+  - Все новые и непроверенные квизы (`!block.teacherVerified`) располагаются в верхней части списка секции в развернутом виде, требуя внимания учителя.
+  - Вновь сгенерированные блоки добавляются на самый верх секции.
+  - При подтверждении проверки (`[✓] Verified by Teacher`) блок автоматически закрывается и физически перемещается вниз страницы в единый свернутый контейнер проверенных заданий.
+- **Исходный код**: [`client/52-lessons.js#L616-L625`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L616-L625), [`client/52-lessons.js#L1074-L1095`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1074-L1095).
 
-### 1.4. Исправление генерации и работы квиза True / false
-- **Проблема**: В генераторе [`client/52-lessons.js#L3113-L3129`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L3113-L3129) в поле `prompt` записывается речевой шаблон `"Say: \"...\""`, а в `answer` попадает строковое значение целевого слова вместо булева значения. В предпросмотре [`client/52-lessons.js#L1213`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1213) карточка отображается как статическая строка без кнопок выбора и проверки.
-- **Требование**: Выделенная ветка генератора для `True / false` с содержательным утверждением `prompt` о значении слова или контекстном предложении, строго валидным ответом `answer: "true"` или `"false"`, интерактивными кнопками выбора `[ True ]` и `[ False ]` в предпросмотре, мгновенной проверкой и выводом результата.
-- **Исходный код**: [`client/52-lessons.js#L651`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L651), [`client/52-lessons.js#L1213`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1213), [`src/quiz-review-content.mjs#L43`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/src/quiz-review-content.mjs#L43).
+### 1.4. Исправление генерации, стилей и структуры карточки квиза True / false
+- **Проблема**:
+  1. В интерфейсе (пользовательский скриншот [`docs/task-55-screenshot-user-reported-broken-tf.png`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-user-reported-broken-tf.png)) карточка `True / false` отображает устаревший шаблонный заголовок `Say: "superstition"` и нестилизованные радиокнопки, где текст `True` и `False` выводится сверху над круглыми чекбоксами без выравнивания.
+  2. Это не соответствует утвержденному макету (Скриншот 3 / Скриншот 5), в котором карточка оформлена в виде горизонтальных интерактивных кнопок-плашек с выделенным блоком утверждения.
+- **Требование к точному соответствию утвержденному макету (Pixel-Perfect)**:
+  - **Блок утверждения**: Стилизованный блок с акцентной полосой слева и четким текстом утверждения (`Statement: "..."`). Для старых уроков со строкой `Say: "..."` выполнять автоматическую нормализацию в полноценное утверждение (`The word "..." correctly translates to Russian.`).
+  - **Интерактивные кнопки выбора**: Вместо вертикальных нестилизованных радио-кружков отображать две горизонтальные карточки-кнопки `[ True ]` и `[ False ]` (`.lm-tf-btn`). При выборе кнопка подсвечивается синей рамкой и светлым фоном (`var(--primary-bg)`), сохраняя состояние выбора.
+  - **Кнопка проверки и результат**: Кнопка `Check answer` (`data-quiz-check`) и блок обратной связи зеленого цвета при верном ответе (`✓ Correct! ... (+1 pt)`) или красного при ошибке.
+- **Исходный код**: [`client/52-lessons.js#L657`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L657), [`client/52-lessons.js#L929-L933`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L929-L933), [`client/52-lessons.js#L1212-L1228`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1212-L1228), [`site/preview.css#L3527-L3531`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/site/preview.css#L3527-L3531).
 
 ### 1.5. Наполнение минимальным полным контентом остальных типов квизов
 - **Проблема**: В константе `LM_ALL_QUIZ_TYPES` определены 20 типов. 16 типов попадают в общий блок fallback с пустыми полями (`options: ["","","",""]`, `parts: ""`, `text: ""`, `front: ""`, `back: ""`).
@@ -45,43 +54,59 @@
   1. В [`test/test-local-workbench-launch-ui.mjs#L56-L59`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/test/test-local-workbench-launch-ui.mjs#L56-L59) в функцию `switchRole` добавить закрытие баннера при его наличии: `if(await page.locator('#learning-main-banner').isVisible()) await page.locator('#learning-main-dismiss').click();`.
   2. В [`client/main/main-bridge.js#L322`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/main/main-bridge.js#L322) подавлять всплытие системного модального уведомления для прерванных запросов `error?.name === 'AbortError'`.
 
+### 1.7. Раздельная независимая порядковая нумерация заданий для Classwork и Homework
+- **Проблема**: В [`client/52-lessons.js#L1271-L1279`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1271-L1279) сквозной номер задания (`Task 1`, `Task 2`, ...) вычисляется по общему массиву `lmState.blocks` без разделения по вкладкам. В результате задания в `Homework` продолжают нумерацию `Classwork` (например, задания 1–3 в `Classwork`, затем задания 4–5 в `Homework`). В редакторе [`client/52-lessons.js#L1074-L1095`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1074-L1095) локальный номер задания внутри текущей секции отсутствует.
+- **Требование**:
+  - Каждая секция (`Classwork` и `Homework`) должна иметь собственную изолированную нумерацию заданий от 1:
+    - Во вкладке `Classwork`: `Task 1`, `Task 2`, `Task 3`, ...
+    - Во вкладке `Homework`: `Task 1`, `Task 2`, `Task 3`, ...
+  - Нумерация отображается как в шапке карточки редактора (`lmHead`: `Task 1 · Quiz · Gap`), так и в предпросмотре для ученика (`lmPreviewParts`: `Task 1`, `Task 2`).
+  - При перемещении карточек вверх/вниз или переносе в свернутый контейнер проверенных материалов порядковые номера автоматически пересчитываются строго внутри своей вкладки.
+- **Исходный код**: [`client/52-lessons.js#L963-L972`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L963-L972), [`client/52-lessons.js#L1074-L1095`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1074-L1095), [`client/52-lessons.js#L1271-L1280`](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/client/52-lessons.js#L1271-L1280).
+
 ---
 
 ## 2. Утвержденные визуальные макеты
 
-### Скриншот 1: Блокировка кнопки Publish при наличии непроверенных материалов
-![Скриншот 1](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-1-publish-button-disabled-unverified.png)
-*Скриншот 1: Неактивная кнопка Publish с иконкой замка и поясняющим баннером; активна только кнопка Save draft.*
+### Скриншот 1: Физически свернутый контейнер проверенных заданий (закрытое состояние)
+![Скриншот 1](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-1-physical-collapse-verified-container-closed.png)
+*Скриншот 1: Непроверенные задания расположены вверху для работы учителя, а проверенные физически свернуты в единую строку внизу страницы: «▶ Verified materials & quizzes · 3 items (Click to expand)», не занимая полезное пространство экрана.*
 
 ---
 
-### Скриншот 2: Автосворачивание проверенных блоков со статусом в шапке
-![Скриншот 2](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-2-verified-blocks-collapsed-status.png)
-*Скриншот 2: Свернутые блоки с зеленым бейджем «✓ Verified by Teacher» в шапке карточки и раскрываемый контейнер проверенных материалов.*
+### Скриншот 2: Раскрытый контейнер проверенных заданий с вложенными карточками
+![Скриншот 2](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-2-physical-collapse-verified-container-open.png)
+*Скриншот 2: Раскрытый кликом контейнер проверенных материалов, в котором отображаются свернутые карточки заданий с бейджем «✓ Verified by Teacher» и кратким описанием.*
 
 ---
 
-### Скриншот 3: Расположение квизов в редакторе — новые вверху, проверенные смещены вниз
-![Скриншот 3](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-1-verified-quizzes-shifted-down.png)
-*Скриншот 3: Организация списка заданий в редакторе — нерассмотренные квизы находятся в верхней части списка, проверенные квизы автоматически сворачиваются и смещаются в нижнюю часть с бейджем «✓ Verified by Teacher».*
+### Скриншот 3: Интерактивный квиз True / false с полным содержанием
+![Скриншот 3](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-3-true-false-interactive-full.png)
+*Скриншот 3: Исправленный предпросмотр True / false: содержательное предложение о явлении погоды, радиокнопки [ True ] / [ False ], кнопка проверки ответа и расчет балла (+1 pt).*
 
 ---
 
-### Скриншот 4: Динамический переход при проверке задания преподавателем
-![Скриншот 4](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-2-verification-flow-shift-down.png)
-*Скриншот 4: Пошаговая демонстрация смещения — после клика на чекбокс верификации карточка закрывается и перемещается вниз к проверенным заданиям, поднимая следующее требующее проверки задание наверх.*
+### Скриншот 4: Блокировка публикации при наличии непроверенных материалов
+![Скриншот 4](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-4-publish-gating-state.png)
+*Скриншот 4: Заблокированная кнопка Publish с иконкой замка и поясняющим уведомлением; доступна только кнопка Save draft.*
 
 ---
 
 ### Скриншот 5: Анализ поломки True / false и целевая структура с полным минимальным контентом
 ![Скриншот 5](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-1-true-false-broken-vs-full-content.png)
-*Скриншот 5: Сопоставление текущей некорректной генерации (Say: "word" с невалидным ответом) и исправленной карточки с полным утверждением, интерактивными кнопками True/False, проверкой и мгновенным начислением балла.*
+*Скриншот 5: Сопоставление прежней некорректной генерации (Say: "word" с невалидным ответом) и исправленной карточки с полным утверждением.*
 
 ---
 
 ### Скриншот 6: Матрица аудита всех 20 типов квизов генератора уроков
 ![Скриншот 6](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-2-all-quiz-types-audit-matrix.png)
-*Скриншот 6: Сводная матрица всех 20 типов квизов с указанием текущего состояния полей, выявленных дефектов и требований к минимальному полному наполнению каждого типа.*
+*Скриншот 6: Сводная матрица всех 20 типов квизов с указанием состояния полей, выявленных дефектов и требований к минимальному полному наполнению каждого типа.*
+
+---
+
+### Скриншот 7: Фактический снимок экрана с дефектом отображения True / false (загружен пользователем)
+![Скриншот 7](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-55-screenshot-user-reported-broken-tf.png)
+*Скриншот 7: Снимок экрана пользователя, демонстрирующий проблему текущего отображения: устаревший шаблон Say: "superstition", вертикальные смещенные радио-кружки и кнопка Check вместо утвержденного дизайна.*
 
 ---
 
@@ -109,3 +134,6 @@
   - Создание тестов в `test/test-lesson-task55-unified.mjs` с проверкой блокировки публикации, автосворачивания, порядка сортировки карточек и работы True / false.
 - 🟩 **Этап 8**: Итоговая верификация и подготовка обобщенного коммита.
 - 🟩 **Этап 9**: Устранение перехвата кликов модальным диалогом `#learning-main-banner` в `test/test-local-workbench-launch-ui.mjs` и подавление модальных алертов при `AbortError` в `client/main/main-bridge.js`.
+- 🟨 **Этап 10**: Физическое сворачивание всех проверенных заданий секции в единый раскрываемый контейнер `<details class="lm-verified-accordion">` внизу страницы, освобождающий все экранное пространство для активных заданий.
+- 🟨 **Этап 11**: Раздельная независимая порядковая нумерация заданий для `Classwork` и `Homework` (`Task 1`, `Task 2`, ...) в редакторе карточек и в предпросмотре урока.
+- 🟨 **Этап 12**: Доведение верстки карточки `True / false` до точного соответствия утвержденному макету (Скриншот 3 / Скриншот 5): стилизованные горизонтальные кнопки-плашки `[ True ]` и `[ False ]`, контейнер утверждения, нормализация старых prompt'ов `Say: "..."` и кнопка `Check answer` с блоком баллов.

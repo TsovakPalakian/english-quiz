@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pearson Speakout 3rd Edition (2022) - Level A1 Unit 1</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="app-body">
+  <!-- 1. Top App Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-badge">
+        <span class="brand-logo">SO</span>
+        <span class="brand-title">Pearson Speakout 3rd Edition</span>
+        <span class="level-pill">Level A1 • Unit 1</span>
+      </div>
+      <div class="header-divider"></div>
+      <div class="active-badge">
+        <span class="live-dot"></span>
+        <span id="active-lesson-breadcrumb">Lesson 1A: Hello</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <form id="session-login" class="session-login">
+        <select id="session-role" aria-label="Role">
+          <option value="student">Student</option>
+          <option value="teacher">Teacher</option>
+        </select>
+        <input id="session-password" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password">
+        <button id="btn-session-login" class="btn" type="submit">Sign in</button>
+      </form>
+      <div id="user-session-badge" class="user-session-badge" title="Active Learning Session">
+        <span class="user-session-dot"></span>
+        <span id="user-session-label">Signed out</span>
+      </div>
+      <button id="btn-keys" class="btn btn-keys" title="Toggle Answer Keys">
+        <span class="icon">🔑</span>
+        <span>Keys</span>
+        <span id="keys-page-badge" class="badge-keys-page">p. 2–3</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Main Workspace -->
+  <div class="app-workspace">
+    <!-- 2.1 Left Lesson Navigation Sidebar -->
+    <aside class="sidebar-nav">
+      <div class="sidebar-header">
+        <span>Unit 1 Lessons (Phase 1)</span>
+      </div>
+      <nav class="lesson-tabs">
+        <button id="btn-tab-1a" class="tab-card active" data-lesson="1A">
+          <div class="tab-index">1A</div>
+          <div class="tab-meta">
+            <div class="tab-title">Lesson 1A: Hello</div>
+            <div class="tab-subtitle">Grammar, Vocabulary, Pronunciation</div>
+            <div class="tab-page-info">Student's Book</div>
+          </div>
+        </button>
+
+        <button id="btn-tab-1d" class="tab-card" data-lesson="1D">
+          <div class="tab-index">1D</div>
+          <div class="tab-meta">
+            <div class="tab-title">Lesson 1D: BBC Video</div>
+            <div class="tab-subtitle">Street Interviews & Vlogs</div>
+            <div class="tab-page-info">Student's Book</div>
+          </div>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer-box">
+        <div class="box-title">✓ Phase 1 Invariants</div>
+        <ul class="box-list">
+          <li>Single workspace screen</li>
+          <li>Original PDF textbook reader</li>
+          <li>Zero DOM-scraped answers</li>
+          <li>Keys via original Teacher PDF</li>
+          <li>SQLite persistence (speakout.db)</li>
+        </ul>
+        <div class="teacher-restriction-badge">
+          <span>🔒 Teacher Resources (Restricted)</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2.2 Central PDF.js Document Workspace -->
+    <main class="main-reader-pane">
+      <!-- PDF.js Toolbar -->
+      <div class="reader-toolbar">
+        <div class="toolbar-left">
+          <div class="page-input-group">
+            <span class="input-label">Page:</span>
+            <input id="page-number-input" type="number" min="1" placeholder="p. 1" class="page-input">
+            <span class="total-pages-label" id="total-pages-label"></span>
+          </div>
+
+          <div class="page-nav-buttons">
+            <button id="btn-prev-page" class="btn btn-icon-nav" title="Previous page">◀ Prev</button>
+            <button id="btn-next-page" class="btn btn-icon-nav" title="Next page">Next ▶</button>
+          </div>
+
+          <div class="doc-badge-group">
+            <span class="doc-icon">📄</span>
+            <span id="doc-title-badge">Speakout 3rd Edition A1 Student's Book.pdf</span>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <button id="btn-zoom-out" class="btn btn-zoom" title="Zoom out">−</button>
+          <span id="zoom-level-text" class="zoom-text">120%</span>
+          <button id="btn-zoom-in" class="btn btn-zoom" title="Zoom in">+</button>
+          <button id="btn-zoom-fit" class="btn btn-zoom-fit" title="Fit width">Fit</button>
+        </div>
+      </div>
+
+      <!-- PDF Canvas Viewport -->
+      <div id="pdf-scroll-viewport" class="pdf-viewport custom-scrollbar">
+        <div id="pdf-canvas-container" class="pdf-canvas-wrapper">
+          <p id="reader-error" class="reader-error hidden"></p>
+          <canvas id="pdf-canvas" class="pdf-page-canvas"></canvas>
+          <video id="embedded-video-player" class="embedded-video-element hidden" controls preload="metadata"></video>
+          <div id="pdf-fallback-overlay" class="pdf-fallback-content"></div>
+        </div>
+      </div>
+
+      <!-- 2.3 Bottom Media Strip (Plyr-Style Compact Dock) -->
+      <footer class="media-dock">
+        <!-- Dock 1A -->
+        <div id="media-strip-1a" class="media-strip-content">
+          <div class="track-buttons-group">
+            <span class="group-label">Tracks:</span>
+            <button class="btn btn-track active" data-track="1.01">▶ 1.01</button>
+            <button class="btn btn-track" data-track="1.02">▶ 1.02</button>
+            <button class="btn btn-track" data-track="1.03">▶ 1.03</button>
+            <button class="btn btn-track btn-track-purple" data-track="VB1.01">▶ VB1.01</button>
+          </div>
+
+        </div>
+
+        <!-- Dock 1D -->
+        <div id="media-strip-1d" class="media-strip-content hidden">
+          <div class="track-buttons-group">
+            <span class="group-label">Video:</span>
+            <button id="btn-vid-street" class="btn btn-track active" data-video="SO3 A1 U1 BBC StreetInt.mp4">
+              <span>🎬 BBC Street Interviews</span>
+            </button>
+            <button id="btn-vid-vlogs" class="btn btn-track" data-video="SO3 A1 U1 BBC Vlogs.mp4">
+              <span>📹 BBC Vlogs</span>
+            </button>
+            <button class="btn btn-track btn-track-purple" data-track="VB1.04">VB1.04</button>
+          </div>
+
+          <div class="script-pdf-group">
+            <button id="btn-open-script-pdf" class="btn btn-script">
+              <span>📄 Videoscripts (PDF)</span>
+            </button>
+          </div>
+
+          <div class="external-links-group">
+            <a href="https://www.bbc.co.uk/learningenglish" target="_blank" rel="noopener noreferrer" class="link-pill">
+              BBC Learning English ↗
+            </a>
+            <a href="https://learnenglish.britishcouncil.org" target="_blank" rel="noopener noreferrer" class="link-pill">
+              British Council LearnEnglish ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="player-controls-group" id="player-controls">
+          <button id="btn-play-pause" class="btn-play-circle" title="Play / Pause">▶</button>
+          <span id="time-current" class="time-label">0:00</span>
+          <div id="player-timeline" class="timeline-bar">
+            <div id="player-progress-bar" class="progress-fill"></div>
+          </div>
+          <span id="time-total" class="time-label">0:00</span>
+          <button id="btn-speed-toggle" class="speed-pill">1.0x</button>
+          <button id="btn-record-speech" class="btn btn-speech">
+            <span class="rec-dot"></span>
+            <span>🎙 Speech Record</span>
+          </button>
+        </div>
+        <audio id="audio-player" preload="metadata"></audio>
+      </footer>
+    </main>
+
+    <!-- 2.4 Keys Split Modal Viewer (SO3_A1_SB_AK.pdf Preview) -->
+    <aside id="keys-modal" class="keys-modal-dock hidden">
+      <div class="keys-modal-header">
+        <div class="keys-modal-title">
+          <span class="icon">🔑</span>
+          <span>SO3_A1_SB_AK.pdf (Answer Keys)</span>
+        </div>
+        <button id="btn-close-keys" class="btn-close" title="Close Keys">&times;</button>
+      </div>
+
+      <div class="keys-modal-meta">
+        <span id="keys-section-name">Lesson 1A: Hello</span>
+        <span id="keys-pages-info" class="meta-pages">Pages 2–3</span>
+        <span id="keys-error" class="reader-error hidden"></span>
+      </div>
+
+      <div class="keys-modal-body custom-scrollbar">
+        <div id="keys-pdf-container" class="keys-spread-wrapper">
+          <div class="keys-page-pane">
+            <div id="keys-title-left" class="keys-pane-title">Page 2</div>
+            <canvas id="keys-pdf-canvas-left" class="keys-page-canvas"></canvas>
+          </div>
+          <div class="keys-page-pane">
+            <div id="keys-title-right" class="keys-pane-title">Page 3</div>
+            <canvas id="keys-pdf-canvas-right" class="keys-page-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2.5 Video Modal for Lesson 1D -->
+    <div id="video-modal" class="video-modal-overlay hidden">
+      <div class="video-modal-card">
+        <div class="video-modal-header">
+          <span id="video-title-label" class="font-bold">BBC Street Interviews</span>
+          <button id="btn-close-video" class="btn-close">&times;</button>
+        </div>
+        <div class="video-viewport">
+          <video id="video-player" controls preload="metadata" class="w-full h-auto"></video>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2.6 Speech Verification Studio Modal (Screenshot 21) -->
+    <div id="speech-studio-modal" class="speech-studio-overlay hidden">
+      <div class="speech-studio-card">
+        <div class="speech-studio-header">
+          <div class="speech-studio-title">
+            <span class="live-dot-pulse">● LIVE</span>
+            <span>Speech Studio • Adaptive Verification</span>
+          </div>
+          <span id="speech-engine-tag" class="engine-tag">Web Speech Engine • Online</span>
+          <button id="btn-close-speech-studio" class="btn-close" title="Close Studio">&times;</button>
+        </div>
+        <div class="speech-studio-body">
+          <div class="speech-card-row target-phrase-row">
+            <span class="speech-field-label">Target Model Phrase:</span>
+            <div id="target-phrase-text" class="phrase-target-box">"Hello, I'm Shanaya. Nice to meet you."</div>
+          </div>
+          <div class="speech-card-row recognized-phrase-row">
+            <div class="recognized-header-line">
+              <span class="speech-field-label">Recognized Speech & Per-Word Verification:</span>
+              <div class="pill-group">
+                <span id="speech-match-pill" class="badge-match waiting">Waiting for speech...</span>
+                <span id="speech-accuracy-pill" class="badge-match waiting">Accuracy: --</span>
+              </div>
+            </div>
+            <div id="recognized-speech-text" class="phrase-recognized-box">
+              <span class="placeholder-text">Press 🎙 Speech Record and speak clearly into microphone...</span>
+            </div>
+            <div id="speech-word-breakdown" class="speech-word-breakdown"></div>
+          </div>
+          <div id="speech-error-notice" class="speech-error-notice hidden"></div>
+          <div class="speech-studio-footer">
+            <button id="btn-play-model-sample" class="btn btn-audio-sample">▶ Pearson Model Audio</button>
+            <button id="btn-play-student-sample" class="btn btn-audio-sample" disabled>▶ Student Playback</button>
+            <span id="speech-engine-footer-tag" class="engine-tag">✓ Speech Verification Engine Active</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
