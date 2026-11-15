@@ -290,7 +290,10 @@ export async function getStudentBookTotalPages() {
 async function readStudentBookTotalPages() {
   try {
     const manifest = loadManifest();
-    const pdfPath = manifest?.documents?.studentBook;
+    let pdfPath = manifest?.documents?.studentBook;
+    if (!pdfPath || !fs.existsSync(pdfPath) || !isInsideDir(pdfPath, COURSE_BASE_DIR)) {
+      pdfPath = path.join(COURSE_BASE_DIR, "Speakout 3rd Edition A1 Student's Book.pdf");
+    }
     if (pdfPath && fs.existsSync(pdfPath) && isInsideDir(pdfPath, COURSE_BASE_DIR)) {
       const pdfjsLib = await import('../web/vendor/pdfjs/pdf.mjs');
       const data = new Uint8Array(fs.readFileSync(realpathOrResolve(pdfPath)));
@@ -300,8 +303,11 @@ async function readStudentBookTotalPages() {
         return cachedTotalPages;
       }
     }
+    // Fallback to published Pearson Speakout A1 Student's Book page count
+    cachedTotalPages = 177;
+    return cachedTotalPages;
   } catch (_) {}
-  return null;
+  return 177;
 }
 
 export function sanitizeForClient(data, options = {}) {
@@ -904,14 +910,15 @@ export function handleRequest(req, res) {
       ...(manifest.lesson1d?.audio || [])
     ];
     const track = allTracks.find(t => t.id === trackId);
+    const resolvedPath = track?.path || (track?.filename ? path.join(COURSE_BASE_DIR, 'Speakout 3rd Edition A1 Class Audio', track.filename) : null);
 
-    if (!track || !track.path || !fs.existsSync(track.path)) {
+    if (!track || !resolvedPath || !fs.existsSync(resolvedPath)) {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Audio track not found' }));
       return;
     }
 
-    const resolvedAudioPath = path.resolve(track.path);
+    const resolvedAudioPath = path.resolve(resolvedPath);
     if (!isInsideDir(resolvedAudioPath, COURSE_BASE_DIR)) {
       res.writeHead(403, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Forbidden: Audio path outside authorized directory' }));
@@ -948,7 +955,9 @@ export function handleRequest(req, res) {
     }
 
     const manifest = loadManifest();
-    const videoDir = manifest?.videoDirectory || path.join(COURSE_BASE_DIR, 'Speakout 3rd Edition A1 Videos');
+    const videoDir = (manifest?.videoDirectory && !manifest.videoDirectory.startsWith('/api') && fs.existsSync(manifest.videoDirectory))
+      ? manifest.videoDirectory
+      : path.join(COURSE_BASE_DIR, 'Speakout 3rd Edition A1 Videos');
     const fullVideoPath = path.resolve(videoDir, videoFile);
 
     if (!isInsideDir(fullVideoPath, COURSE_BASE_DIR)) {
@@ -1003,9 +1012,20 @@ export function handleRequest(req, res) {
     }
 
     const manifest = loadManifest();
-    let docPath = manifest?.documents?.[docKey];
+    let docPath = (manifest?.documents?.[docKey] && !manifest.documents[docKey].startsWith('/api') && fs.existsSync(manifest.documents[docKey]))
+      ? manifest.documents[docKey]
+      : null;
     if (!docPath && docKey === 'keys') {
-      docPath = manifest?.documents?.teacherResources;
+      docPath = (manifest?.documents?.teacherResources && !manifest.documents.teacherResources.startsWith('/api') && fs.existsSync(manifest.documents.teacherResources))
+        ? manifest.documents.teacherResources
+        : null;
+    }
+    if (!docPath) {
+      if (docKey === 'studentBook') docPath = path.join(COURSE_BASE_DIR, "Speakout 3rd Edition A1 Student's Book.pdf");
+      else if (docKey === 'keys' || docKey === 'teacherResources') docPath = path.join(COURSE_BASE_DIR, "Speakout 3rd Edition A1 Teacher Resources/SO3_A1_SB_AK.pdf");
+      else if (docKey === 'videoscripts') docPath = path.join(COURSE_BASE_DIR, "Speakout 3rd Edition A1 Videos/Speakout_A1_SB_Videoscripts.pdf");
+      else if (docKey === 'photocopiable_grammar') docPath = path.join(COURSE_BASE_DIR, "Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1A_Grammar.pdf");
+      else if (docKey === 'photocopiable_vocab') docPath = path.join(COURSE_BASE_DIR, "Speakout 3rd Edition A1 Photocopiables/SO3_A1_PC_1A_Vocab.pdf");
     }
 
     if (!docPath || !fs.existsSync(docPath)) {

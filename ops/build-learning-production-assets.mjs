@@ -29,6 +29,8 @@ writeFileSync(resolve(target,'main-stage.css'),readFileSync(resolve(accepted,'ma
 copyFileSync(resolve(root,'production/catalog-loader.js'),resolve(target,'catalog-loader.js'));
 copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'database-context.js'));
 for(const name of ['speakout-editor.js','speakout-editor.css','material-quiz.js','color-picker.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
+mkdirSync(resolve(target,'speakout'),{recursive:true});
+for(const name of ['index.html','app.js','style.css'])copyFileSync(resolve(root,'speakout/web',name),resolve(target,'speakout',name));
 copyFileSync(resolve(root,'client/shared/text-colors.js'),resolve(target,'text-colors.js'));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));

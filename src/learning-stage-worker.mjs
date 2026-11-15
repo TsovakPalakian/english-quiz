@@ -157,11 +157,11 @@ export default {async fetch(request,env){
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE')||(songUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
-      ||method==='HEAD'&&path==='/api/speakout/media'
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
+      ||method==='HEAD'&&['/api/speakout/media','/api/speakout/audio','/api/speakout/video','/api/speakout/document'].includes(path)
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
-    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.svg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js','/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css'];
+    const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.svg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js','/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css','/speakout/','/speakout/index.html','/speakout/app.js','/speakout/style.css'];
     const publicAsset=publicPaths.includes(path)||path.startsWith('/notification-audio/')||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
     if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
@@ -215,6 +215,56 @@ export default {async fetch(request,env){
       const store=stageR2Media(env);
       if(path==='/api/speakout/media')return method==='POST'?json(await uploadSpeakout(db,actor,{...location,expectedRevision:Number(url.searchParams.get('expectedRevision')),mutationId:url.searchParams.get('mutationId')},await boundedMediaBytes(request),request.headers.get('content-type')?.split(';')[0],url.searchParams.get('name'),store)):await speakoutMedia(db,actor,location,store,request);
       if(path==='/api/speakout/answers')return json(await answerSpeakout(db,actor,await body(request,JSON_BODY_LIMIT),store));
+      if(path==='/api/speakout/audio'){
+        const track=url.searchParams.get('track')||'1.01';
+        const keyMap={'1.01':'speakout/a1/unit1/audio/1_01.mp3','1.02':'speakout/a1/unit1/audio/1_02.mp3','1.03':'speakout/a1/unit1/audio/1_03.mp3','VB1.01':'speakout/a1/unit1/audio/vb1_01.mp3','VB1.04':'speakout/a1/unit1/audio/vb1_04.mp3','wb_1_01':'speakout/a1/unit1/audio/wb_1_01.mp3','wb_1_02':'speakout/a1/unit1/audio/wb_1_02.mp3','wb_1_03':'speakout/a1/unit1/audio/wb_1_03.mp3','wb_1_04':'speakout/a1/unit1/audio/wb_1_04.mp3'};
+        const r2Key=keyMap[track];
+        if(!r2Key)throw new StudyError(404,'Audio track not found.');
+        return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);
+      }
+      if(path==='/api/speakout/video'){
+        const file=url.searchParams.get('file')||'SO3 A1 U1 BBC StreetInt.mp4';
+        const keyMap={'SO3 A1 U1 BBC StreetInt.mp4':'speakout/a1/unit1/videos/street_interviews.mp4','SO3 A1 U1 BBC Vlogs.mp4':'speakout/a1/unit1/videos/vlogs.mp4'};
+        const r2Key=keyMap[file];
+        if(!r2Key)throw new StudyError(404,'Video not found.');
+        return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);
+      }
+      if(path==='/api/speakout/document'){
+        const doc=url.searchParams.get('doc')||'studentBook';
+        if(doc==='keys'&&!['ADMIN','DEVELOPER','TEACHER'].includes((actor.role||'').toUpperCase()))throw new StudyError(403,'Teacher access required for answer keys.');
+        const keyMap={'studentBook':'speakout/a1/documents/student_book.pdf','keys':'speakout/a1/documents/teacher_keys.pdf','teacherResources':'speakout/a1/documents/teacher_keys.pdf','videoscripts':'speakout/a1/documents/videoscripts.pdf','photocopiable_grammar':'speakout/a1/unit1/photocopiables/1a_grammar.pdf','photocopiable_vocab':'speakout/a1/unit1/photocopiables/1a_vocab.pdf'};
+        const r2Key=keyMap[doc];
+        if(!r2Key)throw new StudyError(404,'Document not found.');
+        return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);
+      }
+      if(path==='/api/speakout/manifest'){
+        const [docA]=await db.read('SELECT content_json FROM speakout_documents WHERE level=? AND unit_index=? AND lesson_index=?',['A1',0,0]);
+        const [docD]=await db.read('SELECT content_json FROM speakout_documents WHERE level=? AND unit_index=? AND lesson_index=?',['A1',0,3]);
+        return json({
+          course:'Speakout 3rd Edition',
+          level:'A1',
+          unit:1,
+          unitTitle:'Welcome',
+          lesson1A:docA?JSON.parse(docA.content_json):null,
+          lesson1D:docD?JSON.parse(docD.content_json):null,
+          audio:{classAudio:[
+            {id:'1.01',title:'Lesson 1A Exercise 1A & 1B',url:'/api/speakout/audio?track=1.01'},
+            {id:'1.02',title:'Lesson 1A Exercise 2A',url:'/api/speakout/audio?track=1.02'},
+            {id:'1.03',title:'Lesson 1A Exercise 3A',url:'/api/speakout/audio?track=1.03'},
+            {id:'VB1.01',title:'Lesson 1A Vocabulary Bank',url:'/api/speakout/audio?track=VB1.01'},
+            {id:'VB1.04',title:'Lesson 1D Vocabulary Bank',url:'/api/speakout/audio?track=VB1.04'}
+          ]},
+          videos:{
+            streetInterviews:{title:'BBC Street Interviews',url:'/api/speakout/video?file=SO3 A1 U1 BBC StreetInt.mp4'},
+            vlogs:{title:'BBC Vlogs',url:'/api/speakout/video?file=SO3 A1 U1 BBC Vlogs.mp4'}
+          },
+          documents:{
+            studentBook:{title:"Student's Book (A1)",url:'/api/speakout/document?doc=studentBook'},
+            videoscripts:{title:'BBC Videoscripts',url:'/api/speakout/document?doc=videoscripts'},
+            keys:{title:"Teacher's Answer Keys",url:'/api/speakout/document?doc=keys'}
+          }
+        });
+      }
     }
     if(path==='/api/speakout/lesson'){
       if(speakoutWrite){

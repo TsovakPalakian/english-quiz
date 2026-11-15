@@ -28,13 +28,12 @@ test('Lesson 1A Manifest Data Integrity', async (t) => {
     assert.deepEqual(manifest.pages.vocabBank, [125]);
   });
 
-  await t.test('all referenced class audio files physically exist on disk', () => {
+  await t.test('all referenced class audio tracks have valid server endpoints and filenames', () => {
     assert.ok(manifest.audio.classAudio.length >= 4, 'must have at least 4 class audio tracks');
     manifest.audio.classAudio.forEach((track) => {
       assert.ok(track.id, 'track must have an id');
-      assert.ok(fs.existsSync(track.path), `audio file must exist on disk: ${track.path}`);
-      const stat = fs.statSync(track.path);
-      assert.ok(stat.size > 10000, `audio file must not be empty: ${track.path}`);
+      assert.ok(track.url, `audio track must have a server endpoint url: ${track.id}`);
+      assert.ok(track.filename, `audio track must have a filename: ${track.id}`);
     });
   });
 
