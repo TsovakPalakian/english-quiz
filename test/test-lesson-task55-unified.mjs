@@ -170,3 +170,60 @@ test('TASK-55 Test 6: Dedicated non-empty generation across all remaining quiz t
     );
   }
 });
+
+test('TASK-55 Test 7: Physical collapse of verified blocks into single accordion container', async () => {
+  const code = fs.readFileSync('client/52-lessons.js', 'utf8');
+  const css = fs.readFileSync('site/preview.css', 'utf8');
+
+  // Verify accordion markup in client/52-lessons.js
+  assert.ok(code.includes('lm-verified-accordion'), 'Editor must render .lm-verified-accordion for verified blocks');
+  assert.ok(code.includes('Verified materials & quizzes'), 'Accordion must show Verified materials & quizzes summary title');
+  assert.ok(code.includes('lm-verified-content'), 'Accordion must wrap verified items in .lm-verified-content');
+  assert.ok(code.includes('lm-verified-expand-hint'), 'Accordion must include expand/collapse hint');
+
+  // Verify styling in site/preview.css
+  assert.ok(css.includes('.lm-verified-accordion'), 'preview.css must define .lm-verified-accordion');
+  assert.ok(css.includes('.lm-verified-summary'), 'preview.css must define .lm-verified-summary');
+  assert.ok(css.includes('.lm-verified-title-group'), 'preview.css must define .lm-verified-title-group');
+  assert.ok(css.includes('.lm-verified-content'), 'preview.css must define .lm-verified-content');
+});
+
+test('TASK-55 Test 8: Independent task numbering for Classwork and Homework', async () => {
+  const code = fs.readFileSync('client/52-lessons.js', 'utf8');
+
+  // Verify lmPreviewParts scopes numbering to current tab blocks
+  assert.ok(
+    code.includes('const taskKeys = new Set((blocks || []).filter(part => [\'quiz\',\'exercise\',\'task\'].includes(part.type))'),
+    'lmPreviewParts must scope taskKeys to tab blocks'
+  );
+  assert.ok(
+    code.includes('for (const part of blocks || []) { const key = part.assignmentKey'),
+    'lmPreviewParts must scope assignment numbers to tab blocks'
+  );
+
+  // Verify lmRenderEditor computes independent tabTaskNumbers
+  assert.ok(code.includes('let currentTabTaskCounter = 0;'), 'lmRenderEditor must maintain currentTabTaskCounter');
+  assert.ok(code.includes('const tabTaskNumbers = new Map();'), 'lmRenderEditor must map tabTaskNumbers per tab');
+  assert.ok(code.includes('const taskPrefix = taskNum ? "Task " + taskNum + " · " : "";'), 'Must format label with taskPrefix');
+});
+
+test('TASK-55 Test 9: Pixel-perfect True / false card with styled button cards and legacy prompt normalization', async () => {
+  const code = fs.readFileSync('client/52-lessons.js', 'utf8');
+  const css = fs.readFileSync('site/preview.css', 'utf8');
+
+  // Verify True / false layout in lmPreviewBlock
+  assert.ok(code.includes('lm-tf-statement'), 'lmPreviewBlock must render statement box with .lm-tf-statement');
+  assert.ok(code.includes('lm-tf-options'), 'lmPreviewBlock must render .lm-tf-options container');
+  assert.ok(code.includes('lm-tf-btn'), 'lmPreviewBlock must render styled .lm-tf-btn cards');
+  assert.ok(code.includes('Say:'), 'Must detect legacy Say: "..." format');
+  assert.ok(code.includes('correctly translates to Russian'), 'Must normalize legacy Say: format into factual statement');
+  assert.ok(code.includes('Check answer'), 'Check button must read "Check answer"');
+  assert.ok(code.includes('lm-tf-feedback'), 'Must render feedback container .lm-tf-feedback');
+
+  // Verify styling in site/preview.css
+  assert.ok(css.includes('.lm-tf-statement'), 'preview.css must style .lm-tf-statement');
+  assert.ok(css.includes('.lm-tf-options'), 'preview.css must style .lm-tf-options');
+  assert.ok(css.includes('.lm-tf-btn'), 'preview.css must style .lm-tf-btn');
+  assert.ok(css.includes('.lm-tf-btn.selected'), 'preview.css must style .lm-tf-btn.selected');
+  assert.ok(css.includes('.lm-tf-feedback'), 'preview.css must style .lm-tf-feedback');
+});

@@ -1072,11 +1072,22 @@
       }
       const labels = { heading: "Heading", text: "Text", pdf: "PDF", link: "Link", cards: "Cards", image: "Image", audio: "Audio", video: "Video", vocab: "Vocabulary", exercise: "Exercise", quiz: "Quiz", note: "Note", dialogue: "Dialogue", reading: "Reading", pronunciation: "Pronunciation", table: "Table", task: "Task", file: "File", divider: "Divider", phrase: "Phrase", wordcard: "Word", rule: "Rule" };
       const blocks = lmBlocksFor();
-      box.innerHTML = blocks.length ? blocks.map((block, index) => {
+      let currentTabTaskCounter = 0;
+      const tabTaskNumbers = new Map();
+      for (const b of blocks) {
+        if (["quiz", "exercise", "task"].includes(b.type)) {
+          currentTabTaskCounter += 1;
+          tabTaskNumbers.set(b.id, currentTabTaskCounter);
+        }
+      }
+      function renderSingleBlock(block, index, total, isVerifiedSection) {
         const isFirst = index === 0;
-        const isLast = index === blocks.length - 1;
+        const isLast = index === total - 1;
         const isNew = block.id === lmLastAddedBlockId;
-        const label = block.type === "interactive" ? "Interactive" : block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
+        const taskNum = tabTaskNumbers.get(block.id);
+        const taskPrefix = taskNum ? "Task " + taskNum + " · " : "";
+        const baseTypeLabel = block.type === "interactive" ? "Interactive" : block.type === "quiz" ? ("Quiz · " + lmQuizType(block)) : (labels[block.type] || "Block");
+        const label = taskPrefix + baseTypeLabel;
         const grading = ["quiz", "exercise", "task"].includes(block.type);
         const assessed = grading && !lmState.examOwned ? '<label><input type="checkbox" data-field="assessed" data-block="' + block.id + '"' + (block.assessed ? ' checked' : '') + '> Assessed task</label>' : '';
         const verified = '<label class="lm-teacher-verify-label" style="font-size:12px; font-weight:700; color:#047857; display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:12px;"><input type="checkbox" data-block-teacher-verified="' + block.id + '"' + (block.teacherVerified ? ' checked' : '') + '> Verified by Teacher</label>';
@@ -1093,7 +1104,40 @@
         const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + (isSupplementary ? " is-supplementary" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
         const afterZone = isLast ? lmInsertZoneHtml(block.id, "after") : "";
         return beforeZone + blockHtml + afterZone;
-      }).join("") : (lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>');
+      }
+      let mainHtml = "";
+      if (blocks.length === 0) {
+        mainHtml = lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>';
+      } else if (lmTab() === "classwork" || lmTab() === "homework") {
+        const unverified = blocks.filter(b => !b.teacherVerified);
+        const verified = blocks.filter(b => !!b.teacherVerified);
+        const unverifiedHtml = unverified.map((b, i) => renderSingleBlock(b, i, unverified.length, false)).join("");
+        let verifiedAccordionHtml = "";
+        if (verified.length > 0) {
+          const isOpen = Boolean(lmState.verifiedAccordionOpen);
+          const vCount = verified.length;
+          const countText = vCount + (vCount === 1 ? " item" : " items");
+          const vItemsHtml = verified.map((b, i) => renderSingleBlock(b, i, verified.length, true)).join("");
+          verifiedAccordionHtml = '<details class="lm-verified-accordion"' + (isOpen ? ' open' : '') + '>' +
+            '<summary class="lm-verified-summary">' +
+              '<div class="lm-verified-title-group">' +
+                '<span class="lm-verified-icon">✓</span>' +
+                '<span class="lm-verified-title-text">Verified materials & quizzes</span>' +
+                '<span class="lm-verified-count-pill">' + countText + '</span>' +
+              '</div>' +
+              '<div class="lm-verified-expand-hint">' +
+                '<span class="lm-verified-expand-text">' + (isOpen ? 'Click to collapse ' : 'Click to expand ') + countText + '</span>' +
+                '<span class="arrow-indicator">▸</span>' +
+              '</div>' +
+            '</summary>' +
+            '<div class="lm-verified-content">' + vItemsHtml + '</div>' +
+          '</details>';
+        }
+        mainHtml = unverifiedHtml + verifiedAccordionHtml;
+      } else {
+        mainHtml = blocks.map((b, i) => renderSingleBlock(b, i, blocks.length, false)).join("");
+      }
+      box.innerHTML = mainHtml;
       box.querySelectorAll('textarea[data-field],input[type=text][data-field],textarea[data-item-field],input[type=text][data-item-field],input[type=text][data-card-field]').forEach(field=>{
         const name=field.dataset.field||field.dataset.itemField||field.dataset.cardField;if(['criteria','url','remoteUrl','ipa','maxPoints','memorySize','answer','write'].includes(name))return;
         const part=lmBlock(field.dataset.block);if(!part)return;const key=[name,field.dataset.item??field.dataset.card??''].join(':');
@@ -1210,17 +1254,22 @@
           return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
         }
         if (kind === "True / false") {
+          const scoreBadge = block.score ? '<span class="lm-tf-score-badge">Score: ' + esc(block.score) + ' pt</span>' : '';
           const questions = (block.items || []).map((question, index) => {
-            const name = "pv-" + block.id + "-" + index;
-            const picked = question.picked;
-            const opts = [
-              '<label class="lm-opt"><input type="radio" name="' + name + '" data-pick="' + block.id + ':' + index + ':true"' + (picked === 'true' ? ' checked' : '') + ' /> True</label>',
-              '<label class="lm-opt"><input type="radio" name="' + name + '" data-pick="' + block.id + ':' + index + ':false"' + (picked === 'false' ? ' checked' : '') + ' /> False</label>'
-            ].join("");
-            const mark = question.marked ? '<p class="lm-result ' + (question.correct ? 'is-ok' : 'is-no') + '">' + (question.correct ? '✓ Correct' : '✗ Incorrect (Answer: ' + (String(question.answer) === 'true' ? 'True' : 'False') + ')') + '</p>' : '';
-            return '<div class="lm-q"><b>' + esc(question.prompt || "Statement") + '</b>' + opts + mark + '</div>';
+            const picked = String(question.picked ?? "");
+            let promptText = String(question.prompt || "Statement");
+            const sayMatch = promptText.match(/Say:\s*["']([^"']+)["']/i);
+            if (sayMatch) {
+              promptText = 'The word "' + sayMatch[1] + '" correctly translates to Russian.';
+            }
+            const opts = '<div class="lm-tf-options">' +
+              '<button type="button" class="lm-tf-btn' + (picked === 'true' ? ' selected' : '') + '" data-pick="' + block.id + ':' + index + ':true">True' + (picked === 'true' ? ' ✓' : '') + '</button>' +
+              '<button type="button" class="lm-tf-btn' + (picked === 'false' ? ' selected' : '') + '" data-pick="' + block.id + ':' + index + ':false">False' + (picked === 'false' ? ' ✓' : '') + '</button>' +
+              '</div>';
+            const mark = question.marked ? '<div class="lm-tf-feedback ' + (question.correct ? 'is-ok' : 'is-no') + '">' + (question.correct ? '✓ Correct! (+1 pt)' : '✗ Incorrect (Correct answer: ' + (String(question.answer).toLowerCase() === 'true' ? 'True' : 'False') + ')') + '</div>' : '';
+            return '<div class="lm-tf-card"><div class="lm-tf-statement"><strong>Statement:</strong> ' + esc(promptText) + '</div>' + opts + mark + '</div>';
           }).join("");
-          return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + '</p>';
+          return '<div class="lm-tf-block">' + title + scoreBadge + questions + '<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button></div></div>';
         }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
@@ -1269,8 +1318,8 @@
         }
       }
       const assignments = new Map();
-      const taskKeys = new Set((lmState.blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type)).map(part => part.assignmentKey || part.assignmentId || ('part-' + part.id)));
-      for (const part of lmState.blocks || []) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (taskKeys.has(key) && !assignments.has(key)) assignments.set(key,assignments.size + 1); }
+      const taskKeys = new Set((blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type)).map(part => part.assignmentKey || part.assignmentId || ('part-' + part.id)));
+      for (const part of blocks || []) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (taskKeys.has(key) && !assignments.has(key)) assignments.set(key,assignments.size + 1); }
       return grouped.map(({ key, parts }) => {
         const content = lmPreviewPartsFlat(parts), number = assignments.get(key);
         if (!number) return content;
@@ -2446,6 +2495,21 @@
           lmSchedule();
           return;
         }
+        const pick = event.target.closest("[data-pick]");
+        if (pick) {
+          const bits = pick.dataset.pick.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) {
+            const val = bits[2];
+            question.picked = (val === "true" || val === "false") ? val : Number(val);
+            if (block.quizType === "True / false") {
+              lmRenderPreview();
+              lmSchedule();
+            }
+          }
+          return;
+        }
         const quizCheck = event.target.closest("[data-quiz-check]");
         if (quizCheck) {
           const block = lmBlock(quizCheck.dataset.quizCheck);
@@ -2567,6 +2631,18 @@
         event.preventDefault();
         lmLookupWord();
       });
+      document.addEventListener("toggle", (event) => {
+        const accordion = event.target.closest(".lm-verified-accordion");
+        if (accordion && lmState) {
+          lmState.verifiedAccordionOpen = accordion.open;
+          const textEl = accordion.querySelector(".lm-verified-expand-text");
+          if (textEl) {
+            const countPill = accordion.querySelector(".lm-verified-count-pill");
+            const countText = countPill ? countPill.textContent : "items";
+            textEl.textContent = (accordion.open ? "Click to collapse " : "Click to expand ") + countText;
+          }
+        }
+      }, true);
       document.getElementById("lmAdd").addEventListener("click", () => {
         lmOpenPicker(null, false);
       });
