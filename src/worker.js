@@ -4836,7 +4836,7 @@ export default {
       const headers = new Headers(response.headers);
       headers.set("Cache-Control", response.ok && url.searchParams.get("v") ? "public, max-age=31536000, immutable" : "no-cache");
       headers.set("X-Content-Type-Options", "nosniff");
-      headers.set("Content-Security-Policy", stageContentPolicy);
+      headers.set("Content-Security-Policy", url.pathname.startsWith('/speakout/') ? stageContentPolicy.replace("frame-ancestors 'none'", "frame-ancestors 'self'") : stageContentPolicy);
       return new Response(response.body, { status: response.status, headers });
     }
     return new Response("Not found", { status: 404 });

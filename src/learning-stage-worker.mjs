@@ -204,7 +204,7 @@ export default {async fetch(request,env){
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
       // Versioned URLs change on every build; everything else revalidates by ETag.
       headers.set('Cache-Control',response.ok&&url.searchParams.get('v')?'public, max-age=31536000, immutable':'no-cache');headers.set('X-Content-Type-Options','nosniff');
-      headers.set('Content-Security-Policy',stageContentPolicy);
+      headers.set('Content-Security-Policy',url.pathname.startsWith('/speakout/')?stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"):stageContentPolicy);
       return new Response(response.body,{status:response.status,headers});
     }
     const db=studyClient(env);

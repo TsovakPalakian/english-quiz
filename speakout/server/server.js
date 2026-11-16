@@ -436,7 +436,7 @@ export function streamFileWithRange(req, res, filePath, contentType) {
 function applyCommonHeaders(res, req) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'");
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'none'");
   res.setHeader('Cache-Control', 'private, no-store');
   res.setHeader('Vary', 'Origin');
   const corsOrigin = getCorsOrigin(req);

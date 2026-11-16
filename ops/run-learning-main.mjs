@@ -55,6 +55,7 @@ export function createMainServer({db,auth,mediaStore=null,offlineFixture=false})
       const origin=`http://127.0.0.1:${server.address().port}`;
       if(req.headers.host!==new URL(origin).host)throw new StudyError(403,'Localhost only.');
       const url=new URL(req.url,origin),path=url.pathname;
+      if(path.startsWith('/speakout/'))res.setHeader('Content-Security-Policy',stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"));
       if(!['GET','HEAD'].includes(req.method) && req.headers.origin!==origin)throw new StudyError(403,'Invalid request origin.');
       if(req.method==='GET'){
         if(path==='/' || path==='/preview.html'){
