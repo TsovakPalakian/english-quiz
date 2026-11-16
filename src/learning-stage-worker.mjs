@@ -208,19 +208,28 @@ export default {async fetch(request,env){
       headers.set('Content-Security-Policy',url.pathname.startsWith('/speakout/')?stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"):stageContentPolicy);
       return new Response(response.body,{status:response.status,headers});
     }
-    // All non-public content requires a live, owner-bound test session.
-    const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
     if(speakoutViewer){
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
       if(response.ok)headers.set('Content-Type','text/javascript');
-      headers.set('Cache-Control','private, no-store');headers.set('X-Content-Type-Options','nosniff');
+      headers.set('Cache-Control',response.ok&&url.searchParams.get('v')?'public, max-age=31536000, immutable':'no-cache');headers.set('X-Content-Type-Options','nosniff');
       headers.set('Content-Security-Policy',stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"));
       return new Response(response.body,{status:response.status,headers});
     }
+    const actor=await auth.current(request);
+    if(path==='/api/speakout/session')return json({authenticated:!!actor,user:actor?{id:actor.id,role:actor.role.toLowerCase()}:null});
+    if(path==='/api/speakout/document'){
+      const doc=url.searchParams.get('doc')||'studentBook';
+      if((doc==='keys'||doc==='teacherResources')&&(!actor||!['ADMIN','DEVELOPER','TEACHER'].includes((actor.role||'').toUpperCase())))throw new StudyError(403,'Teacher access required for answer keys.');
+      const keyMap={'studentBook':'speakout/a1/documents/student_book.pdf','keys':'speakout/a1/documents/teacher_keys.pdf','teacherResources':'speakout/a1/documents/teacher_keys.pdf','videoscripts':'speakout/a1/documents/videoscripts.pdf','photocopiable_grammar':'speakout/a1/unit1/photocopiables/1a_grammar.pdf','photocopiable_vocab':'speakout/a1/unit1/photocopiables/1a_vocab.pdf'};
+      const r2Key=keyMap[doc];
+      if(!r2Key)throw new StudyError(404,'Document not found.');
+      return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);
+    }
+    // All non-public content requires a live, owner-bound test session.
+    if(!actor)throw new StudyError(401,'Sign in first.');
     const db=studyClient(env);
     if((write||speakoutWrite)&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
     if(path.startsWith('/api/speakout/')){
-      if(path==='/api/speakout/session')return json({authenticated:!!actor,user:actor?{id:actor.id,role:actor.role.toLowerCase()}:null});
       if(path==='/api/speakout/revisions')return json(await speakoutRevisions(db,actor));
       const location={level:url.searchParams.get('level'),unit:Number(url.searchParams.get('unit')),lesson:Number(url.searchParams.get('lesson')),block:url.searchParams.get('block')};
       const store=stageR2Media(env);
@@ -238,14 +247,6 @@ export default {async fetch(request,env){
         const keyMap={'SO3 A1 U1 BBC StreetInt.mp4':'speakout/a1/unit1/videos/street_interviews.mp4','SO3 A1 U1 BBC Vlogs.mp4':'speakout/a1/unit1/videos/vlogs.mp4'};
         const r2Key=keyMap[file];
         if(!r2Key)throw new StudyError(404,'Video not found.');
-        return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);
-      }
-      if(path==='/api/speakout/document'){
-        const doc=url.searchParams.get('doc')||'studentBook';
-        if(doc==='keys'&&!['ADMIN','DEVELOPER','TEACHER'].includes((actor.role||'').toUpperCase()))throw new StudyError(403,'Teacher access required for answer keys.');
-        const keyMap={'studentBook':'speakout/a1/documents/student_book.pdf','keys':'speakout/a1/documents/teacher_keys.pdf','teacherResources':'speakout/a1/documents/teacher_keys.pdf','videoscripts':'speakout/a1/documents/videoscripts.pdf','photocopiable_grammar':'speakout/a1/unit1/photocopiables/1a_grammar.pdf','photocopiable_vocab':'speakout/a1/unit1/photocopiables/1a_vocab.pdf'};
-        const r2Key=keyMap[doc];
-        if(!r2Key)throw new StudyError(404,'Document not found.');
         return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);
       }
       if(path==='/api/speakout/manifest'){

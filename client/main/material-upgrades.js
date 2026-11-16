@@ -205,20 +205,9 @@ function renderPronunciationExerciseHtml(part, exam = false) {
     (item.ipa ? '<p class="hint" style="font-family:monospace; margin:2px 0;">/' + esc(item.ipa) + '/</p>' : '') +
     '<div class="pronounce-controls" style="display:flex; align-items:center; gap:10px; margin-top:8px;">' +
       '<button type="button" class="btn primary saas-btn" data-pronounce-record="' + esc(id) + '">🎤 Record speech</button>' +
-      '<button type="button" class="btn secondary saas-btn" data-pronounce-check="' + esc(id) + '" style="display:none;">Check with AI</button>' +
-      '<button type="button" class="btn-sm" data-pronounce-fallback="' + esc(id) + '" style="font-size:11px; text-decoration:underline; background:none; border:none; cursor:pointer; color:var(--saas-text, #475569);">Microphone unavailable?</button>' +
     '</div>' +
     '<div data-pronounce-audio="' + esc(id) + '" style="margin-top:6px;"></div>' +
     '<div data-pronounce-status="' + esc(id) + '" style="font-size:12px; margin-top:4px;"></div>' +
-    '<div data-pronounce-fallback-box="' + esc(id) + '" style="display:none; margin-top:10px; padding:10px; border-top:1px dashed var(--saas-border, #cbd5e1);">' +
-      '<p style="font-size:12px; font-weight:600; margin-bottom:6px;">Select the correct phonetic pronunciation:</p>' +
-      options.map((opt, i) =>
-        '<label style="display:flex; align-items:center; gap:6px; margin:4px 0; font-size:13px; cursor:pointer;">' +
-          '<input type="radio" name="pronounce-opt-' + esc(id) + '" value="' + i + '" data-pronounce-option="' + esc(id) + '">' +
-          esc(opt) +
-        '</label>'
-      ).join('') +
-    '</div>' +
   '</div>';
 }
 
@@ -560,6 +549,37 @@ document.addEventListener('click',async event=>{
   }catch(error){doc.recordingBusy=false;status.textContent=error.message;}
 },true);
 
+async function runPronunciationEvaluation(widget, id, blob) {
+  const status = widget?.querySelector('[data-pronounce-status="' + id + '"]');
+  const targetWord = (widget?.dataset?.pronounceTarget || '').trim();
+  const ipa = (widget?.dataset?.pronounceIpa || '').trim();
+  const spoken = (widget?._spokenTranscript || widget?.dataset?.lastSpoken || '').trim();
+  const student = blob ? await pronunciationFeaturesFromBlob(blob) : null;
+  if (status) status.innerHTML = '<span>Evaluating speech with Gemini AI…</span>';
+
+  try {
+    let res = null;
+    if (typeof accountFetch === 'function') {
+      res = await accountFetch('/api/lessons/assess-pronunciation', {
+        method: 'POST',
+        body: JSON.stringify({ id, targetWord, spoken, student, ipa })
+      });
+    }
+    const evalResult = res || computePronunciationSimilarity(targetWord, spoken, null);
+    const score = evalResult?.score != null ? evalResult.score : 0;
+    const passed = evalResult?.passed === true;
+    const feedback = evalResult?.feedback || (passed ? 'Pronunciation matches the reference.' : 'Pronunciation mismatch. Try articulating each syllable clearly.');
+    if (status) {
+      status.innerHTML = '<div class="pronounce-score-badge' + (passed ? '' : ' needs-work') + '">🎯 Score: ' + score + '% · ' + (passed ? 'Passed' : 'Needs work') + '</div><p style="font-size:12px; margin-top:4px; color:var(--saas-text);">' + esc(feedback) + '</p>';
+    }
+  } catch (err) {
+    const fallbackEval = computePronunciationSimilarity(targetWord, spoken);
+    if (status) {
+      status.innerHTML = '<div class="pronounce-score-badge' + (fallbackEval.passed ? '' : ' needs-work') + '">🎯 Score: ' + fallbackEval.score + '% · ' + (fallbackEval.passed ? 'Passed' : 'Needs work') + '</div><p style="font-size:12px; margin-top:4px; color:var(--saas-text);">' + esc(fallbackEval.feedback) + '</p>';
+    }
+  }
+}
+
 let pronounceRecording = null;
 document.addEventListener('click', async (event) => {
   const recordBtn = event.target.closest('[data-pronounce-record]');
@@ -569,7 +589,6 @@ document.addEventListener('click', async (event) => {
     const widget = recordBtn.closest('[data-pronounce-widget]');
     const status = widget?.querySelector('[data-pronounce-status="' + id + '"]');
     const audioBox = widget?.querySelector('[data-pronounce-audio="' + id + '"]');
-    const checkBtn = widget?.querySelector('[data-pronounce-check="' + id + '"]');
 
     if (pronounceRecording) {
       if (pronounceRecording.recognition) {
@@ -582,10 +601,6 @@ document.addEventListener('click', async (event) => {
     // Reset previous attempt results immediately upon re-record
     if (status) status.innerHTML = '';
     if (audioBox) audioBox.innerHTML = '';
-    if (checkBtn) {
-      checkBtn.style.display = 'none';
-      checkBtn.disabled = false;
-    }
     if (widget) {
       delete widget._spokenTranscript;
       delete widget.dataset.lastSpoken;
@@ -593,9 +608,7 @@ document.addEventListener('click', async (event) => {
     }
 
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      if (status) status.innerHTML = '<span style="color:#ef4444;">Microphone unavailable. Use phonetic selection below.</span>';
-      const fallbackBox = widget?.querySelector('[data-pronounce-fallback-box="' + id + '"]');
-      if (fallbackBox) fallbackBox.style.display = 'block';
+      if (status) status.innerHTML = '<span style="color:#ef4444;">Microphone access error: Audio recording is not supported in this browser.</span>';
       return;
     }
 
@@ -654,8 +667,9 @@ document.addEventListener('click', async (event) => {
         if (blob.size && audioBox) {
           const url = URL.createObjectURL(blob);
           audioBox.innerHTML = '<audio controls src="' + url + '" style="width:100%; height:36px;"></audio>';
-          if (checkBtn) checkBtn.style.display = 'inline-flex';
-          if (status) status.innerHTML = '<span style="color:#10b981;">✓ Recording ready for AI evaluation.</span>';
+        }
+        if (blob.size) {
+          runPronunciationEvaluation(widget, id, blob);
         }
       };
       recorder.onerror = () => {
@@ -669,76 +683,9 @@ document.addEventListener('click', async (event) => {
       };
       recorder.start();
     } catch (err) {
-      if (status) status.innerHTML = '<span style="color:#ef4444;">Microphone access error: ' + (err.message || 'Permission denied') + '. Switch to phonetic choice below.</span>';
-      const fallbackBox = widget?.querySelector('[data-pronounce-fallback-box="' + id + '"]');
-      if (fallbackBox) fallbackBox.style.display = 'block';
+      if (status) status.innerHTML = '<span style="color:#ef4444;">Microphone access error: ' + (err.message || 'Permission denied') + '.</span>';
     }
     return;
-  }
-
-  const checkBtn = event.target.closest('[data-pronounce-check]');
-  if (checkBtn) {
-    event.preventDefault();
-    const id = checkBtn.dataset.pronounceCheck;
-    const widget = checkBtn.closest('[data-pronounce-widget]');
-    const status = widget?.querySelector('[data-pronounce-status="' + id + '"]');
-    const targetWord = (widget?.dataset?.pronounceTarget || '').trim();
-    const ipa = (widget?.dataset?.pronounceIpa || '').trim();
-    const spoken = (widget?._spokenTranscript || widget?.dataset?.lastSpoken || '').trim();
-    const student = widget?._pronounceBlob ? await pronunciationFeaturesFromBlob(widget._pronounceBlob) : null;
-    if (status) status.innerHTML = '<span>Evaluating speech with Gemini AI…</span>';
-    checkBtn.disabled = true;
-
-    try {
-      let res = null;
-      if (typeof accountFetch === 'function') {
-        res = await accountFetch('/api/lessons/assess-pronunciation', {
-          method: 'POST',
-          body: JSON.stringify({ id, targetWord, spoken, student, ipa })
-        });
-      }
-      const evalResult = res || computePronunciationSimilarity(targetWord, spoken, null);
-      const score = evalResult?.score != null ? evalResult.score : 0;
-      const passed = evalResult?.passed === true;
-      const feedback = evalResult?.feedback || (passed ? 'Pronunciation matches the reference.' : 'Pronunciation mismatch. Try articulating each syllable clearly.');
-      if (status) {
-        status.innerHTML = '<div class="pronounce-score-badge' + (passed ? '' : ' needs-work') + '">🎯 Score: ' + score + '% · ' + (passed ? 'Passed' : 'Needs work') + '</div><p style="font-size:12px; margin-top:4px; color:var(--saas-text);">' + esc(feedback) + '</p>';
-      }
-    } catch (err) {
-      const fallbackEval = computePronunciationSimilarity(targetWord, spoken);
-      if (status) {
-        status.innerHTML = '<div class="pronounce-score-badge' + (fallbackEval.passed ? '' : ' needs-work') + '">🎯 Score: ' + fallbackEval.score + '% · ' + (fallbackEval.passed ? 'Passed' : 'Needs work') + '</div><p style="font-size:12px; margin-top:4px; color:var(--saas-text);">' + esc(fallbackEval.feedback) + '</p>';
-      }
-    } finally {
-      checkBtn.disabled = false;
-    }
-    return;
-  }
-
-  const fallbackBtn = event.target.closest('[data-pronounce-fallback]');
-  if (fallbackBtn) {
-    event.preventDefault();
-    const id = fallbackBtn.dataset.pronounceFallback;
-    const widget = fallbackBtn.closest('[data-pronounce-widget]');
-    const fallbackBox = widget?.querySelector('[data-pronounce-fallback-box="' + id + '"]');
-    if (fallbackBox) {
-      const isVisible = fallbackBox.style.display === 'block';
-      fallbackBox.style.display = isVisible ? 'none' : 'block';
-    }
-    return;
-  }
-
-  const optRadio = event.target.closest('[data-pronounce-option]');
-  if (optRadio) {
-    const id = optRadio.dataset.pronounceOption;
-    const widget = optRadio.closest('[data-pronounce-widget]');
-    const status = widget?.querySelector('[data-pronounce-status="' + id + '"]');
-    const isCorrect = optRadio.value === '0';
-    if (status) {
-      status.innerHTML = isCorrect
-        ? '<div class="pronounce-score-badge">✓ Correct phonetic choice (100%)</div>'
-        : '<div style="color:#ef4444; font-size:12px; font-weight:700;">Incorrect phonetic variant. Try again.</div>';
-    }
   }
 });
 new MutationObserver(()=>{if(materialRecording&&(!document.getElementById('material')?.classList.contains('on')||lmState!==materialRecording.doc)){const current=materialRecording;materialRecording=null;current.stream.getTracks().forEach(track=>track.stop());if(current.recorder.state==='recording')current.recorder.stop();}}).observe(document.getElementById('material'),{attributes:true,attributeFilter:['class']});

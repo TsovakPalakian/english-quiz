@@ -290,16 +290,17 @@ export function updateStatsDisplay() {
 }
 
 export function updateWaveformZoom() {
-  if (DOM.wfZoomBadge) {
-    DOM.wfZoomBadge.textContent = `🔍 Zoom: ${state.waveformZoom.toFixed(1)}x`;
-  }
   if (DOM.btnWfZoomIn) {
+    DOM.btnWfZoomIn.textContent = `+ (${state.waveformZoom.toFixed(1)}x)`;
     DOM.btnWfZoomIn.disabled = state.waveformZoom >= 5.0;
     DOM.btnWfZoomIn.style.opacity = state.waveformZoom >= 5.0 ? '0.5' : '1';
   }
   if (DOM.btnWfZoomOut) {
     DOM.btnWfZoomOut.disabled = state.waveformZoom <= 1.0;
     DOM.btnWfZoomOut.style.opacity = state.waveformZoom <= 1.0 ? '0.5' : '1';
+  }
+  if (DOM.wfZoomBadge) {
+    DOM.wfZoomBadge.textContent = `🔍 Zoom: ${state.waveformZoom.toFixed(1)}x`;
   }
   renderWaveform();
 }
@@ -335,6 +336,9 @@ export function renderWaveform() {
   const numBars = peaks.length || 200;
   const barW = Math.max(2, trackWidth / numBars);
 
+  const isDark = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark';
+  const unplayedColor = isDark ? 'rgba(255, 255, 255, 0.40)' : 'rgba(30, 41, 59, 0.32)';
+
   for (let i = 0; i < numBars; i++) {
     const x = i * barW;
     const peak = peaks[i] || 0.1;
@@ -346,7 +350,7 @@ export function renderWaveform() {
     } else if (state.loopActive && x >= loopStartPx && x <= loopEndPx) {
       ctx.fillStyle = '#38bdf8';
     } else {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillStyle = unplayedColor;
     }
     ctx.fillRect(x + 1, y, Math.max(1, barW - 1), barH);
   }
@@ -354,9 +358,11 @@ export function renderWaveform() {
   // Update Trim Handles & Loop Region
   if (DOM.waveformTrimLeft) {
     DOM.waveformTrimLeft.style.left = `${loopStartPx}px`;
+    DOM.waveformTrimLeft.classList.toggle('hidden', !state.loopActive);
   }
   if (DOM.waveformTrimRight) {
     DOM.waveformTrimRight.style.left = `${loopEndPx}px`;
+    DOM.waveformTrimRight.classList.toggle('hidden', !state.loopActive);
   }
   if (DOM.waveformLoopRegion) {
     if (state.loopActive) {
@@ -813,14 +819,42 @@ function togglePlayPause() {
   }
 }
 
-function updatePlayPauseButton() {
-  if (!DOM.btnPlayPause) return;
-  DOM.btnPlayPause.textContent = state.isPlaying ? '❚❚' : '▶';
-  DOM.btnPlayPause.title = state.isPlaying ? 'Pause' : 'Play';
+let playbackRafId = null;
+
+export function syncPlaybackAnimation() {
+  if (state.isPlaying) {
+    if (!playbackRafId) {
+      const loop = () => {
+        if (state.isPlaying) {
+          onMediaTimeUpdate();
+          renderWaveform();
+          playbackRafId = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame(loop) : null;
+        } else {
+          playbackRafId = null;
+        }
+      };
+      playbackRafId = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame(loop) : null;
+    }
+  } else {
+    if (playbackRafId) {
+      if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(playbackRafId);
+      playbackRafId = null;
+    }
+  }
 }
 
+function updatePlayPauseButton() {
+  if (DOM.btnPlayPause) {
+    DOM.btnPlayPause.textContent = state.isPlaying ? '❚❚' : '▶';
+    DOM.btnPlayPause.title = state.isPlaying ? 'Pause' : 'Play';
+  }
+  syncPlaybackAnimation();
+}
+
+export const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+
 function togglePlaybackSpeed() {
-  const speeds = [1.0, 1.25, 1.5, 0.75];
+  const speeds = PLAYBACK_SPEEDS;
   const nextIdx = (speeds.indexOf(state.playbackSpeed) + 1) % speeds.length;
   state.playbackSpeed = speeds[nextIdx];
 
@@ -1342,6 +1376,17 @@ function initEventListeners() {
 
   // Audio Timeline Tracking
   if (DOM.audioPlayer) {
+    DOM.audioPlayer.addEventListener('play', () => {
+      state.isPlaying = true;
+      updatePlayPauseButton();
+      onMediaTimeUpdate();
+      renderWaveform();
+    });
+    DOM.audioPlayer.addEventListener('pause', () => {
+      state.isPlaying = false;
+      updatePlayPauseButton();
+      renderWaveform();
+    });
     DOM.audioPlayer.addEventListener('ended', () => {
       state.isPlaying = false;
       updatePlayPauseButton();
@@ -1359,6 +1404,17 @@ function initEventListeners() {
 
   // Video Timeline Tracking
   if (DOM.embeddedVideo) {
+    DOM.embeddedVideo.addEventListener('play', () => {
+      state.isPlaying = true;
+      updatePlayPauseButton();
+      onMediaTimeUpdate();
+      renderWaveform();
+    });
+    DOM.embeddedVideo.addEventListener('pause', () => {
+      state.isPlaying = false;
+      updatePlayPauseButton();
+      renderWaveform();
+    });
     DOM.embeddedVideo.addEventListener('timeupdate', onMediaTimeUpdate);
     DOM.embeddedVideo.addEventListener('ended', () => {
       state.isPlaying = false;
@@ -1543,6 +1599,7 @@ function initEventListeners() {
         root.removeAttribute('style');
       }
       root.setAttribute('data-painted-theme', event.data.theme);
+      renderWaveform();
     }
   });
 
@@ -1550,6 +1607,7 @@ function initEventListeners() {
     if (event && event.key === 'enquiz-theme' && event.newValue) {
       document.documentElement.setAttribute('data-theme', event.newValue);
       document.documentElement.setAttribute('data-painted-theme', event.newValue);
+      renderWaveform();
     }
   });
 }

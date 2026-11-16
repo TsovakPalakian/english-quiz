@@ -15,10 +15,11 @@ function env(actor) {
   };
 }
 
-test('Speakout PDF viewer is refused without a session and served after sign-in', async () => {
-  const closed = await worker.fetch(new Request('https://' + host + '/speakout/vendor/pdfjs/pdf.mjs'), env(null));
-  assert.equal(closed.status, 401);
-  assert.match(await closed.text(), /Sign in first/);
+test('Speakout PDF viewer scripts are served with text/javascript and outside paths are refused', async () => {
+  const publicViewer = await worker.fetch(new Request('https://' + host + '/speakout/vendor/pdfjs/pdf.mjs'), env(null));
+  assert.equal(publicViewer.status, 200);
+  assert.equal(publicViewer.headers.get('content-type'), 'text/javascript');
+  assert.equal(await publicViewer.text(), 'pdf-viewer');
   const open = await worker.fetch(new Request('https://' + host + '/speakout/vendor/pdfjs/pdf.worker.mjs'), env({id: '1', role: 'DEVELOPER', login: 'dev'}));
   assert.equal(open.status, 200);
   assert.equal(open.headers.get('content-type'), 'text/javascript');
@@ -94,4 +95,36 @@ test('Speakout 1B and 1C audio is refused without a session and mapped after sig
   }
   const missing = await worker.fetch(new Request('https://' + host + '/api/speakout/audio?track=9.99'), signed);
   assert.equal(missing.status, 404);
+});
+
+test('Speakout studentBook is served and keys require teacher access', async () => {
+  const pdfBytes = Buffer.from('%PDF-1.7 mock');
+  const media = {
+    get: async key => ({size: pdfBytes.length, body: pdfBytes, writeHttpMetadata(headers) { headers.set('Content-Type', 'application/pdf'); }}),
+    head: async key => media.get(key),
+    put: async () => {}
+  };
+  const publicEnv = {
+    STAGE_ENABLED: 'true',
+    STAGE_ALLOWED_HOST: host,
+    STORAGE_MODE: 'test',
+    STAGE_MEDIA_BUCKET: 'learn-english-learning-test-media',
+    STAGE_MEDIA: media,
+    [ACCOUNT_AUTH]: {current: async () => null},
+    [STUDY_DATABASE]: STATIC_STUDY_DATABASE
+  };
+  const studentDoc = await worker.fetch(new Request('https://' + host + '/api/speakout/document?doc=studentBook'), publicEnv);
+  assert.equal(studentDoc.status, 200);
+  assert.equal(studentDoc.headers.get('content-type'), 'application/pdf');
+
+  const keysClosed = await worker.fetch(new Request('https://' + host + '/api/speakout/document?doc=keys'), publicEnv);
+  assert.equal(keysClosed.status, 403);
+
+  const teacherEnv = {
+    ...publicEnv,
+    [ACCOUNT_AUTH]: {current: async () => ({id: '1', role: 'TEACHER', login: 'teacher'})}
+  };
+  const keysOpen = await worker.fetch(new Request('https://' + host + '/api/speakout/document?doc=keys'), teacherEnv);
+  assert.equal(keysOpen.status, 200);
+  assert.equal(keysOpen.headers.get('content-type'), 'application/pdf');
 });

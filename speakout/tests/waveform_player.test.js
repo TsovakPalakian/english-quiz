@@ -27,15 +27,16 @@ test('Speakout Waveform Studio Player & 5x Zoom Verification', async (t) => {
 
     // A-B Loop elements & Trim handles
     assert.match(html, /id="waveform-loop-region"/, 'Must contain A-B loop selection region');
-    assert.match(html, /id="waveform-trim-left"/, 'Must contain left trim handle (Start A)');
-    assert.match(html, /id="waveform-trim-right"/, 'Must contain right trim handle (End B)');
+    assert.match(html, /id="waveform-trim-left"[^>]*class="[^"]*hidden[^"]*"/, 'Left trim handle must be hidden when Loop is not active');
+    assert.match(html, /id="waveform-trim-right"[^>]*class="[^"]*hidden[^"]*"/, 'Right trim handle must be hidden when Loop is not active');
 
-    // Stats & Zoom badge
+    // Stats & Zoom indicator
     assert.match(html, /id="wf-stat-start"/, 'Must display Start A stat');
     assert.match(html, /id="wf-stat-end"/, 'Must display End B stat');
     assert.match(html, /id="wf-stat-sel"/, 'Must display Selection length stat');
     assert.match(html, /id="wf-stat-total"/, 'Must display Total duration stat');
-    assert.match(html, /id="wf-zoom-badge"/, 'Must display zoom level badge');
+    assert.match(html, /id="btn-wf-zoom-in"[^>]*>\+\s*\(1\.0x\)/, 'Zoom in button must display current zoom ratio + (1.0x)');
+    assert.doesNotMatch(html, /id="wf-zoom-badge"/, 'Old wf-zoom-badge must be removed from header row');
 
     // Transport buttons
     assert.match(html, /id="btn-play-pause"/, 'Must contain play/pause button');
@@ -93,5 +94,12 @@ test('Speakout Waveform Studio Player & 5x Zoom Verification', async (t) => {
     assert.equal(formatTimeMs(65.045), '1:05.045');
     assert.equal(formatTimeMs(-1), '0:00.000');
     assert.equal(formatTimeMs(NaN), '0:00.000');
+  });
+
+  await t.test('5. Extended playback speeds & RAF real-time animation', async () => {
+    const { PLAYBACK_SPEEDS } = await import('../web/app.js');
+    assert.deepEqual(PLAYBACK_SPEEDS, [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3]);
+    assert.match(js, /syncPlaybackAnimation/, 'Must define real-time RAF playback animation loop');
+    assert.match(js, /unplayedColor/, 'Must define contrast color for unplayed bars in light and dark themes');
   });
 });

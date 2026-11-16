@@ -168,7 +168,6 @@
             <span>Selection: <b id="wf-stat-sel">0:00.000</b></span>
             <span>Total: <b id="wf-stat-total">0:00.000</b></span>
           </div>
-          <span id="wf-zoom-badge" class="zoom-level-badge">🔍 Zoom: 1.0x</span>
         </div>
 
         <!-- Waveform Visualizer & Scrollable Viewport (Zoom up to 5x) -->
@@ -178,8 +177,8 @@
             <div id="waveform-loop-region" class="waveform-loop-region hidden">
               <span id="waveform-loop-label" class="loop-label-pill">🔁 A-B Loop</span>
             </div>
-            <div id="waveform-trim-left" class="waveform-trim-handle left" title="Drag to adjust Start (A)" tabindex="0" role="slider" aria-label="Loop Start">&lt; A</div>
-            <div id="waveform-trim-right" class="waveform-trim-handle right" title="Drag to adjust End (B)" tabindex="0" role="slider" aria-label="Loop End">B &gt;</div>
+            <div id="waveform-trim-left" class="waveform-trim-handle left hidden" title="Drag to adjust Start (A)" tabindex="0" role="slider" aria-label="Loop Start">&lt; A</div>
+            <div id="waveform-trim-right" class="waveform-trim-handle right hidden" title="Drag to adjust End (B)" tabindex="0" role="slider" aria-label="Loop End">B &gt;</div>
             <div id="waveform-playhead-badge" class="playhead-badge">0:00.000</div>
             <div id="waveform-playhead" class="waveform-playhead"></div>
           </div>
@@ -201,9 +200,9 @@
           <div class="digital-clock" id="digital-clock">0:00.000</div>
 
           <div class="transport-tools-group">
-            <button id="btn-speed-toggle" class="t-btn speed-pill" title="Playback Speed">1.0x</button>
+            <button id="btn-speed-toggle" class="t-btn speed-pill" title="Playback Speed">1x</button>
             <button id="btn-wf-zoom-out" class="t-btn" title="Zoom Out">−</button>
-            <button id="btn-wf-zoom-in" class="t-btn" title="Zoom In (up to 5x)">+ (5x)</button>
+            <button id="btn-wf-zoom-in" class="t-btn" title="Zoom In (up to 5x)">+ (1.0x)</button>
             <button id="btn-wf-zoom-fit" class="t-btn" title="Fit to Width">Fit (1x)</button>
             <button id="btn-record-speech" class="btn btn-speech">
               <span class="rec-dot"></span>

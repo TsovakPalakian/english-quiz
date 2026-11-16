@@ -20,7 +20,8 @@ export async function storedMediaResponse(store,key,request){
   if(!object)throw new StudyError(404,'File not found.');
   if(!Number.isSafeInteger(object.size)||object.size<0)throw new StudyError(503,'Invalid media metadata.');
   const headers=new Headers();object.writeHttpMetadata(headers);
-  headers.set('Content-Type',mediaMime(headers.get('Content-Type')||''));
+  const inferredMime = key.endsWith('.pdf') ? 'application/pdf' : key.endsWith('.mp3') ? 'audio/mpeg' : key.endsWith('.mp4') ? 'video/mp4' : '';
+  headers.set('Content-Type',mediaMime(headers.get('Content-Type')||inferredMime));
   // Stored object metadata must never override private response headers.
   headers.set('Cache-Control','private, no-store');headers.set('X-Content-Type-Options','nosniff');
   headers.set('Cross-Origin-Resource-Policy','same-origin');headers.set('Referrer-Policy','no-referrer');
