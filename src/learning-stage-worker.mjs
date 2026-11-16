@@ -165,8 +165,9 @@ export default {async fetch(request,env){
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.svg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js','/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css','/speakout/','/speakout/index.html','/speakout/app.js','/speakout/style.css'];
     const publicAsset=publicPaths.includes(path)||path.startsWith('/notification-audio/')||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
+    const speakoutViewer=['GET','HEAD'].includes(method)&&/^\/speakout\/vendor\/pdfjs\/[A-Za-z0-9._-]+$/.test(path);
     const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
-    if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset))throw new StudyError(501,'Not migrated. No production fallback.');
+    if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset)&&!speakoutViewer)throw new StudyError(501,'Not migrated. No production fallback.');
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
     if(method==='GET'&&publicAsset){
@@ -207,9 +208,15 @@ export default {async fetch(request,env){
       headers.set('Content-Security-Policy',url.pathname.startsWith('/speakout/')?stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"):stageContentPolicy);
       return new Response(response.body,{status:response.status,headers});
     }
-    const db=studyClient(env);
     // All non-public content requires a live, owner-bound test session.
     const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
+    if(speakoutViewer){
+      const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
+      headers.set('Cache-Control','private, no-store');headers.set('X-Content-Type-Options','nosniff');
+      headers.set('Content-Security-Policy',stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"));
+      return new Response(response.body,{status:response.status,headers});
+    }
+    const db=studyClient(env);
     if((write||speakoutWrite)&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
     if(path.startsWith('/api/speakout/')){
       if(path==='/api/speakout/session')return json({authenticated:!!actor,user:actor?{id:actor.id,role:actor.role.toLowerCase()}:null});
@@ -220,7 +227,7 @@ export default {async fetch(request,env){
       if(path==='/api/speakout/answers')return json(await answerSpeakout(db,actor,await body(request,JSON_BODY_LIMIT),store));
       if(path==='/api/speakout/audio'){
         const track=url.searchParams.get('track')||'1.01';
-        const keyMap={'1.01':'speakout/a1/unit1/audio/1_01.mp3','1.02':'speakout/a1/unit1/audio/1_02.mp3','1.03':'speakout/a1/unit1/audio/1_03.mp3','VB1.01':'speakout/a1/unit1/audio/vb1_01.mp3','VB1.04':'speakout/a1/unit1/audio/vb1_04.mp3','wb_1_01':'speakout/a1/unit1/audio/wb_1_01.mp3','wb_1_02':'speakout/a1/unit1/audio/wb_1_02.mp3','wb_1_03':'speakout/a1/unit1/audio/wb_1_03.mp3','wb_1_04':'speakout/a1/unit1/audio/wb_1_04.mp3'};
+        const keyMap={'1.01':'speakout/a1/unit1/audio/1_01.mp3','1.02':'speakout/a1/unit1/audio/1_02.mp3','1.03':'speakout/a1/unit1/audio/1_03.mp3','1.04':'speakout/a1/unit1/audio/1_04.mp3','1.0X':'speakout/a1/unit1/audio/1_0x.mp3','1.05':'speakout/a1/unit1/audio/1_05.mp3','1.06':'speakout/a1/unit1/audio/1_06.mp3','1.07':'speakout/a1/unit1/audio/1_07.mp3','1.08':'speakout/a1/unit1/audio/1_08.mp3','VB1.01':'speakout/a1/unit1/audio/vb1_01.mp3','VB1.02':'speakout/a1/unit1/audio/vb1_02.mp3','VB1.03':'speakout/a1/unit1/audio/vb1_03.mp3','VB1.04':'speakout/a1/unit1/audio/vb1_04.mp3','wb_1_01':'speakout/a1/unit1/audio/wb_1_01.mp3','wb_1_02':'speakout/a1/unit1/audio/wb_1_02.mp3','wb_1_03':'speakout/a1/unit1/audio/wb_1_03.mp3','wb_1_04':'speakout/a1/unit1/audio/wb_1_04.mp3'};
         const r2Key=keyMap[track];
         if(!r2Key)throw new StudyError(404,'Audio track not found.');
         return await storedMediaResponse(env.STAGE_MEDIA||env.CONTENT_MEDIA,r2Key,request);

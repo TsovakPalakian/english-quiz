@@ -1,5 +1,5 @@
 // Build locally from site/ (HTML/CSS source) and private/ (untracked inline media); never deploy or copy credentials.
-import {readFileSync,writeFileSync,copyFileSync,mkdirSync,readdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,copyFileSync,cpSync,mkdirSync,readdirSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
@@ -31,6 +31,7 @@ copyFileSync(resolve(root,'production/database-context.js'),resolve(target,'data
 for(const name of ['speakout-editor.js','speakout-editor.css','material-quiz.js','color-picker.js'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 mkdirSync(resolve(target,'speakout'),{recursive:true});
 for(const name of ['index.html','app.js','style.css'])copyFileSync(resolve(root,'speakout/web',name),resolve(target,'speakout',name));
+cpSync(resolve(root,'speakout/web/vendor'),resolve(target,'speakout/vendor'),{recursive:true});
 copyFileSync(resolve(root,'client/shared/text-colors.js'),resolve(target,'text-colors.js'));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));

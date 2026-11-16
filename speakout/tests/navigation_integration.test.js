@@ -22,7 +22,11 @@ test('Speakout Navigation Integration Verification', async (t) => {
 
   await t.test('2. speakout/web/app.js parses lesson query parameter on bootstrap', () => {
     assert.match(appJs, /const urlParams = new URLSearchParams\(window\.location\.search\)/, 'Must parse window.location.search');
+    assert.match(appJs, /requestedLesson === '1B'/, 'Must support requestedLesson === 1B');
+    assert.match(appJs, /requestedLesson === '1C'/, 'Must support requestedLesson === 1C');
     assert.match(appJs, /requestedLesson === '1D'/, 'Must support requestedLesson === 1D');
+    assert.match(appJs, /switchLesson\('1B'\)/, 'Must call switchLesson for 1B');
+    assert.match(appJs, /switchLesson\('1C'\)/, 'Must call switchLesson for 1C');
     assert.match(appJs, /switchLesson\('1D'\)/, 'Must call switchLesson for 1D');
   });
 

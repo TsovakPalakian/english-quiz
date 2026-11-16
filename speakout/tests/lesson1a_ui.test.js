@@ -27,8 +27,18 @@ test('Phase 1 Approved UI Specification Verification (Screenshot 17 & 18)', asyn
     assert.match(html, /class="sidebar-nav"/, 'Must have sidebar navigation');
     assert.match(html, /id="btn-tab-1a"/, 'Must have Lesson 1A tab');
     assert.match(html, /id="btn-tab-1d"/, 'Must have Lesson 1D tab');
-    assert.doesNotMatch(html, /id="btn-tab-1b"/, 'Must not have 1B tab in Phase 1');
-    assert.doesNotMatch(html, /id="btn-tab-1c"/, 'Must not have 1C tab in Phase 1');
+    assert.match(html, /id="btn-tab-1b"/, 'Must have Lesson 1B tab');
+    assert.match(html, /id="btn-tab-1c"/, 'Must have Lesson 1C tab');
+    assert.match(html, /id="media-strip-1b"/, 'Must have Lesson 1B media strip');
+    assert.match(html, /data-track="1\.04"/, 'Must have track 1.04 button');
+    assert.match(html, /data-track="1\.0X"/, 'Must have track 1.0X button');
+    assert.match(html, /data-track="VB1\.02"/, 'Must have track VB1.02 button');
+    assert.match(html, /data-track="VB1\.03"/, 'Must have track VB1.03 button');
+    assert.match(html, /id="media-strip-1c"/, 'Must have Lesson 1C media strip');
+    assert.match(html, /data-track="1\.05"/, 'Must have track 1.05 button');
+    assert.match(html, /data-track="1\.06"/, 'Must have track 1.06 button');
+    assert.match(html, /data-track="1\.07"/, 'Must have track 1.07 button');
+    assert.match(html, /data-track="1\.08"/, 'Must have track 1.08 button');
     assert.doesNotMatch(html, /id="btn-tab-2a"/, 'Must not have 2A tab in Phase 1');
 
     // Central PDF.js Reader Pane & Toolbar

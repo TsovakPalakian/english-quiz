@@ -39,7 +39,7 @@ const state = {
   activeDocument: 'studentBook',
   currentPage: 8,
   totalPages: 0,
-  savedPages: { '1A': 8, '1D': 14 },
+  savedPages: { '1A': 8, '1B': 10, '1C': 12, '1D': 14 },
   zoomScale: 1.2,
   pdfDoc: null,
   scriptsPdfDoc: null,
@@ -74,6 +74,8 @@ const DOM = {
   btnKeys: document.getElementById('btn-keys'),
   keysPageBadge: document.getElementById('keys-page-badge'),
   btnTab1a: document.getElementById('btn-tab-1a'),
+  btnTab1b: document.getElementById('btn-tab-1b'),
+  btnTab1c: document.getElementById('btn-tab-1c'),
   btnTab1d: document.getElementById('btn-tab-1d'),
   pageNumberInput: document.getElementById('page-number-input'),
   totalPagesLabel: document.getElementById('total-pages-label'),
@@ -88,6 +90,8 @@ const DOM = {
   embeddedVideo: document.getElementById('embedded-video-player'),
   pdfFallback: document.getElementById('pdf-fallback-overlay'),
   mediaStrip1a: document.getElementById('media-strip-1a'),
+  mediaStrip1b: document.getElementById('media-strip-1b'),
+  mediaStrip1c: document.getElementById('media-strip-1c'),
   mediaStrip1d: document.getElementById('media-strip-1d'),
   audioPlayer: document.getElementById('audio-player'),
   btnPlayPause: document.getElementById('btn-play-pause'),
@@ -286,11 +290,11 @@ async function openKeysModal() {
     DOM.keysError.classList.add('hidden');
   }
 
-  const is1A = state.activeLesson === '1A';
-  const leftPageNum = is1A ? 2 : 4;
-  const rightPageNum = is1A ? 3 : 5;
-  const pageRangeText = is1A ? 'Pages 2–3' : 'Pages 4–5';
-  const sectionTitle = is1A ? 'Lesson 1A: Hello' : 'Lesson 1D: BBC Video';
+  const view = LESSON_VIEW[state.activeLesson] || LESSON_VIEW['1A'];
+  const leftPageNum = view.left;
+  const rightPageNum = view.right;
+  const pageRangeText = view.keysRange;
+  const sectionTitle = view.keysTitle;
 
   if (DOM.keysSectionName) DOM.keysSectionName.textContent = sectionTitle;
   if (DOM.keysPagesInfo) DOM.keysPagesInfo.textContent = pageRangeText;
@@ -866,7 +870,7 @@ async function loadProgress() {
     if (res.ok) {
       const data = await res.json();
       for (const row of data.progress || []) {
-        if (row.lesson_id === '1A' || row.lesson_id === '1D') state.savedPages[row.lesson_id] = row.current_page;
+        if (LESSON_VIEW[row.lesson_id]) state.savedPages[row.lesson_id] = row.current_page;
       }
       if (state.savedPages[state.activeLesson]) state.currentPage = state.savedPages[state.activeLesson];
     }
@@ -893,30 +897,27 @@ function saveProgress(lessonId, page) {
   send().catch(() => showReaderError('Progress was not saved.'));
 }
 
+const LESSON_VIEW = {
+  '1A': {tab: 'btnTab1a', strip: 'mediaStrip1a', breadcrumb: 'Lesson 1A: Hello', badge: 'p. 2–3', keysTitle: 'Lesson 1A: Hello', keysRange: 'Pages 2–3', left: 2, right: 3, page: 8},
+  '1B': {tab: 'btnTab1b', strip: 'mediaStrip1b', breadcrumb: 'Lesson 1B: Two jobs', badge: 'p. 4–5', keysTitle: 'Lesson 1B: Two jobs', keysRange: 'Pages 4–5', left: 4, right: 5, page: 10},
+  '1C': {tab: 'btnTab1c', strip: 'mediaStrip1c', breadcrumb: 'Lesson 1C: Checking in', badge: 'p. 4–5', keysTitle: 'Lesson 1C: Checking in', keysRange: 'Pages 4–5', left: 4, right: 5, page: 12},
+  '1D': {tab: 'btnTab1d', strip: 'mediaStrip1d', breadcrumb: 'Lesson 1D: BBC Video', badge: 'p. 4–5', keysTitle: 'Lesson 1D: BBC Video', keysRange: 'Pages 4–5', left: 4, right: 5, page: 14}
+};
+
 // 6. Lesson Switcher
 function switchLesson(lessonId) {
+  const view = LESSON_VIEW[lessonId];
+  if (!view) return;
   pauseAllMedia();
   state.activeLesson = lessonId;
-
-  if (lessonId === '1A') {
-    if (DOM.btnTab1a) DOM.btnTab1a.classList.add('active');
-    if (DOM.btnTab1d) DOM.btnTab1d.classList.remove('active');
-    if (DOM.activeBreadcrumb) DOM.activeBreadcrumb.textContent = 'Lesson 1A: Hello';
-    if (DOM.keysPageBadge) DOM.keysPageBadge.textContent = 'p. 2–3';
-    if (DOM.mediaStrip1a) DOM.mediaStrip1a.classList.remove('hidden');
-    if (DOM.mediaStrip1d) DOM.mediaStrip1d.classList.add('hidden');
-
-    loadMainDocument('studentBook', state.savedPages['1A'] || 1);
-  } else if (lessonId === '1D') {
-    if (DOM.btnTab1a) DOM.btnTab1a.classList.remove('active');
-    if (DOM.btnTab1d) DOM.btnTab1d.classList.add('active');
-    if (DOM.activeBreadcrumb) DOM.activeBreadcrumb.textContent = 'Lesson 1D: BBC Video';
-    if (DOM.keysPageBadge) DOM.keysPageBadge.textContent = 'p. 4–5';
-    if (DOM.mediaStrip1a) DOM.mediaStrip1a.classList.add('hidden');
-    if (DOM.mediaStrip1d) DOM.mediaStrip1d.classList.remove('hidden');
-
-    loadMainDocument('studentBook', state.savedPages['1D'] || 1);
+  for (const item of Object.values(LESSON_VIEW)) {
+    if (DOM[item.tab]) DOM[item.tab].classList.toggle('active', item === view);
+    if (DOM[item.strip]) DOM[item.strip].classList.toggle('hidden', item !== view);
   }
+  if (DOM.activeBreadcrumb) DOM.activeBreadcrumb.textContent = view.breadcrumb;
+  if (DOM.keysPageBadge) DOM.keysPageBadge.textContent = view.badge;
+  const fallback = lessonId === '1B' || lessonId === '1C' ? view.page : 1;
+  loadMainDocument('studentBook', state.savedPages[lessonId] || fallback);
 
   if (DOM.keysModal && !DOM.keysModal.classList.contains('hidden')) {
     openKeysModal();
@@ -928,6 +929,8 @@ function initEventListeners() {
   // Lesson Tabs
   if (DOM.sessionLogin) DOM.sessionLogin.addEventListener('submit', submitSessionLogin);
   if (DOM.btnTab1a) DOM.btnTab1a.addEventListener('click', () => switchLesson('1A'));
+  if (DOM.btnTab1b) DOM.btnTab1b.addEventListener('click', () => switchLesson('1B'));
+  if (DOM.btnTab1c) DOM.btnTab1c.addEventListener('click', () => switchLesson('1C'));
   if (DOM.btnTab1d) DOM.btnTab1d.addEventListener('click', () => switchLesson('1D'));
 
   // Page Navigation: empty input strictly opens page 1
@@ -1115,9 +1118,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadProgress();
   const urlParams = new URLSearchParams(window.location.search);
   const requestedLesson = (urlParams.get('lesson') || '').toUpperCase();
-  if (requestedLesson === '1D') {
-    switchLesson('1D');
-  } else {
-    await loadMainDocument('studentBook', state.savedPages['1A'] || 1);
-  }
+  if (requestedLesson === '1B') switchLesson('1B');
+  else if (requestedLesson === '1C') switchLesson('1C');
+  else if (requestedLesson === '1D') switchLesson('1D');
+  else await loadMainDocument('studentBook', state.savedPages['1A'] || 1);
 });

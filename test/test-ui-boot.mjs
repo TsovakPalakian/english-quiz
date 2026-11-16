@@ -696,7 +696,10 @@ try{
   assert.equal(speakoutMaterial.blocks[0].fontSize,23);
   assert.equal(speakoutMaterial.blocks[1].items[0].front,'First');
   assert.equal(speakoutMaterial.blocks[1].assignmentKey,speakoutMaterial.blocks[2].id);
-  assert.equal(await page.locator('#seBlocks>.se-block').count(),2,'Assigned cards are shown with their task');
+  assert.equal(await page.locator('#seBlocks .speakout-studio-embed-container').count(),1,'Student page shows the lesson studio');
+  assert.equal(await page.locator('#seBlocks>.se-block').count(),0,'Student page hides editor blocks');
+  await page.locator('#seEdit').click();
+  assert.equal(await page.locator('#seBlocks>.se-block').count(),3,'Assigned cards are shown with their task');
   yield "92. evaluate";
   assert.equal(await page.evaluate(()=>JSON.stringify(lmState)),originalLesson);
   await page.locator('#speakouteditor [data-nav-back]').click();await page.locator('#speakout.on').waitFor();
@@ -706,7 +709,8 @@ try{
   await page.locator('#speakoutList [data-speak-lesson]').first().click();
   await page.locator('#speakouteditor.on #seEdit:visible').waitFor();
   assert.equal(speakFullReads,readsBeforeCachedOpen,'Cached Speakout opens without a material request');
-  await page.locator('#seBlocks summary').first().click();
+  assert.equal(await page.locator('#seBlocks>.se-block').count(),0,'Reopened student page hides editor blocks');
+  await page.locator('#seEdit').click();
   assert.match(await page.locator('#seBlocks').innerText(),/Speakout reading fixture/);
   assert.equal(requests.filter(path=>path.startsWith('/api/speakout/')).length,requestsBeforeCachedOpen,'Cached navigation sends no Speakout request');
   yield "94. waitForFunction";
@@ -742,9 +746,9 @@ try{
   yield "100. #speakoutList [data-speak-lesson] / click";
   await page.locator('#speakoutList [data-speak-lesson]').first().click();await page.locator('#speakouteditor.on').waitFor();
   assert.equal(await page.locator('#seEdit').isVisible(),false);
-  await page.locator('#seBlocks summary').first().click();
   yield "101. #seBlocks / checks";
-  assert.match(await page.locator('#seBlocks').innerText(),/Speakout reading fixture/);
+  assert.equal(await page.locator('#seBlocks .speakout-studio-embed-container').count(),1,'Student page shows the lesson studio');
+  assert.equal(await page.locator('#seBlocks>.se-block').count(),0,'Student page hides editor blocks');
   await page.evaluate(()=>{authUser.role='DEVELOPER';});
   await page.reload();await page.locator('#speakouteditor.on #seEdit:visible').waitFor();
     yield "102. #seEdit / click";

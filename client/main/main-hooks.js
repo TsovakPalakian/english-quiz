@@ -1797,7 +1797,7 @@ function stageSpeakCacheOptions(){
 let stageSpeakEditorLoad,stageSpeakEditorRestore;
 function stageSpeakEditorModule(){
   if(window.SpeakoutEditor)return Promise.resolve();
-  stageSpeakEditorLoad ||= new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/speakout-editor.js?v=20261012-independent';script.onload=resolve;script.onerror=()=>{stageSpeakEditorLoad=null;script.remove();reject(new Error('Unable to load Speakout editor.'));};document.body.append(script);});
+  stageSpeakEditorLoad ||= new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/speakout-editor.js?v=20261116-v1';script.onload=resolve;script.onerror=()=>{stageSpeakEditorLoad=null;script.remove();reject(new Error('Unable to load Speakout editor.'));};document.body.append(script);});
   return stageSpeakEditorLoad;
 }
 function stageResumeSpeakEditor(place){
