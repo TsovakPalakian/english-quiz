@@ -60,8 +60,9 @@ export function createAzureTTSAdapter(options={}){
     async invoke(input,{source,signal}={}){
       const host=gate(config,'tts');if(!rights)fail('provider_not_configured');
       const voice=AZURE_REFERENCE_VOICES.find(row=>row.id===input?.voice);
-      if(!input||Object.keys(input).some(key=>!['word','meaning','voice'].includes(key))||typeof input.word!=='string'||!input.word.trim()||input.word.length>200||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(input.word)||!voice||source?.locale&&source.locale!==voice.locale)fail('invalid_request');
-      const ssml='<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="'+voice.locale+'"><voice name="'+voice.id+'">'+xml(input.word)+'</voice></speak>';
+      if(!input||Object.keys(input).some(key=>!['word','meaning','voice','ipa'].includes(key))||typeof input.word!=='string'||!input.word.trim()||input.word.length>200||/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(input.word)||input.ipa!==undefined&&(typeof input.ipa!=='string'||!input.ipa.trim()||input.ipa.length>120||/[&<>"'\\\x00-\x1f]/.test(input.ipa))||!voice||source?.locale&&source.locale!==voice.locale)fail('invalid_request');
+      const spoken=input.ipa?'<phoneme alphabet="ipa" ph="'+xml(input.ipa)+'">'+xml(input.word)+'</phoneme>':xml(input.word);
+      const ssml='<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="'+voice.locale+'"><voice name="'+voice.id+'">'+spoken+'</voice></speak>';
       const bytes=await languageProviderHTTP(config.fetchImpl,host+'/tts/cognitiveservices/v1',{method:'POST',headers:{'Ocp-Apim-Subscription-Key':config.apiKey,'Content-Type':'application/ssml+xml','X-Microsoft-OutputFormat':'riff-16khz-16bit-mono-pcm','User-Agent':'Lumiscia'},body:ssml},{signal,timeoutMs:config.timeoutMs,mime:'audio/wav',mimeAliases:['audio/x-wav','audio/wave'],maxBytes:1000000});
       azurePcmDuration(bytes);return {bytes,mime:'audio/wav',voice:voice.id,rights};
     },

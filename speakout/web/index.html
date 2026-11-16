@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="sky">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pearson Speakout 3rd Edition (2022) - Level A1 Unit 1</title>
+  <script src="/theme-init.js"></script>
+  <link rel="stylesheet" href="/preview.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="app-body">
@@ -27,7 +29,7 @@
     </div>
 
     <div class="header-right">
-      <form id="session-login" class="session-login">
+      <form id="session-login" class="session-login" hidden>
         <select id="session-role" aria-label="Role">
           <option value="student">Student</option>
           <option value="teacher">Teacher</option>
@@ -37,7 +39,7 @@
       </form>
       <div id="user-session-badge" class="user-session-badge" title="Active Learning Session">
         <span class="user-session-dot"></span>
-        <span id="user-session-label">Signed out</span>
+        <span id="user-session-label">Learning Session</span>
       </div>
       <button id="btn-keys" class="btn btn-keys" title="Toggle Answer Keys">
         <span class="icon">🔑</span>
@@ -74,15 +76,7 @@
         </button>
       </nav>
 
-      <div class="sidebar-footer-box">
-        <div class="box-title">✓ Phase 1 Invariants</div>
-        <ul class="box-list">
-          <li>Single workspace screen</li>
-          <li>Original PDF textbook reader</li>
-          <li>Zero DOM-scraped answers</li>
-          <li>Keys via original Teacher PDF</li>
-          <li>SQLite persistence (speakout.db)</li>
-        </ul>
+      <div class="sidebar-footer-box" hidden>
         <div class="teacher-restriction-badge">
           <span>🔒 Teacher Resources (Restricted)</span>
         </div>

@@ -127,12 +127,25 @@ test('TASK-54: computePronunciationSimilarity accurately calculates score and di
   assert.ok(match, 'computePronunciationSimilarity must be extracted cleanly');
   const computePronunciationSimilarity = new Function('return (' + match[0] + ')')();
 
-  // Test 1: Exactly matching utterance
-  const exact = computePronunciationSimilarity('superstition', 'superstition');
-  assert.equal(exact.passed, true, 'Exact match must pass');
-  assert.ok(exact.score >= 90, 'Exact match score must be >= 90%');
+  const same = {
+    energy: [1, 0.8, 0.6, 0.4, 0.3, 0.2, 0.2, 0.1],
+    zcr: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+    pitch: [0.4, 0.45, 0.5, 0.55],
+    breath: 0.2
+  };
 
-  // Test 2: Completely mismatched word (e.g. user said "apple" instead of "superstition")
+  const lettersOnly = computePronunciationSimilarity('superstition', 'superstition');
+  assert.equal(lettersOnly.passed, false, 'Letters without a reference recording must not pass');
+  assert.equal(lettersOnly.score, 0, 'Letters without a reference recording score 0');
+  assert.match(lettersOnly.feedback, /Reference pronunciation is not ready/);
+
+  const silence = computePronunciationSimilarity('sprinter', '');
+  assert.equal(silence.passed, false);
+  assert.equal(silence.score, 0);
+  const russian = computePronunciationSimilarity('sprinter', 'привет');
+  assert.equal(russian.passed, false);
+  assert.equal(russian.score, 0);
+
   const mismatch = computePronunciationSimilarity('superstition', 'apple');
   assert.equal(mismatch.passed, false, 'Mismatched word must NOT pass');
   assert.ok(mismatch.score <= 35, 'Mismatched score must be low (< 35%)');
@@ -140,9 +153,23 @@ test('TASK-54: computePronunciationSimilarity accurately calculates score and di
   assert.ok(mismatch.feedback.includes('Heard: "apple"'), 'Feedback must detail heard word');
   assert.ok(mismatch.feedback.includes('Expected: "superstition"'), 'Feedback must detail expected target');
 
-  // Test 3: Close pronunciation with minor articulation discrepancy
-  const close = computePronunciationSimilarity('knock on wood', 'knock on wood');
-  assert.equal(close.passed, true, 'Matching idiom must pass');
+  const nearWord = computePronunciationSimilarity('home', 'come');
+  assert.equal(nearWord.passed, false, 'A different word must not pass');
+  assert.ok(nearWord.score < 75, 'A one-letter difference stays under the pass line');
+
+  const idiom = computePronunciationSimilarity('knock on wood', 'knock on wood');
+  assert.equal(idiom.passed, false, 'Matching text without the reference sound must not pass');
+
+  const exact = computePronunciationSimilarity('superstition', 'superstition', { student: same, etalon: same });
+  assert.equal(exact.passed, true, 'A recording that matches the reference must pass');
+  assert.equal(exact.score, 100, 'Only the reference match scores 100');
+
+  const shifted = computePronunciationSimilarity('superstition', 'superstition', {
+    student: { ...same, energy: [0.8, 0.8, 0.6, 0.4, 0.3, 0.2, 0.2, 0.1] },
+    etalon: same
+  });
+  assert.ok(shifted.score < 100, 'A stress change must lower the score');
+  assert.notEqual(shifted.score, 100);
 });
 
 test('TASK-54: Pronounce widget includes data-pronounce-target and Re-record resets previous score & state', () => {
@@ -150,6 +177,9 @@ test('TASK-54: Pronounce widget includes data-pronounce-target and Re-record res
 
   // Verify data-pronounce-target on widget container
   assert.ok(code.includes('data-pronounce-target="'), 'Pronounce widget must specify data-pronounce-target');
+  assert.ok(code.includes('data-pronounce-ipa="'), 'Pronounce widget must send dictionary IPA');
+  assert.ok(code.includes('widget._pronounceBlob = blob'), 'The recording is kept for scoring');
+  assert.equal(code.includes('score: 92'), false, 'Empty speech must not score 92');
 
   // Verify Re-record reset logic
   assert.ok(code.includes("if (status) status.innerHTML = '';"), 'Re-record must immediately clear status innerHTML');

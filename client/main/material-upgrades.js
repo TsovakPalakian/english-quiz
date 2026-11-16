@@ -130,43 +130,65 @@ document.addEventListener('click',event=>{
   if(remove){event.preventDefault();event.stopImmediatePropagation();const [id,index,option]=remove.dataset.materialOptionRemove.split(':'),part=lmBlock(id),item=part?.items[index],oi=Number(option);if(!item||item.options.length<=2)return;item.options.splice(oi,1);if(item.answer!=null)item.answer=Number(item.answer)===oi?0:Number(item.answer)>oi?Number(item.answer)-1:item.answer;if(item.answers)item.answers=item.answers.filter(i=>i!==oi).map(i=>i>oi?i-1:i);lmSchedule();lmRenderEditor();return;}
   if(deleted){const part=lmBlock(deleted.dataset.lmDel);if(part)for(const child of lmState.blocks||[])if(child.assignmentKey===(part.assignmentId||'part-'+part.id))delete child.assignmentKey;}
 },true);
-function computePronunciationSimilarity(target, spoken) {
+function computePronunciationSimilarity(target, spoken, acoustics) {
+  const pack = (score, passed, feedback) => ({ score, passed, feedback, stress: passed ? 'Accurate' : 'Needs work', phonemes: passed ? 'Clear' : 'Unclear', target, spoken });
+  const rawSpoken = String(spoken || '').trim();
   const normTarget = String(target || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-  const normSpoken = String(spoken || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
-  if (!normTarget) return { score: 90, passed: true, feedback: 'Pronunciation verified.' };
-  if (!normSpoken) {
-    return { score: 92, passed: true, feedback: 'Pronunciation verified: accurate stress and clear phonemes.' };
-  }
-  if (normTarget === normSpoken) {
-    return { score: 96, passed: true, feedback: 'Accurate stress, phonemes clearly articulated.' };
-  }
-  const targetWords = normTarget.split(/\s+/);
-  const spokenWords = normSpoken.split(/\s+/);
-  let matchingWords = 0;
-  for (const tw of targetWords) {
-    if (spokenWords.includes(tw)) matchingWords++;
-  }
-  const wordRatio = matchingWords / Math.max(targetWords.length, spokenWords.length);
-  const a = normTarget;
-  const b = normSpoken;
-  const matrix = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
-  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
-  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
-  for (let i = 1; i <= a.length; i++) {
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+  const normSpoken = rawSpoken.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  if (!normTarget) return pack(0, false, 'Reference pronunciation is not ready.');
+  if (!rawSpoken) return pack(0, false, 'Nothing was heard. Say the word, then check again.');
+  if (!normSpoken) return pack(0, false, 'Heard: "' + rawSpoken + '" · Expected: "' + target + '".');
+  if (normTarget !== normSpoken) {
+    const targetWords = normTarget.split(/\s+/);
+    const spokenWords = normSpoken.split(/\s+/);
+    let matchingWords = 0;
+    for (const word of targetWords) if (spokenWords.includes(word)) matchingWords++;
+    const wordRatio = matchingWords / Math.max(targetWords.length, spokenWords.length);
+    const matrix = Array.from({ length: normTarget.length + 1 }, () => new Array(normSpoken.length + 1).fill(0));
+    for (let i = 0; i <= normTarget.length; i++) matrix[i][0] = i;
+    for (let j = 0; j <= normSpoken.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= normTarget.length; i++) {
+      for (let j = 1; j <= normSpoken.length; j++) {
+        matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + (normTarget[i - 1] === normSpoken[j - 1] ? 0 : 1));
+      }
     }
+    const maxLen = Math.max(normTarget.length, normSpoken.length);
+    const charRatio = maxLen > 0 ? 1 - matrix[normTarget.length][normSpoken.length] / maxLen : 1;
+    const score = Math.max(5, Math.min(74, Math.floor(Math.max(wordRatio, charRatio) * 100)));
+    return pack(score, false, 'Pronunciation mismatch. Heard: "' + rawSpoken + '" · Expected: "' + target + '". Try articulating each syllable clearly.');
   }
-  const maxLen = Math.max(a.length, b.length);
-  const charRatio = maxLen > 0 ? (1 - matrix[a.length][b.length] / maxLen) : 1;
-  const combinedRatio = Math.max(wordRatio, charRatio);
-  const score = Math.max(5, Math.min(98, Math.round(combinedRatio * 100)));
+  const student = acoustics && acoustics.student;
+  const etalon = acoustics && acoustics.etalon;
+  const listOk = (value, length) => Array.isArray(value) && value.length === length && value.every(item => Number.isFinite(item) && item >= 0 && item <= 1);
+  const ready = student && etalon && listOk(student.energy, 8) && listOk(student.zcr, 8) && listOk(student.pitch, 4) && listOk(etalon.energy, 8) && listOk(etalon.zcr, 8) && listOk(etalon.pitch, 4) && Number.isFinite(student.breath) && Number.isFinite(etalon.breath);
+  if (!ready) return pack(0, false, 'Reference pronunciation is not ready.');
+  const series = (left, right) => {
+    let sum = 0;
+    for (let i = 0; i < left.length; i++) sum += Math.abs(left[i] - right[i]);
+    const mean = sum / left.length;
+    if (mean <= 0.02) return 100;
+    return Math.min(99, Math.floor((1 - Math.min(1, mean)) * 100));
+  };
+  const direction = list => {
+    const first = list.find(item => item > 0);
+    const last = [...list].reverse().find(item => item > 0);
+    if (first == null || last == null) return 0;
+    return Math.sign(last - first);
+  };
+  const sound = series(student.zcr, etalon.zcr);
+  const stress = series(student.energy, etalon.energy);
+  let tone = series(student.pitch, etalon.pitch);
+  const riseA = direction(student.pitch);
+  const riseB = direction(etalon.pitch);
+  if (riseA && riseB && riseA !== riseB) tone = Math.min(tone, 40);
+  const breathGap = Math.abs(student.breath - etalon.breath);
+  const breath = breathGap <= 0.02 ? 100 : Math.min(99, Math.floor((1 - Math.min(1, breathGap)) * 100));
+  const score = Math.min(sound, stress, tone, breath);
   const passed = score >= 75;
-  const feedback = passed
-    ? 'Accurate pronunciation: matched target phrase with clear phonemes.'
-    : 'Pronunciation mismatch. Heard: "' + spoken + '" · Expected: "' + target + '". Try articulating each syllable clearly.';
-  return { score, passed, feedback, target, spoken };
+  const feedback = score === 100
+    ? 'Pronunciation matches the reference.'
+    : 'Pronunciation is short of the reference. Sounds ' + sound + '%, stress ' + stress + '%, intonation ' + tone + '%, breath ' + breath + '%.';
+  return { score, passed, feedback, stress: stress === 100 ? 'Accurate' : 'Needs work', phonemes: sound === 100 ? 'Clear' : 'Unclear', target, spoken };
 }
 
 function renderPronunciationExerciseHtml(part, exam = false) {
@@ -177,7 +199,7 @@ function renderPronunciationExerciseHtml(part, exam = false) {
   const d1 = (item.options && item.options[1]) || (word + 'ed');
   const d2 = (item.options && item.options[2]) || 'distractor';
   const options = item.options || [word, d1, d2];
-  return '<div class="pronounce-widget" data-pronounce-widget="' + esc(id) + '" data-pronounce-target="' + esc(word) + '">' +
+  return '<div class="pronounce-widget" data-pronounce-widget="' + esc(id) + '" data-pronounce-target="' + esc(word) + '"' + (item.ipa ? ' data-pronounce-ipa="' + esc(item.ipa) + '"' : '') + '>' +
     '<h4>🎙️ ' + esc(part.title || 'Pronounce: ' + word) + '</h4>' +
     '<p style="font-size:15px; font-weight:700; color:var(--primary, #2563eb); margin:4px 0;">' + esc(prompt) + '</p>' +
     (item.ipa ? '<p class="hint" style="font-family:monospace; margin:2px 0;">/' + esc(item.ipa) + '/</p>' : '') +
@@ -198,6 +220,79 @@ function renderPronunciationExerciseHtml(part, exam = false) {
       ).join('') +
     '</div>' +
   '</div>';
+}
+
+async function pronunciationFeaturesFromBlob(blob) {
+  if (!blob || typeof AudioContext === 'undefined') return null;
+  const context = new AudioContext();
+  try {
+    const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+    const source = buffer.getChannelData(0);
+    const data = buffer.sampleRate === 16000 ? source : (() => {
+      const outLength = Math.floor(source.length * 16000 / buffer.sampleRate);
+      const out = new Float32Array(outLength);
+      for (let i = 0; i < outLength; i++) {
+        const pos = i * buffer.sampleRate / 16000;
+        const left = Math.floor(pos);
+        const mix = pos - left;
+        const a = source[left] || 0;
+        const b = source[left + 1] || a;
+        out[i] = a + (b - a) * mix;
+      }
+      return out;
+    })();
+    const bins = 8;
+    const size = Math.floor(data.length / bins);
+    if (size < 2) return null;
+    const energy = [];
+    const zcr = [];
+    for (let bin = 0; bin < bins; bin++) {
+      let sum = 0;
+      let crosses = 0;
+      let prev = 0;
+      const start = bin * size;
+      for (let i = 0; i < size; i++) {
+        const value = data[start + i];
+        sum += value * value;
+        if (i && (value >= 0) !== (prev >= 0)) crosses++;
+        prev = value;
+      }
+      energy.push(Math.sqrt(sum / size));
+      zcr.push(crosses / size);
+    }
+    const peak = Math.max(...energy, 1e-9);
+    for (let i = 0; i < bins; i++) energy[i] = Math.min(1, energy[i] / peak);
+    const pitch = [];
+    const frame = Math.floor(data.length / 4);
+    const minLag = Math.max(1, Math.floor(16000 / 400));
+    const maxLag = Math.max(minLag + 1, Math.floor(16000 / 70));
+    for (let frameIndex = 0; frameIndex < 4; frameIndex++) {
+      const start = frameIndex * frame;
+      let best = 0;
+      let bestLag = 0;
+      for (let lag = minLag; lag <= maxLag && lag < frame; lag++) {
+        let corr = 0;
+        for (let i = 0; i < frame - lag; i += 4) corr += data[start + i] * data[start + i + lag];
+        if (corr > best) {
+          best = corr;
+          bestLag = lag;
+        }
+      }
+      pitch.push(bestLag ? Math.min(1, (16000 / bestLag) / 400) : 0);
+    }
+    let diff = 0;
+    let power = 0;
+    for (let i = 1; i < data.length; i += 2) {
+      diff += Math.abs(data[i] - data[i - 1]);
+      power += data[i] * data[i];
+    }
+    const breath = power > 0 ? Math.min(1, diff / Math.sqrt(power) / 10) : 0;
+    return { energy, zcr, pitch, breath };
+  } catch {
+    return null;
+  } finally {
+    await context.close().catch(() => {});
+  }
 }
 
 if (typeof window !== 'undefined') {
@@ -494,6 +589,7 @@ document.addEventListener('click', async (event) => {
     if (widget) {
       delete widget._spokenTranscript;
       delete widget.dataset.lastSpoken;
+      delete widget._pronounceBlob;
     }
 
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
@@ -554,6 +650,7 @@ document.addEventListener('click', async (event) => {
         recordBtn.classList.remove('danger');
 
         const blob = new Blob(chunks, { type: recorder.mimeType });
+        if (widget) widget._pronounceBlob = blob;
         if (blob.size && audioBox) {
           const url = URL.createObjectURL(blob);
           audioBox.innerHTML = '<audio controls src="' + url + '" style="width:100%; height:36px;"></audio>';
@@ -586,7 +683,9 @@ document.addEventListener('click', async (event) => {
     const widget = checkBtn.closest('[data-pronounce-widget]');
     const status = widget?.querySelector('[data-pronounce-status="' + id + '"]');
     const targetWord = (widget?.dataset?.pronounceTarget || '').trim();
+    const ipa = (widget?.dataset?.pronounceIpa || '').trim();
     const spoken = (widget?._spokenTranscript || widget?.dataset?.lastSpoken || '').trim();
+    const student = widget?._pronounceBlob ? await pronunciationFeaturesFromBlob(widget._pronounceBlob) : null;
     if (status) status.innerHTML = '<span>Evaluating speech with Gemini AI…</span>';
     checkBtn.disabled = true;
 
@@ -595,13 +694,13 @@ document.addEventListener('click', async (event) => {
       if (typeof accountFetch === 'function') {
         res = await accountFetch('/api/lessons/assess-pronunciation', {
           method: 'POST',
-          body: JSON.stringify({ id, targetWord, spoken })
+          body: JSON.stringify({ id, targetWord, spoken, student, ipa })
         });
       }
-      const evalResult = res || computePronunciationSimilarity(targetWord, spoken);
-      const score = evalResult?.score != null ? evalResult.score : 90;
-      const passed = evalResult?.passed ?? (score >= 75);
-      const feedback = evalResult?.feedback || (passed ? 'Pronunciation verified: accurate stress and clear phonemes.' : 'Pronunciation mismatch. Try articulating each syllable clearly.');
+      const evalResult = res || computePronunciationSimilarity(targetWord, spoken, null);
+      const score = evalResult?.score != null ? evalResult.score : 0;
+      const passed = evalResult?.passed === true;
+      const feedback = evalResult?.feedback || (passed ? 'Pronunciation matches the reference.' : 'Pronunciation mismatch. Try articulating each syllable clearly.');
       if (status) {
         status.innerHTML = '<div class="pronounce-score-badge' + (passed ? '' : ' needs-work') + '">🎯 Score: ' + score + '% · ' + (passed ? 'Passed' : 'Needs work') + '</div><p style="font-size:12px; margin-top:4px; color:var(--saas-text);">' + esc(feedback) + '</p>';
       }

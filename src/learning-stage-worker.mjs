@@ -23,6 +23,8 @@ import {pdfAsset} from './learning-pdf-assets.mjs';
 import {stageContentPolicy} from './learning-embed.mjs';
 import {ContentCopyService} from './learning-content-copy.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
+import {assessPronunciation,featuresFromWav,isPronunciationFeatures} from './pronunciation-match.mjs';
+import {createAzureTTSAdapter,AZURE_REFERENCE_VOICES} from './azure-speech-provider.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 const cardKey=value=>{if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(Number(value)))throw new StudyError(400,'Invalid card ID.');return Number(value);};
@@ -157,7 +159,7 @@ export default {async fetch(request,env){
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE')||(songUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest','/api/speakout/session'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/speakout/media','/api/speakout/audio','/api/speakout/video','/api/speakout/document'].includes(path)
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
@@ -210,6 +212,7 @@ export default {async fetch(request,env){
     const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
     if((write||speakoutWrite)&&env.STAGE_WRITES!=='true')throw new StudyError(503,'Test writes disabled.');
     if(path.startsWith('/api/speakout/')){
+      if(path==='/api/speakout/session')return json({authenticated:!!actor,user:actor?{id:actor.id,role:actor.role.toLowerCase()}:null});
       if(path==='/api/speakout/revisions')return json(await speakoutRevisions(db,actor));
       const location={level:url.searchParams.get('level'),unit:Number(url.searchParams.get('unit')),lesson:Number(url.searchParams.get('lesson')),block:url.searchParams.get('block')};
       const store=stageR2Media(env);
@@ -304,45 +307,39 @@ export default {async fetch(request,env){
       const bodyValue=await body(request,64000);
       const target=String(bodyValue?.targetWord||bodyValue?.word||'').trim();
       const spoken=String(bodyValue?.spoken||'').trim();
-      const normTarget=target.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
-      const normSpoken=spoken.toLowerCase().replace(/[^a-z0-9\s]/g,'').trim();
-      let score=92,passed=true,feedback='Pronunciation verified: accurate stress and clear phonemes.';
-      if(normTarget && normSpoken){
-        if(normTarget===normSpoken){
-          score=96;passed=true;feedback='Accurate stress, phonemes clearly articulated.';
-        } else {
-          const tws=normTarget.split(/\s+/),sws=normSpoken.split(/\s+/);
-          let match=0;
-          for(const tw of tws){if(sws.includes(tw))match++;}
-          const wr=match/Math.max(tws.length,sws.length);
-          const a=normTarget,b=normSpoken;
-          const matrix=Array.from({length:a.length+1},()=>new Array(b.length+1).fill(0));
-          for(let i=0;i<=a.length;i++)matrix[i][0]=i;
-          for(let j=0;j<=b.length;j++)matrix[0][j]=j;
-          for(let i=1;i<=a.length;i++){
-            for(let j=1;j<=b.length;j++){
-              matrix[i][j]=Math.min(matrix[i-1][j]+1,matrix[i][j-1]+1,matrix[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
-            }
-          }
-          const maxLen=Math.max(a.length,b.length);
-          const cr=maxLen>0?(1-matrix[a.length][b.length]/maxLen):1;
-          const ratio=Math.max(wr,cr);
-          score=Math.max(5,Math.min(98,Math.round(ratio*100)));
-          passed=score>=75;
-          feedback=passed
-            ?'Accurate pronunciation: matched target phrase with clear phonemes.'
-            :'Pronunciation mismatch. Heard: "'+spoken+'" · Expected: "'+target+'". Try articulating each syllable clearly.';
+      const student=isPronunciationFeatures(bodyValue?.student)?bodyValue.student:null;
+      const ipaRaw=String(bodyValue?.ipa||'').trim();
+      const ipa=ipaRaw&&ipaRaw.length<=120&&!/[&<>"'\\\x00-\x1f]/.test(ipaRaw)?ipaRaw:'';
+      let etalon=null;
+      if(student&&target&&env.WORKBENCH_AZURE_KEY&&env.WORKBENCH_AZURE_REGION&&env.WORKBENCH_AZURE_RESOURCE){
+        try{
+          const adapter=createAzureTTSAdapter({
+            enabled:true,
+            freeTierVerified:true,
+            resourceName:env.WORKBENCH_AZURE_RESOURCE,
+            region:env.WORKBENCH_AZURE_REGION,
+            apiKey:env.WORKBENCH_AZURE_KEY,
+            termsRevision:'lesson-pronounce-v1',
+            reuseConditions:'Lesson pronunciation reference.',
+            fetchImpl:globalThis.fetch
+          });
+          const voice=AZURE_REFERENCE_VOICES[0];
+          const spokenRef=await adapter.invoke({word:target,voice:voice.id,...(ipa?{ipa}:{})},{source:{locale:voice.locale}});
+          etalon=featuresFromWav(spokenRef.bytes);
+        }catch{
+          etalon=null;
         }
       }
+      const judged=assessPronunciation({target,spoken,student,etalon});
       return json({
         success:true,
         word:target,
         spoken,
-        score,
-        passed,
-        stress:passed?'Accurate':'Needs work',
-        phonemes:passed?'Clear':'Unclear',
-        feedback
+        score:judged.score,
+        passed:judged.passed,
+        stress:judged.stress,
+        phonemes:judged.phonemes,
+        feedback:judged.feedback
       });
     }
     if(grammarCustom){

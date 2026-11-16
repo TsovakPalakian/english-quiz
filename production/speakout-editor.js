@@ -142,10 +142,13 @@
     $('seEdit').hidden=editing||!canEdit;
     $('seAnswers').hidden=editing||!doc.published||!doc.blocks.some(block=>!block.contentGroup&&(['quiz','exercise','task'].includes(block.type)||block.type==='text'&&block.answerEnabled));
     $('seBlocks').innerHTML=editing?doc.blocks.map(block=>'<article class="se-block lm-block'+(block.collapsed?' is-shut':'')+'" data-se-block="'+escape(block.id)+'">'+head(block).replace('>'+caption(block.type)+'</span>', '>'+(block.contentGroup?'Content group':block.answerEnabled?'Answer':caption(block.type))+'</span>')+'<div class="lm-body">'+assignment(block)+editor(block)+'</div></article>').join(''):readBlocks();
+    const isA1Unit1=location?.level==='A1'&&location?.unit===0&&(location?.lesson===0||location?.lesson===3);
     if(!doc.blocks.length){
-      const isA1Unit1=location?.level==='A1'&&location?.unit===0&&(location?.lesson===0||location?.lesson===3);
       const studioLink=isA1Unit1?'<div style="margin-top:20px; padding:16px; border:1px solid rgba(59,130,246,0.3); border-radius:8px; background:rgba(59,130,246,0.06); text-align:center;"><p style="margin:0 0 12px 0; font-weight:600; color:#3b82f6;">Interactive Pearson Speakout A1 Studio is available for this lesson.</p><a href="/speakout/?lesson='+(location.lesson===3?'1D':'1A')+'" class="lm-btn lm-btn-primary" style="display:inline-block; text-decoration:none; padding:8px 18px;">Open Speakout Studio</a></div>':'';
       $('seBlocks').innerHTML='<p class="lm-lead">Nothing on this page yet.</p>'+studioLink;
+    } else if(!editing && isA1Unit1){
+      const studioBanner='<div style="margin-bottom:20px; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--card); display:flex; align-items:center; justify-content:space-between; gap:16px;"><div style="display:flex; align-items:center; gap:12px;"><span style="font-size:24px;">🎓</span><div><strong style="color:var(--ink); display:block; font-size:15px;">Pearson Speakout Studio</strong><span style="color:var(--mute); font-size:13px;">Interactive workspace with PDF textbook, audio tracks and teacher keys</span></div></div><a href="/speakout/?lesson='+(location.lesson===3?'1D':'1A')+'" class="lm-btn lm-btn-primary" style="text-decoration:none; white-space:nowrap; padding:10px 20px;">Open Speakout Studio ↗</a></div>';
+      $('seBlocks').innerHTML=studioBanner+readBlocks();
     }
     if(editing)root.querySelectorAll('[data-se-field], [data-se-item-field]').forEach(field=>{
       if(!field.matches('textarea,input[type=text]'))return;const name=field.dataset.seField||field.dataset.seItemField;if(['criteria','url','remoteUrl','ipa','answer','write'].includes(name))return;

@@ -20,6 +20,25 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
+:root[data-theme], body[data-theme] {
+  --bg-dark: var(--bg);
+  --bg-sidebar: var(--card);
+  --bg-surface: var(--card);
+  --bg-elevated: color-mix(in srgb, var(--card) 92%, var(--bg));
+  --border-color: var(--line);
+  --border-light: color-mix(in srgb, var(--line) 80%, var(--mute));
+  --accent-cyan: var(--acc);
+  --accent-cyan-hover: color-mix(in srgb, var(--acc) 85%, var(--ink));
+  --accent-cyan-bg: var(--acc-s);
+  --accent-emerald: var(--ok);
+  --accent-emerald-bg: var(--ok-s);
+  --accent-amber: var(--warm);
+  --accent-purple: var(--acc);
+  --text-main: var(--ink);
+  --text-muted: var(--mute);
+  --text-dim: color-mix(in srgb, var(--mute) 70%, transparent);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -305,6 +324,7 @@ body.app-body {
 }
 
 .sidebar-footer-box {
+  display: none !important;
   margin: 0.75rem;
   padding: 0.75rem;
   background: rgba(30, 41, 59, 0.6);
@@ -861,20 +881,20 @@ body.app-body {
 .speech-studio-card {
   width: 640px;
   max-width: 90vw;
-  background: #0f172a;
-  border: 1px solid #1e293b;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(56, 189, 248, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 30px var(--accent-cyan-bg);
   overflow: hidden;
 }
 
 .speech-studio-header {
   padding: 0.85rem 1.25rem;
-  background: #1e293b;
+  background: var(--bg-elevated);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .speech-studio-title {
@@ -920,14 +940,14 @@ body.app-body {
 
 .phrase-target-box {
   padding: 0.75rem 1rem;
-  background: #090d16;
-  border: 1px solid #38bdf8;
+  background: var(--bg-dark);
+  border: 1px solid var(--accent-cyan);
   border-radius: 8px;
-  color: #e2e8f0;
+  color: var(--text-main);
   font-size: 0.95rem;
   font-weight: 500;
   line-height: 1.4;
-  box-shadow: inset 0 0 12px rgba(56, 189, 248, 0.08);
+  box-shadow: inset 0 0 12px var(--accent-cyan-bg);
 }
 
 .recognized-header-line {
@@ -944,30 +964,30 @@ body.app-body {
 }
 
 .badge-match.waiting {
-  background: #334155;
-  color: #94a3b8;
+  background: var(--border-color);
+  color: var(--text-muted);
 }
 
 .badge-match.matched {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-  border: 1px solid #10b981;
-  text-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+  background: var(--accent-emerald-bg);
+  color: var(--accent-emerald);
+  border: 1px solid var(--accent-emerald);
+  text-shadow: 0 0 6px var(--accent-emerald-bg);
 }
 
 .badge-match.partial {
-  background: rgba(245, 158, 11, 0.2);
-  color: #f59e0b;
-  border: 1px solid #f59e0b;
+  background: color-mix(in srgb, var(--accent-amber) 20%, transparent);
+  color: var(--accent-amber);
+  border: 1px solid var(--accent-amber);
 }
 
 .phrase-recognized-box {
   padding: 0.75rem 1rem;
   min-height: 54px;
-  background: #090d16;
-  border: 1px solid #1e293b;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  color: #38bdf8;
+  color: var(--accent-cyan);
   font-size: 0.92rem;
   font-family: var(--font-mono);
   display: flex;
@@ -995,23 +1015,23 @@ body.app-body {
   gap: 0.75rem;
   margin-top: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #1e293b;
+  border-top: 1px solid var(--border-color);
 }
 
 .btn-audio-sample {
   padding: 0.4rem 0.75rem;
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
   border-radius: 6px;
   font-size: 0.72rem;
   cursor: pointer;
 }
 
 .btn-audio-sample:hover:not(:disabled) {
-  background: #334155;
-  border-color: #38bdf8;
-  color: #38bdf8;
+  background: var(--bg-elevated);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
 }
 
 .btn-audio-sample:disabled {
@@ -1022,7 +1042,7 @@ body.app-body {
 .engine-tag {
   margin-left: auto;
   font-size: 0.68rem;
-  color: #10b981;
+  color: var(--accent-emerald);
   font-weight: 500;
 }
 
@@ -1038,8 +1058,8 @@ body.app-body {
   gap: 0.35rem;
   margin-top: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: #0f172a;
-  border: 1px dashed #334155;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-color);
   border-radius: 6px;
   font-size: 0.8rem;
   min-height: 2rem;
@@ -1058,4 +1078,174 @@ body.app-body {
   color: #94a3b8;
   font-style: italic;
   padding: 0.1rem 0.35rem;
+}
+
+/* Theme Algorithm Integration (.theme-seg pattern from site/preview.css) */
+:root[data-theme] .track-buttons-group,
+body[data-theme] .track-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--acc-s);
+  padding: 4px 6px;
+  border-radius: 10px;
+}
+
+:root[data-theme] .btn-track,
+body[data-theme] .btn-track {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+:root[data-theme] .btn-track:hover,
+body[data-theme] .btn-track:hover {
+  background: color-mix(in srgb, var(--card) 85%, var(--acc-s));
+  color: var(--ink);
+}
+
+:root[data-theme] .btn-track.active,
+body[data-theme] .btn-track.active {
+  background: var(--acc);
+  border-color: var(--acc);
+  color: #fff;
+  font-weight: 700;
+}
+
+:root[data-theme] .btn-keys,
+body[data-theme] .btn-keys {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme] .btn-keys:hover,
+body[data-theme] .btn-keys:hover {
+  background: color-mix(in srgb, var(--card) 85%, var(--acc-s));
+  border-color: var(--acc);
+  color: var(--acc);
+}
+
+:root[data-theme] .btn-icon-nav,
+:root[data-theme] .btn-zoom,
+:root[data-theme] .btn-zoom-fit,
+body[data-theme] .btn-icon-nav,
+body[data-theme] .btn-zoom,
+body[data-theme] .btn-zoom-fit {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+:root[data-theme] .btn-icon-nav:hover,
+:root[data-theme] .btn-zoom:hover,
+:root[data-theme] .btn-zoom-fit:hover,
+body[data-theme] .btn-icon-nav:hover,
+body[data-theme] .btn-zoom:hover,
+body[data-theme] .btn-zoom-fit:hover {
+  background: color-mix(in srgb, var(--card) 85%, var(--acc-s));
+  border-color: var(--acc);
+  color: var(--acc);
+}
+
+:root[data-theme] .page-jump-input,
+body[data-theme] .page-jump-input {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  border-radius: 6px;
+}
+
+:root[data-theme] .reader-toolbar,
+body[data-theme] .reader-toolbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+:root[data-theme] .main-reader-pane,
+body[data-theme] .main-reader-pane,
+:root[data-theme] .reader-viewport,
+body[data-theme] .reader-viewport {
+  background: var(--bg);
+}
+
+:root[data-theme] .media-dock,
+body[data-theme] .media-dock {
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+:root[data-theme] .keys-modal-dock,
+body[data-theme] .keys-modal-dock {
+  background: var(--card);
+  border-left: 1px solid var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme] .keys-modal-header,
+body[data-theme] .keys-modal-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme] .keys-modal-meta,
+body[data-theme] .keys-modal-meta {
+  background: var(--acc-s);
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+:root[data-theme] .keys-modal-body,
+body[data-theme] .keys-modal-body {
+  background: var(--bg);
+}
+
+/* Template 9: Mobile Responsive Viewport */
+@media (max-width: 640px) {
+  .app-layout {
+    flex-direction: column;
+  }
+  .app-sidebar {
+    width: 100%;
+    height: auto;
+    max-height: 140px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .lesson-nav-list {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+  .lesson-nav-item {
+    min-width: 160px;
+    padding: 0.5rem;
+    margin-bottom: 0;
+  }
+  .main-reader-pane {
+    height: calc(100vh - 54px - 140px - 70px);
+  }
+  .reader-toolbar {
+    padding: 0 0.5rem;
+    overflow-x: auto;
+  }
+  .media-dock {
+    padding: 0.5rem;
+    overflow-x: auto;
+  }
+  .media-strip-content {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+  .player-controls-group {
+    overflow-x: auto;
+  }
 }

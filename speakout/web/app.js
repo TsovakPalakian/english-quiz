@@ -37,9 +37,9 @@ export const TRACK_MODEL_PHRASES = {
 const state = {
   activeLesson: '1A',
   activeDocument: 'studentBook',
-  currentPage: 1,
+  currentPage: 8,
   totalPages: 0,
-  savedPages: { '1A': 1, '1D': 1 },
+  savedPages: { '1A': 8, '1D': 14 },
   zoomScale: 1.2,
   pdfDoc: null,
   scriptsPdfDoc: null,
@@ -144,8 +144,8 @@ function showReaderError(message) {
 function updateSessionLabel() {
   if (!DOM.userSessionLabel) return;
   DOM.userSessionLabel.textContent = state.currentUser
-    ? `${state.currentUser} (${state.userRole})`
-    : 'Signed out';
+    ? `${state.currentUser} (${state.userRole || 'student'})`
+    : 'Platform Session';
 }
 
 // Format seconds into mm:ss
@@ -170,7 +170,7 @@ async function loadMainDocument(docType = 'studentBook', initialPage = 1) {
 
   try {
     const docUrl = `/api/speakout/document?doc=${encodeURIComponent(docType)}`;
-    const loadingTask = pdfjsLib.getDocument(docUrl);
+    const loadingTask = pdfjsLib.getDocument({ url: docUrl, withCredentials: true });
     const doc = await loadingTask.promise;
     if (generation !== loadGeneration) {
       doc.destroy?.();
@@ -790,19 +790,20 @@ async function sendSpeechRecording(audioBase64) {
 // 4.5 Active Session Initialization (Cookie-backed authentication)
 async function initSession() {
   try {
-    const res = await fetch('/api/speakout/session');
-    const data = await res.json();
-    if (data.authenticated && data.user) {
-      state.currentUser = data.user.id;
-      state.userRole = data.user.role;
+    let res = await fetch('/api/speakout/session');
+    if (!res.ok) res = await fetch('/api/me');
+    const data = await res.json().catch(() => ({}));
+    const user = data.user || (data.authenticated ? data.user : null);
+    if (user) {
+      state.currentUser = user.id || user.name || 'User';
+      state.userRole = (user.role || 'student').toLowerCase();
     } else {
-      state.currentUser = null;
-      state.userRole = null;
+      state.currentUser = 'Student';
+      state.userRole = 'student';
     }
   } catch (_) {
-    state.currentUser = null;
-    state.userRole = null;
-    showReaderError('Session check failed.');
+    state.currentUser = 'Student';
+    state.userRole = 'student';
   }
   updateSessionLabel();
 }
