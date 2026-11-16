@@ -917,7 +917,7 @@ function switchLesson(lessonId) {
   if (DOM.activeBreadcrumb) DOM.activeBreadcrumb.textContent = view.breadcrumb;
   if (DOM.keysPageBadge) DOM.keysPageBadge.textContent = view.badge;
   const fallback = lessonId === '1B' || lessonId === '1C' ? view.page : 1;
-  loadMainDocument('studentBook', state.savedPages[lessonId] || fallback);
+  return loadMainDocument('studentBook', state.savedPages[lessonId] || fallback);
 
   if (DOM.keysModal && !DOM.keysModal.classList.contains('hidden')) {
     openKeysModal();
@@ -928,10 +928,6 @@ function switchLesson(lessonId) {
 function initEventListeners() {
   // Lesson Tabs
   if (DOM.sessionLogin) DOM.sessionLogin.addEventListener('submit', submitSessionLogin);
-  if (DOM.btnTab1a) DOM.btnTab1a.addEventListener('click', () => switchLesson('1A'));
-  if (DOM.btnTab1b) DOM.btnTab1b.addEventListener('click', () => switchLesson('1B'));
-  if (DOM.btnTab1c) DOM.btnTab1c.addEventListener('click', () => switchLesson('1C'));
-  if (DOM.btnTab1d) DOM.btnTab1d.addEventListener('click', () => switchLesson('1D'));
 
   // Page Navigation: empty input strictly opens page 1
   if (DOM.pageNumberInput) {
@@ -1118,8 +1114,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadProgress();
   const urlParams = new URLSearchParams(window.location.search);
   const requestedLesson = (urlParams.get('lesson') || '').toUpperCase();
-  if (requestedLesson === '1B') switchLesson('1B');
-  else if (requestedLesson === '1C') switchLesson('1C');
-  else if (requestedLesson === '1D') switchLesson('1D');
-  else await loadMainDocument('studentBook', state.savedPages['1A'] || 1);
+  if (requestedLesson === '1B') await switchLesson('1B');
+  else if (requestedLesson === '1C') await switchLesson('1C');
+  else if (requestedLesson === '1D') await switchLesson('1D');
+  else await switchLesson('1A');
 });

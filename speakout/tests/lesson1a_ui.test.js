@@ -23,12 +23,11 @@ test('Phase 1 Approved UI Specification Verification (Screenshot 17 & 18)', asyn
     assert.match(html, /id="btn-keys"/, 'Must contain Answer Keys toggle button');
     assert.match(html, /id="keys-page-badge"/, 'Must contain keys page badge (p. 2–3 / p. 4–5)');
 
-    // Left Navigation Sidebar (Unit 1 Lessons: 1A & 1D)
-    assert.match(html, /class="sidebar-nav"/, 'Must have sidebar navigation');
-    assert.match(html, /id="btn-tab-1a"/, 'Must have Lesson 1A tab');
-    assert.match(html, /id="btn-tab-1d"/, 'Must have Lesson 1D tab');
-    assert.match(html, /id="btn-tab-1b"/, 'Must have Lesson 1B tab');
-    assert.match(html, /id="btn-tab-1c"/, 'Must have Lesson 1C tab');
+    assert.doesNotMatch(html, /class="sidebar-nav"/, 'Studio has no lesson sidebar');
+    assert.doesNotMatch(html, /id="btn-tab-1a"/, 'Studio has no Lesson 1A tab');
+    assert.doesNotMatch(html, /id="btn-tab-1b"/, 'Studio has no Lesson 1B tab');
+    assert.doesNotMatch(html, /id="btn-tab-1c"/, 'Studio has no Lesson 1C tab');
+    assert.doesNotMatch(html, /id="btn-tab-1d"/, 'Studio has no Lesson 1D tab');
     assert.match(html, /id="media-strip-1b"/, 'Must have Lesson 1B media strip');
     assert.match(html, /data-track="1\.04"/, 'Must have track 1.04 button');
     assert.match(html, /data-track="1\.0X"/, 'Must have track 1.0X button');
