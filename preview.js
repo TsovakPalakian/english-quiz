@@ -4385,15 +4385,15 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const opts = options || {};
       if (hideStudentSongs()) { name = DEFAULT_THEME; opts.keepPainted = false; }
       const root = document.documentElement;
-      let chosen;
+      let chosen, custom = null;
       if (opts.keepPainted && !viewAccount && root.dataset.paintedTheme) {
         chosen = root.dataset.paintedTheme;
-        const painted = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row && row.id === chosen) : null;
-        if (painted) cacheThemePicture(painted);
+        custom = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row && row.id === chosen) : null;
+        if (custom) cacheThemePicture(custom);
       } else {
       const stored = name && String(name).indexOf("user-") === 0 ? loadCustomThemes().find((row) => row && row.id === name) : null;
       chosen = themeCanShow(name) ? name : (!viewAccount && stored ? name : DEFAULT_THEME);
-      const custom = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === chosen) : null;
+      custom = chosen.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === chosen) : null;
       if (custom) {
         root.setAttribute("data-theme", "user");
         paintCustomVars(root, custom);
@@ -4420,6 +4420,33 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
       paintQuizContrast();
       if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
+      syncThemeToFrames(chosen, custom);
+    }
+    function syncThemeToFrame(frame, themeName, customTheme) {
+      if (!frame) return;
+      try {
+        const frameDoc = frame.contentDocument;
+        if (frameDoc && frameDoc.documentElement) {
+          if (customTheme) {
+            frameDoc.documentElement.setAttribute("data-theme", "user");
+            paintCustomVars(frameDoc.documentElement, customTheme);
+          } else {
+            clearCustomPaint(frameDoc.documentElement);
+            frameDoc.documentElement.setAttribute("data-theme", themeName);
+          }
+          if (themeName) frameDoc.documentElement.dataset.paintedTheme = themeName;
+        }
+      } catch (e) {}
+      try {
+        if (frame.contentWindow) {
+          frame.contentWindow.postMessage({ type: "enquiz-theme-change", theme: themeName, custom: customTheme || null }, "*");
+        }
+      } catch (e) {}
+    }
+    function syncThemeToFrames(themeName, customTheme) {
+      document.querySelectorAll("iframe").forEach((frame) => {
+        syncThemeToFrame(frame, themeName, customTheme);
+      });
     }
     function paintThemeSegs() {
       const mine = visibleCustomThemes().map((row) => {
@@ -4779,6 +4806,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       applyTheme(choices[Math.floor(Math.random() * choices.length)], { sync: true });
     }
     document.querySelectorAll("[data-theme-cycle]").forEach((btn) => btn.addEventListener("click", cycleTheme));
+    if (typeof window !== "undefined") {
+      window.addEventListener("load", (event) => {
+        if (event.target && event.target.tagName === "IFRAME") {
+          const shown = document.documentElement.getAttribute("data-theme");
+          const activeTheme = shown === "user" ? currentTheme() : (shown || DEFAULT_THEME);
+          const customActive = activeTheme.indexOf("user-") === 0 ? loadCustomThemes().find((row) => row.id === activeTheme) : null;
+          syncThemeToFrame(event.target, activeTheme, customActive);
+        }
+      }, true);
+    }
     document.body.addEventListener("click", (e) => {
       const dayTab = e.target.closest("[data-day-tab]");
       if (dayTab) {

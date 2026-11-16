@@ -70,71 +70,106 @@ const state = {
   studentAudio: null,
   targetPhrase: TRACK_MODEL_PHRASES['1.01'],
   recognizedText: '',
-  recognitionInstance: null
+  recognitionInstance: null,
+  waveformZoom: 1.0,
+  loopActive: false,
+  loopStart: 0,
+  loopEnd: 0,
+  audioDuration: 0,
+  waveformPeaks: null,
+  isScrubbing: false,
+  activeTrimHandle: null
 };
 
-// DOM References
+// DOM References Helper
+const el = id => (typeof document !== 'undefined' ? document.getElementById(id) : null);
+
 const DOM = {
-  userSessionBadge: document.getElementById('user-session-badge'),
-  userSessionLabel: document.getElementById('user-session-label'),
-  activeBreadcrumb: document.getElementById('active-lesson-breadcrumb'),
-  btnKeys: document.getElementById('btn-keys'),
-  keysPageBadge: document.getElementById('keys-page-badge'),
-  btnTab1a: document.getElementById('btn-tab-1a'),
-  btnTab1b: document.getElementById('btn-tab-1b'),
-  btnTab1c: document.getElementById('btn-tab-1c'),
-  btnTab1d: document.getElementById('btn-tab-1d'),
-  pageNumberInput: document.getElementById('page-number-input'),
-  totalPagesLabel: document.getElementById('total-pages-label'),
-  btnPrevPage: document.getElementById('btn-prev-page'),
-  btnNextPage: document.getElementById('btn-next-page'),
-  docTitleBadge: document.getElementById('doc-title-badge'),
-  btnZoomOut: document.getElementById('btn-zoom-out'),
-  btnZoomIn: document.getElementById('btn-zoom-in'),
-  btnZoomFit: document.getElementById('btn-zoom-fit'),
-  zoomLevelText: document.getElementById('zoom-level-text'),
-  pdfCanvas: document.getElementById('pdf-canvas'),
-  embeddedVideo: document.getElementById('embedded-video-player'),
-  pdfFallback: document.getElementById('pdf-fallback-overlay'),
-  mediaStrip1a: document.getElementById('media-strip-1a'),
-  mediaStrip1b: document.getElementById('media-strip-1b'),
-  mediaStrip1c: document.getElementById('media-strip-1c'),
-  mediaStrip1d: document.getElementById('media-strip-1d'),
-  audioPlayer: document.getElementById('audio-player'),
-  btnPlayPause: document.getElementById('btn-play-pause'),
-  timeCurrent: document.getElementById('time-current'),
-  timeTotal: document.getElementById('time-total'),
-  playerTimeline: document.getElementById('player-timeline'),
-  playerProgressBar: document.getElementById('player-progress-bar'),
-  btnSpeedToggle: document.getElementById('btn-speed-toggle'),
-  btnRecordSpeech: document.getElementById('btn-record-speech'),
-  speechStudioModal: document.getElementById('speech-studio-modal'),
-  btnCloseSpeechStudio: document.getElementById('btn-close-speech-studio'),
-  targetPhraseText: document.getElementById('target-phrase-text'),
-  recognizedSpeechText: document.getElementById('recognized-speech-text'),
-  speechMatchPill: document.getElementById('speech-match-pill'),
-  speechAccuracyPill: document.getElementById('speech-accuracy-pill'),
-  speechWordBreakdown: document.getElementById('speech-word-breakdown'),
-  speechEngineTag: document.getElementById('speech-engine-tag'),
-  speechErrorNotice: document.getElementById('speech-error-notice'),
-  btnPlayModelSample: document.getElementById('btn-play-model-sample'),
-  btnPlayStudentSample: document.getElementById('btn-play-student-sample'),
-  keysModal: document.getElementById('keys-modal'),
-  btnCloseKeys: document.getElementById('btn-close-keys'),
-  keysSectionName: document.getElementById('keys-section-name'),
-  keysPagesInfo: document.getElementById('keys-pages-info'),
-  keysTitleLeft: document.getElementById('keys-title-left'),
-  keysTitleRight: document.getElementById('keys-title-right'),
-  keysPdfCanvasLeft: document.getElementById('keys-pdf-canvas-left'),
-  keysPdfCanvasRight: document.getElementById('keys-pdf-canvas-right'),
-  btnVidStreet: document.getElementById('btn-vid-street'),
-  btnVidVlogs: document.getElementById('btn-vid-vlogs'),
-  btnOpenScriptPdf: document.getElementById('btn-open-script-pdf'),
-  sessionLogin: document.getElementById('session-login'),
-  sessionRole: document.getElementById('session-role'),
-  sessionPassword: document.getElementById('session-password'),
-  readerError: document.getElementById('reader-error'),
-  keysError: document.getElementById('keys-error')
+  userSessionBadge: el('user-session-badge'),
+  userSessionLabel: el('user-session-label'),
+  activeBreadcrumb: el('active-lesson-breadcrumb'),
+  btnKeys: el('btn-keys'),
+  keysPageBadge: el('keys-page-badge'),
+  btnTab1a: el('btn-tab-1a'),
+  btnTab1b: el('btn-tab-1b'),
+  btnTab1c: el('btn-tab-1c'),
+  btnTab1d: el('btn-tab-1d'),
+  pageNumberInput: el('page-number-input'),
+  totalPagesLabel: el('total-pages-label'),
+  btnPrevPage: el('btn-prev-page'),
+  btnNextPage: el('btn-next-page'),
+  docTitleBadge: el('doc-title-badge'),
+  btnZoomOut: el('btn-zoom-out'),
+  btnZoomIn: el('btn-zoom-in'),
+  btnZoomFit: el('btn-zoom-fit'),
+  zoomLevelText: el('zoom-level-text'),
+  pdfCanvas: el('pdf-canvas'),
+  embeddedVideo: el('embedded-video-player'),
+  pdfFallback: el('pdf-fallback-overlay'),
+  mediaStrip1a: el('media-strip-1a'),
+  mediaStrip1b: el('media-strip-1b'),
+  mediaStrip1c: el('media-strip-1c'),
+  mediaStrip1d: el('media-strip-1d'),
+  audioPlayer: el('audio-player'),
+  btnPlayPause: el('btn-play-pause'),
+  btnStop: el('btn-stop'),
+  btnLoopToggle: el('btn-loop-toggle'),
+  btnJumpStart: el('btn-jump-start'),
+  btnRewind: el('btn-rewind'),
+  btnForward: el('btn-forward'),
+  btnJumpEnd: el('btn-jump-end'),
+  digitalClock: el('digital-clock'),
+  btnWfZoomOut: el('btn-wf-zoom-out'),
+  btnWfZoomIn: el('btn-wf-zoom-in'),
+  btnWfZoomFit: el('btn-wf-zoom-fit'),
+  wfZoomBadge: el('wf-zoom-badge'),
+  wfStatStart: el('wf-stat-start'),
+  wfStatEnd: el('wf-stat-end'),
+  wfStatSel: el('wf-stat-sel'),
+  wfStatTotal: el('wf-stat-total'),
+  waveformViewport: el('waveform-scroll-viewport'),
+  waveformCanvasTrack: el('waveform-canvas-track'),
+  waveformCanvas: el('waveform-canvas'),
+  waveformPlayhead: el('waveform-playhead'),
+  waveformPlayheadBadge: el('waveform-playhead-badge'),
+  waveformRuler: el('waveform-ruler'),
+  waveformLoopRegion: el('waveform-loop-region'),
+  waveformLoopLabel: el('waveform-loop-label'),
+  waveformTrimLeft: el('waveform-trim-left'),
+  waveformTrimRight: el('waveform-trim-right'),
+  timeCurrent: el('time-current'),
+  timeTotal: el('time-total'),
+  playerTimeline: el('player-timeline'),
+  playerProgressBar: el('player-progress-bar'),
+  btnSpeedToggle: el('btn-speed-toggle'),
+  btnRecordSpeech: el('btn-record-speech'),
+  speechStudioModal: el('speech-studio-modal'),
+  btnCloseSpeechStudio: el('btn-close-speech-studio'),
+  targetPhraseText: el('target-phrase-text'),
+  recognizedSpeechText: el('recognized-speech-text'),
+  speechMatchPill: el('speech-match-pill'),
+  speechAccuracyPill: el('speech-accuracy-pill'),
+  speechWordBreakdown: el('speech-word-breakdown'),
+  speechEngineTag: el('speech-engine-tag'),
+  speechErrorNotice: el('speech-error-notice'),
+  btnPlayModelSample: el('btn-play-model-sample'),
+  btnPlayStudentSample: el('btn-play-student-sample'),
+  keysModal: el('keys-modal'),
+  btnCloseKeys: el('btn-close-keys'),
+  keysSectionName: el('keys-section-name'),
+  keysPagesInfo: el('keys-pages-info'),
+  keysTitleLeft: el('keys-title-left'),
+  keysTitleRight: el('keys-title-right'),
+  keysPdfCanvasLeft: el('keys-pdf-canvas-left'),
+  keysPdfCanvasRight: el('keys-pdf-canvas-right'),
+  btnVidStreet: el('btn-vid-street'),
+  btnVidVlogs: el('btn-vid-vlogs'),
+  btnOpenScriptPdf: el('btn-open-script-pdf'),
+  sessionLogin: el('session-login'),
+  sessionRole: el('session-role'),
+  sessionPassword: el('session-password'),
+  readerError: el('reader-error'),
+  keysError: el('keys-error')
 };
 
 let loadGeneration = 0;
@@ -165,6 +200,300 @@ function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+// Format seconds into mm:ss.mmm with millisecond precision
+export function formatTimeMs(seconds) {
+  if (isNaN(seconds) || seconds < 0) return '0:00.000';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}.${ms.toString().padStart(3, '0')}`;
+}
+
+// Waveform & Audio Transport Engine
+let audioContextInstance = null;
+function getAudioContext() {
+  if (!audioContextInstance && typeof window !== 'undefined') {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) audioContextInstance = new AudioCtx();
+  }
+  return audioContextInstance;
+}
+
+export async function loadWaveformForTrack(trackId) {
+  try {
+    const res = await fetch(`/api/speakout/audio?track=${encodeURIComponent(trackId)}`);
+    if (!res.ok) throw new Error('Audio fetch failed');
+    const arrayBuffer = await res.arrayBuffer();
+    const ctx = getAudioContext();
+    if (ctx && arrayBuffer.byteLength > 0) {
+      const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      extractPeaks(decoded);
+    } else {
+      generateSyntheticPeaks();
+    }
+  } catch (_) {
+    generateSyntheticPeaks();
+  }
+  renderWaveform();
+}
+
+function extractPeaks(audioBuffer) {
+  state.audioDuration = audioBuffer.duration;
+  if (!state.loopEnd || state.loopEnd > state.audioDuration) {
+    state.loopEnd = state.audioDuration;
+  }
+  const channelData = audioBuffer.getChannelData(0);
+  const totalSamples = channelData.length;
+  const numBars = 500;
+  const blockSize = Math.floor(totalSamples / numBars);
+  const peaks = new Float32Array(numBars);
+  for (let i = 0; i < numBars; i++) {
+    let sum = 0;
+    const start = i * blockSize;
+    for (let j = 0; j < blockSize; j += 4) {
+      sum += Math.abs(channelData[start + j] || 0);
+    }
+    peaks[i] = Math.min(1, (sum / (blockSize / 4)) * 2.5);
+  }
+  state.waveformPeaks = peaks;
+  updateStatsDisplay();
+}
+
+export function generateSyntheticPeaks() {
+  const numBars = 500;
+  const peaks = new Float32Array(numBars);
+  for (let i = 0; i < numBars; i++) {
+    const env = Math.sin(i / 30) * Math.cos(i / 15) * 0.5 + 0.5;
+    const noise = (Math.sin(i * 1.7) * 0.3 + 0.7) * env;
+    peaks[i] = Math.max(0.08, Math.min(0.95, noise));
+  }
+  state.waveformPeaks = peaks;
+  if (!state.audioDuration) {
+    const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+    state.audioDuration = activeMedia?.duration || 30.0;
+  }
+  if (!state.loopEnd || state.loopEnd > state.audioDuration) {
+    state.loopEnd = state.audioDuration;
+  }
+  updateStatsDisplay();
+}
+
+export function updateStatsDisplay() {
+  const dur = state.audioDuration || 0;
+  if (DOM.wfStatStart) DOM.wfStatStart.textContent = formatTimeMs(state.loopStart);
+  if (DOM.wfStatEnd) DOM.wfStatEnd.textContent = formatTimeMs(state.loopEnd);
+  const sel = Math.max(0, state.loopEnd - state.loopStart);
+  if (DOM.wfStatSel) DOM.wfStatSel.textContent = formatTimeMs(sel);
+  if (DOM.wfStatTotal) DOM.wfStatTotal.textContent = formatTimeMs(dur);
+}
+
+export function updateWaveformZoom() {
+  if (DOM.wfZoomBadge) {
+    DOM.wfZoomBadge.textContent = `🔍 Zoom: ${state.waveformZoom.toFixed(1)}x`;
+  }
+  if (DOM.btnWfZoomIn) {
+    DOM.btnWfZoomIn.disabled = state.waveformZoom >= 5.0;
+    DOM.btnWfZoomIn.style.opacity = state.waveformZoom >= 5.0 ? '0.5' : '1';
+  }
+  if (DOM.btnWfZoomOut) {
+    DOM.btnWfZoomOut.disabled = state.waveformZoom <= 1.0;
+    DOM.btnWfZoomOut.style.opacity = state.waveformZoom <= 1.0 ? '0.5' : '1';
+  }
+  renderWaveform();
+}
+
+export function renderWaveform() {
+  if (!DOM.waveformCanvas || !DOM.waveformViewport) return;
+  const canvas = DOM.waveformCanvas;
+  const viewportWidth = DOM.waveformViewport.clientWidth || 800;
+  const trackWidth = Math.round(viewportWidth * state.waveformZoom);
+
+  if (DOM.waveformCanvasTrack) {
+    DOM.waveformCanvasTrack.style.width = `${trackWidth}px`;
+  }
+  canvas.width = trackWidth;
+  canvas.height = 72;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+  const currentTime = activeMedia?.currentTime || 0;
+  const duration = state.audioDuration || activeMedia?.duration || 30.0;
+  const progressRatio = duration > 0 ? currentTime / duration : 0;
+  const currentPx = progressRatio * trackWidth;
+
+  const loopStartPx = duration > 0 ? (state.loopStart / duration) * trackWidth : 0;
+  const loopEndPx = duration > 0 ? (state.loopEnd / duration) * trackWidth : trackWidth;
+
+  const peaks = state.waveformPeaks || [];
+  const numBars = peaks.length || 200;
+  const barW = Math.max(2, trackWidth / numBars);
+
+  for (let i = 0; i < numBars; i++) {
+    const x = i * barW;
+    const peak = peaks[i] || 0.1;
+    const barH = Math.max(3, peak * (h - 12));
+    const y = (h - barH) / 2;
+
+    if (x <= currentPx) {
+      ctx.fillStyle = '#10b981';
+    } else if (state.loopActive && x >= loopStartPx && x <= loopEndPx) {
+      ctx.fillStyle = '#38bdf8';
+    } else {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    }
+    ctx.fillRect(x + 1, y, Math.max(1, barW - 1), barH);
+  }
+
+  // Update Trim Handles & Loop Region
+  if (DOM.waveformTrimLeft) {
+    DOM.waveformTrimLeft.style.left = `${loopStartPx}px`;
+  }
+  if (DOM.waveformTrimRight) {
+    DOM.waveformTrimRight.style.left = `${loopEndPx}px`;
+  }
+  if (DOM.waveformLoopRegion) {
+    if (state.loopActive) {
+      DOM.waveformLoopRegion.classList.remove('hidden');
+      DOM.waveformLoopRegion.style.left = `${loopStartPx}px`;
+      DOM.waveformLoopRegion.style.width = `${Math.max(0, loopEndPx - loopStartPx)}px`;
+    } else {
+      DOM.waveformLoopRegion.classList.add('hidden');
+    }
+  }
+
+  // Update Playhead position & badge
+  if (DOM.waveformPlayhead) {
+    DOM.waveformPlayhead.style.left = `${currentPx}px`;
+  }
+  if (DOM.waveformPlayheadBadge) {
+    DOM.waveformPlayheadBadge.style.left = `${currentPx}px`;
+    DOM.waveformPlayheadBadge.textContent = formatTimeMs(currentTime);
+  }
+
+  renderRuler(trackWidth, duration);
+}
+
+function renderRuler(trackWidth, duration) {
+  if (!DOM.waveformRuler) return;
+  DOM.waveformRuler.style.width = `${trackWidth}px`;
+  DOM.waveformRuler.innerHTML = '';
+
+  let stepSec = 5.0;
+  if (state.waveformZoom >= 4.0) stepSec = 0.5;
+  else if (state.waveformZoom >= 2.5) stepSec = 1.0;
+  else if (state.waveformZoom >= 1.5) stepSec = 2.0;
+
+  const totalSteps = Math.floor(duration / stepSec);
+  for (let s = 0; s <= totalSteps; s++) {
+    const sec = s * stepSec;
+    const span = document.createElement('span');
+    span.textContent = `${sec.toFixed(sec % 1 === 0 ? 0 : 1)}s`;
+    DOM.waveformRuler.appendChild(span);
+  }
+}
+
+export function onMediaTimeUpdate() {
+  const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+  if (!activeMedia) return;
+  const current = activeMedia.currentTime || 0;
+  const duration = activeMedia.duration || state.audioDuration || 0;
+
+  if (state.loopActive && state.loopEnd > state.loopStart) {
+    if (current >= state.loopEnd) {
+      activeMedia.currentTime = state.loopStart;
+      return;
+    }
+  }
+
+  if (DOM.digitalClock) {
+    DOM.digitalClock.textContent = formatTimeMs(current);
+  }
+
+  if (DOM.timeCurrent) DOM.timeCurrent.textContent = formatTime(current);
+  if (DOM.timeTotal && duration > 0) DOM.timeTotal.textContent = formatTime(duration);
+  if (DOM.playerProgressBar && duration > 0) {
+    DOM.playerProgressBar.style.width = `${(current / duration) * 100}%`;
+  }
+
+  if (DOM.waveformPlayhead && duration > 0) {
+    const trackWidth = DOM.waveformCanvas?.width || (DOM.waveformViewport?.clientWidth || 800) * state.waveformZoom;
+    const currentPx = (current / duration) * trackWidth;
+    DOM.waveformPlayhead.style.left = `${currentPx}px`;
+    if (DOM.waveformPlayheadBadge) {
+      DOM.waveformPlayheadBadge.style.left = `${currentPx}px`;
+      DOM.waveformPlayheadBadge.textContent = formatTimeMs(current);
+    }
+
+    if (state.isPlaying && state.waveformZoom > 1.0 && DOM.waveformViewport) {
+      const vpWidth = DOM.waveformViewport.clientWidth;
+      const targetScroll = currentPx - vpWidth / 2;
+      DOM.waveformViewport.scrollLeft = Math.max(0, targetScroll);
+    }
+  }
+}
+
+export function stopMedia() {
+  const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+  if (activeMedia) {
+    activeMedia.pause();
+    activeMedia.currentTime = state.loopActive ? state.loopStart : 0;
+    state.isPlaying = false;
+    updatePlayPauseButton();
+    onMediaTimeUpdate();
+    renderWaveform();
+  }
+}
+
+export function toggleLoop() {
+  state.loopActive = !state.loopActive;
+  if (DOM.btnLoopToggle) {
+    DOM.btnLoopToggle.classList.toggle('active', state.loopActive);
+  }
+  if (state.loopActive) {
+    const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+    const dur = activeMedia?.duration || state.audioDuration || 30.0;
+    if (!state.loopEnd || state.loopEnd <= state.loopStart) {
+      state.loopEnd = dur;
+    }
+  }
+  updateStatsDisplay();
+  renderWaveform();
+}
+
+export function jumpToStartA() {
+  const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+  if (activeMedia) {
+    activeMedia.currentTime = state.loopActive ? state.loopStart : 0;
+    onMediaTimeUpdate();
+    renderWaveform();
+  }
+}
+
+export function jumpToEndB() {
+  const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+  if (activeMedia) {
+    const dur = activeMedia.duration || state.audioDuration || 0;
+    activeMedia.currentTime = state.loopActive ? state.loopEnd : dur;
+    onMediaTimeUpdate();
+    renderWaveform();
+  }
+}
+
+export function seekRelative(seconds) {
+  const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+  if (activeMedia) {
+    const dur = activeMedia.duration || state.audioDuration || 0;
+    activeMedia.currentTime = Math.max(0, Math.min(dur, activeMedia.currentTime + seconds));
+    onMediaTimeUpdate();
+    renderWaveform();
+  }
 }
 
 // 1. PDF Document Loading & Page Rendering
@@ -428,6 +757,7 @@ function selectTrack(trackId) {
       showReaderError('Audio did not start.');
     });
   }
+  loadWaveformForTrack(trackId);
 }
 
 function selectVideo(videoFilename) {
@@ -1016,33 +1346,120 @@ function initEventListeners() {
       state.isPlaying = false;
       updatePlayPauseButton();
     });
-    DOM.audioPlayer.addEventListener('timeupdate', () => {
-      if (state.activeMediaType !== 'audio') return;
-      const current = DOM.audioPlayer.currentTime || 0;
-      const duration = DOM.audioPlayer.duration || 0;
-      if (DOM.timeCurrent) DOM.timeCurrent.textContent = formatTime(current);
-      if (DOM.timeTotal && duration > 0) DOM.timeTotal.textContent = formatTime(duration);
-      if (DOM.playerProgressBar && duration > 0) {
-        DOM.playerProgressBar.style.width = `${(current / duration) * 100}%`;
+    DOM.audioPlayer.addEventListener('timeupdate', onMediaTimeUpdate);
+    DOM.audioPlayer.addEventListener('loadedmetadata', () => {
+      state.audioDuration = DOM.audioPlayer.duration || 0;
+      if (!state.loopEnd || state.loopEnd > state.audioDuration) {
+        state.loopEnd = state.audioDuration;
       }
+      updateStatsDisplay();
+      renderWaveform();
     });
   }
 
   // Video Timeline Tracking
   if (DOM.embeddedVideo) {
-    DOM.embeddedVideo.addEventListener('timeupdate', () => {
-      if (state.activeMediaType !== 'video') return;
-      const current = DOM.embeddedVideo.currentTime || 0;
-      const duration = DOM.embeddedVideo.duration || 0;
-      if (DOM.timeCurrent) DOM.timeCurrent.textContent = formatTime(current);
-      if (DOM.timeTotal && duration > 0) DOM.timeTotal.textContent = formatTime(duration);
-      if (DOM.playerProgressBar && duration > 0) {
-        DOM.playerProgressBar.style.width = `${(current / duration) * 100}%`;
-      }
-    });
+    DOM.embeddedVideo.addEventListener('timeupdate', onMediaTimeUpdate);
     DOM.embeddedVideo.addEventListener('ended', () => {
       state.isPlaying = false;
       updatePlayPauseButton();
+    });
+  }
+
+  // Waveform Transport Buttons
+  if (DOM.btnStop) DOM.btnStop.addEventListener('click', stopMedia);
+  if (DOM.btnLoopToggle) DOM.btnLoopToggle.addEventListener('click', toggleLoop);
+  if (DOM.btnJumpStart) DOM.btnJumpStart.addEventListener('click', jumpToStartA);
+  if (DOM.btnRewind) DOM.btnRewind.addEventListener('click', () => seekRelative(-3));
+  if (DOM.btnForward) DOM.btnForward.addEventListener('click', () => seekRelative(3));
+  if (DOM.btnJumpEnd) DOM.btnJumpEnd.addEventListener('click', jumpToEndB);
+
+  // Waveform Zoom Controls (up to 5x)
+  if (DOM.btnWfZoomIn) {
+    DOM.btnWfZoomIn.addEventListener('click', () => {
+      state.waveformZoom = Math.min(5.0, Number((state.waveformZoom + 1.0).toFixed(1)));
+      updateWaveformZoom();
+    });
+  }
+  if (DOM.btnWfZoomOut) {
+    DOM.btnWfZoomOut.addEventListener('click', () => {
+      state.waveformZoom = Math.max(1.0, Number((state.waveformZoom - 1.0).toFixed(1)));
+      updateWaveformZoom();
+    });
+  }
+  if (DOM.btnWfZoomFit) {
+    DOM.btnWfZoomFit.addEventListener('click', () => {
+      state.waveformZoom = 1.0;
+      updateWaveformZoom();
+    });
+  }
+
+  // Waveform Scrubbing & Handle Dragging
+  if (DOM.waveformCanvasTrack) {
+    const handleScrub = (clientX) => {
+      const rect = DOM.waveformCanvasTrack.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
+      const dur = activeMedia?.duration || state.audioDuration || 30.0;
+      const targetTime = pos * dur;
+      if (state.activeTrimHandle === 'left') {
+        state.loopStart = Math.min(targetTime, Math.max(0, state.loopEnd - 0.2));
+        updateStatsDisplay();
+        renderWaveform();
+      } else if (state.activeTrimHandle === 'right') {
+        state.loopEnd = Math.max(targetTime, Math.min(dur, state.loopStart + 0.2));
+        updateStatsDisplay();
+        renderWaveform();
+      } else if (state.isScrubbing) {
+        if (activeMedia) activeMedia.currentTime = targetTime;
+        onMediaTimeUpdate();
+        renderWaveform();
+      }
+    };
+
+    DOM.waveformCanvasTrack.addEventListener('mousedown', (e) => {
+      if (e.target === DOM.waveformTrimLeft) {
+        state.activeTrimHandle = 'left';
+      } else if (e.target === DOM.waveformTrimRight) {
+        state.activeTrimHandle = 'right';
+      } else {
+        state.isScrubbing = true;
+        handleScrub(e.clientX);
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (state.isScrubbing || state.activeTrimHandle) {
+        handleScrub(e.clientX);
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      state.isScrubbing = false;
+      state.activeTrimHandle = null;
+    });
+
+    DOM.waveformCanvasTrack.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      if (e.target === DOM.waveformTrimLeft) {
+        state.activeTrimHandle = 'left';
+      } else if (e.target === DOM.waveformTrimRight) {
+        state.activeTrimHandle = 'right';
+      } else {
+        state.isScrubbing = true;
+        handleScrub(touch.clientX);
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (state.isScrubbing || state.activeTrimHandle) {
+        handleScrub(e.touches[0].clientX);
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      state.isScrubbing = false;
+      state.activeTrimHandle = null;
     });
   }
 
@@ -1109,24 +1526,54 @@ function initEventListeners() {
       }
     });
   }
+
+  // Dynamic theme synchronization from platform
+  window.addEventListener('message', (event) => {
+    if (!event || !event.data) return;
+    if (event.data.type === 'enquiz-theme-change' && event.data.theme) {
+      const root = document.documentElement;
+      if (event.data.custom) {
+        root.setAttribute('data-theme', 'user');
+        const vars = event.data.custom.vars || {};
+        for (const [key, val] of Object.entries(vars)) {
+          if (typeof val === 'string') root.style.setProperty(key, val);
+        }
+      } else {
+        root.setAttribute('data-theme', event.data.theme);
+        root.removeAttribute('style');
+      }
+      root.setAttribute('data-painted-theme', event.data.theme);
+    }
+  });
+
+  window.addEventListener('storage', (event) => {
+    if (event && event.key === 'enquiz-theme' && event.newValue) {
+      document.documentElement.setAttribute('data-theme', event.newValue);
+      document.documentElement.setAttribute('data-painted-theme', event.newValue);
+    }
+  });
 }
 
 // 8. Bootstrap on DOM Ready
-document.addEventListener('DOMContentLoaded', async () => {
-  initEventListeners();
-  // Field starts empty as specified in Section 2, Point 4
-  if (DOM.pageNumberInput) {
-    DOM.pageNumberInput.value = '';
-  }
-  await initSession();
-  await loadManifestData();
-  await loadProgress();
-  try { await loadPdfViewer(); }
-  catch (error) { showReaderError('The book viewer did not open.'); }
-  const urlParams = new URLSearchParams(window.location.search);
-  const requestedLesson = (urlParams.get('lesson') || '').toUpperCase();
-  if (requestedLesson === '1B') await switchLesson('1B');
-  else if (requestedLesson === '1C') await switchLesson('1C');
-  else if (requestedLesson === '1D') await switchLesson('1D');
-  else await switchLesson('1A');
-});
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', async () => {
+    initEventListeners();
+    // Field starts empty as specified in Section 2, Point 4
+    if (DOM.pageNumberInput) {
+      DOM.pageNumberInput.value = '';
+    }
+    generateSyntheticPeaks();
+    updateWaveformZoom();
+    await initSession();
+    await loadManifestData();
+    await loadProgress();
+    try { await loadPdfViewer(); }
+    catch (error) { showReaderError('The book viewer did not open.'); }
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedLesson = (urlParams.get('lesson') || '').toUpperCase();
+    if (requestedLesson === '1B') await switchLesson('1B');
+    else if (requestedLesson === '1C') await switchLesson('1C');
+    else if (requestedLesson === '1D') await switchLesson('1D');
+    else await switchLesson('1A');
+  });
+}

@@ -22,7 +22,7 @@ const users=[
   ...extraUsers
 ];
 const capabilities={legacyHistory:true,originalAccounts:true,learningWorkbench:true,learningStudyBridge:true};
-const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.wav':'audio/wav','.ttf':'font/ttf','.json':'application/json','.ico':'image/x-icon'};
+const mime={'.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.html':'text/html','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.wav':'audio/wav','.ttf':'font/ttf','.json':'application/json','.ico':'image/x-icon','.pdf':'application/pdf'};
 async function bytes(req){let size=0;const chunks=[];for await(const chunk of req){size+=chunk.length;if(size>20*1024*1024)throw Object.assign(Error('Local request too large.'),{status:413});chunks.push(chunk);}return Buffer.concat(chunks);}
 export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null,azure=null}={}){
   if(!existsSync(resolve(assets,'index.html')))throw Error('Build local assets first: node ops/build-learning-production-assets.mjs');
