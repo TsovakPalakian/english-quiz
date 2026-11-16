@@ -29,3 +29,13 @@ Environment: нет. После Editor проверка ждет 3 карточ�
 Строка коммита проверки: `Expected three Speakout editor cards and the studio on the student page.`
 
 Строка коммита колонки: `Removed the Speakout lesson list from the studio.`
+
+Кнопки студии получают действие до загрузки просмотрщика. Файл просмотрщика при текущей сессии отдается как скрипт. Сессия не сбрасывается.
+
+Строка коммита кнопок: `Kept Speakout controls alive when the PDF viewer opens with the current session.`
+
+Повторное открытие урока не считает запрос книги повторной загрузкой каталога. Проверка импорта не принимает путь просмотрщика за модуль теста.
+
+`node --test test/test-provider-removal.mjs`
+
+Строка коммита проверок: `Stopped the Speakout viewer path from failing the import and cache checks.`

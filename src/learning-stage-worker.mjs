@@ -212,6 +212,7 @@ export default {async fetch(request,env){
     const actor=await auth.current(request);if(!actor)throw new StudyError(401,'Sign in first.');
     if(speakoutViewer){
       const response=await env.ASSETS.fetch(request),headers=new Headers(response.headers);
+      if(response.ok)headers.set('Content-Type','text/javascript');
       headers.set('Cache-Control','private, no-store');headers.set('X-Content-Type-Options','nosniff');
       headers.set('Content-Security-Policy',stageContentPolicy.replace("frame-ancestors 'none'","frame-ancestors 'self'"));
       return new Response(response.body,{status:response.status,headers});

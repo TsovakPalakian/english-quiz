@@ -21,6 +21,7 @@ test('Speakout PDF viewer is refused without a session and served after sign-in'
   assert.match(await closed.text(), /Sign in first/);
   const open = await worker.fetch(new Request('https://' + host + '/speakout/vendor/pdfjs/pdf.worker.mjs'), env({id: '1', role: 'DEVELOPER', login: 'dev'}));
   assert.equal(open.status, 200);
+  assert.equal(open.headers.get('content-type'), 'text/javascript');
   assert.equal(await open.text(), 'pdf-viewer');
   const outside = await worker.fetch(new Request('https://' + host + '/speakout/vendor/pdfjs/../app.js'), env({id: '1', role: 'DEVELOPER', login: 'dev'}));
   assert.equal(outside.status, 501);
@@ -31,6 +32,15 @@ test('Student Speakout page shows the studio without editor blocks', () => {
   assert.match(source, /studioEmbed\|\|readBlocks\(\)/);
   assert.equal(source.includes('studioEmbed+readBlocks()'), false);
   assert.match(source, /\{0:'1A',1:'1B',2:'1C',3:'1D'\}/);
+});
+
+test('Studio buttons are wired before the PDF viewer loads', () => {
+  const source = readFileSync(new URL('../speakout/web/app.js', import.meta.url), 'utf8');
+  const boot = source.slice(source.indexOf('DOMContentLoaded'));
+  assert.ok(boot.indexOf('initEventListeners()') >= 0);
+  assert.ok(boot.indexOf('initEventListeners()') < boot.indexOf('loadPdfViewer()'));
+  assert.match(source, /import\('\.\/vendor\/pdfjs\/pdf\.mjs'\)/);
+  assert.equal(/^\s*import\s+\*\s+as\s+pdfjsLib\b/m.test(source), false);
 });
 
 test('Lessons 1B and 1C open their book pages and tracks', () => {

@@ -92,7 +92,8 @@ test('Phase 1 Approved UI Specification Verification (Screenshot 17 & 18)', asyn
 
   await t.test('3. Client JS implements PDF.js rendering, page input fallback, and clean speech recording', () => {
     // PDF.js import and worker setup
-    assert.match(js, /import \* as pdfjsLib from '\.\/vendor\/pdfjs\/pdf\.mjs'/, 'Must import PDF.js module');
+    assert.match(js, /import\('\.\/vendor\/pdfjs\/pdf\.mjs'\)/, 'Must import PDF.js after the page is ready');
+    assert.doesNotMatch(js, /import \* as pdfjsLib from '\.\/vendor\/pdfjs\/pdf\.mjs'/, 'Must not stop the page on the viewer import');
     assert.match(js, /GlobalWorkerOptions\.workerSrc/, 'Must configure PDF.js workerSrc');
 
     // Page input fallback (empty input opens page 1)

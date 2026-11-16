@@ -704,7 +704,9 @@ try{
   assert.equal(await page.evaluate(()=>JSON.stringify(lmState)),originalLesson);
   await page.locator('#speakouteditor [data-nav-back]').click();await page.locator('#speakout.on').waitFor();
   await page.waitForFunction(()=>document.querySelector('#speakoutList [data-speak-lesson]')===document.activeElement);
-  const readsBeforeCachedOpen=speakFullReads,requestsBeforeCachedOpen=requests.filter(path=>path.startsWith('/api/speakout/')).length;
+  const studioPaint=path=>path==='/api/speakout/session'||path==='/api/speakout/manifest'||path.startsWith('/api/speakout/progress')||path.startsWith('/api/speakout/document');
+  const catalogSpeakout=path=>path.startsWith('/api/speakout/')&&!studioPaint(path);
+  const readsBeforeCachedOpen=speakFullReads,requestsBeforeCachedOpen=requests.filter(catalogSpeakout).length;
   yield "93. #speakoutList [data-speak-lesson] / click";
   await page.locator('#speakoutList [data-speak-lesson]').first().click();
   await page.locator('#speakouteditor.on #seEdit:visible').waitFor();
@@ -712,7 +714,7 @@ try{
   assert.equal(await page.locator('#seBlocks>.se-block').count(),0,'Reopened student page hides editor blocks');
   await page.locator('#seEdit').click();
   assert.match(await page.locator('#seBlocks').innerText(),/Speakout reading fixture/);
-  assert.equal(requests.filter(path=>path.startsWith('/api/speakout/')).length,requestsBeforeCachedOpen,'Cached navigation sends no Speakout request');
+  assert.equal(requests.filter(catalogSpeakout).length,requestsBeforeCachedOpen,'Cached navigation sends no Speakout request');
   yield "94. waitForFunction";
   await page.waitForFunction(()=>Object.values(JSON.parse(localStorage.getItem('english-speakout-materials-v1'))).some(row=>row.cacheRevision==='1'));
   await page.locator('#speakouteditor [data-nav-back]').click();await page.locator('#speakout.on').waitFor();

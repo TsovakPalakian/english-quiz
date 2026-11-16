@@ -3,15 +3,22 @@
 // Dual-page PDF Keys modal (SO3_A1_SB_AK.pdf p. 2–3 & 4–5), Plyr media dock,
 // Two-phase speech playback (Pearson track -> student recording), SQLite persistence (speakout.db).
 
-import * as pdfjsLib from './vendor/pdfjs/pdf.mjs';
+let pdfjsLib = null;
+let pdfViewerLoad = null;
 
-// Configure PDF.js Worker
-try {
-  if (pdfjsLib && pdfjsLib.GlobalWorkerOptions) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.mjs';
+function loadPdfViewer() {
+  if (pdfjsLib) return Promise.resolve(pdfjsLib);
+  if (!pdfViewerLoad) {
+    pdfViewerLoad = import('./vendor/pdfjs/pdf.mjs').then(lib => {
+      pdfjsLib = lib;
+      if (lib && lib.GlobalWorkerOptions) lib.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.mjs';
+      return lib;
+    }).catch(error => {
+      pdfViewerLoad = null;
+      throw error;
+    });
   }
-} catch (e) {
-  console.warn('PDF.js worker setup note:', e.message);
+  return pdfViewerLoad;
 }
 
 // Security utility: HTML escaping
@@ -173,6 +180,7 @@ async function loadMainDocument(docType = 'studentBook', initialPage = 1) {
   }
 
   try {
+    await loadPdfViewer();
     const docUrl = `/api/speakout/document?doc=${encodeURIComponent(docType)}`;
     const loadingTask = pdfjsLib.getDocument({ url: docUrl, withCredentials: true });
     const doc = await loadingTask.promise;
@@ -302,6 +310,7 @@ async function openKeysModal() {
   if (DOM.keysTitleRight) DOM.keysTitleRight.textContent = `Page ${rightPageNum}`;
 
   try {
+    await loadPdfViewer();
     if (!state.keysPdfDoc) {
       const loading = pdfjsLib.getDocument({
         url: '/api/speakout/document?doc=keys',
@@ -1112,6 +1121,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initSession();
   await loadManifestData();
   await loadProgress();
+  try { await loadPdfViewer(); }
+  catch (error) { showReaderError('The book viewer did not open.'); }
   const urlParams = new URLSearchParams(window.location.search);
   const requestedLesson = (urlParams.get('lesson') || '').toUpperCase();
   if (requestedLesson === '1B') await switchLesson('1B');
