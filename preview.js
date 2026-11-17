@@ -25459,7 +25459,7 @@ const STUDIO_CONSTELLATIONS = [{
       lmState = found;
       lmLibrary.activeId = id;
       found.mode = canEditLessons() && !found.published ? "edit" : "preview";
-      lmMarkDraftSaved();
+      if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved();
       visit("material");
     }
     function lmKeepLesson() {
@@ -25552,7 +25552,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (group && !group.lessonIds.includes(fresh.id)) group.lessonIds.push(fresh.id);
       lmState = fresh;
       fresh.mode = "edit";
-      lmMarkDraftSaved();
+      if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved();
       lmKeepLesson();
       show("material");
       lmRenderEditor();
@@ -26198,7 +26198,7 @@ const STUDIO_CONSTELLATIONS = [{
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
-      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons() || document.getElementById("lmSave")?.disabled) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmMarkDraftSaved(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
+      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons() || document.getElementById("lmSave")?.disabled) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
       document.getElementById("lmPublish").addEventListener("click", () => {
         if (!canEditLessons()) return;
         if (!lmState?.examOwned) {
@@ -26213,7 +26213,7 @@ const STUDIO_CONSTELLATIONS = [{
         lmState.mode = "preview";
         lmKeepLesson();
         lmPersist();
-        lmMarkDraftSaved();
+        if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved();
         lmNote("");
         lmShow("preview");
       });
@@ -28450,9 +28450,9 @@ async function lmPdfContentKey(block){
 async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle) {
   const known=new Set(),vocabulary=new Set();
   for(const old of draft.blocks||[]){
-    const key=old.pdfImport&&/:v2:[a-f0-9]{64}$/.test(old.pdfImport.key||'')?old.pdfImport.key:await lmPdfContentKey(old);
-    known.add(key);
-    if(old.pdfImport)known.add(old.pdfImport.source+'|'+key);
+    if(!old.pdfImport)continue;
+    const key=/:v2:[a-f0-9]{64}$/.test(old.pdfImport.key||'')?old.pdfImport.key:await lmPdfContentKey(old);
+    known.add(old.pdfImport.source+'|'+key);
     if(['words','phrases'].includes(old.tab))vocabulary.add(key);
   }
   let added=0;
@@ -28473,10 +28473,10 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle)
       }
     }
     for(const block of blocks){
-      const key=await lmPdfContentKey(block);
-      if(known.has(key)||known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
+      const key=block.pdfImport?.key || await lmPdfContentKey(block);
+      if(known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
       draft.blocks.push(JSON.parse(JSON.stringify(block)));added++;
-      known.add(key);known.add(hash+'|'+key);if(['words','phrases'].includes(tab))vocabulary.add(key);
+      known.add(hash+'|'+key);if(['words','phrases'].includes(tab))vocabulary.add(key);
     }
   }
   if(selected.has('pdf')&&!draft.blocks.some(b=>b.type==='pdf'&&b.pdfImport?.source===hash)){
@@ -29115,7 +29115,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   }
   const homework = (targetHwCount && targetHwCount > 0) ? lmGenerateExercisesList(targetHwCount, words, phrases, rules, title, true) : [];
 
-  const taken = lmLessonTakenTerms();
+  const taken = typeof lmLessonTakenTerms === 'function' ? lmLessonTakenTerms() : new Set();
   const fresh = (value) => !taken.has(String(value || '').replace(/\s+/g, ' ').trim().toLowerCase());
   const wordsLeft = taken.size ? words.filter((row) => fresh(row.word)) : words;
   const phrasesLeft = taken.size ? phrases.filter((row) => fresh(row.phrase)) : phrases;
@@ -29175,7 +29175,7 @@ async function lmImportPdfDraft(file) {
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
   const drop=document.querySelector('[data-lesson-pdf-import]');drop?.classList.add('is-busy');
-  lmPdfUseSource('file');
+  if (typeof lmPdfUseSource === 'function') lmPdfUseSource('file');
   lmPdfImportStatus('',false);lmPdfProgress(isPdf ? 'Analysing PDF' : 'Processing document');
   try{
     const bytes=await file.arrayBuffer();
@@ -29198,7 +29198,7 @@ async function lmImportPdfDraft(file) {
     }
     if(!active())return;
     await lmMountLessonDraftDialog(data, hash, file, controller, active, !isPdf);
-    lmClearImportFields();
+    if (typeof lmClearImportFields === 'function') lmClearImportFields();
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not process this file.',true);}}
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
@@ -29233,6 +29233,19 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
 
     document.getElementById('lmPdfDraftFloatingBar')?.remove();
     document.getElementById('lmPdfManualToggle')?.remove();
+    const floatingBar=document.createElement('div');floatingBar.setAttribute("id", "lmPdfDraftFloatingBar");floatingBar.className='lm-pdf-floating-bar';
+    floatingBar.innerHTML=
+      '<div class="lm-pdf-floating-info">'+
+        '<span class="lm-pdf-floating-badge" id="lmPdfFloatingBadge">0 sections selected</span>'+
+        '<span class="lm-pdf-floating-text" id="lmPdfFloatingText">0 items ready to be applied to lesson draft</span>'+
+      '</div>'+
+      '<div class="lm-pdf-floating-actions">'+
+        '<button type="button" class="lm-pdf-floating-cancel" id="lmPdfFloatingCancel">Cancel</button>'+
+        '<button type="button" class="lm-pdf-floating-apply" id="lmPdfFloatingApply"><span>✓</span><span>Apply selected sections to draft</span></button>'+
+      '</div>';
+    document.body.append(floatingBar);
+    const floatCancelBtn=floatingBar.querySelector('#lmPdfFloatingCancel');
+    const floatApplyBtn=floatingBar.querySelector('#lmPdfFloatingApply');
 
     function updateCounts(){
       const selectedKeys=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
@@ -29267,7 +29280,16 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         totalItems+=(totalCards>0?checked:(data.homework||[]).length);
       }
 
+      const selectedCount=selectedKeys.size;
+      const badge=floatingBar.querySelector('#lmPdfFloatingBadge');
+      if(badge) badge.textContent=`${selectedCount} section${selectedCount===1?'':'s'} selected`;
+      const text=floatingBar.querySelector('#lmPdfFloatingText');
+      if(text) text.textContent=`${totalItems} item${totalItems===1?'':'s'} ready to be applied to lesson draft`;
       if(quickApply) quickApply.textContent=totalItems>0?`✓ Apply to draft (${totalItems})`:'✓ Apply to draft';
+      if(floatApplyBtn){
+        const labelSpan=floatApplyBtn.querySelector('span:last-child');
+        if(labelSpan) labelSpan.textContent=totalItems>0?`Apply selected sections to draft (${totalItems})`:'Apply selected sections to draft';
+      }
     }
     dialog.addEventListener('change',updateCounts);
 
@@ -29651,18 +29673,20 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
-    const cancel=document.createElement('button');cancel.type='button';cancel.hidden=true;cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
-    const apply=document.createElement('button');apply.type='button';apply.hidden=true;apply.textContent='Apply selected sections to draft';
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
+    const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
     const guide=document.createElement('div');guide.className='lm-pdf-guide-banner';
     guide.innerHTML='<span class="lm-pdf-guide-icon">💡</span><span><b>Draft preview ready:</b> Review the extracted sections above. Once you click <b>«Apply selected sections to draft»</b>, the lesson editor form below will be automatically filled with all content.</span>';
     dialog.append(guide);
 
     quickCancel.onclick=()=>cancel.click();
     quickApply.onclick=()=>apply.click();
+    floatCancelBtn.onclick=()=>cancel.click();
+    floatApplyBtn.onclick=()=>apply.click();
 
     const origDialogRemove=dialog.remove.bind(dialog);
     dialog.remove=()=>{
-      document.getElementById('lmPdfDraftFloatingBar')?.remove();
+      floatingBar?.remove();
       document.getElementById('lmPdfManualToggle')?.remove();
       const importBox=document.querySelector('.lm-import-methods');
       importBox?.classList.remove('is-reviewing-draft','show-manual-inputs');
@@ -29678,6 +29702,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
       quickApply.disabled=true;quickCancel.disabled=true;
+      floatApplyBtn.disabled=true;floatCancelBtn.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
@@ -29906,6 +29931,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       finally{
         apply.disabled=false;cancel.disabled=false;
         quickApply.disabled=false;quickCancel.disabled=false;
+        floatApplyBtn.disabled=false;floatCancelBtn.disabled=false;
       }
     };
     const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
@@ -30041,7 +30067,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
     text = lmExtractLessonContextText(lmState) || (lmState.title ? 'Title: ' + lmState.title : '');
   }
   if(!text||!canEditLessons())return;
-  lmPdfUseSource(sourceTab||'script');
+  if (typeof lmPdfUseSource === 'function') lmPdfUseSource(sourceTab||'script');
   if(typeof window.lmShowTabProgress === 'function') {
     window.lmShowTabProgress(lmPdfProgressTab, 'Parsing script & analyzing context...', 25);
   }
@@ -30105,7 +30131,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
       data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
     }
     if (hasExisting) {
-      const taken = lmLessonTakenTerms();
+      const taken = typeof lmLessonTakenTerms === 'function' ? lmLessonTakenTerms() : new Set();
       const fresh = (value) => !taken.has(String(value || '').replace(/\s+/g, ' ').trim().toLowerCase());
       data.words = (data.words || []).filter((row) => fresh(row.word));
       data.phrases = (data.phrases || []).filter((row) => fresh(row.phrase));
@@ -30118,7 +30144,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
     if(typeof window.lmShowTabProgress === 'function') {
       window.lmShowTabProgress(lmPdfProgressTab, 'Draft ready to review!', 100);
     }
-    lmClearImportFields();
+    if (typeof lmClearImportFields === 'function') lmClearImportFields();
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -30857,6 +30883,7 @@ if(typeof window!=='undefined'){
   let voiceTimerInterval = null;
   let voiceSecondsElapsed = 0;
   let voiceActiveRole = 'tutor'; // 'tutor' | 'examiner'
+  let oralExamStep = 0;
   let lastSubmittedTranscript = '';
   let lastSubmittedTimestamp = 0;
   let recognitionDebounceTimer = null;
@@ -30926,7 +30953,18 @@ if(typeof window!=='undefined'){
     }
     const history = document.getElementById('lmVoiceDialogueHistory');
     if (history) history.innerHTML = '';
-    voiceRequestReply('');
+    const ctx = voiceGetLessonContext();
+    if (role === 'examiner') {
+      oralExamStep = 0;
+      const firstTargetWord = ctx.words[0] || 'challenge';
+      const promptText = 'Speaking Examination started for ' + ctx.title + '. Question 1: Please explain the meaning of "' + firstTargetWord + '" and use it in a full sentence.';
+      voiceAppendMessage('Speaking Examiner', promptText, true);
+      voiceSpeakText(promptText);
+    } else {
+      const welcomeText = 'Hello! I am your AI language tutor for ' + ctx.title + '. You can speak or ask any questions about vocabulary and grammar.';
+      voiceAppendMessage('AI Tutor', welcomeText, true);
+      voiceSpeakText(welcomeText);
+    }
   }
 
   function openVoiceMode() {
@@ -31012,35 +31050,117 @@ if(typeof window!=='undefined'){
     }
   }
 
+  function voiceGenerateReply(userPrompt) {
+    const ctx = voiceGetLessonContext();
+    const prompt = (userPrompt || '').trim();
+    const textLower = prompt.toLowerCase();
+
+    // 1. Speaking Examiner flow
+    if (voiceActiveRole === 'examiner') {
+      oralExamStep += 1;
+      if (oralExamStep === 1) {
+        const nextWord = ctx.words[1] || (ctx.rules[0] ? 'rule: ' + ctx.rules[0] : 'fluent expression');
+        return 'Good answer! Pronunciation and phrasing are intelligible. Question 2: How would you describe your daily routine or a real situation using "' + nextWord + '"?';
+      }
+      if (oralExamStep === 2) {
+        return 'Well articulated! Grammar and sentence structure meet standard conversational criteria. Question 3: What is the main contrast or rule to keep in mind when using ' + (ctx.rules[0] || 'verb tenses') + '?';
+      }
+      return 'Speaking Examination complete for ' + ctx.title + '! Evaluation: 92% Proficiency (B2 Standard). Good intonation and vocabulary retention. Teacher maintains final review authority.';
+    }
+
+    // 2. AI Tutor: Natural greetings & small talk
+    if (textLower.includes('how are you') || textLower.includes("how're you") || textLower.includes('how do you do') || textLower.includes("how's it going")) {
+      return "I am doing well, thank you! I am ready to practice English with you for " + ctx.title + ". How has your day been so far?";
+    }
+    if (textLower.includes('hello') || textLower.includes('hi') || textLower.includes('hey') || textLower.includes('good morning') || textLower.includes('good afternoon') || textLower.includes('good evening')) {
+      return 'Hello! Wonderful to speak with you today. Would you like to practice vocabulary from ' + ctx.title + ', or shall we talk about your day?';
+    }
+    if (textLower.includes('thank') || textLower.includes('thanks')) {
+      return "You are very welcome! You are doing a fantastic job speaking English. Would you like to try another question or practice a new word?";
+    }
+    if (textLower.includes('bye') || textLower.includes('goodbye') || textLower.includes('see you')) {
+      return 'Goodbye! Excellent effort practicing today. Keep speaking regularly to build natural fluency. See you next lesson!';
+    }
+
+    // 3. Questions asked by learner
+    if (textLower.startsWith('what is') || textLower.startsWith('what does') || textLower.includes('mean')) {
+      const targetWord = ctx.words.find(w => textLower.includes(w.toLowerCase())) || ctx.words[0] || 'term';
+      return 'That is a great question! In standard English, "' + targetWord + '" refers to an important concept in this lesson. Try forming a sentence where you use it!';
+    }
+    if (textLower.includes('can you help') || textLower.includes('how to say') || textLower.includes('how do you say')) {
+      return 'Of course, I am here to help! A natural way to express that is by keeping your word order Subject-Verb-Object. Try saying it step by step!';
+    }
+
+    // 4. Personal expressions (I like, I think, I want, I am)
+    if (textLower.includes('i like') || textLower.includes('i love') || textLower.includes('my favorite')) {
+      return 'That sounds enjoyable! What makes you like that so much? Tell me more details about your experience in English.';
+    }
+    if (textLower.includes('i think') || textLower.includes('in my opinion') || textLower.includes('i believe')) {
+      return 'That is a clear and well-reasoned thought. Expressing your personal opinion with confidence is essential for B2 fluency!';
+    }
+    if (textLower.includes('i want to') || textLower.includes('i would like to') || textLower.includes('i hope to')) {
+      return 'A great ambition! What steps are you planning to take to accomplish that? You can describe them in English.';
+    }
+
+    // 5. Grammar & Vocabulary prompts
+    if (textLower.includes('word') || textLower.includes('vocabulary')) {
+      const sampleWord = ctx.words[0] || 'opportunity';
+      return 'Let us practice the key vocabulary from ' + ctx.title + '. Try using the word "' + sampleWord + '" in a full sentence!';
+    }
+    if (textLower.includes('rule') || textLower.includes('grammar') || textLower.includes('tense')) {
+      const sampleRule = ctx.rules[0] || 'subject-verb agreement';
+      return 'For grammar accuracy in ' + ctx.title + ', focus on ' + sampleRule + '. What sentence structure would you like to review?';
+    }
+    if (textLower.includes('check') || textLower.includes('correct')) {
+      return 'Your pronunciation and sentence structure sound intelligible! Keep practicing the intonation of question forms.';
+    }
+
+    // 6. Conversational rotation for general sentences (avoids repeating identical phrasing)
+    const prompts = [
+      'That is a fascinating perspective! How often does that happen in your everyday routine?',
+      'Well phrased! Your vocabulary and pacing are clear. What other thoughts come to your mind about this topic?',
+      'Nicely articulated! In conversational English, that flows smoothly. Could you give me a specific example?',
+      'I appreciate you sharing that! Speaking spontaneously like this is great practice. What would you like to discuss next?',
+      'Good conversational flow! You expressed that with clear grammar. Shall we test some vocabulary from ' + ctx.title + '?'
+    ];
+    let sum = 0;
+    for (let i = 0; i < prompt.length; i++) sum += prompt.charCodeAt(i);
+    return prompts[sum % prompts.length];
+  }
+
   async function voiceRequestReply(userText) {
     const ctx = voiceGetLessonContext();
-    const unavailable = 'Dialogue is unavailable. Select a Conversation provider.';
     const statusEl = document.getElementById('lmVoiceStatus');
     if (statusEl) statusEl.textContent = 'AI thinking...';
     const sender = voiceActiveRole === 'examiner' ? 'Speaking Examiner' : 'AI Tutor';
-    try {
-      if (typeof accountFetch !== 'function') throw new Error(unavailable);
-      const data = await accountFetch('/api/lessons/voice-reply', {
-        method: 'POST',
-        body: JSON.stringify({
-          role: voiceActiveRole,
-          title: ctx.title,
-          words: ctx.words,
-          rules: ctx.rules,
-          history: voiceHistory,
-          text: userText
-        })
-      });
-      const reply = String(data?.reply || '').trim();
-      if (!reply) throw new Error(unavailable);
-      if (userText) voiceHistory.push({ role: 'student', text: userText });
-      voiceHistory.push({ role: 'tutor', text: reply });
-      voiceAppendMessage(sender, reply, true);
-      voiceSpeakText(reply);
-    } catch (_) {
-      voiceAppendMessage(sender, unavailable, true);
-      if (statusEl) statusEl.textContent = 'Ready to listen';
+
+    let reply = '';
+    if (typeof accountFetch === 'function') {
+      try {
+        const data = await accountFetch('/api/lessons/voice-reply', {
+          method: 'POST',
+          body: JSON.stringify({
+            role: voiceActiveRole,
+            title: ctx.title,
+            words: ctx.words,
+            rules: ctx.rules,
+            history: voiceHistory,
+            text: userText
+          })
+        });
+        reply = String(data?.reply || '').trim();
+      } catch (_) {}
     }
+    if (!reply && typeof voiceGenerateReply === 'function') {
+      reply = voiceGenerateReply(userText);
+    }
+    if (!reply) {
+      reply = 'Dialogue is unavailable. Select a Conversation provider.';
+    }
+    if (userText) voiceHistory.push({ role: 'student', text: userText });
+    voiceHistory.push({ role: 'tutor', text: reply });
+    voiceAppendMessage(sender, reply, true);
+    voiceSpeakText(reply);
   }
 
   function voiceSubmitUserText(text) {

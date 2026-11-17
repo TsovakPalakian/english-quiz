@@ -239,9 +239,9 @@ async function lmPdfContentKey(block){
 async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle) {
   const known=new Set(),vocabulary=new Set();
   for(const old of draft.blocks||[]){
-    const key=old.pdfImport&&/:v2:[a-f0-9]{64}$/.test(old.pdfImport.key||'')?old.pdfImport.key:await lmPdfContentKey(old);
-    known.add(key);
-    if(old.pdfImport)known.add(old.pdfImport.source+'|'+key);
+    if(!old.pdfImport)continue;
+    const key=/:v2:[a-f0-9]{64}$/.test(old.pdfImport.key||'')?old.pdfImport.key:await lmPdfContentKey(old);
+    known.add(old.pdfImport.source+'|'+key);
     if(['words','phrases'].includes(old.tab))vocabulary.add(key);
   }
   let added=0;
@@ -262,10 +262,10 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle)
       }
     }
     for(const block of blocks){
-      const key=await lmPdfContentKey(block);
-      if(known.has(key)||known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
+      const key=block.pdfImport?.key || await lmPdfContentKey(block);
+      if(known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
       draft.blocks.push(JSON.parse(JSON.stringify(block)));added++;
-      known.add(key);known.add(hash+'|'+key);if(['words','phrases'].includes(tab))vocabulary.add(key);
+      known.add(hash+'|'+key);if(['words','phrases'].includes(tab))vocabulary.add(key);
     }
   }
   if(selected.has('pdf')&&!draft.blocks.some(b=>b.type==='pdf'&&b.pdfImport?.source===hash)){
@@ -904,7 +904,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   }
   const homework = (targetHwCount && targetHwCount > 0) ? lmGenerateExercisesList(targetHwCount, words, phrases, rules, title, true) : [];
 
-  const taken = lmLessonTakenTerms();
+  const taken = typeof lmLessonTakenTerms === 'function' ? lmLessonTakenTerms() : new Set();
   const fresh = (value) => !taken.has(String(value || '').replace(/\s+/g, ' ').trim().toLowerCase());
   const wordsLeft = taken.size ? words.filter((row) => fresh(row.word)) : words;
   const phrasesLeft = taken.size ? phrases.filter((row) => fresh(row.phrase)) : phrases;
@@ -964,7 +964,7 @@ async function lmImportPdfDraft(file) {
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
   const drop=document.querySelector('[data-lesson-pdf-import]');drop?.classList.add('is-busy');
-  lmPdfUseSource('file');
+  if (typeof lmPdfUseSource === 'function') lmPdfUseSource('file');
   lmPdfImportStatus('',false);lmPdfProgress(isPdf ? 'Analysing PDF' : 'Processing document');
   try{
     const bytes=await file.arrayBuffer();
@@ -987,7 +987,7 @@ async function lmImportPdfDraft(file) {
     }
     if(!active())return;
     await lmMountLessonDraftDialog(data, hash, file, controller, active, !isPdf);
-    lmClearImportFields();
+    if (typeof lmClearImportFields === 'function') lmClearImportFields();
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not process this file.',true);}}
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
@@ -1022,6 +1022,19 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
 
     document.getElementById('lmPdfDraftFloatingBar')?.remove();
     document.getElementById('lmPdfManualToggle')?.remove();
+    const floatingBar=document.createElement('div');floatingBar.setAttribute("id", "lmPdfDraftFloatingBar");floatingBar.className='lm-pdf-floating-bar';
+    floatingBar.innerHTML=
+      '<div class="lm-pdf-floating-info">'+
+        '<span class="lm-pdf-floating-badge" id="lmPdfFloatingBadge">0 sections selected</span>'+
+        '<span class="lm-pdf-floating-text" id="lmPdfFloatingText">0 items ready to be applied to lesson draft</span>'+
+      '</div>'+
+      '<div class="lm-pdf-floating-actions">'+
+        '<button type="button" class="lm-pdf-floating-cancel" id="lmPdfFloatingCancel">Cancel</button>'+
+        '<button type="button" class="lm-pdf-floating-apply" id="lmPdfFloatingApply"><span>✓</span><span>Apply selected sections to draft</span></button>'+
+      '</div>';
+    document.body.append(floatingBar);
+    const floatCancelBtn=floatingBar.querySelector('#lmPdfFloatingCancel');
+    const floatApplyBtn=floatingBar.querySelector('#lmPdfFloatingApply');
 
     function updateCounts(){
       const selectedKeys=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
@@ -1056,7 +1069,16 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         totalItems+=(totalCards>0?checked:(data.homework||[]).length);
       }
 
+      const selectedCount=selectedKeys.size;
+      const badge=floatingBar.querySelector('#lmPdfFloatingBadge');
+      if(badge) badge.textContent=`${selectedCount} section${selectedCount===1?'':'s'} selected`;
+      const text=floatingBar.querySelector('#lmPdfFloatingText');
+      if(text) text.textContent=`${totalItems} item${totalItems===1?'':'s'} ready to be applied to lesson draft`;
       if(quickApply) quickApply.textContent=totalItems>0?`✓ Apply to draft (${totalItems})`:'✓ Apply to draft';
+      if(floatApplyBtn){
+        const labelSpan=floatApplyBtn.querySelector('span:last-child');
+        if(labelSpan) labelSpan.textContent=totalItems>0?`Apply selected sections to draft (${totalItems})`:'Apply selected sections to draft';
+      }
     }
     dialog.addEventListener('change',updateCounts);
 
@@ -1440,18 +1462,20 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
-    const cancel=document.createElement('button');cancel.type='button';cancel.hidden=true;cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
-    const apply=document.createElement('button');apply.type='button';apply.hidden=true;apply.textContent='Apply selected sections to draft';
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
+    const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
     const guide=document.createElement('div');guide.className='lm-pdf-guide-banner';
     guide.innerHTML='<span class="lm-pdf-guide-icon">💡</span><span><b>Draft preview ready:</b> Review the extracted sections above. Once you click <b>«Apply selected sections to draft»</b>, the lesson editor form below will be automatically filled with all content.</span>';
     dialog.append(guide);
 
     quickCancel.onclick=()=>cancel.click();
     quickApply.onclick=()=>apply.click();
+    floatCancelBtn.onclick=()=>cancel.click();
+    floatApplyBtn.onclick=()=>apply.click();
 
     const origDialogRemove=dialog.remove.bind(dialog);
     dialog.remove=()=>{
-      document.getElementById('lmPdfDraftFloatingBar')?.remove();
+      floatingBar?.remove();
       document.getElementById('lmPdfManualToggle')?.remove();
       const importBox=document.querySelector('.lm-import-methods');
       importBox?.classList.remove('is-reviewing-draft','show-manual-inputs');
@@ -1467,6 +1491,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
       quickApply.disabled=true;quickCancel.disabled=true;
+      floatApplyBtn.disabled=true;floatCancelBtn.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
@@ -1695,6 +1720,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       finally{
         apply.disabled=false;cancel.disabled=false;
         quickApply.disabled=false;quickCancel.disabled=false;
+        floatApplyBtn.disabled=false;floatCancelBtn.disabled=false;
       }
     };
     const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
@@ -1830,7 +1856,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
     text = lmExtractLessonContextText(lmState) || (lmState.title ? 'Title: ' + lmState.title : '');
   }
   if(!text||!canEditLessons())return;
-  lmPdfUseSource(sourceTab||'script');
+  if (typeof lmPdfUseSource === 'function') lmPdfUseSource(sourceTab||'script');
   if(typeof window.lmShowTabProgress === 'function') {
     window.lmShowTabProgress(lmPdfProgressTab, 'Parsing script & analyzing context...', 25);
   }
@@ -1894,7 +1920,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
       data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
     }
     if (hasExisting) {
-      const taken = lmLessonTakenTerms();
+      const taken = typeof lmLessonTakenTerms === 'function' ? lmLessonTakenTerms() : new Set();
       const fresh = (value) => !taken.has(String(value || '').replace(/\s+/g, ' ').trim().toLowerCase());
       data.words = (data.words || []).filter((row) => fresh(row.word));
       data.phrases = (data.phrases || []).filter((row) => fresh(row.phrase));
@@ -1907,7 +1933,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
     if(typeof window.lmShowTabProgress === 'function') {
       window.lmShowTabProgress(lmPdfProgressTab, 'Draft ready to review!', 100);
     }
-    lmClearImportFields();
+    if (typeof lmClearImportFields === 'function') lmClearImportFields();
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}

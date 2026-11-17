@@ -1959,7 +1959,7 @@
       lmState = found;
       lmLibrary.activeId = id;
       found.mode = canEditLessons() && !found.published ? "edit" : "preview";
-      lmMarkDraftSaved();
+      if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved();
       visit("material");
     }
     function lmKeepLesson() {
@@ -2052,7 +2052,7 @@
       if (group && !group.lessonIds.includes(fresh.id)) group.lessonIds.push(fresh.id);
       lmState = fresh;
       fresh.mode = "edit";
-      lmMarkDraftSaved();
+      if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved();
       lmKeepLesson();
       show("material");
       lmRenderEditor();
@@ -2698,7 +2698,7 @@
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
-      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons() || document.getElementById("lmSave")?.disabled) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmMarkDraftSaved(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
+      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons() || document.getElementById("lmSave")?.disabled) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
       document.getElementById("lmPublish").addEventListener("click", () => {
         if (!canEditLessons()) return;
         if (!lmState?.examOwned) {
@@ -2713,7 +2713,7 @@
         lmState.mode = "preview";
         lmKeepLesson();
         lmPersist();
-        lmMarkDraftSaved();
+        if (typeof lmMarkDraftSaved === "function") lmMarkDraftSaved();
         lmNote("");
         lmShow("preview");
       });
