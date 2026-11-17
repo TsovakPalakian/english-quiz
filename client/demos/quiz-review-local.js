@@ -320,6 +320,16 @@ document.addEventListener('click',e=>{
         expansion.set('type-'+(view==='word'?contextId:job.lessonId+'-'+job.senseId)+'-'+job.type,true);expansion.set('item-'+job.versionId,true);
       }
       pollFailures=0;await refresh();
+      if(action==='open-generated'){
+        const item=document.querySelector('[data-item="'+job.versionId+'"]');
+        if(item){
+          for(let node=item;node;node=node.parentElement)if(node.tagName==='DETAILS'){
+            node.open=true;
+            if(node.dataset?.expand)expansion.set(node.dataset.expand,true);
+          }
+          item.scrollIntoView({block:'center'});
+        }
+      }
     });return;
   }
   if(action==='create'){openEditor();return;}if(!q)return;

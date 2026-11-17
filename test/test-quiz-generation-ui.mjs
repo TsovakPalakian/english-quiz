@@ -79,6 +79,7 @@ yield "00. Fixture and browser setup";
     await page.locator('[data-job="'+gap.id+'"]').waitFor({state:'attached'});
     await page.locator('[data-job="'+gap.id+'"]').evaluate(n=>n.open=true);
     await page.locator('[data-job="'+gap.id+'"] [data-action="open-generated"]').click();
+    await page.locator('[data-item="'+gap.versionId+'"]').evaluate(node=>{for(let n=node;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true;}).catch(()=>{});
     await page.locator('[data-item="'+gap.versionId+'"] .verified').waitFor({state:'visible'});
     yield "09. waitForFunction";
     await page.waitForFunction(async id=>{const {jobs}=await(await fetch('/local/generation')).json();return jobs.find(j=>j.id===id)?.state==='review';},choice.id);
