@@ -260,14 +260,35 @@
     <div id="speech-studio-modal" class="speech-studio-overlay hidden">
       <div class="speech-studio-card studio-modal-container">
         <div class="studio-header">
-          <div class="studio-title-box">
-            <span class="studio-title">🎙️ Speech Verification Studio</span>
-            <span id="speech-studio-track-tag" class="track-tag">Track 1.01</span>
-            <span id="speech-engine-tag" class="engine-tag" hidden>Web Speech Engine</span>
+          <div class="studio-header-left">
+            <button id="btn-back-speech-studio" class="btn-studio-back" title="Back to lesson">◀ Back</button>
+            <div class="studio-title-box">
+              <span class="studio-title">🎙️ Speech Verification Studio</span>
+              <span id="speech-studio-track-tag" class="track-tag">Track 1.01</span>
+              <span id="speech-engine-tag" class="engine-tag" hidden>Web Speech Engine</span>
+            </div>
           </div>
           <button id="btn-close-speech-studio" class="btn-close" title="Close Studio">&times;</button>
         </div>
         <div class="studio-body">
+          <!-- Track & Exercise Navigation Bar -->
+          <div class="studio-nav-bar">
+            <div class="nav-bar-left">
+              <span class="nav-label">Exercises:</span>
+              <div id="speech-studio-pills" class="track-pills-list">
+                <button class="btn-track-pill active" data-track="1.01">1.01 • Ex 1A & 1B</button>
+                <button class="btn-track-pill" data-track="1.02">1.02 • Ex 2A</button>
+                <button class="btn-track-pill" data-track="1.03">1.03 • Ex 2C</button>
+                <button class="btn-track-pill btn-pill-purple" data-track="VB1.01">VB1.01 • Vocab</button>
+              </div>
+            </div>
+            <div class="nav-bar-right">
+              <button id="btn-prev-studio-track" class="btn-nav-step disabled" title="Previous exercise">◀ Prev</button>
+              <span id="speech-nav-step-counter" class="nav-step-counter">1 of 4</span>
+              <button id="btn-next-studio-track" class="btn-nav-step" title="Next exercise">Next ▶</button>
+            </div>
+          </div>
+
           <!-- Target Phrase -->
           <div>
             <div class="section-label">TARGET MODEL PHRASE</div>
@@ -313,6 +334,7 @@
               </div>
               <div class="waveform-card-controls">
                 <span id="student-time-mini" class="time-mini">0:00 / 0:03</span>
+                <button id="btn-studio-record-voice" class="btn-record-voice" title="Record student voice">🎙️ Record</button>
                 <button id="btn-play-student-sample" class="btn-play-mini primary">▶ Play</button>
               </div>
             </div>
@@ -332,6 +354,10 @@
               </div>
             </div>
           </div>
+
+          <!-- Isolated studio audio players -->
+          <audio id="studio-audio-player" preload="none"></audio>
+          <audio id="studio-student-player" preload="none"></audio>
 
           <!-- Evaluation & Words -->
           <div class="eval-row">

@@ -145,6 +145,14 @@ const DOM = {
   btnRecordSpeech: el('btn-record-speech'),
   speechStudioModal: el('speech-studio-modal'),
   btnCloseSpeechStudio: el('btn-close-speech-studio'),
+  btnBackSpeechStudio: el('btn-back-speech-studio'),
+  btnStudioRecordVoice: el('btn-studio-record-voice'),
+  btnPrevStudioTrack: el('btn-prev-studio-track'),
+  btnNextStudioTrack: el('btn-next-studio-track'),
+  speechNavStepCounter: el('speech-nav-step-counter'),
+  speechStudioPills: el('speech-studio-pills'),
+  studioAudioPlayer: el('studio-audio-player'),
+  studioStudentPlayer: el('studio-student-player'),
   targetPhraseText: el('target-phrase-text'),
   recognizedSpeechText: el('recognized-speech-text'),
   speechMatchPill: el('speech-match-pill'),
@@ -975,16 +983,228 @@ export function drawUltraDetailWave(canvasId, seed = 1.0) {
   }
 }
 
+export const LESSON_STUDIO_TRACKS = {
+  '1A': [
+    { id: '1.01', label: '1.01 • Ex 1A & 1B', title: 'Lesson 1A Exercise 1A & 1B: Listen and match countries.' },
+    { id: '1.02', label: '1.02 • Ex 2A', title: 'Lesson 1A Exercise 2A: Grammar - I am, You are' },
+    { id: '1.03', label: '1.03 • Ex 2C', title: 'Lesson 1A Exercise 2C: Pronunciation - Contractions' },
+    { id: 'VB1.01', label: 'VB1.01 • Vocab', title: 'Vocabulary Bank 1A: Countries and Nationalities', purple: true }
+  ],
+  '1B': [
+    { id: '1.04', label: '1.04 • Ex 1A', title: 'Lesson 1B Exercise 1A: Jobs and articles a/an' },
+    { id: '1.0X', label: '1.0X • Ex 2', title: 'Lesson 1B Exercise 2: Present simple be' },
+    { id: 'VB1.02', label: 'VB1.02 • Vocab', title: 'Vocabulary Bank 1B: Jobs', purple: true },
+    { id: 'VB1.03', label: 'VB1.03 • Vocab', title: 'Vocabulary Bank 1B: Personal details', purple: true }
+  ],
+  '1C': [
+    { id: '1.05', label: '1.05 • Ex 1', title: 'Lesson 1C Exercise 1: Questions and the alphabet' },
+    { id: '1.06', label: '1.06 • Ex 2', title: 'Lesson 1C Exercise 2: Checking in' },
+    { id: '1.07', label: '1.07 • Ex 3', title: 'Lesson 1C Exercise 3: Spelling names' },
+    { id: '1.08', label: '1.08 • Ex 4', title: 'Lesson 1C Exercise 4: Booking forms' }
+  ],
+  '1D': [
+    { id: '1.01', label: '1D • BBC Video', title: 'Lesson 1D: BBC Street Interviews & Vlogs' }
+  ]
+};
+
+function getStudioTracksForLesson(lessonId) {
+  return LESSON_STUDIO_TRACKS[lessonId] || LESSON_STUDIO_TRACKS['1A'];
+}
+
+function renderStudioNavigation() {
+  const tracks = getStudioTracksForLesson(state.activeLesson || '1A');
+  if (!tracks.some(t => t.id === state.activeTrack)) {
+    state.activeTrack = tracks[0].id;
+  }
+  const activeIdx = tracks.findIndex(t => t.id === state.activeTrack);
+  const currentTrackObj = tracks[activeIdx >= 0 ? activeIdx : 0];
+
+  if (DOM.speechStudioPills) {
+    DOM.speechStudioPills.innerHTML = tracks.map(t =>
+      `<button type="button" class="btn-track-pill${t.id === state.activeTrack ? ' active' : ''}${t.purple ? ' btn-pill-purple' : ''}" data-studio-track="${escapeHtml(t.id)}">${escapeHtml(t.label)}</button>`
+    ).join('');
+    DOM.speechStudioPills.querySelectorAll('[data-studio-track]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const trId = btn.getAttribute('data-studio-track');
+        if (trId) switchStudioTrack(trId);
+      });
+    });
+  }
+
+  if (DOM.btnPrevStudioTrack) {
+    const isFirst = activeIdx <= 0;
+    DOM.btnPrevStudioTrack.disabled = isFirst;
+    DOM.btnPrevStudioTrack.classList.toggle('disabled', isFirst);
+  }
+  if (DOM.btnNextStudioTrack) {
+    const isLast = activeIdx >= tracks.length - 1;
+    DOM.btnNextStudioTrack.disabled = isLast;
+    DOM.btnNextStudioTrack.classList.toggle('disabled', isLast);
+  }
+  if (DOM.speechNavStepCounter) {
+    DOM.speechNavStepCounter.textContent = `${activeIdx + 1} of ${tracks.length}`;
+  }
+  const trackTag = el('speech-studio-track-tag');
+  if (trackTag) {
+    trackTag.textContent = `Track ${state.activeTrack}`;
+  }
+  state.targetPhrase = currentTrackObj.title;
+  if (DOM.targetPhraseText) {
+    DOM.targetPhraseText.textContent = `"${currentTrackObj.title}"`;
+  }
+}
+
+function switchStudioTrack(trackId) {
+  state.activeTrack = trackId;
+  const player = state.studioAudioPlayer || (state.studioAudioPlayer = el('studio-audio-player') || new Audio());
+  player.pause();
+  player.currentTime = 0;
+  player.src = `/api/speakout/audio?track=${encodeURIComponent(trackId)}`;
+  state.studioIsPlaying = false;
+  if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '▶ Play';
+  if (DOM.playheadTeacher) DOM.playheadTeacher.style.left = '0px';
+  if (DOM.badgeTeacher) DOM.badgeTeacher.textContent = '.000';
+  if (DOM.teacherTimeMini) DOM.teacherTimeMini.textContent = '0:00 / 0:03';
+
+  renderStudioNavigation();
+
+  state.audioChunks = [];
+  state.lastRecordedAudioUrl = null;
+  if (DOM.playheadStudent) DOM.playheadStudent.style.left = '0px';
+  if (DOM.badgeStudent) DOM.badgeStudent.textContent = '.000';
+  if (DOM.studentTimeMini) DOM.studentTimeMini.textContent = '0:00 / 0:03';
+  if (DOM.speechAccuracyPill) {
+    DOM.speechAccuracyPill.textContent = '🎯 Accuracy: -- • Ready to record';
+    DOM.speechAccuracyPill.className = 'eval-badge';
+  }
+  if (DOM.speechWordBreakdown) {
+    DOM.speechWordBreakdown.innerHTML = '';
+  }
+  if (DOM.recognizedSpeechText) {
+    DOM.recognizedSpeechText.textContent = '';
+  }
+
+  const seed = (trackId.charCodeAt(0) * 7 + trackId.length * 13) % 10 / 10 + 1.1;
+  drawUltraDetailWave('cvs-teacher', seed);
+  drawUltraDetailWave('cvs-student', seed + 0.8);
+}
+
+function toggleStudioModelPlay() {
+  const player = state.studioAudioPlayer || (state.studioAudioPlayer = el('studio-audio-player') || new Audio());
+  const trackUrl = `/api/speakout/audio?track=${encodeURIComponent(state.activeTrack || '1.01')}`;
+  if (!player.getAttribute('src') || player.getAttribute('src') !== trackUrl) {
+    player.src = trackUrl;
+  }
+  player.onended = () => {
+    state.studioIsPlaying = false;
+    if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '▶ Play';
+    if (DOM.playheadTeacher) DOM.playheadTeacher.style.left = '0px';
+    if (DOM.badgeTeacher) DOM.badgeTeacher.textContent = '.000';
+    if (DOM.teacherTimeMini) DOM.teacherTimeMini.textContent = '0:00 / 0:03';
+  };
+  if (player.paused) {
+    player.currentTime = 0;
+    player.play().then(() => {
+      state.studioIsPlaying = true;
+      if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '⏸ Pause';
+      animateStudioTeacherPlayhead();
+    }).catch(() => showSpeechError('Model audio could not be played.'));
+  } else {
+    player.pause();
+    state.studioIsPlaying = false;
+    if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '▶ Play';
+  }
+}
+
+function animateStudioTeacherPlayhead() {
+  const player = state.studioAudioPlayer;
+  if (!player || player.paused || !state.studioIsPlaying) {
+    if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '▶ Play';
+    return;
+  }
+  const dur = player.duration && !isNaN(player.duration) ? player.duration : 3.0;
+  const current = player.currentTime || 0;
+  const pct = Math.min(1, Math.max(0, current / dur));
+  if (DOM.playheadTeacher && DOM.viewportTeacher) {
+    const w = DOM.viewportTeacher.clientWidth || 600;
+    DOM.playheadTeacher.style.left = `${pct * w}px`;
+  }
+  if (DOM.badgeTeacher) {
+    DOM.badgeTeacher.textContent = '.' + String(Math.floor((current % 1) * 1000)).padStart(3, '0');
+  }
+  if (DOM.teacherTimeMini) {
+    const curSec = Math.floor(current);
+    const durSec = Math.floor(dur);
+    DOM.teacherTimeMini.textContent = `0:${String(curSec).padStart(2, '0')} / 0:${String(durSec).padStart(2, '0')}`;
+  }
+  if (!player.paused && !player.ended) {
+    requestAnimationFrame(animateStudioTeacherPlayhead);
+  } else {
+    state.studioIsPlaying = false;
+    if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '▶ Play';
+  }
+}
+
+function toggleStudioStudentPlay() {
+  if (!state.lastRecordedAudioUrl) {
+    showSpeechError('No student recording available. Press 🎙️ Record first.');
+    return;
+  }
+  const player = state.studioStudentPlayer || (state.studioStudentPlayer = el('studio-student-player') || new Audio());
+  if (player.src !== state.lastRecordedAudioUrl) {
+    player.src = state.lastRecordedAudioUrl;
+  }
+  player.onended = () => {
+    if (DOM.btnPlayStudentSample) DOM.btnPlayStudentSample.textContent = '▶ Play';
+    if (DOM.playheadStudent) DOM.playheadStudent.style.left = '0px';
+    if (DOM.badgeStudent) DOM.badgeStudent.textContent = '.000';
+    if (DOM.studentTimeMini) DOM.studentTimeMini.textContent = '0:00 / 0:03';
+  };
+  if (player.paused) {
+    player.currentTime = 0;
+    player.play().then(() => {
+      if (DOM.btnPlayStudentSample) DOM.btnPlayStudentSample.textContent = '⏸ Pause';
+      animateStudioStudentPlayhead();
+    }).catch(() => showSpeechError('Student recording could not be played.'));
+  } else {
+    player.pause();
+    if (DOM.btnPlayStudentSample) DOM.btnPlayStudentSample.textContent = '▶ Play';
+  }
+}
+
+function animateStudioStudentPlayhead() {
+  const player = state.studioStudentPlayer;
+  if (!player || player.paused) {
+    if (DOM.btnPlayStudentSample) DOM.btnPlayStudentSample.textContent = '▶ Play';
+    return;
+  }
+  const dur = player.duration && !isNaN(player.duration) ? player.duration : 3.0;
+  const current = player.currentTime || 0;
+  const pct = Math.min(1, Math.max(0, current / dur));
+  if (DOM.playheadStudent && DOM.viewportStudent) {
+    const w = DOM.viewportStudent.clientWidth || 600;
+    DOM.playheadStudent.style.left = `${pct * w}px`;
+  }
+  if (DOM.badgeStudent) {
+    DOM.badgeStudent.textContent = '.' + String(Math.floor((current % 1) * 1000)).padStart(3, '0');
+  }
+  if (DOM.studentTimeMini) {
+    const curSec = Math.floor(current);
+    const durSec = Math.floor(dur);
+    DOM.studentTimeMini.textContent = `0:${String(curSec).padStart(2, '0')} / 0:${String(durSec).padStart(2, '0')}`;
+  }
+  if (!player.paused && !player.ended) {
+    requestAnimationFrame(animateStudioStudentPlayhead);
+  } else {
+    if (DOM.btnPlayStudentSample) DOM.btnPlayStudentSample.textContent = '▶ Play';
+  }
+}
+
 function openSpeechStudio() {
   if (DOM.speechStudioModal) {
     DOM.speechStudioModal.classList.remove('hidden');
-    if (DOM.targetPhraseText) {
-      DOM.targetPhraseText.textContent = `"${state.targetPhrase || 'Lesson 1A Exercise 1A & 1B: Listen and match countries.'}"`;
-    }
-    const trackTag = el('speech-studio-track-tag');
-    if (trackTag) {
-      trackTag.textContent = `Track ${state.activeTrack || '1.01'}`;
-    }
+    renderStudioNavigation();
     const modeLabel = getSpeechEngineLabel();
     if (DOM.speechEngineTag) {
       DOM.speechEngineTag.textContent = modeLabel;
@@ -1003,6 +1223,11 @@ function closeSpeechStudio() {
   if (DOM.speechStudioModal) {
     DOM.speechStudioModal.classList.add('hidden');
   }
+  if (state.studioAudioPlayer) {
+    try { state.studioAudioPlayer.pause(); } catch (e) {}
+  }
+  state.studioIsPlaying = false;
+  if (DOM.btnPlayModelSample) DOM.btnPlayModelSample.textContent = '▶ Play';
   if (state.isRecording) {
     state.suppressReview = true;
     toggleSpeechRecord();
@@ -1218,13 +1443,23 @@ async function toggleSpeechRecord() {
 }
 
 function updateRecordButton(recording) {
-  if (!DOM.btnRecordSpeech) return;
-  if (recording) {
-    DOM.btnRecordSpeech.classList.add('recording');
-    DOM.btnRecordSpeech.innerHTML = '<span class="rec-dot rec-active"></span><span>⏹ Stop Recording</span>';
-  } else {
-    DOM.btnRecordSpeech.classList.remove('recording');
-    DOM.btnRecordSpeech.innerHTML = '<span class="rec-dot"></span><span>🎙 Speech Record</span>';
+  if (DOM.btnRecordSpeech) {
+    if (recording) {
+      DOM.btnRecordSpeech.classList.add('recording');
+      DOM.btnRecordSpeech.innerHTML = '<span class="rec-dot rec-active"></span><span>⏹ Stop Recording</span>';
+    } else {
+      DOM.btnRecordSpeech.classList.remove('recording');
+      DOM.btnRecordSpeech.innerHTML = '<span class="rec-dot"></span><span>🎙 Speech Record</span>';
+    }
+  }
+  if (DOM.btnStudioRecordVoice) {
+    if (recording) {
+      DOM.btnStudioRecordVoice.classList.add('recording');
+      DOM.btnStudioRecordVoice.innerHTML = '⏹️ Stop';
+    } else {
+      DOM.btnStudioRecordVoice.classList.remove('recording');
+      DOM.btnStudioRecordVoice.innerHTML = '🎙️ Record';
+    }
   }
 }
 
@@ -1722,25 +1957,31 @@ function initEventListeners() {
   if (DOM.btnCloseSpeechStudio) {
     DOM.btnCloseSpeechStudio.addEventListener('click', closeSpeechStudio);
   }
-  if (DOM.btnPlayModelSample) {
-    DOM.btnPlayModelSample.addEventListener('click', () => {
-      if (DOM.audioPlayer) {
-        DOM.audioPlayer.currentTime = 0;
-        DOM.audioPlayer.play().then(() => {
-          state.isPlaying = true;
-          updatePlayPauseButton();
-        }).catch(() => showReaderError('Model audio did not start.'));
-      }
+  if (DOM.btnBackSpeechStudio) {
+    DOM.btnBackSpeechStudio.addEventListener('click', closeSpeechStudio);
+  }
+  if (DOM.btnStudioRecordVoice) {
+    DOM.btnStudioRecordVoice.addEventListener('click', toggleSpeechRecord);
+  }
+  if (DOM.btnPrevStudioTrack) {
+    DOM.btnPrevStudioTrack.addEventListener('click', () => {
+      const tracks = getStudioTracksForLesson(state.activeLesson || '1A');
+      const idx = tracks.findIndex(t => t.id === state.activeTrack);
+      if (idx > 0) switchStudioTrack(tracks[idx - 1].id);
     });
   }
-  if (DOM.btnPlayStudentSample) {
-    DOM.btnPlayStudentSample.addEventListener('click', () => {
-      if (state.lastRecordedAudioUrl) {
-        state.studentAudio?.pause();
-        state.studentAudio = new Audio(state.lastRecordedAudioUrl);
-        state.studentAudio.play().catch(() => showReaderError('Student recording did not start.'));
-      }
+  if (DOM.btnNextStudioTrack) {
+    DOM.btnNextStudioTrack.addEventListener('click', () => {
+      const tracks = getStudioTracksForLesson(state.activeLesson || '1A');
+      const idx = tracks.findIndex(t => t.id === state.activeTrack);
+      if (idx >= 0 && idx < tracks.length - 1) switchStudioTrack(tracks[idx + 1].id);
     });
+  }
+  if (DOM.btnPlayModelSample) {
+    DOM.btnPlayModelSample.addEventListener('click', toggleStudioModelPlay);
+  }
+  if (DOM.btnPlayStudentSample) {
+    DOM.btnPlayStudentSample.addEventListener('click', toggleStudioStudentPlay);
   }
 
   // Videoscripts Button: switches document viewer to Speakout_A1_SB_Videoscripts.pdf

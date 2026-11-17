@@ -36,4 +36,22 @@ test('Speakout Navigation Integration Verification', async (t) => {
     assert.doesNotMatch(indexHtml, />Pearson Speakout 3rd Edition</, 'Title text must be removed from header');
     assert.match(indexHtml, /class="level-pill"/, 'Level pill must remain in brand badge');
   });
+
+  await t.test('4. Speech Studio provides full exercise navigation, Back button, and voice record controls', () => {
+    assert.match(indexHtml, /id="btn-back-speech-studio"/, 'Studio must provide Back button in header');
+    assert.match(indexHtml, /class="[^"]*studio-nav-bar[^"]*"/, 'Studio must contain navigation bar for exercises');
+    assert.match(indexHtml, /id="speech-studio-pills"/, 'Studio must have container for exercise track pills');
+    assert.match(indexHtml, /id="btn-prev-studio-track"/, 'Studio must have Prev exercise step button');
+    assert.match(indexHtml, /id="btn-next-studio-track"/, 'Studio must have Next exercise step button');
+    assert.match(indexHtml, /id="speech-nav-step-counter"/, 'Studio must display step counter');
+    assert.match(indexHtml, /id="btn-studio-record-voice"/, 'Studio must contain dedicated voice record button');
+    assert.match(indexHtml, /id="studio-audio-player"/, 'Studio must have isolated model audio player');
+
+    assert.match(appJs, /function renderStudioNavigation/, 'app.js must implement renderStudioNavigation');
+    assert.match(appJs, /function switchStudioTrack/, 'app.js must implement switchStudioTrack');
+    assert.match(appJs, /function toggleStudioModelPlay/, 'app.js must implement isolated model playback');
+    assert.match(appJs, /LESSON_STUDIO_TRACKS/, 'app.js must provide track definitions per lesson');
+    assert.match(styleCss, /\.studio-nav-bar/, 'style.css must style studio navigation bar');
+    assert.match(styleCss, /\.btn-record-voice/, 'style.css must style voice record button');
+  });
 });
