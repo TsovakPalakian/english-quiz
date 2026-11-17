@@ -63,9 +63,8 @@ test('Speakout Studio Refinements & Multi-Theme Visual Verification', async (t) 
     assert.match(previewCss, /:root\[data-theme="aegean"\]\s*\{[^}]*--ink:\s*#E6F2FF;/, 'Aegean theme must provide luminous #E6F2FF --ink');
   });
 
-  await t.test('6. First audio track 1.01 is pre-initialized on bootstrap and play starts immediately', () => {
-    assert.match(js, /DOM\.audioPlayer\.src\s*=\s*`\/api\/speakout\/audio\?track=\$\{encodeURIComponent\(state\.activeTrack/, 'Audio source must be set on load');
-    assert.match(js, /function togglePlayPause\(\)[^}]*DOM\.audioPlayer\.src\s*=/s, 'togglePlayPause must safeguard uninitialized audio source');
+  await t.test('6. First audio track 1.01 starts on first Play click via togglePlayPause fallback without premature network requests on load', () => {
+    assert.match(js, /function togglePlayPause\(\)[^}]*DOM\.audioPlayer\.src\s*=/s, 'togglePlayPause must assign audio source if empty on play');
   });
 
   await t.test('7. Workspace centers PDF canvas and confines navigation to lesson page scope', () => {

@@ -1410,7 +1410,8 @@ function switchLesson(lessonId) {
   const defaultTrack = lessonId === '1B' ? '1.04' : (lessonId === '1C' ? '1.05' : '1.01');
   state.activeTrack = defaultTrack;
   if (DOM.audioPlayer) {
-    DOM.audioPlayer.src = `/api/speakout/audio?track=${encodeURIComponent(defaultTrack)}`;
+    DOM.audioPlayer.removeAttribute('src');
+    try { DOM.audioPlayer.load(); } catch (e) {}
   }
 
   const fallback = lessonId === '1B' || lessonId === '1C' ? view.page : 1;
@@ -1792,11 +1793,6 @@ if (typeof document !== 'undefined') {
     }
     generateSyntheticPeaks();
     updateWaveformZoom();
-
-    // Pre-initialize first audio track source so Play immediately starts sound
-    if (DOM.audioPlayer && !DOM.audioPlayer.getAttribute('src')) {
-      DOM.audioPlayer.src = `/api/speakout/audio?track=${encodeURIComponent(state.activeTrack || '1.01')}`;
-    }
 
     await initSession();
     await loadManifestData();
