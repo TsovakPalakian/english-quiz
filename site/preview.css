@@ -3299,6 +3299,17 @@ details.g-fold summary { cursor: pointer; font-weight: 700; }
 .lm-pdf-ring.is-indeterminate>span { animation:lm-pdf-turn 3s linear infinite reverse; }
 @keyframes lm-pdf-turn { to { transform:rotate(360deg); } }
 
+#lmSave:disabled,
+#lmSave.is-disabled { opacity: 0.45; cursor: not-allowed; background: var(--line); color: var(--mute); }
+.lm-current-lesson-header { flex-wrap: nowrap; gap: 12px; }
+.lm-current-lesson-header #lmCurrentLessonInfo,
+.lm-lesson-count-tools,
+.lm-lesson-count-tools #lmCountMaxBadge,
+.lm-lesson-count-tools #lmTaskTotalSummary { white-space: nowrap; }
+.lm-lesson-count-tools,
+.lm-lesson-count-tools #lmCountMaxBadge,
+.lm-lesson-count-tools #lmTaskTotalSummary { flex-shrink: 0; }
+
 /* Clean Numeric Input Without Arrows */
 .lm-no-spin,
 #lmTaskCountPerSection {
@@ -3551,7 +3562,7 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: var(--text, #1e293b);
+  color: var(--lm-ink, var(--ink, #1e293b));
   margin-bottom: 12px;
 }
 .lm-tf-options {
@@ -3569,7 +3580,7 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
   font-weight: 700;
   cursor: pointer;
   text-align: center;
-  color: var(--text, #334155);
+  color: var(--lm-ink, var(--ink, #334155));
   transition: all 0.15s ease;
 }
 .lm-tf-btn:hover {
@@ -3577,7 +3588,7 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
 }
 .lm-tf-btn.selected {
   border-color: var(--lm, #0284c7);
-  background: #e0f2fe;
+  background: var(--lm-soft, var(--acc-s, #e0f2fe));
   color: var(--lm, #0284c7);
 }
 .lm-tf-feedback {
@@ -3588,19 +3599,19 @@ audio.lm-player, video.lm-player { width: 100%; margin-top: 8px; }
   font-weight: 600;
 }
 .lm-tf-feedback.is-ok {
-  background: #dcfce7;
-  color: #14532d;
-  border: 1px solid #86efac;
+  background: var(--ok-s, #dcfce7);
+  color: var(--ok, #14532d);
+  border: 1px solid var(--ok, #86efac);
 }
 .lm-tf-feedback.is-no {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
+  background: var(--bad-s, #fee2e2);
+  color: var(--bad, #991b1b);
+  border: 1px solid var(--bad, #fca5a5);
 }
 .lm-tf-score-badge {
   display: inline-block;
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--ok-s, #dcfce7);
+  color: var(--ok, #15803d);
   font-size: 12px;
   font-weight: 700;
   padding: 3px 10px;
@@ -9480,6 +9491,11 @@ td.td-focused-col {
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
   padding: 12px 14px;
   background: var(--saas-subtle, color-mix(in srgb, var(--card, #ffffff) 92%, var(--ink, #0f172a)));
   border: 1px solid var(--saas-border, var(--line, #e2e8f0));

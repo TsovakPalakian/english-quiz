@@ -787,7 +787,7 @@
                   <div id="lmCurrentLessonInfo" style="font-size:13px; font-weight:600; color:#065f46;">
                     📚 Active Lesson: <strong id="lmCurrentLessonTitle"></strong> (<span id="lmCurrentLessonStats"></span>)
                   </div>
-                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--acc, #0284c7);">
+                  <div class="lm-lesson-count-tools" style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--acc, #0284c7);">
                     <span>Count:</span>
                     <input type="text" inputmode="numeric" pattern="[0-9]*" id="lmTaskCountPerSection" class="lm-no-spin" value="3" maxlength="2" style="width:44px; padding:6px 4px; font-size:13px; font-weight:700; border:1.5px solid var(--saas-border, #bae6fd); border-radius:6px; text-align:center;">
                     <span class="pill-badge" id="lmCountMaxBadge" style="font-size:11px; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-weight:600;">Max 30</span>
@@ -898,7 +898,7 @@
               <div class="lm-field-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <label for="lmDescription" class="lm-heading-label" style="margin:0;">Description</label>
               </div>
-              <textarea id="lmDescription" data-meta="description" maxlength="240"></textarea>
+              <textarea id="lmDescription" data-meta="description" maxlength="2400"></textarea>
             </div>
             <div class="lm-four">
               <label>Date<span class="date-control"><input id="lmDate" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="\d{4}-\d{2}-\d{2}" maxlength="10" data-meta="date" /><button class="date-picker-btn" type="button" data-date-picker="lmDate" aria-label="Choose date"></button></span></label>

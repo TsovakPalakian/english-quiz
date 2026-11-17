@@ -8,7 +8,7 @@ import {ExamService} from './learning-exams.mjs';
 import {GroupService} from './learning-groups.mjs';
 import {ArchiveService} from './learning-archive.mjs';
 import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './learning-legacy-read.mjs';
-import {speakoutLesson,speakoutRevisions,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout} from './learning-speakout.mjs';
+import {speakoutLesson,speakoutRevisions,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout,readSpeakoutProgress,saveSpeakoutProgress,saveSpeakoutSpeechRecord} from './learning-speakout.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './learning-media.mjs';
 import {SongMediaService} from './learning-song-media.mjs';
 import {ThemeMediaService} from './learning-theme-media.mjs';
@@ -25,6 +25,7 @@ import {ContentCopyService} from './learning-content-copy.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
 import {assessPronunciation,featuresFromWav,isPronunciationFeatures} from './pronunciation-match.mjs';
 import {createAzureTTSAdapter,AZURE_REFERENCE_VOICES} from './azure-speech-provider.mjs';
+import {lessonVoiceReply} from './speech-conversation-provider.mjs';
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 const json=(value,status=200,headers={})=>new Response(JSON.stringify(value),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 const cardKey=value=>{if(!/^[1-9]\d{0,15}$/.test(value||'')||!Number.isSafeInteger(Number(value)))throw new StudyError(400,'Invalid card ID.');return Number(value);};
@@ -147,26 +148,28 @@ export default {async fetch(request,env){
     const binaryWrite=method==='POST'&&(songUpload||lessonUpload||themePhoto),inline=path.match(/^\/api\/migration-media\/([a-f0-9]{64})$/);
     const pdfMeta=path==='/api/lessons/parse-pdf'&&method==='POST';
     const lessonAi=path==='/api/lessons/generate-ai'&&method==='POST';
+    const voiceReply=path==='/api/lessons/voice-reply'&&method==='POST';
     const lessonAssessPronounce=path==='/api/lessons/assess-pronunciation'&&method==='POST';
     const grammarEnrich=path==='/api/grammar/enrich'&&method==='POST';
     const grammarCustom=path==='/api/grammar/custom';
     const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||pdfMeta
       ||lessonAi
+      ||voiceReply
       ||lessonAssessPronounce
       ||grammarEnrich
       ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE')||(songUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest','/api/speakout/session'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest','/api/speakout/session','/api/speakout/progress'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/speakout/media','/api/speakout/audio','/api/speakout/video','/api/speakout/document'].includes(path)
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
     const publicPaths=['/','/preview.html','/preview.js','/preview.css','/theme-init.js','/main-bridge.js','/main-stage.css','/catalog-loader.js','/text-colors.js','/heic-to-1.6.6.js','/fflate-0.8.2.js','/chat-archive-worker.js','/heic-to-LICENSE.txt','/fflate-LICENSE.txt','/chat-media-dependencies.txt','/speakout-editor.js','/speakout-editor.css','/chat-background.png','/chat-icons.js','/chat-inter.ttf','/chat-font-license.txt','/almond-blossom.jpg','/favicon.svg','/favicon.png','/favicon.ico','/grammar.js','/lesson-data.js','/irregular.js','/speakout.js','/tense-bank.json','/demonstratives.js','/database-context.js','/material-quiz.js','/color-picker.js','/messages.js','/messages.css','/speakout/','/speakout/index.html','/speakout/app.js','/speakout/style.css'];
     const publicAsset=publicPaths.includes(path)||path.startsWith('/notification-audio/')||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     const speakoutViewer=['GET','HEAD'].includes(method)&&/^\/speakout\/vendor\/pdfjs\/[A-Za-z0-9._-]+$/.test(path);
-    const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers'].includes(path);
+    const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers','/api/speakout/progress','/api/speakout/speech/record'].includes(path);
     if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset)&&!speakoutViewer)throw new StudyError(501,'Not migrated. No production fallback.');
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
@@ -235,6 +238,8 @@ export default {async fetch(request,env){
       const store=stageR2Media(env);
       if(path==='/api/speakout/media')return method==='POST'?json(await uploadSpeakout(db,actor,{...location,expectedRevision:Number(url.searchParams.get('expectedRevision')),mutationId:url.searchParams.get('mutationId')},await boundedMediaBytes(request),request.headers.get('content-type')?.split(';')[0],url.searchParams.get('name'),store)):await speakoutMedia(db,actor,location,store,request);
       if(path==='/api/speakout/answers')return json(await answerSpeakout(db,actor,await body(request,JSON_BODY_LIMIT),store));
+      if(path==='/api/speakout/progress')return json(method==='GET'?await readSpeakoutProgress(db,actor):await saveSpeakoutProgress(db,actor,await body(request,8192)));
+      if(path==='/api/speakout/speech/record')return json(await saveSpeakoutSpeechRecord(db,actor,await body(request,524288)));
       if(path==='/api/speakout/audio'){
         const track=url.searchParams.get('track')||'1.01';
         const keyMap={'1.01':'speakout/a1/unit1/audio/1_01.mp3','1.02':'speakout/a1/unit1/audio/1_02.mp3','1.03':'speakout/a1/unit1/audio/1_03.mp3','1.04':'speakout/a1/unit1/audio/1_04.mp3','1.0X':'speakout/a1/unit1/audio/1_0x.mp3','1.05':'speakout/a1/unit1/audio/1_05.mp3','1.06':'speakout/a1/unit1/audio/1_06.mp3','1.07':'speakout/a1/unit1/audio/1_07.mp3','1.08':'speakout/a1/unit1/audio/1_08.mp3','VB1.01':'speakout/a1/unit1/audio/vb1_01.mp3','VB1.02':'speakout/a1/unit1/audio/vb1_02.mp3','VB1.03':'speakout/a1/unit1/audio/vb1_03.mp3','VB1.04':'speakout/a1/unit1/audio/vb1_04.mp3','wb_1_01':'speakout/a1/unit1/audio/wb_1_01.mp3','wb_1_02':'speakout/a1/unit1/audio/wb_1_02.mp3','wb_1_03':'speakout/a1/unit1/audio/wb_1_03.mp3','wb_1_04':'speakout/a1/unit1/audio/wb_1_04.mp3'};
@@ -311,6 +316,24 @@ export default {async fetch(request,env){
         quizTypes:bodyValue?.quizTypes||[],
         taskCount:bodyValue?.taskCount||3
       }));
+    }
+    if(voiceReply){
+      const bodyValue=await body(request,64000);
+      try{
+        return json(await lessonVoiceReply({
+          apiKey:env.WORKBENCH_GEMINI_KEY||'',
+          model:env.WORKBENCH_GEMINI_GENERATION_MODEL||'',
+          fetchImpl:globalThis.fetch,
+          role:bodyValue?.role,
+          title:bodyValue?.title,
+          words:bodyValue?.words,
+          rules:bodyValue?.rules,
+          history:bodyValue?.history,
+          text:bodyValue?.text
+        }));
+      }catch(error){
+        throw new StudyError(409,error?.status===409?error.message:'Dialogue is unavailable. Select a Conversation provider.');
+      }
     }
     if(lessonAssessPronounce){
       const bodyValue=await body(request,64000);

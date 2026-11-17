@@ -541,3 +541,184 @@ test('GET /api/speakout/media serves audio stream with byte-range support and ha
     f.close();
   }
 });
+
+test('GET and POST /api/speakout/progress records and reads user lesson progress', async () => {
+  const f = createFixture();
+  try {
+    // 1. Unauthenticated -> 401
+    f.setActor(null);
+    const unauthGet = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress'),
+      f.env
+    );
+    assert.equal(unauthGet.status, 401);
+
+    const unauthPost = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({lessonId: '1A', page: 8})
+      }),
+      f.env
+    );
+    assert.equal(unauthPost.status, 401);
+
+    // 2. Authenticated user saves progress -> 200
+    f.setActor({id: 'student-77', role: 'USER'});
+    const saveRes = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({lessonId: '1A', page: 8, completedSteps: ['step-1', 'step-2']})
+      }),
+      f.env
+    );
+    assert.equal(saveRes.status, 200);
+    const saveData = await saveRes.json();
+    assert.equal(saveData.success, true);
+    assert.equal(saveData.userId, 'student-77');
+    assert.equal(saveData.lessonId, '1A');
+    assert.equal(saveData.page, 8);
+
+    // 3. Read progress -> 200
+    const readRes = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress'),
+      f.env
+    );
+    assert.equal(readRes.status, 200);
+    const readData = await readRes.json();
+    assert.equal(readData.userId, 'student-77');
+    assert.equal(readData.progress.length, 1);
+    assert.equal(readData.progress[0].lesson_id, '1A');
+    assert.equal(readData.progress[0].current_page, 8);
+    assert.deepEqual(readData.progress[0].completed_steps, ['step-1', 'step-2']);
+
+    // 4. Update progress for same lesson -> UPSERT updates page
+    const updateRes = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({lessonId: '1A', page: 9})
+      }),
+      f.env
+    );
+    assert.equal(updateRes.status, 200);
+    const readUpdated = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress'),
+      f.env
+    );
+    const updatedData = await readUpdated.json();
+    assert.equal(updatedData.progress.length, 1);
+    assert.equal(updatedData.progress[0].current_page, 9);
+
+    // 5. Validation: invalid lessonId -> 400
+    const badLesson = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({lessonId: '9Z', page: 10})
+      }),
+      f.env
+    );
+    assert.equal(badLesson.status, 400);
+
+    // 6. Validation: invalid page -> 400
+    const badPage = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/progress', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({lessonId: '1A', page: 999})
+      }),
+      f.env
+    );
+    assert.equal(badPage.status, 400);
+  } finally {
+    f.close();
+  }
+});
+
+test('POST /api/speakout/speech/record saves student voice recording', async () => {
+  const f = createFixture();
+  try {
+    const dummyAudio = 'data:audio/webm;codecs=opus;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAAB+tuEU2bdLpNu4tTq4QVSalmU';
+
+    // 1. Unauthenticated -> 401
+    f.setActor(null);
+    const unauthPost = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/speech/record', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          userId: 1,
+          lessonId: '1A',
+          trackId: '1.01',
+          audioBase64: dummyAudio
+        })
+      }),
+      f.env
+    );
+    assert.equal(unauthPost.status, 401);
+
+    // 2. Authenticated -> 200
+    f.setActor({id: 'student-99', role: 'USER'});
+    const saveRes = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/speech/record', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          userId: 1,
+          lessonId: '1A',
+          trackId: '1.01',
+          audioBase64: dummyAudio
+        })
+      }),
+      f.env
+    );
+    assert.equal(saveRes.status, 200);
+    const saveData = await saveRes.json();
+    assert.equal(saveData.success, true);
+    assert.equal(saveData.userId, 'student-99');
+    assert.equal(saveData.lessonId, '1A');
+    assert.equal(saveData.trackId, '1.01');
+    assert.ok(saveData.id.startsWith('rec_'));
+
+    // Check DB row
+    const row = f.sql.prepare("SELECT user_id, lesson_id, track_id, audio_base64 FROM speakout_audio_recordings WHERE user_id = 'student-99'").get();
+    assert.ok(row);
+    assert.equal(row.lesson_id, '1A');
+    assert.equal(row.track_id, '1.01');
+    assert.equal(row.audio_base64, dummyAudio);
+
+    // 3. Validation: missing audioBase64 -> 400
+    const noAudio = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/speech/record', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          lessonId: '1A',
+          trackId: '1.01',
+          audioBase64: ''
+        })
+      }),
+      f.env
+    );
+    assert.equal(noAudio.status, 400);
+
+    // 4. Validation: invalid track -> 400
+    const badTrack = await stageWorker.fetch(
+      new Request('https://stage.example/api/speakout/speech/record', {
+        method: 'POST',
+        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          lessonId: '1A',
+          trackId: 'unknown.99',
+          audioBase64: dummyAudio
+        })
+      }),
+      f.env
+    );
+    assert.equal(badTrack.status, 400);
+  } finally {
+    f.close();
+  }
+});

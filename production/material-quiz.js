@@ -25,7 +25,16 @@
       else if(kind==='True / false'){
         let promptText=String(item.prompt||'Statement');
         const sayMatch=promptText.match(/Say:\s*["']([^"']+)["']/i);
-        if(sayMatch)promptText='The word "'+sayMatch[1]+'" correctly translates to Russian.';
+        if(sayMatch){
+          const word=sayMatch[1],meaning=item.meaning||item.answer||word;
+          promptText='The word "'+word+'" correctly translates to Russian as "'+meaning+'".';
+        }else{
+          const incompleteMatch=promptText.match(/^The word ["']([^"']+)["'] correctly translates to Russian\.?$/i);
+          if(incompleteMatch){
+            const word=incompleteMatch[1],meaning=item.meaning||word;
+            promptText='The word "'+word+'" correctly translates to Russian as "'+meaning+'".';
+          }
+        }
         const picked=String(given??'');
         const opts='<div class="lm-tf-options">'+
           '<button type="button" class="lm-tf-btn'+(picked==='true'?' selected':'')+'" data-mq-choice="'+index+'" value="true"'+lock+'>True'+(picked==='true'?' ✓':'')+'</button>'+

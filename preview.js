@@ -18831,63 +18831,70 @@ const STUDIO_CONSTELLATIONS = [{
 
   function getActiveNotifications() {
     const list = [];
+    const prefs = getNotificationSettings();
     const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
-    const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
 
-    // 1. Check for scheduled lesson today
-    let todayLessonFound = false;
-    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      const activeGroup = classGroups.find(g => g && g.date === today && !g.hidden);
-      if (activeGroup) {
-        todayLessonFound = true;
+    if (prefs.lessonReminders && typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      classGroups.filter((group) => group && group.date === today && !group.hidden).forEach((group) => {
         list.push({
-          id: 'lesson-today-' + (activeGroup.id || 'current'),
+          id: 'lesson-today-' + (group.id || 'current'),
           type: 'lesson',
+          open: 'classes',
           icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
           title: 'Scheduled Class Today',
-          desc: (activeGroup.title || 'Lesson group') + ' has an active session scheduled for today.',
+          desc: (group.title || 'Lesson group') + ' has an active session scheduled for today.',
           badge: 'Today',
           badgeClass: 'badge-today'
         });
-      }
+      });
     }
 
-    if (!todayLessonFound && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
-      const mat = lmLibrary.materials.find(m => m && m.date === today && !m.hidden);
-      if (mat) {
+    if (prefs.lessonReminders && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
+      lmLibrary.materials.filter((item) => item && item.date === today && !item.hidden).forEach((item) => {
         list.push({
-          id: 'material-today-' + mat.id,
+          id: 'material-today-' + item.id,
           type: 'lesson',
+          lessonId: item.id,
           icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
           title: 'Lesson Material Today',
-          desc: (mat.title || 'Active material') + ' is assigned for today.',
+          desc: (item.title || 'Active material') + ' is assigned for today.',
           badge: 'Today',
           badgeClass: 'badge-today'
         });
-      }
+      });
     }
 
-    // 2. Word review reminder
-    list.push({
-      id: 'fsrs-review-card',
-      type: 'review',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>',
-      title: 'Vocabulary Review Ready',
-      desc: 'Spaced repetition cards are queued for retention practice.',
-      badge: 'Review',
-      badgeClass: 'badge-review'
-    });
-
-    // 3. System release reminder
-    list.push({
-      id: 'system-v240',
-      type: 'system',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-      title: 'Lumiscia Studio Updated',
-      desc: 'Version 2.4.0 active: improved isolated workbench and unified profile bar.',
-      badge: 'v2.4.0',
-      badgeClass: 'badge-system'
-    });
+    if (prefs.dailyReview && typeof examLoad === 'function') {
+      examLoad().forEach((exam) => {
+        const blocks = Array.isArray(exam?.blocks) ? exam.blocks : [];
+        const waiting = exam?.instanceStatus === 'ready' || (!exam?.instanceStatus && blocks.some((block) => ['submitted', 'reviewing'].includes(block?.doc?.assessmentState || block?.assessmentState)));
+        const published = exam?.instanceStatus === 'completed' || blocks.some((block) => (block?.doc?.assessmentState || block?.assessmentState) === 'published');
+        if (waiting) {
+          list.push({
+            id: 'teacher-review-' + exam.id,
+            type: 'review',
+            examId: exam.id,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+            title: 'Work is waiting for review',
+            desc: exam.title || 'Exam',
+            badge: 'Review',
+            badgeClass: 'badge-review'
+          });
+        }
+        if (published) {
+          list.push({
+            id: 'student-review-' + exam.id,
+            type: 'review',
+            examId: exam.id,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>',
+            title: 'Review published',
+            desc: exam.title || 'Exam',
+            badge: 'Review',
+            badgeClass: 'badge-review'
+          });
+        }
+      });
+    }
 
     return list;
   }
@@ -18927,8 +18934,8 @@ const STUDIO_CONSTELLATIONS = [{
     const readTs = Number(localStorage.getItem(READ_KEY) || '0');
     const isRecentlyRead = (Date.now() - readTs) < (24 * 60 * 60 * 1000);
 
-    const itemsHtml = notifications.map(item =>
-      '<div class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
+    const itemsHtml = notifications.length ? notifications.map(item =>
+      '<button type="button" class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
         '<div class="lesson-notify-card-icon ' + esc(item.type) + '">' + item.icon + '</div>' +
         '<div class="lesson-notify-card-body">' +
           '<div class="lesson-notify-card-top">' +
@@ -18937,8 +18944,8 @@ const STUDIO_CONSTELLATIONS = [{
           '</div>' +
           '<p class="lesson-notify-card-desc">' + esc(item.desc) + '</p>' +
         '</div>' +
-      '</div>'
-    ).join('');
+      '</button>'
+    ).join('') : '<p class="lesson-notify-card-desc">No reminders.</p>';
 
     modal.innerHTML =
       '<div class="lesson-notifications-backdrop" id="lessonNotifyBackdrop"></div>' +
@@ -18961,7 +18968,7 @@ const STUDIO_CONSTELLATIONS = [{
             '<label class="lesson-notify-pref-row">' +
               '<div class="lesson-notify-pref-label">' +
                 '<strong>Lesson start reminders</strong>' +
-                '<span>Receive an alert 15 minutes prior to class</span>' +
+                '<span>Hide or show today class and lesson cards</span>' +
               '</div>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="lessonReminders"' + (settings.lessonReminders ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
@@ -18969,7 +18976,7 @@ const STUDIO_CONSTELLATIONS = [{
             '<label class="lesson-notify-pref-row">' +
               '<div class="lesson-notify-pref-label">' +
                 '<strong>Daily word review</strong>' +
-                '<span>Spaced repetition queue alerts for retention</span>' +
+                '<span>Hide or show review cards</span>' +
               '</div>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="dailyReview"' + (settings.dailyReview ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
@@ -18977,7 +18984,7 @@ const STUDIO_CONSTELLATIONS = [{
             '<label class="lesson-notify-pref-row">' +
               '<div class="lesson-notify-pref-label">' +
                 '<strong>Audio alert sounds</strong>' +
-                '<span>Play notification tone for timely awareness</span>' +
+                '<span>Stored on this device. It does not send an alert.</span>' +
               '</div>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="audioAlerts"' + (settings.audioAlerts ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
@@ -19006,10 +19013,24 @@ const STUDIO_CONSTELLATIONS = [{
       };
     }
 
+    modal.querySelectorAll('.lesson-notify-card').forEach((card) => {
+      card.onclick = () => {
+        const item = notifications.find((entry) => entry.id === card.getAttribute('data-notify-id'));
+        closeLessonNotifications();
+        if (!item) return;
+        if (item.lessonId && typeof lmOpenLesson === 'function') lmOpenLesson(item.lessonId);
+        else if (item.examId && typeof visit === 'function') {
+          examCurrentId = item.examId;
+          visit('examblocks');
+        } else if (item.open === 'classes' && typeof visit === 'function') visit('groups');
+      };
+    });
+
     modal.querySelectorAll('.lesson-notify-toggle').forEach(input => {
       input.onchange = (e) => {
         const key = input.dataset.prefKey;
         setNotificationSetting(key, input.checked);
+        renderModalContent();
       };
     });
   }
@@ -23502,6 +23523,7 @@ const STUDIO_CONSTELLATIONS = [{
       },
     });
     let lmSaveTimer = 0;
+    let lmSavedFingerprint = "";
     let lmInsertAnchor = null;
     let lmLastAddedBlockId = null;
     let lmFontRange = null;
@@ -23934,9 +23956,34 @@ const STUDIO_CONSTELLATIONS = [{
         lmServerReady = !!authUser;
       });
     }
+    function lmLessonFingerprint(lesson) {
+      if (!lesson) return "";
+      return JSON.stringify({
+        title: lesson.title || "",
+        description: lesson.description || "",
+        className: lesson.className || "",
+        unit: lesson.unit || "",
+        lesson: lesson.lesson || "",
+        date: lesson.date || "",
+        blocks: lesson.blocks || []
+      });
+    }
+    function lmSyncSaveDraftButton() {
+      const button = document.getElementById("lmSave");
+      if (!button) return;
+      const dirty = !!(lmState && lmLessonFingerprint(lmState) !== lmSavedFingerprint);
+      button.disabled = !dirty;
+      button.classList.toggle("is-disabled", !dirty);
+      button.setAttribute("aria-disabled", dirty ? "false" : "true");
+    }
+    function lmMarkDraftSaved() {
+      lmSavedFingerprint = lmLessonFingerprint(lmState);
+      lmSyncSaveDraftButton();
+    }
     function lmSchedule() {
       clearTimeout(lmSaveTimer);
       lmSaveTimer = setTimeout(lmPersist, 400);
+      lmSyncSaveDraftButton();
     }
     function lmId() { return "lm-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
     function lmUniqueId() {
@@ -24739,7 +24786,18 @@ const STUDIO_CONSTELLATIONS = [{
             let promptText = String(question.prompt || "Statement");
             const sayMatch = promptText.match(/Say:\s*["']([^"']+)["']/i);
             if (sayMatch) {
-              promptText = 'The word "' + sayMatch[1] + '" correctly translates to Russian.';
+              const word = sayMatch[1];
+              const meaning = question.meaning || lmFindWordMeaning(word) || word;
+              promptText = 'The word "' + word + '" correctly translates to Russian as "' + meaning + '".';
+            } else {
+              const incompleteMatch = promptText.match(/^The word ["']([^"']+)["'] correctly translates to Russian\.?$/i);
+              if (incompleteMatch) {
+                const word = incompleteMatch[1];
+                const meaning = question.meaning || lmFindWordMeaning(word);
+                if (meaning) {
+                  promptText = 'The word "' + word + '" correctly translates to Russian as "' + meaning + '".';
+                }
+              }
             }
             const opts = '<div class="lm-tf-options">' +
               '<button type="button" class="lm-tf-btn' + (picked === 'true' ? ' selected' : '') + '" data-pick="' + block.id + ':' + index + ':true">True' + (picked === 'true' ? ' ✓' : '') + '</button>' +
@@ -24748,7 +24806,7 @@ const STUDIO_CONSTELLATIONS = [{
             const mark = question.marked ? '<div class="lm-tf-feedback ' + (question.correct ? 'is-ok' : 'is-no') + '">' + (question.correct ? '✓ Correct! (+1 pt)' : '✗ Incorrect (Correct answer: ' + (String(question.answer).toLowerCase() === 'true' ? 'True' : 'False') + ')') + '</div>' : '';
             return '<div class="lm-tf-card"><div class="lm-tf-statement"><strong>Statement:</strong> ' + esc(promptText) + '</div>' + opts + mark + '</div>';
           }).join("");
-          return '<div class="lm-tf-block">' + title + scoreBadge + questions + '<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button></div></div>';
+          return '<div class="lm-tf-block">' + scoreBadge + questions + '<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button></div></div>';
         }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
@@ -25136,6 +25194,8 @@ const STUDIO_CONSTELLATIONS = [{
       lmBindEditor();
       if (editing) lmRenderEditor();
       else lmRenderPreview();
+      if (lmState && !lmSavedFingerprint) lmSavedFingerprint = lmLessonFingerprint(lmState);
+      lmSyncSaveDraftButton();
       examDress();
       if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
       if (assessmentActive(lmState) && !editing && (!canEditLessons() || canTuneStudentLessons()) && !lmState.assessmentReady) assessmentRead(lmState);
@@ -25399,6 +25459,7 @@ const STUDIO_CONSTELLATIONS = [{
       lmState = found;
       lmLibrary.activeId = id;
       found.mode = canEditLessons() && !found.published ? "edit" : "preview";
+      lmMarkDraftSaved();
       visit("material");
     }
     function lmKeepLesson() {
@@ -25491,6 +25552,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (group && !group.lessonIds.includes(fresh.id)) group.lessonIds.push(fresh.id);
       lmState = fresh;
       fresh.mode = "edit";
+      lmMarkDraftSaved();
       lmKeepLesson();
       show("material");
       lmRenderEditor();
@@ -26136,7 +26198,7 @@ const STUDIO_CONSTELLATIONS = [{
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
-      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
+      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons() || document.getElementById("lmSave")?.disabled) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmMarkDraftSaved(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
       document.getElementById("lmPublish").addEventListener("click", () => {
         if (!canEditLessons()) return;
         if (!lmState?.examOwned) {
@@ -26151,6 +26213,7 @@ const STUDIO_CONSTELLATIONS = [{
         lmState.mode = "preview";
         lmKeepLesson();
         lmPersist();
+        lmMarkDraftSaved();
         lmNote("");
         lmShow("preview");
       });
@@ -26411,6 +26474,69 @@ const STUDIO_CONSTELLATIONS = [{
         }
       };
 
+      function lmFindWordMeaning(targetWord) {
+        if (!targetWord) return "";
+        const tw = String(targetWord).toLowerCase().trim();
+        if (typeof lmState !== "undefined" && Array.isArray(lmState?.blocks)) {
+          for (const b of lmState.blocks) {
+            if ((b.type === "wordcard" || b.type === "word") && String(b.word || "").toLowerCase().trim() === tw) {
+              const m = b.ru || b.translation || b.meaning || b.data?.ru;
+              if (m) return m;
+            }
+            if (b.type === "vocab" && Array.isArray(b.items)) {
+              const found = b.items.find(it => String(it.word || "").toLowerCase().trim() === tw);
+              if (found && (found.translation || found.meaning || found.ru)) return found.translation || found.meaning || found.ru;
+            }
+          }
+        }
+        if (typeof THEMATIC_VOCABULARY_BANKS !== "undefined") {
+          for (const bank of Object.values(THEMATIC_VOCABULARY_BANKS)) {
+            for (const cat of ["words", "phrasalVerbs", "idioms", "collocations"]) {
+              const found = (bank[cat] || []).find(it => String(it.word || "").toLowerCase().trim() === tw);
+              if (found && found.meaning) return found.meaning;
+            }
+          }
+        }
+        return "";
+      }
+
+      function lmFindWordExample(targetWord) {
+        if (!targetWord) return "";
+        const tw = String(targetWord).toLowerCase().trim();
+        if (typeof lmState !== "undefined" && Array.isArray(lmState?.blocks)) {
+          for (const b of lmState.blocks) {
+            if ((b.type === "wordcard" || b.type === "word") && String(b.word || "").toLowerCase().trim() === tw) {
+              const ex = b.example || b.sourceExample || b.data?.example;
+              if (ex && ex.toLowerCase().includes(tw)) return ex;
+            }
+          }
+        }
+        if (typeof THEMATIC_VOCABULARY_BANKS !== "undefined") {
+          for (const bank of Object.values(THEMATIC_VOCABULARY_BANKS)) {
+            for (const cat of ["words", "phrasalVerbs", "idioms", "collocations"]) {
+              const found = (bank[cat] || []).find(it => String(it.word || "").toLowerCase().trim() === tw);
+              if (found && found.example && found.example.toLowerCase().includes(tw)) return found.example;
+            }
+          }
+        }
+        return "";
+      }
+
+      function lmSynthesizeLevelSentence(word, meaning, level) {
+        const lvl = String(level || "B1").toUpperCase();
+        const w = String(word || "").trim();
+        if (lvl === "A1" || lvl === "A2") {
+          return "She always keeps a special " + w + " for good luck.";
+        }
+        if (lvl === "B1" || lvl === "B1+") {
+          return "Many ancient cultural traditions and beliefs are based on " + w + ".";
+        }
+        if (lvl === "B2" || lvl === "B2+") {
+          return "Researchers studied how ancient " + w + " continues to influence people today.";
+        }
+        return "Scholars have long debated the psychological and cultural origins of this " + w + ".";
+      }
+
       function lmGetThematicExpansionPool(themeText, neededCount) {
         const text = String(themeText || '').toLowerCase();
         const bank = THEMATIC_VOCABULARY_BANKS.superstitions;
@@ -26438,7 +26564,8 @@ const STUDIO_CONSTELLATIONS = [{
           if (b.type === "wordcard" || b.type === "word") {
             const word = String(b.word || b.en || "").trim();
             const meaning = String(b.ru || b.data?.ru || b.pdfVocabulary?.meaning || b.translation || b.meaning || word).trim();
-            const example = String(b.example || b.sourceExample || (b.data?.example) || "").trim();
+            let example = String(b.example || b.sourceExample || (b.data?.example) || "").trim();
+            if (!example && typeof lmFindWordExample === "function") example = lmFindWordExample(word);
             if (word && !seen.has(word.toLowerCase())) {
               seen.add(word.toLowerCase());
               pool.push({ word, meaning, example, isCore: !b.supplementary, supplementary: Boolean(b.supplementary), expressionType: b.expressionType || "WORD" });
@@ -26448,17 +26575,21 @@ const STUDIO_CONSTELLATIONS = [{
               b.items.forEach((it) => {
                 const w = String(it.word || "").trim();
                 const m = String(it.translation || it.meaning || it.ru || w).trim();
+                let ex = it.example || "";
+                if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(w);
                 if (w && !seen.has(w.toLowerCase())) {
                   seen.add(w.toLowerCase());
-                  pool.push({ word: w, meaning: m, example: it.example || "", isCore: true });
+                  pool.push({ word: w, meaning: m, example: ex, isCore: true });
                 }
               });
             } else if (b.word) {
               const w = String(b.word).trim();
               const m = String(b.translation || b.ru || b.meaning || w).trim();
+              let ex = b.example || "";
+              if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(w);
               if (w && !seen.has(w.toLowerCase())) {
                 seen.add(w.toLowerCase());
-                pool.push({ word: w, meaning: m, example: b.example || "", isCore: true });
+                pool.push({ word: w, meaning: m, example: ex, isCore: true });
               }
             }
           } else if (b.type === "phrase" || b.tab === "phrases") {
@@ -26466,9 +26597,11 @@ const STUDIO_CONSTELLATIONS = [{
               b.items.forEach((it) => {
                 const p = String(it.phrase || "").trim();
                 const m = String(it.translation || it.meaning || it.ru || p).trim();
+                let ex = it.example || "";
+                if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(p);
                 if (p && !seen.has(p.toLowerCase())) {
                   seen.add(p.toLowerCase());
-                  pool.push({ word: p, meaning: m, example: it.example || "", isCore: true, expressionType: "COLLOCATION" });
+                  pool.push({ word: p, meaning: m, example: ex, isCore: true, expressionType: "COLLOCATION" });
                 }
               });
             }
@@ -26476,9 +26609,11 @@ const STUDIO_CONSTELLATIONS = [{
             b.items.forEach((it) => {
               const f = String(it.front || "").trim();
               const bk = String(it.back || f).trim();
+              let ex = it.example || "";
+              if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(f);
               if (f && !seen.has(f.toLowerCase())) {
                 seen.add(f.toLowerCase());
-                pool.push({ word: f, meaning: bk, example: it.example || "", isCore: true });
+                pool.push({ word: f, meaning: bk, example: ex, isCore: true });
               }
             });
           }
@@ -26696,6 +26831,16 @@ const STUDIO_CONSTELLATIONS = [{
             } else if (quizType === "Gap") {
               const blockTitle = (isHw ? "HW Gap: " : "CW Gap: ") + targetObj.word;
               existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const level = (typeof lmDetectLevel === "function" ? lmDetectLevel(lmState?.className || lmState?.title) : "") || "B1";
+              let sentence = targetObj.example || lmFindWordExample(targetObj.word);
+              if (!sentence || !sentence.toLowerCase().includes(targetObj.word.toLowerCase())) {
+                sentence = lmSynthesizeLevelSentence(targetObj.word, targetObj.meaning, level);
+              }
+              const escWord = targetObj.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              let shownSentence = sentence.replace(new RegExp("\\b" + escWord + "\\b", "gi"), "___");
+              if (!shownSentence.includes("___")) {
+                shownSentence = sentence.replace(new RegExp(escWord, "i"), "___");
+              }
 
               const block = {
                 id: lmId(),
@@ -26709,7 +26854,7 @@ const STUDIO_CONSTELLATIONS = [{
                 targetWord: targetObj.word,
                 quizType: "Gap",
                 items: [{
-                  shown: targetObj.example ? targetObj.example.replace(new RegExp("\\b" + targetObj.word + "\\b", "gi"), "___") : "We need to understand ___ in context.",
+                  shown: shownSentence,
                   answer: targetObj.word,
                   hint: "First letter: " + (targetObj.word[0] || "")
                 }]
@@ -26719,8 +26864,12 @@ const STUDIO_CONSTELLATIONS = [{
             } else if (quizType === "True / false") {
               const isTruthful = (createdTaskBlocks.length % 2 === 0);
               const word = targetObj.word;
-              const meaning = targetObj.meaning;
-              const example = targetObj.example;
+              const meaning = targetObj.meaning || lmFindWordMeaning(word) || word;
+              let example = targetObj.example || lmFindWordExample(word);
+              const level = (typeof lmDetectLevel === "function" ? lmDetectLevel(lmState?.className || lmState?.title) : "") || "B1";
+              if (!example || !example.toLowerCase().includes(word.toLowerCase())) {
+                example = lmSynthesizeLevelSentence(word, meaning, level);
+              }
               let statement = "";
               let note = "";
               if (isTruthful) {
@@ -26732,7 +26881,11 @@ const STUDIO_CONSTELLATIONS = [{
                 note = 'Statement is TRUE: "' + word + '" means "' + meaning + '".';
               } else {
                 const distractor = vocabPool.find((v) => v.word.toLowerCase() !== word.toLowerCase() && v.meaning !== meaning) || { word: "experiment", meaning: "научный эксперимент" };
-                statement = 'The word "' + word + '" translates to Russian as "' + distractor.meaning + '".';
+                if (example && example.toLowerCase().includes(word.toLowerCase())) {
+                  statement = 'In the context "' + example + '", the word "' + word + '" translates as "' + distractor.meaning + '".';
+                } else {
+                  statement = 'The word "' + word + '" translates to Russian as "' + distractor.meaning + '".';
+                }
                 note = 'Statement is FALSE: "' + word + '" means "' + meaning + '", not "' + distractor.meaning + '".';
               }
               const blockTitle = (isHw ? "HW True / false: " : "CW True / false: ") + word;
@@ -27123,6 +27276,16 @@ const STUDIO_CONSTELLATIONS = [{
         lmRenderEditor();
         lmSchedule();
         lmPersist();
+        if (typeof window.lmPdfUseSource === 'function' && typeof window.lmPdfProgress === 'function') {
+          const classworkCount = createdTaskBlocks.filter((block) => block.tab === 'classwork').length;
+          const homeworkCount = createdTaskBlocks.filter((block) => block.tab === 'homework').length;
+          const lines = [];
+          if (newlyAddedWords.length) lines.push('Words: ' + newlyAddedWords.length);
+          if (classworkCount) lines.push('Classwork: ' + classworkCount);
+          if (homeworkCount) lines.push('Homework: ' + homeworkCount);
+          window.lmPdfUseSource('lesson');
+          window.lmPdfProgress('Ready to review', lines, 1, 1);
+        }
 
         const targetTab = sectionsToFill[0]?.tab || "homework";
         lmSelectTab(targetTab);
@@ -27142,6 +27305,7 @@ const STUDIO_CONSTELLATIONS = [{
         if (undoWrap) undoWrap.style.display = "none";
 
         lmHideTabProgress("lesson");
+        if (typeof window.lmPdfProgressEnd === 'function') window.lmPdfProgressEnd();
         lmSyncLessonComplementTab();
         lmRenderEditor();
         lmSchedule();
@@ -28064,7 +28228,7 @@ if (typeof window !== 'undefined') {
 function lmPdfApplyMetadata(draft,data,selected){
   if(selected){
     draft.title=data.title||draft.title||'';
-    draft.description=data.description||'';
+    draft.description=String(data.description||'').slice(0,2400);
     if(data.unit)draft.unit=data.unit;
     if(data.lesson)draft.lesson=data.lesson;
     if(data.className)draft.className=data.className;
@@ -28164,19 +28328,30 @@ function lmPdfGrammarMatch(title){
   for(const topic of app.GRAMMAR?.comparisons||[])if(clean(topic.title)===key)matches.push({topic:topic.id,name:topic.title,compare:true});
   return matches.length===1?matches[0]:null;
 }
+let lmPdfProgressTab='file';
+const lmPdfPaneIds={file:'lmTabPaneFile',url:'lmTabPaneUrl',script:'lmTabPaneScript',lesson:'lmTabPaneLesson'};
+function lmPdfUseSource(tab){
+  lmPdfProgressTab=lmPdfPaneIds[tab]?tab:'file';
+}
 function lmPdfProgress(label,completed=[],done=null,total=null){
   const measurable=Number.isFinite(done)&&total>0,percent=measurable?Math.floor(done/total*100):null;
+  const tab=lmPdfProgressTab;
   if(typeof window.lmShowTabProgress==='function'){
-    window.lmShowTabProgress('file',label,percent!==null?percent:45);
+    window.lmShowTabProgress(tab,label,percent!==null?percent:45);
   }
-  const drop=document.querySelector('[data-lesson-pdf-import]');if(!drop)return;
+  const pane=document.getElementById(lmPdfPaneIds[tab]||'');
+  const drop=document.querySelector('[data-lesson-pdf-import]');
+  if(!pane&&!drop)return;
   let node=document.getElementById('lmPdfProgress');
-  if(!node){node=document.createElement('div');node.id='lmPdfProgress';node.className='lm-pdf-progress';drop.before(node);}
+  if(!node){node=document.createElement('div');node.id='lmPdfProgress';node.className='lm-pdf-progress';}
+  if(tab==='file'&&drop)drop.before(node);
+  else if(pane)pane.prepend(node);
+  else return;
   node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
   let nextUpload=document.getElementById('lmPdfNextUpload');
   if(label==='Draft ready'){
     if(typeof window.lmShowTabProgress==='function'){
-      window.lmShowTabProgress('file','Draft ready to review!',100);
+      window.lmShowTabProgress(tab,'Draft ready to review!',100);
     }
     if(!nextUpload){
       nextUpload=document.createElement('div');
@@ -28199,11 +28374,11 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
   } else {
     document.getElementById('lmPdfNextUpload')?.remove();
   }
-  drop.hidden=true;
+  if(tab==='file'&&drop)drop.hidden=true;
 }
 function lmPdfProgressEnd(){
   if(typeof window.lmHideTabProgress==='function'){
-    window.lmHideTabProgress('file');
+    window.lmHideTabProgress(lmPdfProgressTab);
   }
   document.getElementById('lmPdfProgress')?.remove();
   document.getElementById('lmPdfNextUpload')?.remove();
@@ -28274,12 +28449,10 @@ async function lmPdfContentKey(block){
 }
 async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle) {
   const known=new Set(),vocabulary=new Set();
-  for(const old of draft.blocks){
-    if(!old.pdfImport)continue;
-    // v2 keys stay immutable after teacher edits. Old positional keys are compared
-    // by content only; their numeric positions never identify an imported item.
-    const key=/:v2:[a-f0-9]{64}$/.test(old.pdfImport.key||'')?old.pdfImport.key:await lmPdfContentKey(old);
-    known.add(old.pdfImport.source+'|'+key);
+  for(const old of draft.blocks||[]){
+    const key=old.pdfImport&&/:v2:[a-f0-9]{64}$/.test(old.pdfImport.key||'')?old.pdfImport.key:await lmPdfContentKey(old);
+    known.add(key);
+    if(old.pdfImport)known.add(old.pdfImport.source+'|'+key);
     if(['words','phrases'].includes(old.tab))vocabulary.add(key);
   }
   let added=0;
@@ -28300,10 +28473,10 @@ async function lmPdfAppendSections(draft,groups,selected,hash,fileName,pdfTitle)
       }
     }
     for(const block of blocks){
-      const key=block.pdfImport.key;
-      if(known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
+      const key=await lmPdfContentKey(block);
+      if(known.has(key)||known.has(hash+'|'+key)||['words','phrases'].includes(tab)&&vocabulary.has(key))continue;
       draft.blocks.push(JSON.parse(JSON.stringify(block)));added++;
-      known.add(hash+'|'+key);if(['words','phrases'].includes(tab))vocabulary.add(key);
+      known.add(key);known.add(hash+'|'+key);if(['words','phrases'].includes(tab))vocabulary.add(key);
     }
   }
   if(selected.has('pdf')&&!draft.blocks.some(b=>b.type==='pdf'&&b.pdfImport?.source===hash)){
@@ -28785,7 +28958,8 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   if (ruleCurrent) rules.push(ruleCurrent);
 
   if (!title) title = defaultTitle.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') || 'New Lesson';
-  if (!description) description = 'Lesson generated from ' + defaultTitle;
+  if (!description) description = lmDetailedLessonDescription(text, title || defaultTitle);
+  else description = String(description).slice(0, 2400);
 
   const BANNED_TOKENS = new Set([
     'word', 'docx', 'document', 'xmlns', 'schemas', 'openxmlformats', 'wordprocessingml', 'wps', 'w14', 'w15',
@@ -28941,6 +29115,13 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   }
   const homework = (targetHwCount && targetHwCount > 0) ? lmGenerateExercisesList(targetHwCount, words, phrases, rules, title, true) : [];
 
+  const taken = lmLessonTakenTerms();
+  const fresh = (value) => !taken.has(String(value || '').replace(/\s+/g, ' ').trim().toLowerCase());
+  const wordsLeft = taken.size ? words.filter((row) => fresh(row.word)) : words;
+  const phrasesLeft = taken.size ? phrases.filter((row) => fresh(row.phrase)) : phrases;
+  const rulesLeft = taken.size ? rules.filter((row) => fresh(row.title)) : rules;
+  const classworkLeft = taken.size ? finalCw.filter((row) => fresh(row.title) && fresh(row.text)) : finalCw;
+  const homeworkLeft = taken.size ? homework.filter((row) => fresh(row.title) && fresh(row.text)) : homework;
   const detectedLevel = (typeof lmDetectCefrLevel === 'function')
     ? lmDetectCefrLevel(className)
     : ((typeof window !== 'undefined' && typeof window.lmDetectCefrLevel === 'function')
@@ -28954,11 +29135,11 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     className: className || detectedLevel,
     level: detectedLevel,
     overview: description,
-    words,
-    phrases,
-    rules,
-    classwork: finalCw,
-    homework,
+    words: wordsLeft,
+    phrases: phrasesLeft,
+    rules: rulesLeft,
+    classwork: classworkLeft,
+    homework: homeworkLeft,
     warnings: []
   };
 }
@@ -28994,6 +29175,7 @@ async function lmImportPdfDraft(file) {
   const current=lmState, generation=viewGen, owner=authUser;
   const active=()=>!controller.signal.aborted&&lmState===current&&viewGen===generation&&authUser===owner&&canEditLessons();
   const drop=document.querySelector('[data-lesson-pdf-import]');drop?.classList.add('is-busy');
+  lmPdfUseSource('file');
   lmPdfImportStatus('',false);lmPdfProgress(isPdf ? 'Analysing PDF' : 'Processing document');
   try{
     const bytes=await file.arrayBuffer();
@@ -29016,6 +29198,7 @@ async function lmImportPdfDraft(file) {
     }
     if(!active())return;
     await lmMountLessonDraftDialog(data, hash, file, controller, active, !isPdf);
+    lmClearImportFields();
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not process this file.',true);}}
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
@@ -29050,19 +29233,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
 
     document.getElementById('lmPdfDraftFloatingBar')?.remove();
     document.getElementById('lmPdfManualToggle')?.remove();
-    const floatingBar=document.createElement('div');floatingBar.id='lmPdfDraftFloatingBar';floatingBar.className='lm-pdf-floating-bar';
-    floatingBar.innerHTML=
-      '<div class="lm-pdf-floating-info">'+
-        '<span class="lm-pdf-floating-badge" id="lmPdfFloatingBadge">0 sections selected</span>'+
-        '<span class="lm-pdf-floating-text" id="lmPdfFloatingText">0 items ready to be applied to lesson draft</span>'+
-      '</div>'+
-      '<div class="lm-pdf-floating-actions">'+
-        '<button type="button" class="lm-pdf-floating-cancel" id="lmPdfFloatingCancel">Cancel</button>'+
-        '<button type="button" class="lm-pdf-floating-apply" id="lmPdfFloatingApply"><span>✓</span><span>Apply selected sections to draft</span></button>'+
-      '</div>';
-    document.body.append(floatingBar);
-    const floatCancelBtn=floatingBar.querySelector('#lmPdfFloatingCancel');
-    const floatApplyBtn=floatingBar.querySelector('#lmPdfFloatingApply');
 
     function updateCounts(){
       const selectedKeys=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
@@ -29097,16 +29267,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         totalItems+=(totalCards>0?checked:(data.homework||[]).length);
       }
 
-      const selectedCount=selectedKeys.size;
-      const badge=floatingBar.querySelector('#lmPdfFloatingBadge');
-      if(badge) badge.textContent=`${selectedCount} section${selectedCount===1?'':'s'} selected`;
-      const text=floatingBar.querySelector('#lmPdfFloatingText');
-      if(text) text.textContent=`${totalItems} item${totalItems===1?'':'s'} ready to be applied to lesson draft`;
       if(quickApply) quickApply.textContent=totalItems>0?`✓ Apply to draft (${totalItems})`:'✓ Apply to draft';
-      if(floatApplyBtn){
-        const labelSpan=floatApplyBtn.querySelector('span:last-child');
-        if(labelSpan) labelSpan.textContent=totalItems>0?`Apply selected sections to draft (${totalItems})`:'Apply selected sections to draft';
-      }
     }
     dialog.addEventListener('change',updateCounts);
 
@@ -29158,7 +29319,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML=
         '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Lesson title</label><input class="saas-input" data-pdf-field="title" value="'+esc((isNonEmptyLesson && current?.title) ? current.title : (data.title||''))+'" placeholder="Lesson title"></div>'+
-        '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" placeholder="Description" style="min-height:60px">'+esc((isNonEmptyLesson && current?.description) ? current.description : (data.description||''))+'</textarea></div>'+
+        '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" maxlength="2400" placeholder="Description" style="min-height:60px">'+esc((isNonEmptyLesson && current?.description) ? current.description : (data.description||''))+'</textarea></div>'+
         '<div class="saas-form-grid"><div class="saas-form-group"><label class="saas-label">Unit</label><input class="saas-input" data-pdf-field="unit" value="'+esc((isNonEmptyLesson && current?.unit) ? current.unit : (data.unit||''))+'" placeholder="Unit"></div>'+
         '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc((isNonEmptyLesson && current?.lesson) ? current.lesson : (data.lesson||''))+'" placeholder="Lesson number"></div></div>'+
         '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc((isNonEmptyLesson && current?.className) ? current.className : (data.className||''))+'" placeholder="Class / Level"></div>';
@@ -29490,20 +29651,18 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     let draftConsent=null;
     if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
-    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
-    const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
+    const cancel=document.createElement('button');cancel.type='button';cancel.hidden=true;cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
+    const apply=document.createElement('button');apply.type='button';apply.hidden=true;apply.textContent='Apply selected sections to draft';
     const guide=document.createElement('div');guide.className='lm-pdf-guide-banner';
     guide.innerHTML='<span class="lm-pdf-guide-icon">💡</span><span><b>Draft preview ready:</b> Review the extracted sections above. Once you click <b>«Apply selected sections to draft»</b>, the lesson editor form below will be automatically filled with all content.</span>';
     dialog.append(guide);
 
     quickCancel.onclick=()=>cancel.click();
     quickApply.onclick=()=>apply.click();
-    floatCancelBtn.onclick=()=>cancel.click();
-    floatApplyBtn.onclick=()=>apply.click();
 
     const origDialogRemove=dialog.remove.bind(dialog);
     dialog.remove=()=>{
-      floatingBar?.remove();
+      document.getElementById('lmPdfDraftFloatingBar')?.remove();
       document.getElementById('lmPdfManualToggle')?.remove();
       const importBox=document.querySelector('.lm-import-methods');
       importBox?.classList.remove('is-reviewing-draft','show-manual-inputs');
@@ -29519,13 +29678,12 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
       quickApply.disabled=true;quickCancel.disabled=true;
-      floatApplyBtn.disabled=true;floatCancelBtn.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
           const titleInput=dialog.querySelector('[data-pdf-field="title"]');if(titleInput&&titleInput.value.trim())data.title=titleInput.value.trim();
           else if(!String(data.title||'').trim())data.title=file?.name?file.name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').trim():'Untitled Lesson';
-          const descInput=dialog.querySelector('[data-pdf-field="description"]');if(descInput)data.description=descInput.value.trim();
+          const descInput=dialog.querySelector('[data-pdf-field="description"]');if(descInput)data.description=descInput.value.trim().slice(0,2400);
           const unitInput=dialog.querySelector('[data-pdf-field="unit"]');if(unitInput)data.unit=unitInput.value.trim();
           const lessonInput=dialog.querySelector('[data-pdf-field="lesson"]');if(lessonInput)data.lesson=lessonInput.value.trim();
           const classInput=dialog.querySelector('[data-pdf-field="className"]');if(classInput)data.className=classInput.value.trim();
@@ -29748,7 +29906,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       finally{
         apply.disabled=false;cancel.disabled=false;
         quickApply.disabled=false;quickCancel.disabled=false;
-        floatApplyBtn.disabled=false;floatCancelBtn.disabled=false;
       }
     };
     const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
@@ -29849,16 +30006,45 @@ if (typeof document !== 'undefined' && typeof document.addEventListener === 'fun
   }
 }
 
-async function lmGenerateLessonFromScript(text, defaultTitle) {
+function lmClearImportFields(){
+  const url=document.getElementById('lmUrlInput');
+  if(url)url.value='';
+  const script=document.getElementById('lmScriptInput');
+  if(script)script.value='';
+  const file=document.querySelector('[data-lesson-pdf-import-file]');
+  if(file)file.value='';
+  const urlBtn=document.getElementById('lmUrlFetchBtn');
+  if(urlBtn)urlBtn.disabled=true;
+  const scriptBtn=document.getElementById('lmGenerateFromScriptBtn');
+  if(scriptBtn)scriptBtn.disabled=!String(script?.value||'').trim();
+}
+function lmDetailedLessonDescription(text, title){
+  const clean=String(text||'').replace(/\s+/g,' ').trim();
+  const head=title?('Lesson: '+String(title).trim()+'. '):'';
+  const body=clean?((head&&clean.indexOf(String(title||'').trim())!==0)?head+clean:clean):head;
+  return body.replace(/\s+/g,' ').trim().slice(0,2400);
+}
+function lmLessonTakenTerms(){
+  const terms=new Set();
+  const lesson=typeof lmState!=='undefined'?lmState:null;
+  if(!lesson||!Array.isArray(lesson.blocks))return terms;
+  const add=value=>{const clean=String(value||'').replace(/\s+/g,' ').trim().toLowerCase();if(clean)terms.add(clean);};
+  lesson.blocks.forEach(block=>{
+    add(block.word);add(block.title);add(block.en);
+    (block.items||[]).forEach(item=>{add(item.word);add(item.phrase);add(item.prompt);add(item.left);add(item.answer);});
+  });
+  return terms;
+}
+async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
   const hasBlocks = !!(typeof lmState !== 'undefined' && lmState && Array.isArray(lmState.blocks) && lmState.blocks.length > 0);
   if (!text && hasBlocks) {
     text = lmExtractLessonContextText(lmState) || (lmState.title ? 'Title: ' + lmState.title : '');
   }
   if(!text||!canEditLessons())return;
+  lmPdfUseSource(sourceTab||'script');
   if(typeof window.lmShowTabProgress === 'function') {
-    window.lmShowTabProgress('script', 'Parsing script & analyzing context...', 25);
+    window.lmShowTabProgress(lmPdfProgressTab, 'Parsing script & analyzing context...', 25);
   }
-  const scriptInputVal = typeof document !== 'undefined' ? document.getElementById('lmScriptInput')?.value : '';
   const appendTasks = typeof document !== 'undefined' && document.getElementById('lmAppendTasks')?.checked;
   const taskCounts = typeof window.lmGetTaskCounts === 'function' ? window.lmGetTaskCounts() : {
     cw: typeof window.lmGetTaskCountPerSection === 'function' ? window.lmGetTaskCountPerSection() : 3,
@@ -29880,13 +30066,6 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
     if(typeof create === 'function') create();
   }
   if(!lmState)return;
-  if(typeof document !== 'undefined') {
-    const input = document.getElementById('lmScriptInput');
-    if (input && (text || scriptInputVal)) {
-      input.value = text || scriptInputVal;
-      lmAutoExpandScriptInput();
-    }
-  }
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
   document.getElementById('lmPdfDraftFloatingBar')?.remove();
@@ -29898,7 +30077,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
   lmPdfProgress('Generating lesson');
   try{
     if(typeof window.lmShowTabProgress === 'function') {
-      window.lmShowTabProgress('script', 'Generating exercises and lesson blocks...', 65);
+      window.lmShowTabProgress(lmPdfProgressTab, 'Generating exercises and lesson blocks...', 65);
     }
     const fallbackTitle = defaultTitle || 'Lesson Script';
     let data;
@@ -29925,9 +30104,21 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
     if (!data) {
       data = lmParseScriptToLessonData(text, fallbackTitle, targetCwCount, targetHwCount);
     }
-    if(typeof window.lmShowTabProgress === 'function') {
-      window.lmShowTabProgress('script', 'Draft ready to review!', 100);
+    if (hasExisting) {
+      const taken = lmLessonTakenTerms();
+      const fresh = (value) => !taken.has(String(value || '').replace(/\s+/g, ' ').trim().toLowerCase());
+      data.words = (data.words || []).filter((row) => fresh(row.word));
+      data.phrases = (data.phrases || []).filter((row) => fresh(row.phrase));
+      data.rules = (data.rules || []).filter((row) => fresh(row.title));
+      data.classwork = (data.classwork || []).filter((row) => fresh(row.title) && fresh(row.text));
+      data.homework = (data.homework || []).filter((row) => fresh(row.title) && fresh(row.text));
+    } else {
+      data.description = lmDetailedLessonDescription(text, data.title || fallbackTitle);
     }
+    if(typeof window.lmShowTabProgress === 'function') {
+      window.lmShowTabProgress(lmPdfProgressTab, 'Draft ready to review!', 100);
+    }
+    lmClearImportFields();
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -29935,7 +30126,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle) {
     if(lmPdfDraftRequest===controller){
       if(!active())lmPdfProgressEnd();
       if(typeof window.lmHideTabProgress === 'function'){
-        setTimeout(() => window.lmHideTabProgress('script'), 2000);
+        setTimeout(() => window.lmHideTabProgress(lmPdfProgressTab), 2000);
       }
     }
   }
@@ -30189,12 +30380,10 @@ async function lmFetchExternalUrl(url) {
       }
     }
 
-    const input = document.getElementById('lmScriptInput');
-    if (input) input.value = text;
     if (typeof window.lmShowTabProgress === 'function') {
       window.lmShowTabProgress('url', 'Generating complementary tasks...', 85);
     }
-    await lmGenerateLessonFromScript(text, finalTitle);
+    await lmGenerateLessonFromScript(text, finalTitle, 'url');
     if (typeof window.lmShowTabProgress === 'function') {
       window.lmShowTabProgress('url', 'Draft ready to review!', 100);
       setTimeout(() => { if (typeof window.lmHideTabProgress === 'function') window.lmHideTabProgress('url'); }, 2000);
@@ -30297,6 +30486,10 @@ if(typeof window!=='undefined'){
   window.lmAutoExpandScriptInput = lmAutoExpandScriptInput;
   window.lmInitScriptInputAutoExpand = lmInitScriptInputAutoExpand;
   window.lmPdfProgressEnd = lmPdfProgressEnd;
+  window.lmPdfUseSource = lmPdfUseSource;
+  window.lmPdfProgress = lmPdfProgress;
+  window.lmClearImportFields = lmClearImportFields;
+  window.lmDetailedLessonDescription = lmDetailedLessonDescription;
   window.lmExtractTextFromFile = lmExtractTextFromFile;
   window.lmHandleScriptFileUpload = lmHandleScriptFileUpload;
 }
@@ -30664,7 +30857,6 @@ if(typeof window!=='undefined'){
   let voiceTimerInterval = null;
   let voiceSecondsElapsed = 0;
   let voiceActiveRole = 'tutor'; // 'tutor' | 'examiner'
-  let oralExamStep = 0;
   let lastSubmittedTranscript = '';
   let lastSubmittedTimestamp = 0;
   let recognitionDebounceTimer = null;
@@ -30715,8 +30907,11 @@ if(typeof window!=='undefined'){
     return { title, words, rules };
   }
 
+  let voiceHistory = [];
+
   function voiceSetRole(role) {
     voiceActiveRole = role;
+    voiceHistory = [];
     const tutorBtn = document.getElementById('lmVoiceRoleTutorBtn');
     const examBtn = document.getElementById('lmVoiceRoleExaminerBtn');
     if (tutorBtn) {
@@ -30731,18 +30926,7 @@ if(typeof window!=='undefined'){
     }
     const history = document.getElementById('lmVoiceDialogueHistory');
     if (history) history.innerHTML = '';
-    const ctx = voiceGetLessonContext();
-    if (role === 'examiner') {
-      oralExamStep = 0;
-      const firstTargetWord = ctx.words[0] || 'challenge';
-      const promptText = 'Speaking Examination started for ' + ctx.title + '. Question 1: Please explain the meaning of "' + firstTargetWord + '" and use it in a full sentence.';
-      voiceAppendMessage('Speaking Examiner', promptText, true);
-      voiceSpeakText(promptText);
-    } else {
-      const welcomeText = 'Hello! I am your AI language tutor for ' + ctx.title + '. You can speak or ask any questions about vocabulary and grammar.';
-      voiceAppendMessage('AI Tutor', welcomeText, true);
-      voiceSpeakText(welcomeText);
-    }
+    voiceRequestReply('');
   }
 
   function openVoiceMode() {
@@ -30828,82 +31012,35 @@ if(typeof window!=='undefined'){
     }
   }
 
-  function voiceGenerateReply(userPrompt) {
+  async function voiceRequestReply(userText) {
     const ctx = voiceGetLessonContext();
-    const prompt = (userPrompt || '').trim();
-    const textLower = prompt.toLowerCase();
-
-    // 1. Speaking Examiner flow
-    if (voiceActiveRole === 'examiner') {
-      oralExamStep += 1;
-      if (oralExamStep === 1) {
-        const nextWord = ctx.words[1] || (ctx.rules[0] ? 'rule: ' + ctx.rules[0] : 'fluent expression');
-        return 'Good answer! Pronunciation and phrasing are intelligible. Question 2: How would you describe your daily routine or a real situation using "' + nextWord + '"?';
-      }
-      if (oralExamStep === 2) {
-        return 'Well articulated! Grammar and sentence structure meet standard conversational criteria. Question 3: What is the main contrast or rule to keep in mind when using ' + (ctx.rules[0] || 'verb tenses') + '?';
-      }
-      return 'Speaking Examination complete for ' + ctx.title + '! Evaluation: 92% Proficiency (B2 Standard). Good intonation and vocabulary retention. Teacher maintains final review authority.';
+    const unavailable = 'Dialogue is unavailable. Select a Conversation provider.';
+    const statusEl = document.getElementById('lmVoiceStatus');
+    if (statusEl) statusEl.textContent = 'AI thinking...';
+    const sender = voiceActiveRole === 'examiner' ? 'Speaking Examiner' : 'AI Tutor';
+    try {
+      if (typeof accountFetch !== 'function') throw new Error(unavailable);
+      const data = await accountFetch('/api/lessons/voice-reply', {
+        method: 'POST',
+        body: JSON.stringify({
+          role: voiceActiveRole,
+          title: ctx.title,
+          words: ctx.words,
+          rules: ctx.rules,
+          history: voiceHistory,
+          text: userText
+        })
+      });
+      const reply = String(data?.reply || '').trim();
+      if (!reply) throw new Error(unavailable);
+      if (userText) voiceHistory.push({ role: 'student', text: userText });
+      voiceHistory.push({ role: 'tutor', text: reply });
+      voiceAppendMessage(sender, reply, true);
+      voiceSpeakText(reply);
+    } catch (_) {
+      voiceAppendMessage(sender, unavailable, true);
+      if (statusEl) statusEl.textContent = 'Ready to listen';
     }
-
-    // 2. AI Tutor: Natural greetings & small talk
-    if (textLower.includes('how are you') || textLower.includes("how're you") || textLower.includes('how do you do') || textLower.includes("how's it going")) {
-      return "I am doing well, thank you! I am ready to practice English with you for " + ctx.title + ". How has your day been so far?";
-    }
-    if (textLower.includes('hello') || textLower.includes('hi') || textLower.includes('hey') || textLower.includes('good morning') || textLower.includes('good afternoon') || textLower.includes('good evening')) {
-      return 'Hello! Wonderful to speak with you today. Would you like to practice vocabulary from ' + ctx.title + ', or shall we talk about your day?';
-    }
-    if (textLower.includes('thank') || textLower.includes('thanks')) {
-      return "You are very welcome! You are doing a fantastic job speaking English. Would you like to try another question or practice a new word?";
-    }
-    if (textLower.includes('bye') || textLower.includes('goodbye') || textLower.includes('see you')) {
-      return 'Goodbye! Excellent effort practicing today. Keep speaking regularly to build natural fluency. See you next lesson!';
-    }
-
-    // 3. Questions asked by learner
-    if (textLower.startsWith('what is') || textLower.startsWith('what does') || textLower.includes('mean')) {
-      const targetWord = ctx.words.find(w => textLower.includes(w.toLowerCase())) || ctx.words[0] || 'term';
-      return 'That is a great question! In standard English, "' + targetWord + '" refers to an important concept in this lesson. Try forming a sentence where you use it!';
-    }
-    if (textLower.includes('can you help') || textLower.includes('how to say') || textLower.includes('how do you say')) {
-      return 'Of course, I am here to help! A natural way to express that is by keeping your word order Subject-Verb-Object. Try saying it step by step!';
-    }
-
-    // 4. Personal expressions (I like, I think, I want, I am)
-    if (textLower.includes('i like') || textLower.includes('i love') || textLower.includes('my favorite')) {
-      return 'That sounds enjoyable! What makes you like that so much? Tell me more details about your experience in English.';
-    }
-    if (textLower.includes('i think') || textLower.includes('in my opinion') || textLower.includes('i believe')) {
-      return 'That is a clear and well-reasoned thought. Expressing your personal opinion with confidence is essential for B2 fluency!';
-    }
-    if (textLower.includes('i want to') || textLower.includes('i would like to') || textLower.includes('i hope to')) {
-      return 'A great ambition! What steps are you planning to take to accomplish that? You can describe them in English.';
-    }
-
-    // 5. Grammar & Vocabulary prompts
-    if (textLower.includes('word') || textLower.includes('vocabulary')) {
-      const sampleWord = ctx.words[0] || 'opportunity';
-      return 'Let us practice the key vocabulary from ' + ctx.title + '. Try using the word "' + sampleWord + '" in a full sentence!';
-    }
-    if (textLower.includes('rule') || textLower.includes('grammar') || textLower.includes('tense')) {
-      const sampleRule = ctx.rules[0] || 'subject-verb agreement';
-      return 'For grammar accuracy in ' + ctx.title + ', focus on ' + sampleRule + '. What sentence structure would you like to review?';
-    }
-    if (textLower.includes('check') || textLower.includes('correct')) {
-      return 'Your pronunciation and sentence structure sound intelligible! Keep practicing the intonation of question forms.';
-    }
-
-    // 6. Conversational rotation for general sentences (avoids repeating identical phrasing)
-    const prompts = [
-      'That is an interesting thought! How often does that happen in your everyday routine?',
-      'Well phrased! Your vocabulary and pacing are clear. What other thoughts come to your mind about this topic?',
-      'Nicely articulated! In conversational English, that flows smoothly. Could you give me a specific example?',
-      'I appreciate you sharing that! Speaking spontaneously like this is great practice. What would you like to discuss next?',
-      'Good conversational flow! You expressed that with clear grammar. Shall we test some vocabulary from ' + ctx.title + '?'
-    ];
-    let sum = 0;
-    for (let i = 0; i < prompt.length; i++) sum += prompt.charCodeAt(i);
-    return prompts[sum % prompts.length];
   }
 
   function voiceSubmitUserText(text) {
@@ -30922,11 +31059,7 @@ if(typeof window!=='undefined'){
     const statusEl = document.getElementById('lmVoiceStatus');
     if (statusEl) statusEl.textContent = 'AI thinking...';
 
-    setTimeout(() => {
-      const reply = voiceGenerateReply(trimmed);
-      voiceAppendMessage(voiceActiveRole === 'examiner' ? 'Speaking Examiner' : 'AI Tutor', reply, true);
-      voiceSpeakText(reply);
-    }, 400);
+    voiceRequestReply(trimmed);
   }
 
   function createVoiceRecognition() {

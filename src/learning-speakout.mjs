@@ -9,7 +9,10 @@ const hash=async value=>Array.from(new Uint8Array(await crypto.subtle.digest('SH
 export function ensureSpeakout(db){
   if(!ready.has(db))ready.set(db,db.atomic([
     s(`CREATE TABLE IF NOT EXISTS speakout_documents(level TEXT NOT NULL,unit_index INTEGER NOT NULL,lesson_index INTEGER NOT NULL,content_json TEXT NOT NULL CHECK(json_valid(content_json)),published INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(level,unit_index,lesson_index))`),
-    s(`CREATE TABLE IF NOT EXISTS speakout_answers(account_id TEXT NOT NULL,level TEXT NOT NULL,unit_index INTEGER NOT NULL,lesson_index INTEGER NOT NULL,definition_revision INTEGER NOT NULL,answers_json TEXT NOT NULL CHECK(json_valid(answers_json)),PRIMARY KEY(account_id,level,unit_index,lesson_index))`)
+    s(`CREATE TABLE IF NOT EXISTS speakout_answers(account_id TEXT NOT NULL,level TEXT NOT NULL,unit_index INTEGER NOT NULL,lesson_index INTEGER NOT NULL,definition_revision INTEGER NOT NULL,answers_json TEXT NOT NULL CHECK(json_valid(answers_json)),PRIMARY KEY(account_id,level,unit_index,lesson_index))`),
+    s(`CREATE TABLE IF NOT EXISTS speakout_progress(user_id TEXT NOT NULL,lesson_id TEXT NOT NULL,current_page INTEGER NOT NULL,completed_steps TEXT NOT NULL DEFAULT '[]',updated_at TEXT NOT NULL,PRIMARY KEY(user_id,lesson_id))`),
+    s(`CREATE TABLE IF NOT EXISTS speakout_audio_recordings(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,lesson_id TEXT NOT NULL,track_id TEXT NOT NULL,audio_base64 TEXT NOT NULL,created_at TEXT NOT NULL)`),
+    s(`CREATE UNIQUE INDEX IF NOT EXISTS idx_speakout_audio_user_lesson_track ON speakout_audio_recordings(user_id,lesson_id,track_id)`)
   ]).catch(error=>{ready.delete(db);throw error;}));return ready.get(db);
 }
 export async function speakoutRevisions(db,actor){
@@ -90,4 +93,40 @@ export async function answerSpeakout(db,actor,body,store){
   const ids=new Set(JSON.parse(row.content_json).blocks.filter(block=>!block.contentGroup&&(['task','quiz','exercise'].includes(block.type)||block.type==='text'&&block.answerEnabled===true)).map(block=>block.id));if(Object.keys(body.answers).some(id=>id!=='_formatting'&&!ids.has(id)))throw new StudyError(400,'Invalid task.');
   for(const [id,items] of Object.entries(body.answers._formatting||{})){if(!ids.has(id))throw new StudyError(400,'Invalid task.');const block=JSON.parse(row.content_json).blocks.find(block=>block.id===id);for(const [index,format] of Object.entries(items))validateColorDocument(format,typeof body.answers[id]==='string'?body.answers[id]:body.answers[id]?.[index],block.answerEnabled===true);}
   await db.atomic([s('INSERT INTO speakout_answers(account_id,level,unit_index,lesson_index,definition_revision,answers_json) VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,level,unit_index,lesson_index) DO UPDATE SET definition_revision=excluded.definition_revision,answers_json=excluded.answers_json',[actor.id,...args,row.revision,JSON.stringify(body.answers)])]);return {saved:true,cacheRevision:row.revision+':'+await hash(JSON.stringify(body.answers))};
+}
+export async function readSpeakoutProgress(db,actor){
+  await ensureSpeakout(db);
+  const rows=await db.read('SELECT user_id,lesson_id,current_page,completed_steps,updated_at FROM speakout_progress WHERE user_id=?',[actor.id]);
+  return {progress:rows.map(r=>{let steps=[];try{steps=JSON.parse(r.completed_steps||'[]');}catch(_){}return {user_id:r.user_id,lesson_id:r.lesson_id,current_page:r.current_page,completed_steps:steps,updated_at:r.updated_at};}),userId:actor.id};
+}
+export async function saveSpeakoutProgress(db,actor,payload){
+  await ensureSpeakout(db);
+  const ALLOWED_LESSONS=['1A','1B','1C','1D','2A','2B'];
+  const lessonId=String(payload?.lessonId||'').trim();
+  if(!ALLOWED_LESSONS.includes(lessonId))throw new StudyError(400,'Invalid lessonId parameter');
+  const page=payload?.page;
+  if(!Number.isInteger(page)||page<1||page>177)throw new StudyError(400,'Invalid page parameter');
+  let steps='[]';
+  if(payload?.completedSteps!==undefined){
+    if(!Array.isArray(payload.completedSteps)||payload.completedSteps.length>20||!payload.completedSteps.every(s=>typeof s==='string'&&s.length<=50)){
+      throw new StudyError(400,'Invalid completedSteps');
+    }
+    steps=JSON.stringify(payload.completedSteps);
+  }
+  await db.atomic([s(`INSERT INTO speakout_progress(user_id,lesson_id,current_page,completed_steps,updated_at) VALUES(?,?,?,?,datetime('now')) ON CONFLICT(user_id,lesson_id) DO UPDATE SET current_page=excluded.current_page,completed_steps=excluded.completed_steps,updated_at=excluded.updated_at`,[actor.id,lessonId,page,steps])]);
+  return {success:true,userId:actor.id,lessonId,page};
+}
+export async function saveSpeakoutSpeechRecord(db,actor,payload){
+  await ensureSpeakout(db);
+  const audioBase64=String(payload?.audioBase64||'');
+  if(!audioBase64||!audioBase64.startsWith('data:audio/'))throw new StudyError(400,'Invalid or missing audio recording data');
+  if(audioBase64.length>524288)throw new StudyError(413,'Payload Too Large: Audio recording exceeds 512 KB limit');
+  const ALLOWED_LESSONS=['1A','1B','1C','1D','2A','2B'];
+  const lessonId=String(payload?.lessonId||'').trim();
+  const trackId=String(payload?.trackId||'').trim();
+  const ALLOWED_TRACKS=['1.01','1.02','1.03','1.04','1.0X','1.05','1.06','1.07','1.08','VB1.01','VB1.02','VB1.03','VB1.04','wb_1_01','wb_1_02','wb_1_03','wb_1_04'];
+  if(!ALLOWED_LESSONS.includes(lessonId)||!ALLOWED_TRACKS.includes(trackId))throw new StudyError(400,'Invalid lessonId or trackId parameter');
+  const id='rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
+  await db.atomic([s(`INSERT INTO speakout_audio_recordings(id,user_id,lesson_id,track_id,audio_base64,created_at) VALUES(?,?,?,?,?,datetime('now')) ON CONFLICT(user_id,lesson_id,track_id) DO UPDATE SET id=excluded.id,audio_base64=excluded.audio_base64,created_at=excluded.created_at`,[id,actor.id,lessonId,trackId,audioBase64])]);
+  return {success:true,id,userId:actor.id,lessonId,trackId};
 }

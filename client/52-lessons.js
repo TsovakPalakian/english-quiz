@@ -23,6 +23,7 @@
       },
     });
     let lmSaveTimer = 0;
+    let lmSavedFingerprint = "";
     let lmInsertAnchor = null;
     let lmLastAddedBlockId = null;
     let lmFontRange = null;
@@ -455,9 +456,34 @@
         lmServerReady = !!authUser;
       });
     }
+    function lmLessonFingerprint(lesson) {
+      if (!lesson) return "";
+      return JSON.stringify({
+        title: lesson.title || "",
+        description: lesson.description || "",
+        className: lesson.className || "",
+        unit: lesson.unit || "",
+        lesson: lesson.lesson || "",
+        date: lesson.date || "",
+        blocks: lesson.blocks || []
+      });
+    }
+    function lmSyncSaveDraftButton() {
+      const button = document.getElementById("lmSave");
+      if (!button) return;
+      const dirty = !!(lmState && lmLessonFingerprint(lmState) !== lmSavedFingerprint);
+      button.disabled = !dirty;
+      button.classList.toggle("is-disabled", !dirty);
+      button.setAttribute("aria-disabled", dirty ? "false" : "true");
+    }
+    function lmMarkDraftSaved() {
+      lmSavedFingerprint = lmLessonFingerprint(lmState);
+      lmSyncSaveDraftButton();
+    }
     function lmSchedule() {
       clearTimeout(lmSaveTimer);
       lmSaveTimer = setTimeout(lmPersist, 400);
+      lmSyncSaveDraftButton();
     }
     function lmId() { return "lm-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
     function lmUniqueId() {
@@ -1260,7 +1286,18 @@
             let promptText = String(question.prompt || "Statement");
             const sayMatch = promptText.match(/Say:\s*["']([^"']+)["']/i);
             if (sayMatch) {
-              promptText = 'The word "' + sayMatch[1] + '" correctly translates to Russian.';
+              const word = sayMatch[1];
+              const meaning = question.meaning || lmFindWordMeaning(word) || word;
+              promptText = 'The word "' + word + '" correctly translates to Russian as "' + meaning + '".';
+            } else {
+              const incompleteMatch = promptText.match(/^The word ["']([^"']+)["'] correctly translates to Russian\.?$/i);
+              if (incompleteMatch) {
+                const word = incompleteMatch[1];
+                const meaning = question.meaning || lmFindWordMeaning(word);
+                if (meaning) {
+                  promptText = 'The word "' + word + '" correctly translates to Russian as "' + meaning + '".';
+                }
+              }
             }
             const opts = '<div class="lm-tf-options">' +
               '<button type="button" class="lm-tf-btn' + (picked === 'true' ? ' selected' : '') + '" data-pick="' + block.id + ':' + index + ':true">True' + (picked === 'true' ? ' ✓' : '') + '</button>' +
@@ -1269,7 +1306,7 @@
             const mark = question.marked ? '<div class="lm-tf-feedback ' + (question.correct ? 'is-ok' : 'is-no') + '">' + (question.correct ? '✓ Correct! (+1 pt)' : '✗ Incorrect (Correct answer: ' + (String(question.answer).toLowerCase() === 'true' ? 'True' : 'False') + ')') + '</div>' : '';
             return '<div class="lm-tf-card"><div class="lm-tf-statement"><strong>Statement:</strong> ' + esc(promptText) + '</div>' + opts + mark + '</div>';
           }).join("");
-          return '<div class="lm-tf-block">' + title + scoreBadge + questions + '<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button></div></div>';
+          return '<div class="lm-tf-block">' + scoreBadge + questions + '<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button></div></div>';
         }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
@@ -1657,6 +1694,8 @@
       lmBindEditor();
       if (editing) lmRenderEditor();
       else lmRenderPreview();
+      if (lmState && !lmSavedFingerprint) lmSavedFingerprint = lmLessonFingerprint(lmState);
+      lmSyncSaveDraftButton();
       examDress();
       if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
       if (assessmentActive(lmState) && !editing && (!canEditLessons() || canTuneStudentLessons()) && !lmState.assessmentReady) assessmentRead(lmState);
@@ -1920,6 +1959,7 @@
       lmState = found;
       lmLibrary.activeId = id;
       found.mode = canEditLessons() && !found.published ? "edit" : "preview";
+      lmMarkDraftSaved();
       visit("material");
     }
     function lmKeepLesson() {
@@ -2012,6 +2052,7 @@
       if (group && !group.lessonIds.includes(fresh.id)) group.lessonIds.push(fresh.id);
       lmState = fresh;
       fresh.mode = "edit";
+      lmMarkDraftSaved();
       lmKeepLesson();
       show("material");
       lmRenderEditor();
@@ -2657,7 +2698,7 @@
       });
       document.getElementById("lmPreviewBtn").addEventListener("click", () => { lmShow("preview"); lmPersist(); });
       document.getElementById("lmEditBack").addEventListener("click", () => { if (canEditLessons()) lmShow("edit"); });
-      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons()) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
+      document.getElementById("lmSave").addEventListener("click", () => { if (!canEditLessons() || document.getElementById("lmSave")?.disabled) return; lmState.published = false; lmState.mode = "edit"; lmKeepLesson(); lmPersist(); lmMarkDraftSaved(); lmRenderEditor(); lmNote(lmState && lmState.examOwned ? "Draft saved." : "Draft saved. The lesson is in Classes."); });
       document.getElementById("lmPublish").addEventListener("click", () => {
         if (!canEditLessons()) return;
         if (!lmState?.examOwned) {
@@ -2672,6 +2713,7 @@
         lmState.mode = "preview";
         lmKeepLesson();
         lmPersist();
+        lmMarkDraftSaved();
         lmNote("");
         lmShow("preview");
       });
@@ -2932,6 +2974,69 @@
         }
       };
 
+      function lmFindWordMeaning(targetWord) {
+        if (!targetWord) return "";
+        const tw = String(targetWord).toLowerCase().trim();
+        if (typeof lmState !== "undefined" && Array.isArray(lmState?.blocks)) {
+          for (const b of lmState.blocks) {
+            if ((b.type === "wordcard" || b.type === "word") && String(b.word || "").toLowerCase().trim() === tw) {
+              const m = b.ru || b.translation || b.meaning || b.data?.ru;
+              if (m) return m;
+            }
+            if (b.type === "vocab" && Array.isArray(b.items)) {
+              const found = b.items.find(it => String(it.word || "").toLowerCase().trim() === tw);
+              if (found && (found.translation || found.meaning || found.ru)) return found.translation || found.meaning || found.ru;
+            }
+          }
+        }
+        if (typeof THEMATIC_VOCABULARY_BANKS !== "undefined") {
+          for (const bank of Object.values(THEMATIC_VOCABULARY_BANKS)) {
+            for (const cat of ["words", "phrasalVerbs", "idioms", "collocations"]) {
+              const found = (bank[cat] || []).find(it => String(it.word || "").toLowerCase().trim() === tw);
+              if (found && found.meaning) return found.meaning;
+            }
+          }
+        }
+        return "";
+      }
+
+      function lmFindWordExample(targetWord) {
+        if (!targetWord) return "";
+        const tw = String(targetWord).toLowerCase().trim();
+        if (typeof lmState !== "undefined" && Array.isArray(lmState?.blocks)) {
+          for (const b of lmState.blocks) {
+            if ((b.type === "wordcard" || b.type === "word") && String(b.word || "").toLowerCase().trim() === tw) {
+              const ex = b.example || b.sourceExample || b.data?.example;
+              if (ex && ex.toLowerCase().includes(tw)) return ex;
+            }
+          }
+        }
+        if (typeof THEMATIC_VOCABULARY_BANKS !== "undefined") {
+          for (const bank of Object.values(THEMATIC_VOCABULARY_BANKS)) {
+            for (const cat of ["words", "phrasalVerbs", "idioms", "collocations"]) {
+              const found = (bank[cat] || []).find(it => String(it.word || "").toLowerCase().trim() === tw);
+              if (found && found.example && found.example.toLowerCase().includes(tw)) return found.example;
+            }
+          }
+        }
+        return "";
+      }
+
+      function lmSynthesizeLevelSentence(word, meaning, level) {
+        const lvl = String(level || "B1").toUpperCase();
+        const w = String(word || "").trim();
+        if (lvl === "A1" || lvl === "A2") {
+          return "She always keeps a special " + w + " for good luck.";
+        }
+        if (lvl === "B1" || lvl === "B1+") {
+          return "Many ancient cultural traditions and beliefs are based on " + w + ".";
+        }
+        if (lvl === "B2" || lvl === "B2+") {
+          return "Researchers studied how ancient " + w + " continues to influence people today.";
+        }
+        return "Scholars have long debated the psychological and cultural origins of this " + w + ".";
+      }
+
       function lmGetThematicExpansionPool(themeText, neededCount) {
         const text = String(themeText || '').toLowerCase();
         const bank = THEMATIC_VOCABULARY_BANKS.superstitions;
@@ -2959,7 +3064,8 @@
           if (b.type === "wordcard" || b.type === "word") {
             const word = String(b.word || b.en || "").trim();
             const meaning = String(b.ru || b.data?.ru || b.pdfVocabulary?.meaning || b.translation || b.meaning || word).trim();
-            const example = String(b.example || b.sourceExample || (b.data?.example) || "").trim();
+            let example = String(b.example || b.sourceExample || (b.data?.example) || "").trim();
+            if (!example && typeof lmFindWordExample === "function") example = lmFindWordExample(word);
             if (word && !seen.has(word.toLowerCase())) {
               seen.add(word.toLowerCase());
               pool.push({ word, meaning, example, isCore: !b.supplementary, supplementary: Boolean(b.supplementary), expressionType: b.expressionType || "WORD" });
@@ -2969,17 +3075,21 @@
               b.items.forEach((it) => {
                 const w = String(it.word || "").trim();
                 const m = String(it.translation || it.meaning || it.ru || w).trim();
+                let ex = it.example || "";
+                if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(w);
                 if (w && !seen.has(w.toLowerCase())) {
                   seen.add(w.toLowerCase());
-                  pool.push({ word: w, meaning: m, example: it.example || "", isCore: true });
+                  pool.push({ word: w, meaning: m, example: ex, isCore: true });
                 }
               });
             } else if (b.word) {
               const w = String(b.word).trim();
               const m = String(b.translation || b.ru || b.meaning || w).trim();
+              let ex = b.example || "";
+              if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(w);
               if (w && !seen.has(w.toLowerCase())) {
                 seen.add(w.toLowerCase());
-                pool.push({ word: w, meaning: m, example: b.example || "", isCore: true });
+                pool.push({ word: w, meaning: m, example: ex, isCore: true });
               }
             }
           } else if (b.type === "phrase" || b.tab === "phrases") {
@@ -2987,9 +3097,11 @@
               b.items.forEach((it) => {
                 const p = String(it.phrase || "").trim();
                 const m = String(it.translation || it.meaning || it.ru || p).trim();
+                let ex = it.example || "";
+                if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(p);
                 if (p && !seen.has(p.toLowerCase())) {
                   seen.add(p.toLowerCase());
-                  pool.push({ word: p, meaning: m, example: it.example || "", isCore: true, expressionType: "COLLOCATION" });
+                  pool.push({ word: p, meaning: m, example: ex, isCore: true, expressionType: "COLLOCATION" });
                 }
               });
             }
@@ -2997,9 +3109,11 @@
             b.items.forEach((it) => {
               const f = String(it.front || "").trim();
               const bk = String(it.back || f).trim();
+              let ex = it.example || "";
+              if (!ex && typeof lmFindWordExample === "function") ex = lmFindWordExample(f);
               if (f && !seen.has(f.toLowerCase())) {
                 seen.add(f.toLowerCase());
-                pool.push({ word: f, meaning: bk, example: it.example || "", isCore: true });
+                pool.push({ word: f, meaning: bk, example: ex, isCore: true });
               }
             });
           }
@@ -3217,6 +3331,16 @@
             } else if (quizType === "Gap") {
               const blockTitle = (isHw ? "HW Gap: " : "CW Gap: ") + targetObj.word;
               existingTasksInSec.add(blockTitle.toLowerCase().trim());
+              const level = (typeof lmDetectLevel === "function" ? lmDetectLevel(lmState?.className || lmState?.title) : "") || "B1";
+              let sentence = targetObj.example || lmFindWordExample(targetObj.word);
+              if (!sentence || !sentence.toLowerCase().includes(targetObj.word.toLowerCase())) {
+                sentence = lmSynthesizeLevelSentence(targetObj.word, targetObj.meaning, level);
+              }
+              const escWord = targetObj.word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              let shownSentence = sentence.replace(new RegExp("\\b" + escWord + "\\b", "gi"), "___");
+              if (!shownSentence.includes("___")) {
+                shownSentence = sentence.replace(new RegExp(escWord, "i"), "___");
+              }
 
               const block = {
                 id: lmId(),
@@ -3230,7 +3354,7 @@
                 targetWord: targetObj.word,
                 quizType: "Gap",
                 items: [{
-                  shown: targetObj.example ? targetObj.example.replace(new RegExp("\\b" + targetObj.word + "\\b", "gi"), "___") : "We need to understand ___ in context.",
+                  shown: shownSentence,
                   answer: targetObj.word,
                   hint: "First letter: " + (targetObj.word[0] || "")
                 }]
@@ -3240,8 +3364,12 @@
             } else if (quizType === "True / false") {
               const isTruthful = (createdTaskBlocks.length % 2 === 0);
               const word = targetObj.word;
-              const meaning = targetObj.meaning;
-              const example = targetObj.example;
+              const meaning = targetObj.meaning || lmFindWordMeaning(word) || word;
+              let example = targetObj.example || lmFindWordExample(word);
+              const level = (typeof lmDetectLevel === "function" ? lmDetectLevel(lmState?.className || lmState?.title) : "") || "B1";
+              if (!example || !example.toLowerCase().includes(word.toLowerCase())) {
+                example = lmSynthesizeLevelSentence(word, meaning, level);
+              }
               let statement = "";
               let note = "";
               if (isTruthful) {
@@ -3253,7 +3381,11 @@
                 note = 'Statement is TRUE: "' + word + '" means "' + meaning + '".';
               } else {
                 const distractor = vocabPool.find((v) => v.word.toLowerCase() !== word.toLowerCase() && v.meaning !== meaning) || { word: "experiment", meaning: "научный эксперимент" };
-                statement = 'The word "' + word + '" translates to Russian as "' + distractor.meaning + '".';
+                if (example && example.toLowerCase().includes(word.toLowerCase())) {
+                  statement = 'In the context "' + example + '", the word "' + word + '" translates as "' + distractor.meaning + '".';
+                } else {
+                  statement = 'The word "' + word + '" translates to Russian as "' + distractor.meaning + '".';
+                }
                 note = 'Statement is FALSE: "' + word + '" means "' + meaning + '", not "' + distractor.meaning + '".';
               }
               const blockTitle = (isHw ? "HW True / false: " : "CW True / false: ") + word;
@@ -3644,6 +3776,16 @@
         lmRenderEditor();
         lmSchedule();
         lmPersist();
+        if (typeof window.lmPdfUseSource === 'function' && typeof window.lmPdfProgress === 'function') {
+          const classworkCount = createdTaskBlocks.filter((block) => block.tab === 'classwork').length;
+          const homeworkCount = createdTaskBlocks.filter((block) => block.tab === 'homework').length;
+          const lines = [];
+          if (newlyAddedWords.length) lines.push('Words: ' + newlyAddedWords.length);
+          if (classworkCount) lines.push('Classwork: ' + classworkCount);
+          if (homeworkCount) lines.push('Homework: ' + homeworkCount);
+          window.lmPdfUseSource('lesson');
+          window.lmPdfProgress('Ready to review', lines, 1, 1);
+        }
 
         const targetTab = sectionsToFill[0]?.tab || "homework";
         lmSelectTab(targetTab);
@@ -3663,6 +3805,7 @@
         if (undoWrap) undoWrap.style.display = "none";
 
         lmHideTabProgress("lesson");
+        if (typeof window.lmPdfProgressEnd === 'function') window.lmPdfProgressEnd();
         lmSyncLessonComplementTab();
         lmRenderEditor();
         lmSchedule();

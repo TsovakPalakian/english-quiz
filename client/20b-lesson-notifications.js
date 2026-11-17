@@ -25,63 +25,70 @@
 
   function getActiveNotifications() {
     const list = [];
+    const prefs = getNotificationSettings();
     const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
-    const user = (typeof viewAccount !== 'undefined' && viewAccount) || (typeof authUser !== 'undefined' && authUser) || null;
 
-    // 1. Check for scheduled lesson today
-    let todayLessonFound = false;
-    if (typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
-      const activeGroup = classGroups.find(g => g && g.date === today && !g.hidden);
-      if (activeGroup) {
-        todayLessonFound = true;
+    if (prefs.lessonReminders && typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
+      classGroups.filter((group) => group && group.date === today && !group.hidden).forEach((group) => {
         list.push({
-          id: 'lesson-today-' + (activeGroup.id || 'current'),
+          id: 'lesson-today-' + (group.id || 'current'),
           type: 'lesson',
+          open: 'classes',
           icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
           title: 'Scheduled Class Today',
-          desc: (activeGroup.title || 'Lesson group') + ' has an active session scheduled for today.',
+          desc: (group.title || 'Lesson group') + ' has an active session scheduled for today.',
           badge: 'Today',
           badgeClass: 'badge-today'
         });
-      }
+      });
     }
 
-    if (!todayLessonFound && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
-      const mat = lmLibrary.materials.find(m => m && m.date === today && !m.hidden);
-      if (mat) {
+    if (prefs.lessonReminders && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
+      lmLibrary.materials.filter((item) => item && item.date === today && !item.hidden).forEach((item) => {
         list.push({
-          id: 'material-today-' + mat.id,
+          id: 'material-today-' + item.id,
           type: 'lesson',
+          lessonId: item.id,
           icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
           title: 'Lesson Material Today',
-          desc: (mat.title || 'Active material') + ' is assigned for today.',
+          desc: (item.title || 'Active material') + ' is assigned for today.',
           badge: 'Today',
           badgeClass: 'badge-today'
         });
-      }
+      });
     }
 
-    // 2. Word review reminder
-    list.push({
-      id: 'fsrs-review-card',
-      type: 'review',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>',
-      title: 'Vocabulary Review Ready',
-      desc: 'Spaced repetition cards are queued for retention practice.',
-      badge: 'Review',
-      badgeClass: 'badge-review'
-    });
-
-    // 3. System release reminder
-    list.push({
-      id: 'system-v240',
-      type: 'system',
-      icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-      title: 'Lumiscia Studio Updated',
-      desc: 'Version 2.4.0 active: improved isolated workbench and unified profile bar.',
-      badge: 'v2.4.0',
-      badgeClass: 'badge-system'
-    });
+    if (prefs.dailyReview && typeof examLoad === 'function') {
+      examLoad().forEach((exam) => {
+        const blocks = Array.isArray(exam?.blocks) ? exam.blocks : [];
+        const waiting = exam?.instanceStatus === 'ready' || (!exam?.instanceStatus && blocks.some((block) => ['submitted', 'reviewing'].includes(block?.doc?.assessmentState || block?.assessmentState)));
+        const published = exam?.instanceStatus === 'completed' || blocks.some((block) => (block?.doc?.assessmentState || block?.assessmentState) === 'published');
+        if (waiting) {
+          list.push({
+            id: 'teacher-review-' + exam.id,
+            type: 'review',
+            examId: exam.id,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+            title: 'Work is waiting for review',
+            desc: exam.title || 'Exam',
+            badge: 'Review',
+            badgeClass: 'badge-review'
+          });
+        }
+        if (published) {
+          list.push({
+            id: 'student-review-' + exam.id,
+            type: 'review',
+            examId: exam.id,
+            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>',
+            title: 'Review published',
+            desc: exam.title || 'Exam',
+            badge: 'Review',
+            badgeClass: 'badge-review'
+          });
+        }
+      });
+    }
 
     return list;
   }
@@ -121,8 +128,8 @@
     const readTs = Number(localStorage.getItem(READ_KEY) || '0');
     const isRecentlyRead = (Date.now() - readTs) < (24 * 60 * 60 * 1000);
 
-    const itemsHtml = notifications.map(item =>
-      '<div class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
+    const itemsHtml = notifications.length ? notifications.map(item =>
+      '<button type="button" class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
         '<div class="lesson-notify-card-icon ' + esc(item.type) + '">' + item.icon + '</div>' +
         '<div class="lesson-notify-card-body">' +
           '<div class="lesson-notify-card-top">' +
@@ -131,8 +138,8 @@
           '</div>' +
           '<p class="lesson-notify-card-desc">' + esc(item.desc) + '</p>' +
         '</div>' +
-      '</div>'
-    ).join('');
+      '</button>'
+    ).join('') : '<p class="lesson-notify-card-desc">No reminders.</p>';
 
     modal.innerHTML =
       '<div class="lesson-notifications-backdrop" id="lessonNotifyBackdrop"></div>' +
@@ -155,7 +162,7 @@
             '<label class="lesson-notify-pref-row">' +
               '<div class="lesson-notify-pref-label">' +
                 '<strong>Lesson start reminders</strong>' +
-                '<span>Receive an alert 15 minutes prior to class</span>' +
+                '<span>Hide or show today class and lesson cards</span>' +
               '</div>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="lessonReminders"' + (settings.lessonReminders ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
@@ -163,7 +170,7 @@
             '<label class="lesson-notify-pref-row">' +
               '<div class="lesson-notify-pref-label">' +
                 '<strong>Daily word review</strong>' +
-                '<span>Spaced repetition queue alerts for retention</span>' +
+                '<span>Hide or show review cards</span>' +
               '</div>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="dailyReview"' + (settings.dailyReview ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
@@ -171,7 +178,7 @@
             '<label class="lesson-notify-pref-row">' +
               '<div class="lesson-notify-pref-label">' +
                 '<strong>Audio alert sounds</strong>' +
-                '<span>Play notification tone for timely awareness</span>' +
+                '<span>Stored on this device. It does not send an alert.</span>' +
               '</div>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="audioAlerts"' + (settings.audioAlerts ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
@@ -200,10 +207,24 @@
       };
     }
 
+    modal.querySelectorAll('.lesson-notify-card').forEach((card) => {
+      card.onclick = () => {
+        const item = notifications.find((entry) => entry.id === card.getAttribute('data-notify-id'));
+        closeLessonNotifications();
+        if (!item) return;
+        if (item.lessonId && typeof lmOpenLesson === 'function') lmOpenLesson(item.lessonId);
+        else if (item.examId && typeof visit === 'function') {
+          examCurrentId = item.examId;
+          visit('examblocks');
+        } else if (item.open === 'classes' && typeof visit === 'function') visit('groups');
+      };
+    });
+
     modal.querySelectorAll('.lesson-notify-toggle').forEach(input => {
       input.onchange = (e) => {
         const key = input.dataset.prefKey;
         setNotificationSetting(key, input.checked);
+        renderModalContent();
       };
     });
   }

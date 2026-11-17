@@ -23,8 +23,12 @@ test('TASK-53: Stepper buttons removed and clean numeric input configured', () =
 
 test('TASK-53: Max 30 limit and total summary display', () => {
   const html = fs.readFileSync(path.join(rootDir, 'site/preview.html'), 'utf8');
+  const css = fs.readFileSync(path.join(rootDir, 'site/preview.css'), 'utf8');
   assert.ok(html.includes('Max 30'), 'Should display Max 30 pill badge');
   assert.ok(html.includes('id="lmTaskTotalSummary"'), 'Should have lmTaskTotalSummary container');
+  assert.ok(html.includes('class="lm-lesson-count-tools"'), 'Count, Max 30 and Total stay in one tools row');
+  assert.ok(css.includes('.lm-current-lesson-header #lmCurrentLessonInfo'), 'Lesson title row must keep its text on one line');
+  assert.ok(css.includes('white-space: nowrap'), 'Complement header phrases must not wrap');
 
   const code = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
   assert.ok(code.includes('if (count > 30) count = 30;'), 'lmGetTaskCountPerSection must clamp at max 30');
@@ -216,6 +220,37 @@ test('TASK-53: Visual test with Playwright - verifies clean input, progress bar,
 
     const inputMode = await countInput.getAttribute('inputmode');
     assert.equal(inputMode, 'numeric', 'Count input must have inputmode="numeric"');
+
+    const headerFits = await page.evaluate(() => {
+      const pane = document.getElementById('lmTabPaneLesson');
+      const header = document.querySelector('.lm-current-lesson-header');
+      const info = document.getElementById('lmCurrentLessonInfo');
+      const badge = document.getElementById('lmCountMaxBadge');
+      const total = document.getElementById('lmTaskTotalSummary');
+      if (!pane || !header || !info || !badge || !total) return { ok: false, reason: 'missing' };
+      for (let node = pane; node && node !== document.body; node = node.parentElement) {
+        if (getComputedStyle(node).display === 'none') node.style.display = 'block';
+      }
+      pane.style.width = '960px';
+      document.getElementById('lmCurrentLessonTitle').textContent = 'Superstitions and Prepositions';
+      document.getElementById('lmCurrentLessonStats').textContent = '42 blocks active';
+      total.textContent = '(Total: 3 tasks)';
+      const oneLine = (el) => {
+        const style = getComputedStyle(el);
+        const fontSize = parseFloat(style.fontSize) || 13;
+        const line = parseFloat(style.lineHeight) || fontSize * 1.2;
+        return {
+          nowrap: style.whiteSpace === 'nowrap',
+          rects: el.getClientRects().length,
+          scrollHeight: el.scrollHeight,
+          line
+        };
+      };
+      const rows = { info: oneLine(info), badge: oneLine(badge), total: oneLine(total) };
+      const ok = Object.values(rows).every((row) => row.nowrap && row.rects === 1 && row.scrollHeight <= row.line * 1.6);
+      return { ok, rows };
+    });
+    assert.equal(headerFits.ok, true, 'Active lesson, Max 30 and Total stay on one line: ' + JSON.stringify(headerFits));
 
     // Test progress bar functions in page context
     const progressTestResult = await page.evaluate(() => {
