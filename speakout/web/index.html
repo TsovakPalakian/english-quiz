@@ -12,13 +12,7 @@
   <!-- 1. Top App Header -->
   <header class="app-header">
     <div class="header-left">
-      <a href="/#speakout" class="btn-platform-nav" title="Back to English Quiz platform">
-        <span class="platform-nav-arrow">&larr;</span>
-        <span>Platform</span>
-      </a>
       <div class="brand-badge">
-        <span class="brand-logo">SO</span>
-        <span class="brand-title">Pearson Speakout 3rd Edition</span>
         <span class="level-pill">Level A1 • Unit 1</span>
       </div>
       <div class="header-divider"></div>
@@ -174,11 +168,9 @@
         <div class="waveform-scroll-viewport" id="waveform-scroll-viewport" tabindex="0" role="region" aria-label="Audio Waveform">
           <div class="waveform-canvas-track" id="waveform-canvas-track">
             <canvas id="waveform-canvas" class="waveform-canvas" height="72"></canvas>
-            <div id="waveform-loop-region" class="waveform-loop-region hidden">
-              <span id="waveform-loop-label" class="loop-label-pill">🔁 A-B Loop</span>
-            </div>
-            <div id="waveform-trim-left" class="waveform-trim-handle left hidden" title="Drag to adjust Start (A)" tabindex="0" role="slider" aria-label="Loop Start">&lt; A</div>
-            <div id="waveform-trim-right" class="waveform-trim-handle right hidden" title="Drag to adjust End (B)" tabindex="0" role="slider" aria-label="Loop End">B &gt;</div>
+            <div id="waveform-loop-region" class="waveform-loop-region hidden"></div>
+            <div id="waveform-trim-left" class="waveform-trim-handle left hidden" title="Drag to adjust Start (A)" tabindex="0" role="slider" aria-label="Loop Start"><div class="handle-top-badge">A</div></div>
+            <div id="waveform-trim-right" class="waveform-trim-handle right hidden" title="Drag to adjust End (B)" tabindex="0" role="slider" aria-label="Loop End"><div class="handle-top-badge">B</div></div>
             <div id="waveform-playhead-badge" class="playhead-badge">0:00.000</div>
             <div id="waveform-playhead" class="waveform-playhead"></div>
           </div>
@@ -188,7 +180,7 @@
         <!-- Full Studio Transport Controls Bar -->
         <div class="transport-bar" id="player-controls">
           <div class="transport-buttons-group">
-            <button id="btn-play-pause" class="t-btn t-btn-primary btn-play-circle" title="Play / Pause">▶</button>
+            <button id="btn-play-pause" class="t-btn btn-play-circle" title="Play / Pause" aria-label="Play / Pause">▶</button>
             <button id="btn-stop" class="t-btn" title="Stop">⏹</button>
             <button id="btn-loop-toggle" class="t-btn" title="Toggle A-B Loop">🔁 Loop A-B</button>
             <button id="btn-jump-start" class="t-btn" title="Jump to Start A">⏮ A</button>
@@ -230,19 +222,21 @@
       </div>
 
       <div class="keys-modal-meta">
+        <div class="keys-tabs-nav">
+          <button id="keys-tab-left" class="keys-tab active" data-tab="left">Page 2</button>
+          <button id="keys-tab-right" class="keys-tab" data-tab="right">Page 3</button>
+        </div>
         <span id="keys-section-name">Lesson 1A: Hello</span>
-        <span id="keys-pages-info" class="meta-pages">Pages 2–3</span>
+        <span id="keys-pages-info" class="meta-pages" hidden>Pages 2–3</span>
         <span id="keys-error" class="reader-error hidden"></span>
       </div>
 
       <div class="keys-modal-body custom-scrollbar">
-        <div id="keys-pdf-container" class="keys-spread-wrapper">
-          <div class="keys-page-pane">
-            <div id="keys-title-left" class="keys-pane-title">Page 2</div>
+        <div id="keys-pdf-container" class="keys-spread-wrapper single-page-mode">
+          <div id="keys-pane-left" class="keys-page-pane active">
             <canvas id="keys-pdf-canvas-left" class="keys-page-canvas"></canvas>
           </div>
-          <div class="keys-page-pane">
-            <div id="keys-title-right" class="keys-pane-title">Page 3</div>
+          <div id="keys-pane-right" class="keys-page-pane hidden">
             <canvas id="keys-pdf-canvas-right" class="keys-page-canvas"></canvas>
           </div>
         </div>
@@ -262,40 +256,96 @@
       </div>
     </div>
 
-    <!-- 2.6 Speech Verification Studio Modal (Screenshot 21) -->
+    <!-- 2.6 Speech Verification Studio Modal -->
     <div id="speech-studio-modal" class="speech-studio-overlay hidden">
-      <div class="speech-studio-card">
-        <div class="speech-studio-header">
-          <div class="speech-studio-title">
-            <span class="live-dot-pulse">● LIVE</span>
-            <span>Speech Studio • Adaptive Verification</span>
+      <div class="speech-studio-card studio-modal-container">
+        <div class="studio-header">
+          <div class="studio-title-box">
+            <span class="studio-title">🎙️ Speech Verification Studio</span>
+            <span id="speech-studio-track-tag" class="track-tag">Track 1.01</span>
+            <span id="speech-engine-tag" class="engine-tag" hidden>Web Speech Engine</span>
           </div>
-          <span id="speech-engine-tag" class="engine-tag">Web Speech Engine • Online</span>
           <button id="btn-close-speech-studio" class="btn-close" title="Close Studio">&times;</button>
         </div>
-        <div class="speech-studio-body">
-          <div class="speech-card-row target-phrase-row">
-            <span class="speech-field-label">Target Model Phrase:</span>
-            <div id="target-phrase-text" class="phrase-target-box">"Hello, I'm Shanaya. Nice to meet you."</div>
+        <div class="studio-body">
+          <!-- Target Phrase -->
+          <div>
+            <div class="section-label">TARGET MODEL PHRASE</div>
+            <div class="target-box">
+              <div id="target-phrase-text" class="target-phrase">"Lesson 1A Exercise 1A & 1B: Listen and match countries."</div>
+              <div class="target-hint">Pearson Model A1</div>
+            </div>
           </div>
-          <div class="speech-card-row recognized-phrase-row">
-            <div class="recognized-header-line">
-              <span class="speech-field-label">Recognized Speech & Per-Word Verification:</span>
-              <div class="pill-group">
-                <span id="speech-match-pill" class="badge-match waiting">Waiting for speech...</span>
-                <span id="speech-accuracy-pill" class="badge-match waiting">Accuracy: --</span>
+
+          <!-- Teacher Waveform -->
+          <div class="waveform-card">
+            <div class="waveform-card-header">
+              <div class="waveform-card-title">
+                <span>🔊 Teacher Audio (Pearson Reference)</span>
+              </div>
+              <div class="waveform-card-controls">
+                <span id="teacher-time-mini" class="time-mini">0:00 / 0:03</span>
+                <button id="btn-play-model-sample" class="btn-play-mini">▶ Play</button>
               </div>
             </div>
-            <div id="recognized-speech-text" class="phrase-recognized-box">
-              <span class="placeholder-text">Press 🎙 Speech Record and speak clearly into microphone...</span>
+            <div class="mini-waveform-viewport" id="viewport-teacher">
+              <div id="playhead-teacher" class="mini-playhead" style="left: 0;">
+                <div id="badge-teacher" class="mini-playhead-badge">.000</div>
+              </div>
+              <canvas id="cvs-teacher" class="mini-waveform-canvas" width="1320" height="112"></canvas>
+              <div class="mini-waveform-ruler">
+                <span>0s</span>
+                <span>0.5s</span>
+                <span>1.0s</span>
+                <span>1.5s</span>
+                <span>2.0s</span>
+                <span>2.5s</span>
+                <span>3.0s</span>
+              </div>
             </div>
-            <div id="speech-word-breakdown" class="speech-word-breakdown"></div>
           </div>
-          <div id="speech-error-notice" class="speech-error-notice hidden"></div>
-          <div class="speech-studio-footer">
-            <button id="btn-play-model-sample" class="btn btn-audio-sample">▶ Pearson Model Audio</button>
-            <button id="btn-play-student-sample" class="btn btn-audio-sample" disabled>▶ Student Playback</button>
-            <span id="speech-engine-footer-tag" class="engine-tag">✓ Speech Verification Engine Active</span>
+
+          <!-- Student Waveform -->
+          <div class="waveform-card">
+            <div class="waveform-card-header">
+              <div class="waveform-card-title">
+                <span>🎙️ My Recording (Student Voice)</span>
+              </div>
+              <div class="waveform-card-controls">
+                <span id="student-time-mini" class="time-mini">0:00 / 0:03</span>
+                <button id="btn-play-student-sample" class="btn-play-mini primary">▶ Play</button>
+              </div>
+            </div>
+            <div class="mini-waveform-viewport" id="viewport-student">
+              <div id="playhead-student" class="mini-playhead" style="left: 0;">
+                <div id="badge-student" class="mini-playhead-badge">.000</div>
+              </div>
+              <canvas id="cvs-student" class="mini-waveform-canvas" width="1320" height="112"></canvas>
+              <div class="mini-waveform-ruler">
+                <span>0s</span>
+                <span>0.5s</span>
+                <span>1.0s</span>
+                <span>1.5s</span>
+                <span>2.0s</span>
+                <span>2.5s</span>
+                <span>3.0s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Evaluation & Words -->
+          <div class="eval-row">
+            <div class="eval-header-line">
+              <div id="speech-accuracy-pill" class="eval-badge">🎯 Accuracy: 94% • Excellent match</div>
+              <span id="speech-match-pill" class="badge-match waiting" hidden></span>
+              <button id="btn-try-again" class="btn-re-record">🔄 Try Again</button>
+            </div>
+            <div id="speech-word-breakdown" class="recognized-words-line">
+              Heard: <span class="word-correct">"Lesson 1A Exercise 1A & 1B: Listen and match countries."</span>
+            </div>
+            <div id="recognized-speech-text" class="phrase-recognized-box hidden"></div>
+            <div class="feedback-note">Cadence, rhythm, and acoustic envelope closely match teacher model.</div>
+            <div id="speech-error-notice" class="speech-error-notice hidden"></div>
           </div>
         </div>
       </div>

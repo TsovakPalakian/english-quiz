@@ -30,9 +30,10 @@ test('Speakout Navigation Integration Verification', async (t) => {
     assert.match(appJs, /switchLesson\('1D'\)/, 'Must call switchLesson for 1D');
   });
 
-  await t.test('3. speakout/web/index.html and style.css contain Back to Platform navigation button', () => {
-    assert.match(indexHtml, /class="btn-platform-nav"/, 'Must contain btn-platform-nav class');
-    assert.match(indexHtml, /href="\/#speakout"/, 'Must link back to /#speakout');
-    assert.match(styleCss, /\.btn-platform-nav/, 'Must have styling for btn-platform-nav in style.css');
+  await t.test('3. speakout/web/index.html header is clean without Platform button', () => {
+    assert.doesNotMatch(indexHtml, /class="btn-platform-nav"/, 'Platform button must be removed from header');
+    assert.doesNotMatch(indexHtml, />SO</, 'SO logo must be removed from header');
+    assert.doesNotMatch(indexHtml, />Pearson Speakout 3rd Edition</, 'Title text must be removed from header');
+    assert.match(indexHtml, /class="level-pill"/, 'Level pill must remain in brand badge');
   });
 });

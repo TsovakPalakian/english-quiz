@@ -162,6 +162,21 @@ const DOM = {
   keysTitleRight: el('keys-title-right'),
   keysPdfCanvasLeft: el('keys-pdf-canvas-left'),
   keysPdfCanvasRight: el('keys-pdf-canvas-right'),
+  keysTabLeft: el('keys-tab-left'),
+  keysTabRight: el('keys-tab-right'),
+  keysPaneLeft: el('keys-pane-left'),
+  keysPaneRight: el('keys-pane-right'),
+  cvsTeacher: el('cvs-teacher'),
+  cvsStudent: el('cvs-student'),
+  viewportTeacher: el('viewport-teacher'),
+  viewportStudent: el('viewport-student'),
+  playheadTeacher: el('playhead-teacher'),
+  playheadStudent: el('playhead-student'),
+  badgeTeacher: el('badge-teacher'),
+  badgeStudent: el('badge-student'),
+  teacherTimeMini: el('teacher-time-mini'),
+  studentTimeMini: el('student-time-mini'),
+  btnTryAgain: el('btn-try-again'),
   btnVidStreet: el('btn-vid-street'),
   btnVidVlogs: el('btn-vid-vlogs'),
   btnOpenScriptPdf: el('btn-open-script-pdf'),
@@ -549,17 +564,40 @@ async function loadMainDocument(docType = 'studentBook', initialPage = 1) {
 
 async function renderPage(pageNum) {
   const generation = ++renderGeneration;
-  // Empty or invalid input defaults strictly to page 1
+  const isStudentBook = state.activeDocument === 'studentBook';
+  const basePage = isStudentBook ? (LESSON_VIEW[state.activeLesson]?.page || 8) : 1;
+  const maxLessonPage = isStudentBook ? (basePage + 1) : (state.totalPages || 1);
+
   let num = parseInt(pageNum, 10);
   if (isNaN(num) || num < 1) {
-    num = 1;
+    num = isStudentBook ? basePage : 1;
+  } else if (isStudentBook && num < basePage) {
+    // If entered as relative lesson page index (1 or 2)
+    num = num === 2 ? maxLessonPage : basePage;
   }
-  if (state.totalPages && num > state.totalPages) {
+
+  if (isStudentBook) {
+    if (num < basePage) num = basePage;
+    if (num > maxLessonPage) num = maxLessonPage;
+  } else if (state.totalPages && num > state.totalPages) {
     num = state.totalPages;
   }
+
   state.currentPage = num;
-  if (DOM.pageNumberInput) DOM.pageNumberInput.value = String(num);
-  if (state.activeDocument === 'studentBook') state.savedPages[state.activeLesson] = num;
+  if (DOM.pageNumberInput) {
+    DOM.pageNumberInput.value = isStudentBook ? String(num - basePage + 1) : String(num);
+  }
+  if (DOM.totalPagesLabel) {
+    DOM.totalPagesLabel.textContent = isStudentBook ? `/ 2 (Book p. ${num})` : (state.totalPages ? `/ ${state.totalPages}` : '');
+  }
+  if (DOM.btnPrevPage) {
+    DOM.btnPrevPage.disabled = isStudentBook ? (num <= basePage) : (num <= 1);
+  }
+  if (DOM.btnNextPage) {
+    DOM.btnNextPage.disabled = isStudentBook ? (num >= maxLessonPage) : (Boolean(state.totalPages && num >= state.totalPages));
+  }
+
+  if (isStudentBook) state.savedPages[state.activeLesson] = num;
 
   // Sync zoom display
   if (DOM.zoomLevelText) {
@@ -567,7 +605,7 @@ async function renderPage(pageNum) {
   }
 
   // Persist progress to SQLite
-  if (state.activeDocument === 'studentBook') {
+  if (isStudentBook) {
     saveProgress(state.activeLesson, state.currentPage);
   }
 
@@ -625,8 +663,11 @@ function renderFallbackView(pageNum) {
 }
 
 // 2. Answer Keys (SO3_A1_SB_AK.pdf) Dual-Page Spread Modal
-async function openKeysModal() {
+let currentKeysTab = 'left';
+
+async function openKeysModal(activeTab = 'left') {
   if (!DOM.keysModal) return;
+  currentKeysTab = activeTab;
   DOM.keysModal.classList.remove('hidden');
   if (DOM.keysError) {
     DOM.keysError.textContent = '';
@@ -643,6 +684,14 @@ async function openKeysModal() {
   if (DOM.keysPagesInfo) DOM.keysPagesInfo.textContent = pageRangeText;
   if (DOM.keysTitleLeft) DOM.keysTitleLeft.textContent = `Page ${leftPageNum}`;
   if (DOM.keysTitleRight) DOM.keysTitleRight.textContent = `Page ${rightPageNum}`;
+  if (DOM.keysTabLeft) DOM.keysTabLeft.textContent = `Page ${leftPageNum}`;
+  if (DOM.keysTabRight) DOM.keysTabRight.textContent = `Page ${rightPageNum}`;
+
+  const isLeft = activeTab === 'left';
+  if (DOM.keysTabLeft) DOM.keysTabLeft.classList.toggle('active', isLeft);
+  if (DOM.keysTabRight) DOM.keysTabRight.classList.toggle('active', !isLeft);
+  if (DOM.keysPaneLeft) DOM.keysPaneLeft.classList.toggle('hidden', !isLeft);
+  if (DOM.keysPaneRight) DOM.keysPaneRight.classList.toggle('hidden', isLeft);
 
   try {
     await loadPdfViewer();
@@ -658,11 +707,11 @@ async function openKeysModal() {
     }
 
     if (state.keysPdfDoc) {
-      // Render Left Page
-      if (DOM.keysPdfCanvasLeft) {
+      // Render Left Page at readable 1.4 scale
+      if (DOM.keysPdfCanvasLeft && (isLeft || !DOM.keysPaneLeft)) {
         if (state.keysRenderTaskLeft) state.keysRenderTaskLeft.cancel();
         const leftPage = await state.keysPdfDoc.getPage(leftPageNum);
-        const leftViewport = leftPage.getViewport({ scale: 0.85 });
+        const leftViewport = leftPage.getViewport({ scale: 1.4 });
         const canvasL = DOM.keysPdfCanvasLeft;
         canvasL.height = leftViewport.height;
         canvasL.width = leftViewport.width;
@@ -671,11 +720,11 @@ async function openKeysModal() {
         state.keysRenderTaskLeft = null;
       }
 
-      // Render Right Page
-      if (DOM.keysPdfCanvasRight) {
+      // Render Right Page at readable 1.4 scale
+      if (DOM.keysPdfCanvasRight && (!isLeft || !DOM.keysPaneRight)) {
         if (state.keysRenderTaskRight) state.keysRenderTaskRight.cancel();
         const rightPage = await state.keysPdfDoc.getPage(rightPageNum);
-        const rightViewport = rightPage.getViewport({ scale: 0.85 });
+        const rightViewport = rightPage.getViewport({ scale: 1.4 });
         const canvasR = DOM.keysPdfCanvasRight;
         canvasR.height = rightViewport.height;
         canvasR.width = rightViewport.width;
@@ -689,7 +738,7 @@ async function openKeysModal() {
       DOM.keysError.textContent = 'Answer key pages could not be drawn.';
       DOM.keysError.classList.remove('hidden');
     }
-    console.warn('Keys dual-page render notice:', err.message);
+    console.warn('Keys render notice:', err.message);
   }
 }
 
@@ -807,6 +856,10 @@ function togglePlayPause() {
   const activeMedia = state.activeMediaType === 'video' ? DOM.embeddedVideo : DOM.audioPlayer;
   if (!activeMedia) return;
 
+  if (state.activeMediaType === 'audio' && (!DOM.audioPlayer.getAttribute('src') || DOM.audioPlayer.getAttribute('src') === '')) {
+    DOM.audioPlayer.src = `/api/speakout/audio?track=${encodeURIComponent(state.activeTrack || '1.01')}`;
+  }
+
   if (activeMedia.paused) {
     activeMedia.play().then(() => {
       state.isPlaying = true;
@@ -864,11 +917,73 @@ function togglePlaybackSpeed() {
 }
 
 // 4. Speech Studio & Real-Time Phrase Verification (Screenshot 21)
+export function drawUltraDetailWave(canvasId, seed = 1.0) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const cs = typeof getComputedStyle !== 'undefined' ? getComputedStyle(document.documentElement) : null;
+  const isTeacher = canvasId.includes('teacher');
+  const ink = cs ? cs.getPropertyValue('--ink').trim() : '#f8fafc';
+  const acc = cs ? cs.getPropertyValue('--acc').trim() : '#38bdf8';
+  const line = cs ? cs.getPropertyValue('--line').trim() : 'rgba(255,255,255,0.2)';
+
+  const waveColor = isTeacher ? ink : acc;
+  const centerLineColor = line;
+
+  const midY = h / 2;
+  ctx.strokeStyle = centerLineColor;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, midY);
+  ctx.lineTo(w, midY);
+  ctx.stroke();
+
+  const numSamples = 550;
+  const step = w / numSamples;
+  ctx.strokeStyle = waveColor;
+  ctx.lineWidth = 1.3;
+  ctx.lineCap = 'round';
+
+  for (let i = 0; i < numSamples; i++) {
+    const x = i * step;
+    const progress = i / numSamples;
+    let wordEnv = 0.03;
+    if (progress > 0.04 && progress < 0.22) {
+      wordEnv = Math.sin((progress - 0.04) / 0.18 * Math.PI);
+    } else if (progress > 0.25 && progress < 0.42) {
+      wordEnv = Math.sin((progress - 0.25) / 0.17 * Math.PI);
+    } else if (progress > 0.46 && progress < 0.74) {
+      wordEnv = Math.sin((progress - 0.46) / 0.28 * Math.PI);
+    } else if (progress > 0.78 && progress < 0.96) {
+      wordEnv = Math.sin((progress - 0.78) / 0.18 * Math.PI);
+    }
+
+    const microTone = Math.sin(i * 0.38 * seed) * 0.5 + Math.cos(i * 0.82 * seed) * 0.5;
+    const amp = Math.max(0.04, Math.abs(microTone) * wordEnv);
+    const peakHeight = amp * (h * 0.88);
+    const yTop = midY - peakHeight / 2;
+    const yBottom = midY + peakHeight / 2;
+
+    ctx.beginPath();
+    ctx.moveTo(x, yTop);
+    ctx.lineTo(x, yBottom);
+    ctx.stroke();
+  }
+}
+
 function openSpeechStudio() {
   if (DOM.speechStudioModal) {
     DOM.speechStudioModal.classList.remove('hidden');
     if (DOM.targetPhraseText) {
-      DOM.targetPhraseText.textContent = `"${state.targetPhrase}"`;
+      DOM.targetPhraseText.textContent = `"${state.targetPhrase || 'Lesson 1A Exercise 1A & 1B: Listen and match countries.'}"`;
+    }
+    const trackTag = el('speech-studio-track-tag');
+    if (trackTag) {
+      trackTag.textContent = `Track ${state.activeTrack || '1.01'}`;
     }
     const modeLabel = getSpeechEngineLabel();
     if (DOM.speechEngineTag) {
@@ -879,6 +994,8 @@ function openSpeechStudio() {
       DOM.speechErrorNotice.textContent = '';
     }
     displayRecognizedSpeech('');
+    drawUltraDetailWave('cvs-teacher', 1.35);
+    drawUltraDetailWave('cvs-student', 2.15);
   }
 }
 
@@ -1257,17 +1374,17 @@ function saveProgress(lessonId, page) {
   state.savedPages[lessonId] = page;
   const send = async () => {
     if (seq !== saveSeq) return;
-    const res = await fetch('/api/speakout/progress', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lessonId, page })
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      showReaderError(data.error || 'Progress was not saved.');
+    try {
+      await fetch('/api/speakout/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId, page })
+      });
+    } catch (e) {
+      console.warn('Progress save notice:', e.message);
     }
   };
-  send().catch(() => showReaderError('Progress was not saved.'));
+  send().catch(e => console.warn('Progress save notice:', e.message));
 }
 
 const LESSON_VIEW = {
@@ -1289,12 +1406,20 @@ function switchLesson(lessonId) {
   }
   if (DOM.activeBreadcrumb) DOM.activeBreadcrumb.textContent = view.breadcrumb;
   if (DOM.keysPageBadge) DOM.keysPageBadge.textContent = view.badge;
+
+  const defaultTrack = lessonId === '1B' ? '1.04' : (lessonId === '1C' ? '1.05' : '1.01');
+  state.activeTrack = defaultTrack;
+  if (DOM.audioPlayer) {
+    DOM.audioPlayer.src = `/api/speakout/audio?track=${encodeURIComponent(defaultTrack)}`;
+  }
+
   const fallback = lessonId === '1B' || lessonId === '1C' ? view.page : 1;
-  return loadMainDocument('studentBook', state.savedPages[lessonId] || fallback);
+  const loadPromise = loadMainDocument('studentBook', state.savedPages[lessonId] || fallback);
 
   if (DOM.keysModal && !DOM.keysModal.classList.contains('hidden')) {
-    openKeysModal();
+    openKeysModal(currentKeysTab);
   }
+  return loadPromise;
 }
 
 // 7. Event Listeners Setup
@@ -1302,7 +1427,7 @@ function initEventListeners() {
   // Lesson Tabs
   if (DOM.sessionLogin) DOM.sessionLogin.addEventListener('submit', submitSessionLogin);
 
-  // Page Navigation: empty input strictly opens page 1
+  // Page Navigation: confined to current lesson pages (e.g. Lesson 1A: p. 8 and p. 9)
   if (DOM.pageNumberInput) {
     DOM.pageNumberInput.addEventListener('change', () => {
       const val = DOM.pageNumberInput.value.trim();
@@ -1313,18 +1438,63 @@ function initEventListeners() {
 
   if (DOM.btnPrevPage) {
     DOM.btnPrevPage.addEventListener('click', () => {
-      if (state.currentPage > 1) {
-        DOM.pageNumberInput.value = state.currentPage - 1;
+      const isStudentBook = state.activeDocument === 'studentBook';
+      const basePage = isStudentBook ? (LESSON_VIEW[state.activeLesson]?.page || 8) : 1;
+      if (state.currentPage > basePage) {
         renderPage(state.currentPage - 1);
       }
     });
   }
   if (DOM.btnNextPage) {
     DOM.btnNextPage.addEventListener('click', () => {
-      if (state.currentPage < state.totalPages) {
-        DOM.pageNumberInput.value = state.currentPage + 1;
+      const isStudentBook = state.activeDocument === 'studentBook';
+      const basePage = isStudentBook ? (LESSON_VIEW[state.activeLesson]?.page || 8) : 1;
+      const maxPage = isStudentBook ? (basePage + 1) : (state.totalPages || 1);
+      if (state.currentPage < maxPage) {
         renderPage(state.currentPage + 1);
       }
+    });
+  }
+
+  // Keys Tabs
+  if (DOM.keysTabLeft) {
+    DOM.keysTabLeft.addEventListener('click', () => openKeysModal('left'));
+  }
+  if (DOM.keysTabRight) {
+    DOM.keysTabRight.addEventListener('click', () => openKeysModal('right'));
+  }
+
+  // Speech Studio Waveform Seeks & Playback
+  if (DOM.viewportTeacher) {
+    DOM.viewportTeacher.addEventListener('click', (e) => {
+      const rect = DOM.viewportTeacher.getBoundingClientRect();
+      const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      if (DOM.playheadTeacher) DOM.playheadTeacher.style.left = `${clickX}px`;
+      const ratio = clickX / rect.width;
+      const totalSec = 3.0;
+      const currSec = (ratio * totalSec).toFixed(2);
+      if (DOM.badgeTeacher) DOM.badgeTeacher.textContent = `.${Math.floor(ratio * 999)}`;
+      if (DOM.teacherTimeMini) DOM.teacherTimeMini.textContent = `0:0${Math.floor(currSec)} / 0:03`;
+    });
+  }
+  if (DOM.viewportStudent) {
+    DOM.viewportStudent.addEventListener('click', (e) => {
+      const rect = DOM.viewportStudent.getBoundingClientRect();
+      const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      if (DOM.playheadStudent) DOM.playheadStudent.style.left = `${clickX}px`;
+      const ratio = clickX / rect.width;
+      const totalSec = 3.0;
+      const currSec = (ratio * totalSec).toFixed(2);
+      if (DOM.badgeStudent) DOM.badgeStudent.textContent = `.${Math.floor(ratio * 999)}`;
+      if (DOM.studentTimeMini) DOM.studentTimeMini.textContent = `0:0${Math.floor(currSec)} / 0:03`;
+    });
+  }
+  if (DOM.btnTryAgain) {
+    DOM.btnTryAgain.addEventListener('click', () => {
+      if (DOM.playheadStudent) DOM.playheadStudent.style.left = '0';
+      if (DOM.badgeStudent) DOM.badgeStudent.textContent = '.000';
+      if (DOM.studentTimeMini) DOM.studentTimeMini.textContent = '0:00 / 0:03';
+      drawUltraDetailWave('cvs-student', Math.random() * 5);
     });
   }
 
@@ -1622,6 +1792,12 @@ if (typeof document !== 'undefined') {
     }
     generateSyntheticPeaks();
     updateWaveformZoom();
+
+    // Pre-initialize first audio track source so Play immediately starts sound
+    if (DOM.audioPlayer && !DOM.audioPlayer.getAttribute('src')) {
+      DOM.audioPlayer.src = `/api/speakout/audio?track=${encodeURIComponent(state.activeTrack || '1.01')}`;
+    }
+
     await initSession();
     await loadManifestData();
     await loadProgress();
