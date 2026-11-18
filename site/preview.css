@@ -4701,7 +4701,7 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   background: var(--saas-subtle, #f8fafc);
   transition: all 0.15s ease;
 }
-.lm-pdf-draft details[open] { background: #ffffff; box-shadow: var(--saas-shadow-sm); }
+.lm-pdf-draft details[open] { background: var(--saas-card, #ffffff); color: var(--saas-text-primary, #0f172a); box-shadow: var(--saas-shadow-sm); }
 .lm-pdf-draft details > summary {
   cursor: pointer;
   font-weight: 600;

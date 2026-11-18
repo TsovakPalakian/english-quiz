@@ -991,6 +991,17 @@ async function lmImportPdfDraft(file) {
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not process this file.',true);}}
   finally{if(lmPdfDraftRequest===controller){if(!active())lmPdfProgressEnd();drop?.classList.remove('is-busy');const input=document.querySelector('[data-lesson-pdf-import-file]');if(input)input.value='';}}
 }
+function lmAutoExpandTextarea(el, minHeight = 60) {
+  if (!el || !el.style) return;
+  el.style.height = 'auto';
+  const border = (typeof el.offsetHeight === 'number' && typeof el.clientHeight === 'number')
+    ? (el.offsetHeight - el.clientHeight)
+    : 2;
+  const target = Math.max(minHeight, (el.scrollHeight || 0) + (border > 0 ? border : 2) + 2);
+  el.style.height = target + 'px';
+  el.style.overflowY = 'hidden';
+}
+
 async function lmMountLessonDraftDialog(data, hash, file, controller, active, isDocument = false) {
   if(!active())return;
   const drop=document.querySelector('[data-lesson-pdf-import]');
@@ -1121,7 +1132,16 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         rendered=true;
         renderContent(container,titleSpan);
       };
-      details.addEventListener('toggle',()=>{if(details.open)mount();});
+      details.addEventListener('toggle',()=>{
+        if(details.open){
+          mount();
+          const area = container.querySelector('textarea.saas-textarea');
+          if (area) {
+            const minH = area.dataset.pdfField === 'overview' ? 96 : 60;
+            lmAutoExpandTextarea(area, minH);
+          }
+        }
+      });
       if(details.open)mount();
       dialog.append(details);
     };
@@ -1130,16 +1150,32 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       const box=document.createElement('div');box.className='lm-pdf-form-box';
       box.innerHTML=
         '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Lesson title</label><input class="saas-input" data-pdf-field="title" value="'+esc((isNonEmptyLesson && current?.title) ? current.title : (data.title||''))+'" placeholder="Lesson title"></div>'+
-        '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" maxlength="2400" placeholder="Description" style="min-height:60px">'+esc((isNonEmptyLesson && current?.description) ? current.description : (data.description||''))+'</textarea></div>'+
+        '<div class="saas-form-group" style="margin-bottom:10px"><label class="saas-label">Description</label><textarea class="saas-textarea" data-pdf-field="description" maxlength="2400" placeholder="Description" style="min-height:60px;overflow-y:hidden;resize:vertical;">'+esc((isNonEmptyLesson && current?.description) ? current.description : (data.description||''))+'</textarea></div>'+
         '<div class="saas-form-grid"><div class="saas-form-group"><label class="saas-label">Unit</label><input class="saas-input" data-pdf-field="unit" value="'+esc((isNonEmptyLesson && current?.unit) ? current.unit : (data.unit||''))+'" placeholder="Unit"></div>'+
         '<div class="saas-form-group"><label class="saas-label">Lesson</label><input class="saas-input" data-pdf-field="lesson" value="'+esc((isNonEmptyLesson && current?.lesson) ? current.lesson : (data.lesson||''))+'" placeholder="Lesson number"></div></div>'+
         '<div class="saas-form-group" style="margin-top:10px"><label class="saas-label">Class</label><input class="saas-input" data-pdf-field="className" value="'+esc((isNonEmptyLesson && current?.className) ? current.className : (data.className||''))+'" placeholder="Class / Level"></div>';
       container.append(box);
+      const descTextarea = box.querySelector('textarea[data-pdf-field="description"]');
+      if (descTextarea) {
+        const resizeDesc = () => lmAutoExpandTextarea(descTextarea, 60);
+        descTextarea.addEventListener('input', resizeDesc);
+        descTextarea.addEventListener('change', resizeDesc);
+        resizeDesc();
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(resizeDesc);
+      }
     },!isNonEmptyLesson);
     section('overview','Overview',(container)=>{
       const box=document.createElement('div');box.className='lm-pdf-form-box';
-      box.innerHTML='<div class="saas-form-group"><label class="saas-label">Lesson overview</label><textarea class="saas-textarea" data-pdf-field="overview" style="min-height:96px" placeholder="Overview text">'+esc(data.overview||'')+'</textarea></div>';
+      box.innerHTML='<div class="saas-form-group"><label class="saas-label">Lesson overview</label><textarea class="saas-textarea" data-pdf-field="overview" style="min-height:96px;overflow-y:hidden;resize:vertical;" placeholder="Overview text">'+esc(data.overview||'')+'</textarea></div>';
       container.append(box);
+      const overviewTextarea = box.querySelector('textarea[data-pdf-field="overview"]');
+      if (overviewTextarea) {
+        const resizeOverview = () => lmAutoExpandTextarea(overviewTextarea, 96);
+        overviewTextarea.addEventListener('input', resizeOverview);
+        overviewTextarea.addEventListener('change', resizeOverview);
+        resizeOverview();
+        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(resizeOverview);
+      }
     },!isNonEmptyLesson);
     section('words','Words · '+data.words.length,(container,titleSpan)=>{
       const wrap=document.createElement('div');wrap.className='lm-pdf-words-container';
