@@ -524,21 +524,21 @@ function stageInstallLibrary(item,kind){
   else{writeSongs(list);paintLyrics();}
   stagePaintCounts();
 }
-async function stageRequestAnalysis(text,contentType,write){
+async function stageRequestAnalysis(text,contentType,write,signal){
   const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
-  const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
+  const current=()=>!signal?.aborted&&generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
   const key=item=>item.type+'|'+String(item.canonicalForm||item.exactText||'').toLowerCase();
-  let result=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text,contentType})});
+  let result=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text,contentType}),signal});
   const expressions=new Map((result.expressions||[]).map(item=>[key(item),item]));
   const reviewed=new Set((result.stats?.reviewedExpressions||[]).map(key));
   let offset=0;
-  while(current()&&Number.isSafeInteger(result.stats?.nextReviewOffset)&&result.stats.nextReviewOffset>offset){
+  while(current()&&!signal?.aborted&&Number.isSafeInteger(result.stats?.nextReviewOffset)&&result.stats.nextReviewOffset>offset){
     offset=result.stats.nextReviewOffset;
     if(write)write('Reviewing expressions '+reviewed.size+' of '+result.stats.llmCandidates+'…',false);
     let next;
-    try{next=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text,contentType,reviewOffset:offset})});}
-    catch(error){result.error=error.message||'Expression review failed.';break;}
-    if(!current())throw new Error('Analysis cancelled after changing account.');
+    try{next=await accountFetch('/api/analyze',{method:'POST',body:JSON.stringify({text,contentType,reviewOffset:offset}),signal});}
+    catch(error){if(signal?.aborted)throw error;result.error=error.message||'Expression review failed.';break;}
+    if(!current()||signal?.aborted)throw new Error(signal?.aborted?'Analysis cancelled.':'Analysis cancelled after changing account.');
     for(const item of next.stats?.reviewedExpressions||[]){reviewed.add(key(item));expressions.delete(key(item));}
     for(const item of next.expressions||[]){const previous=expressions.get(key(item));if(!previous||item.llmDecision||!previous.llmDecision)expressions.set(key(item),item);}
     result={...next,wordLemmas:{...result.wordLemmas,...next.wordLemmas}};
@@ -820,17 +820,175 @@ async function stageMarkLyricWords(song,marks,write,lemmas={}){
   }
   return keys;
 }
+let stageSongAnalysisController=null;
+let stageSongAnalysisDetailsOpen=false;
+
+function paintSongAnalysisBox(container,state,callbacks={}){
+  if(!container)return;
+  if(typeof container.innerHTML!=='string'){
+    container.textContent=state.statusText||'';
+    if(container.classList?.toggle)container.classList.toggle('bad',!!state.isBad);
+    return;
+  }
+  if(state.isFinal&&!state.isBad&&!state.isCancelled){
+    container.textContent=state.statusText||'';
+    container.classList?.remove?.('bad');
+    return;
+  }
+  if(state.isCancelled){
+    container.innerHTML=
+      '<div class="song-analysis-box is-cancelled">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span style="font-size:13px;font-weight:700;color:var(--mute);">Analysis cancelled</span>' +
+            '<span style="font-size:12px;color:var(--mute);">· Stopped at step '+(state.step||1)+'</span>' +
+          '</div>' +
+          '<button class="btn primary saas-btn song-analysis-retry-btn" type="button" data-analysis-retry>Retry analysis</button>' +
+        '</div>' +
+      '</div>';
+    const retryBtn=container.querySelector('[data-analysis-retry]');
+    if(retryBtn&&callbacks.onRetry)retryBtn.addEventListener('click',callbacks.onRetry);
+    return;
+  }
+  if(state.isBad){
+    container.innerHTML=
+      '<div class="song-analysis-box bad">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
+          '<div style="display:flex;align-items:center;gap:8px;">' +
+            '<span style="font-size:13px;font-weight:700;color:var(--bad);">' + (typeof esc==='function'?esc(state.statusText||'Analysis failed.'):(state.statusText||'Analysis failed.')) + '</span>' +
+          '</div>' +
+          '<button class="btn primary saas-btn song-analysis-retry-btn" type="button" data-analysis-retry>Retry analysis</button>' +
+        '</div>' +
+      '</div>';
+    const retryBtn=container.querySelector('[data-analysis-retry]');
+    if(retryBtn&&callbacks.onRetry)retryBtn.addEventListener('click',callbacks.onRetry);
+    return;
+  }
+  const pct=Math.max(5,Math.min(100,Math.round(state.pct||10)));
+  const step=state.step||1;
+  const isExpanded=!!state.detailsExpanded;
+  const stepNames=[
+    '1. Reading lyrics & parsing structure',
+    '2. Extracting candidates via LLM',
+    '3. Checking dictionary word cards',
+    '4. Saving expression phrase cards'
+  ];
+  let detailsHtml='';
+  if(isExpanded){
+    detailsHtml='<div class="song-analysis-details-list">' +
+      stepNames.map((name,idx)=>{
+        const stepNum=idx+1;
+        let cls='song-analysis-step';
+        let badge='Pending';
+        if(stepNum<step){cls+=' is-done';badge='Done';}
+        else if(stepNum===step){cls+=' is-active';badge='In progress';}
+        return '<div class="'+cls+'">' +
+          '<span>'+(typeof esc==='function'?esc(name):name)+'</span>' +
+          '<span class="song-step-state">'+badge+'</span>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+  const safeText=typeof esc==='function'?esc(state.statusText||'Reading the lyrics…'):(state.statusText||'Reading the lyrics…');
+  const safeModel=typeof esc==='function'?esc(state.modelLabel||'Ensemble: Dict + Qwen + Gemini'):(state.modelLabel||'Ensemble: Dict + Qwen + Gemini');
+  container.innerHTML=
+    '<div class="song-analysis-box">' +
+      '<div class="song-analysis-head">' +
+        '<span class="song-analysis-title">' +
+          '<span class="song-analysis-pulse"></span>' +
+          '<span data-analysis-title-text>'+safeText+' (step '+step+' of 4)</span>' +
+        '</span>' +
+        '<div class="song-analysis-actions">' +
+          '<span class="song-analysis-pct">'+pct+'%</span>' +
+          '<button class="btn saas-btn song-analysis-cancel-btn" type="button" data-analysis-cancel>Cancel</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="song-progress-track">' +
+        '<div class="song-progress-fill'+(pct>=100?' is-done':'')+'" style="width:'+pct+'%"></div>' +
+      '</div>' +
+      '<div class="song-analysis-footer">' +
+        '<span>'+safeModel+'</span>' +
+        '<button class="song-analysis-details-btn" type="button" data-analysis-details>'+(isExpanded?'Details ▴':'Details ▾')+'</button>' +
+      '</div>' +
+      detailsHtml +
+    '</div>';
+  const cancelBtn=container.querySelector('[data-analysis-cancel]');
+  if(cancelBtn&&callbacks.onCancel)cancelBtn.addEventListener('click',callbacks.onCancel);
+  const detailsBtn=container.querySelector('[data-analysis-details]');
+  if(detailsBtn&&callbacks.onToggleDetails)detailsBtn.addEventListener('click',callbacks.onToggleDetails);
+}
+
 async function stageAnalyzeSong(song,status){
+  if(stageSongAnalysisController){
+    try{stageSongAnalysisController.abort();}catch(_){}
+    stageSongAnalysisController=null;
+  }
+  const controller=typeof AbortController!=='undefined'
+    ? new AbortController()
+    : {signal:{aborted:false},abort(){this.signal.aborted=true;}};
+  stageSongAnalysisController=controller;
+  const signal=controller.signal;
+
   const generation=viewGen,actor=authUser?.id,target=viewAccount?.id||'';
-  const current=()=>generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
-  const write=(text,bad)=>{if(!current())return;const visible=document.getElementById('songUser'),live=visible&&String(visible.dataset.songId)===String(song.id)?visible.querySelector('[data-lyric-check]'):status;if(!live)return;live.textContent=text;live.classList.toggle('bad',!!bad);};
+  const current=()=>!signal.aborted&&generation===viewGen&&actor===authUser?.id&&target===(viewAccount?.id||'');
+
+  let currentStep=1;
+  const getContainer=()=>{
+    const visible=document.getElementById('songUser');
+    if(visible){
+      if(String(visible.dataset.songId)!==String(song.id))return null;
+      return visible.querySelector('[data-lyric-check]')||status;
+    }
+    return status;
+  };
+
+  const renderState=(state)=>{
+    if(!current()&&!state.isCancelled)return;
+    const container=getContainer();
+    if(!container)return;
+    paintSongAnalysisBox(container,state,{
+      onCancel:()=>{
+        if(!controller.signal.aborted)controller.abort();
+        stageSongAnalysisController=null;
+        renderState({isCancelled:true,step:currentStep});
+      },
+      onRetry:()=>{
+        stageAnalyzeSong(song,status);
+      },
+      onToggleDetails:()=>{
+        stageSongAnalysisDetailsOpen=!stageSongAnalysisDetailsOpen;
+        renderState({...state,detailsExpanded:stageSongAnalysisDetailsOpen});
+      }
+    });
+  };
+
+  const writeProgress=(text,pct,step,bad=false)=>{
+    currentStep=step||currentStep;
+    renderState({
+      statusText:text,
+      pct,
+      step:currentStep,
+      isBad:bad,
+      detailsExpanded:stageSongAnalysisDetailsOpen,
+      modelLabel:'Ensemble: Dict + Qwen + Gemini'
+    });
+  };
+
+  const write=(text,bad)=>writeProgress(text,currentStep===1?25:currentStep===2?50:currentStep===3?70:85,currentStep,bad);
   const finish=(text,bad)=>setTimeout(()=>{
-    if(!current())return;
-    const visible=document.getElementById('songUser');if(visible&&String(visible.dataset.songId)!==String(song.id))return;
-    const live=document.querySelector('#songUser [data-lyric-check]')||status;
-    if(!live)return;live.textContent=text;live.classList.toggle('bad',!!bad);
+    if(signal.aborted)return;
+    if(stageSongAnalysisController===controller)stageSongAnalysisController=null;
+    if(!current()&&generation!==viewGen)return;
+    const container=getContainer();
+    if(!container)return;
+    if(bad){
+      renderState({isBad:true,statusText:text,step:currentStep});
+    }else{
+      renderState({isFinal:true,statusText:text});
+    }
   },0);
-  write('Reading the lyrics…',false);
+
+  writeProgress('Reading the lyrics…',15,1);
   const marks={...(song.marks||{})};
   let keys=[];
   const storeMarks=async()=>{
@@ -843,20 +1001,30 @@ async function stageAnalyzeSong(song,status){
     const visible=document.getElementById('songUser');if(!visible||String(visible.dataset.songId)===String(song.id))renderUserSong(next);
   };
   let analyzed;
-  try{analyzed=await stageRequestAnalysis(song.lyrics,'LYRICS',write);}
-  catch(error){analyzed={expressions:[],stats:{partial:true},error:error.message||'Analysis service temporarily unavailable.'};}
+  try{
+    writeProgress('Extracting candidates via LLM…',35,2);
+    analyzed=await stageRequestAnalysis(song.lyrics,'LYRICS',text=>writeProgress(text,45,2),signal);
+  }
+  catch(error){
+    if(signal.aborted)return;
+    analyzed={expressions:[],stats:{partial:true},error:error.message||'Analysis service temporarily unavailable.'};
+  }
   if(!current())return;
   const lemmas=analyzed.wordLemmas||{};
-  keys=await stageMarkLyricWords(song,marks,write,lemmas);
+  writeProgress('Checking dictionary word cards…',60,3);
+  keys=await stageMarkLyricWords(song,marks,text=>writeProgress(text,70,3),lemmas);
   if(!current())return;
-  const expressions=typeof uniqueExpressions==='function'?uniqueExpressions(analyzed.expressions||[]):(analyzed.expressions||[]);
+  const rawExpressions=typeof uniqueExpressions==='function'?uniqueExpressions(analyzed.expressions||[]):(analyzed.expressions||[]);
+  const expressions=rawExpressions.sort((a,b)=>(b.overallScore||b.confidence||0)-(a.overallScore||a.confidence||0));
   let added=0,failed=0;
+  writeProgress('Saving expression phrase cards…',80,4);
   for(let i=0;i<expressions.length;i++){
     if(!current())return;
     const expr=expressions[i];
-    write('Looking up phrase '+(i+1)+' of '+expressions.length+'…',false);
+    const phrasePct=Math.round(80+((i+1)/Math.max(1,expressions.length))*15);
+    writeProgress('Looking up phrase '+(i+1)+' of '+expressions.length+'…',phrasePct,4);
     try{
-      const built=await accountFetch('/api/phrase-card',{method:'POST',body:JSON.stringify({exactText:expr.exactText,canonicalForm:expr.canonicalForm,type:expr.type,meaning:expr.meaning,context:expr.context,source:'song'})});
+      const built=await accountFetch('/api/phrase-card',{method:'POST',body:JSON.stringify({exactText:expr.exactText,canonicalForm:expr.canonicalForm,type:expr.type,meaning:expr.meaning,context:expr.context,source:'song'}),signal});
       const card=built&&built.card;
       if(!current())return;
       if(!card?.word){failed++;continue;}
@@ -867,9 +1035,12 @@ async function stageAnalyzeSong(song,status){
       marks[key]=mark;
       const surface=String(expr.exactText||'').trim().toLowerCase().replace(/\u2019/g,"'");
       if(surface)marks[surface]=mark;
-    }catch{failed++;}
+    }catch(e){
+      if(signal.aborted)return;
+      failed++;
+    }
   }
-  try{await storeMarks();}catch(error){finish(error.message||'Could not save the analysis. Try again.',true);throw error;}
+  try{await storeMarks();}catch(error){if(signal.aborted)return;finish(error.message||'Could not save the analysis. Try again.',true);throw error;}
   const displayed=typeof lyricKeys==='function'?lyricKeys(song.lyrics||'',marks):keys;
   const missing=displayed.filter(key=>marks[key]?.state==='miss').length;
   const errors=displayed.filter(key=>marks[key]?.state==='error'||marks[key]?.state==='untranslated'||marks[key]?.needsRetry).length;

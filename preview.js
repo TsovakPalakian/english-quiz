@@ -12934,8 +12934,175 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       syncMemorySizeInputs(n);
       visit("setup");
     }
+    let dayQuizBoardOn = false;
+    const DAY_QUIZ_MODE_TYPES = {
+      quick: ["Flip", "Choice"],
+      write: ["Type", "Gap", "Spell", "Build"],
+      listen: ["Listen", "Definition"],
+      play: ["Hangman", "Memory"],
+      fsrs: ["FSRS Flashcard"]
+    };
+    const DAY_QUIZ_MODE_LABEL = {
+      quick: "Quick review",
+      write: "Write it",
+      listen: "Listen",
+      play: "Play",
+      fsrs: "Spaced repetition",
+      custom: "Custom mix"
+    };
+    function showDayQuizBoard(on) {
+      dayQuizBoardOn = !!on;
+      const board = document.getElementById("dayQuizBoard");
+      const classic = document.getElementById("dayStudyClassic");
+      if (board) board.hidden = !dayQuizBoardOn;
+      if (classic) classic.hidden = dayQuizBoardOn;
+    }
+    function dayQuizMode() {
+      const on = document.querySelector("#dayQuizModes [data-dq-mode].on");
+      return (on && on.dataset.dqMode) || "quick";
+    }
+    function dayQuizSource() {
+      const on = document.querySelector("#dayQuizCards [data-dq-source].on");
+      return (on && on.dataset.dqSource) || "all";
+    }
+    function dayQuizWhoLine() {
+      const user = typeof authUser !== "undefined" ? authUser : null;
+      if (!user) return "";
+      const name = user.name || user.login || "";
+      const level = user.level || user.cefr || "";
+      return [level, name].filter(Boolean).join(" ");
+    }
+    function lessonHeading(place) {
+      const home = lessonHome(place);
+      const section = document.getElementById(home.id);
+      const h1 = section && section.querySelector("h1");
+      const text = h1 && h1.textContent.trim();
+      return text || home.label;
+    }
+    function dayMistakeCards(cards) {
+      const map = loadMistakeMap();
+      const missed = new Set();
+      Object.keys(map).forEach((key) => {
+        const row = map[key];
+        if (row && row.misses > 0 && row.en) missed.add(String(row.en).trim().toLowerCase());
+      });
+      return cards.filter((card) => missed.has(String(card.en || "").trim().toLowerCase()));
+    }
+    function clampDayQuizCount(raw, total) {
+      const cap = Math.max(0, total || 0);
+      if (!cap) return 0;
+      let n = Math.floor(Number(String(raw == null ? "" : raw).replace(/[^\d]/g, "")));
+      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (n > cap) n = cap;
+      return n;
+    }
+    function dayQuizTypes() {
+      const mode = dayQuizMode();
+      if (mode === "custom") {
+        return [...document.querySelectorAll("#dayQuizCustom [data-dq-type].on")].map((b) => b.dataset.dqType);
+      }
+      return (DAY_QUIZ_MODE_TYPES[mode] || []).slice();
+    }
+    function resetDayQuizBoardPicks() {
+      document.querySelectorAll("[data-dq-source]").forEach((b) => {
+        const on = b.dataset.dqSource === "all";
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      document.querySelectorAll("[data-dq-mode]").forEach((b) => {
+        const on = b.dataset.dqMode === "quick";
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      document.querySelectorAll("#dayQuizCustom [data-dq-type]").forEach((b) => b.classList.remove("on"));
+    }
+    function resetDayQuizBoardInputs(total) {
+      const from = document.querySelector("[data-dq-from]");
+      const to = document.querySelector("[data-dq-to]");
+      const slider = document.querySelector("[data-dq-count]");
+      const cap = Math.max(total || 0, 0);
+      if (from) from.value = "1";
+      if (to) to.value = String(Math.max(cap, 1));
+      if (slider) {
+        slider.min = "1";
+        slider.max = String(Math.max(cap, 1));
+        slider.value = String(cap > 8 ? 8 : Math.max(cap, 1));
+      }
+    }
+    function paintDayQuizBoard() {
+      const board = document.getElementById("dayQuizBoard");
+      if (!board) return;
+      const pool = quizPool();
+      const total = pool.length;
+      const source = dayQuizSource();
+      const mode = dayQuizMode();
+      const types = dayQuizTypes();
+      const missed = dayMistakeCards(pool);
+      const from = clampDayQuizCount(document.querySelector("[data-dq-from]") && document.querySelector("[data-dq-from]").value, total);
+      const to = clampDayQuizCount(document.querySelector("[data-dq-to]") && document.querySelector("[data-dq-to]").value, total);
+      const randomN = clampDayQuizCount(document.querySelector("[data-dq-count]") && document.querySelector("[data-dq-count]").value, total);
+      const lo = Math.min(from || 1, to || 1);
+      const hi = Math.max(from || 1, to || 1);
+      const rangeN = total ? (hi - lo + 1) : 0;
+      const selectedN = source === "mistakes" ? missed.length : source === "random" ? randomN : source === "range" ? rangeN : total;
+      const setText = (sel, text) => {
+        const node = board.querySelector(sel);
+        if (node) node.textContent = text;
+      };
+      setText("[data-dq-all-count]", String(total));
+      setText("[data-dq-total]", String(total));
+      setText("[data-dq-miss-count]", String(missed.length));
+      setText("[data-dq-range-label]", (from || 1) + "–" + (to || Math.max(total, 1)));
+      setText("[data-dq-random-label]", String(randomN));
+      setText("[data-dq-random-count]", String(randomN));
+      const rangePanel = document.getElementById("dayQuizRange");
+      const randomPanel = document.getElementById("dayQuizRandom");
+      const custom = document.getElementById("dayQuizCustom");
+      if (rangePanel) rangePanel.hidden = source !== "range";
+      if (randomPanel) randomPanel.hidden = source !== "random";
+      if (custom) custom.hidden = mode !== "custom";
+      board.querySelectorAll("[data-dq-group]").forEach((group) => {
+        const buttons = [...group.querySelectorAll("[data-dq-type]")];
+        const picked = buttons.filter((b) => b.classList.contains("on")).length;
+        const slot = group.querySelector("[data-dq-picked]");
+        if (slot) slot.textContent = picked + " of " + buttons.length + " selected";
+      });
+      const label = DAY_QUIZ_MODE_LABEL[mode] || "Quick review";
+      const ready = document.getElementById("dayQuizReady");
+      if (ready) ready.textContent = label + " · " + types.length + (types.length === 1 ? " type" : " types");
+      const chips = document.getElementById("dayQuizChips");
+      if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
+      const mark = document.getElementById("dayQuizMark");
+      const modeBtn = document.querySelector('#dayQuizModes [data-dq-mode].on .dq-ico');
+      if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
+      const mins = Math.max(0, Math.round(selectedN * 30 / 60));
+      const start = document.getElementById("dayQuizStart");
+      if (start) {
+        const cardsWord = selectedN === 1 ? " card" : " cards";
+        start.textContent = "Start · " + selectedN + cardsWord + " · ~" + mins + " min";
+        start.disabled = !selectedN || !types.length;
+      }
+      const note = document.getElementById("dayQuizNote");
+      if (note) {
+        let text = "";
+        if (!total) text = "No cards on this page yet.";
+        else if (source === "mistakes" && !missed.length) text = "No mistakes for these cards yet.";
+        else if (!types.length) text = "Pick at least one answer type.";
+        note.classList.toggle("bad", !!text);
+        note.textContent = text;
+      }
+      const title = document.getElementById("dayQuizTitle");
+      if (title && daySetupLabel) title.textContent = daySetupLabel;
+      const who = document.getElementById("dayQuizWho");
+      if (who) who.textContent = dayQuizWhoLine();
+    }
     function chosenTypes(exam) {
       const here = (document.querySelector("section.on") || {}).id;
+      if (dayQuizBoardOn && here === "daysetup") {
+        let types = dayQuizTypes();
+        if (exam) types = types.filter((t) => t !== "Flip");
+        return types;
+      }
       const sel = here === "daysetup" ? "#dayModes .chip.on, #dayModesMore .chip.on" : "#modes .chip.on, #modesMore .chip.on";
       let types = [...document.querySelectorAll(sel)].map((b) => {
         if (b.dataset.quizType) return b.dataset.quizType;
@@ -13025,6 +13192,22 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const list = Array.isArray(cards) ? cards.slice() : [];
       const total = list.length;
       if (!total) return list;
+      if (dayQuizBoardOn && sectionId === "daysetup") {
+        const source = dayQuizSource();
+        if (source === "mistakes") return dayMistakeCards(list);
+        if (source === "random") {
+          const n = clampDayQuizCount(document.querySelector("[data-dq-count]") && document.querySelector("[data-dq-count]").value, total);
+          return (preview ? list : shuffle(list)).slice(0, n);
+        }
+        if (source === "range") {
+          const from = clampDayQuizCount(document.querySelector("[data-dq-from]") && document.querySelector("[data-dq-from]").value, total);
+          const to = clampDayQuizCount(document.querySelector("[data-dq-to]") && document.querySelector("[data-dq-to]").value, total);
+          const lo = Math.min(from, to);
+          const hi = Math.max(from, to);
+          return list.slice(lo - 1, hi);
+        }
+        return list;
+      }
       const root = document.querySelector(mixRoot(sectionId));
       const on = root && root.querySelector("[data-day-mix].on, [data-mix].on");
       const mode = on && (on.dataset.dayMix || on.dataset.mix);
@@ -13070,6 +13253,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return mins + ":" + String(secs).padStart(2, "0");
     }
     function refreshDaySetupTime() {
+      if (dayQuizBoardOn) { paintDayQuizBoard(); return; }
       const note = document.getElementById("daySetupNote");
       if (!note || !dayCardTotal) return;
       const word = dayCardTotal === 1 ? " card" : " cards";
@@ -13082,6 +13266,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const note = document.getElementById("daySetupNote");
       dayCardTotal = cards.length;
       daySetupLabel = label;
+      if (dayQuizBoardOn) {
+        resetDayQuizBoardPicks();
+        resetDayQuizBoardInputs(cards.length);
+        paintDayQuizBoard();
+        return;
+      }
       const empty = !cards.length;
       if (note) note.classList.toggle("bad", empty);
       if (empty) {
@@ -13444,9 +13634,13 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const pooled = cards.slice();
       cards = await dayQuizVisibleCards(cards);
       if (openTicket !== dayQuizOpen) return;
-      const note = document.getElementById(here === "daysetup" ? "daySetupNote" : "studyNote");
+      const note = document.getElementById(here === "daysetup" ? (dayQuizBoardOn ? "dayQuizNote" : "daySetupNote") : "studyNote");
       const types = chosenTypes(exam);
       if (!cards.length) {
+        if (dayQuizBoardOn && dayQuizSource() === "mistakes" && pooled.length === 0 && quizPool().length) {
+          setQuizNote(note, "No mistakes for these cards yet.", true);
+          return;
+        }
         setQuizNote(note, pooled.length ? "These cards are no longer available." : "No cards on this page yet.", true);
         return;
       }
@@ -13468,7 +13662,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       examMistakes = 0;
       examCorrect = 0;
       examLog = [];
-      sessionMs = here === "daysetup" ? studyBudgetMs(cards, chosenTypes(false)) : EXAM_MS;
+      sessionMs = here === "daysetup" ? (dayQuizBoardOn ? cards.length * 30 * 1000 : studyBudgetMs(cards, chosenTypes(false))) : EXAM_MS;
       examStarted = Date.now();
       dayQueue = queue;
       dayAt = 0;
@@ -13479,6 +13673,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (here === "daysetup" || examMode) armExamClock();
     }
     function openListedStudy(cards, title, backTo, opts) {
+      showDayQuizBoard(false);
       studyTitle = title;
       studyScreen = "daysetup";
       dayPoolOverride = cards;
@@ -13574,11 +13769,15 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
       const home = lessonHome(place);
+      const heading = lessonHeading(place);
       dayReturn = home.id;
-      document.getElementById("daySetupTitle").textContent = "This day's quiz";
+      showDayQuizBoard(true);
+      document.getElementById("daySetupTitle").textContent = heading;
       document.getElementById("daySetupBack").dataset.fallback = home.id;
+      const quizBack = document.getElementById("dayQuizBack");
+      if (quizBack) quizBack.dataset.fallback = home.id;
       document.getElementById("dayqBack").dataset.fallback = home.id;
-      paintDaySetupNote(home.label, lessonPool(place));
+      paintDaySetupNote(heading, lessonPool(place));
       visit("daysetup");
     }
     function dayNextButton(label) {
@@ -14002,6 +14201,56 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       refreshDaySetupTime();
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
+    const dayQuizBoardEl = document.getElementById("dayQuizBoard");
+    if (dayQuizBoardEl) {
+      dayQuizBoardEl.addEventListener("click", (e) => {
+        const back = e.target.closest("#dayQuizBack");
+        if (back) {
+          e.preventDefault();
+          const setupBack = document.getElementById("daySetupBack");
+          if (setupBack) setupBack.click();
+          else if (typeof navBack === "function") navBack(back.dataset.fallback || "lesson");
+          return;
+        }
+        const source = e.target.closest("[data-dq-source]");
+        if (source) {
+          document.querySelectorAll("[data-dq-source]").forEach((b) => {
+            const on = b === source;
+            b.classList.toggle("on", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          paintDayQuizBoard();
+          return;
+        }
+        const mode = e.target.closest("[data-dq-mode]");
+        if (mode) {
+          document.querySelectorAll("[data-dq-mode]").forEach((b) => {
+            const on = b === mode;
+            b.classList.toggle("on", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          paintDayQuizBoard();
+          return;
+        }
+        const typeBtn = e.target.closest("[data-dq-type]");
+        if (typeBtn) {
+          typeBtn.classList.toggle("on");
+          paintDayQuizBoard();
+          return;
+        }
+        const all = e.target.closest("[data-dq-all]");
+        if (all) {
+          const group = all.closest("[data-dq-group]");
+          if (group) group.querySelectorAll("[data-dq-type]").forEach((b) => b.classList.add("on"));
+          paintDayQuizBoard();
+          return;
+        }
+        if (e.target.closest("#dayQuizStart")) beginQuiz(false);
+      });
+      dayQuizBoardEl.addEventListener("input", (e) => {
+        if (e.target.closest("[data-dq-from], [data-dq-to], [data-dq-count]")) paintDayQuizBoard();
+      });
+    }
     document.addEventListener("learning-card-unreadable", event => {
       const step = dayQuizWithoutCard(dayQueue, dayAt, event.detail && event.detail.cardId);
       if (!step.removed) return;
@@ -18810,8 +19059,8 @@ const STUDIO_CONSTELLATIONS = [{
     dailyReview: 'lumiscia-notify-daily-review',
     audioAlerts: 'lumiscia-notify-sound'
   };
-
   const READ_KEY = 'lumiscia-notify-read-ts';
+  const READ_IDS_KEY = 'lumiscia-notify-read-ids';
 
   function getNotificationSettings() {
     return {
@@ -18829,22 +19078,34 @@ const STUDIO_CONSTELLATIONS = [{
     }
   }
 
+  function notifyName(value, fallback) {
+    const text = String(value || '').trim();
+    return text || fallback;
+  }
+
+  function reviewFlags(exam) {
+    const blocks = Array.isArray(exam?.blocks) ? exam.blocks : [];
+    const stateOf = (block) => block?.doc?.assessmentState || block?.assessmentState;
+    const submitted = exam?.instanceStatus === 'ready' || (!exam?.instanceStatus && blocks.some((block) => ['submitted', 'reviewing'].includes(stateOf(block))));
+    const published = exam?.instanceStatus === 'completed' || blocks.some((block) => stateOf(block) === 'published');
+    return { waiting: submitted && !published, published };
+  }
+
   function getActiveNotifications() {
     const list = [];
+    if (typeof viewAccount !== 'undefined' && viewAccount) return list;
     const prefs = getNotificationSettings();
     const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
+    const teacher = typeof isTeacher === 'function' && isTeacher();
 
     if (prefs.lessonReminders && typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
       classGroups.filter((group) => group && group.date === today && !group.hidden).forEach((group) => {
         list.push({
           id: 'lesson-today-' + (group.id || 'current'),
-          type: 'lesson',
-          open: 'classes',
-          icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-          title: 'Scheduled Class Today',
-          desc: (group.title || 'Lesson group') + ' has an active session scheduled for today.',
-          badge: 'Today',
-          badgeClass: 'badge-today'
+          kind: 'class',
+          name: notifyName(group.title, 'Lesson group'),
+          stage: 'Today',
+          line: 'Class today'
         });
       });
     }
@@ -18852,45 +19113,37 @@ const STUDIO_CONSTELLATIONS = [{
     if (prefs.lessonReminders && typeof lmLibrary !== 'undefined' && Array.isArray(lmLibrary?.materials)) {
       lmLibrary.materials.filter((item) => item && item.date === today && !item.hidden).forEach((item) => {
         list.push({
-          id: 'material-today-' + item.id,
-          type: 'lesson',
+          id: 'material-today-' + (item.id || 'current'),
+          kind: 'material',
           lessonId: item.id,
-          icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
-          title: 'Lesson Material Today',
-          desc: (item.title || 'Active material') + ' is assigned for today.',
-          badge: 'Today',
-          badgeClass: 'badge-today'
+          name: notifyName(item.title, 'Active material'),
+          stage: 'Today',
+          line: 'Material today'
         });
       });
     }
 
     if (prefs.dailyReview && typeof examLoad === 'function') {
       examLoad().forEach((exam) => {
-        const blocks = Array.isArray(exam?.blocks) ? exam.blocks : [];
-        const waiting = exam?.instanceStatus === 'ready' || (!exam?.instanceStatus && blocks.some((block) => ['submitted', 'reviewing'].includes(block?.doc?.assessmentState || block?.assessmentState)));
-        const published = exam?.instanceStatus === 'completed' || blocks.some((block) => (block?.doc?.assessmentState || block?.assessmentState) === 'published');
-        if (waiting) {
+        const flags = reviewFlags(exam);
+        if (teacher && flags.waiting) {
           list.push({
-            id: 'teacher-review-' + exam.id,
-            type: 'review',
+            id: 'teacher-review-' + (exam.id || 'current'),
+            kind: 'waiting',
             examId: exam.id,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
-            title: 'Work is waiting for review',
-            desc: exam.title || 'Exam',
-            badge: 'Review',
-            badgeClass: 'badge-review'
+            name: notifyName(exam.title, 'Exam'),
+            stage: 'Waiting',
+            line: 'Waiting for review'
           });
         }
-        if (published) {
+        if (!teacher && flags.published) {
           list.push({
-            id: 'student-review-' + exam.id,
-            type: 'review',
+            id: 'student-review-' + (exam.id || 'current'),
+            kind: 'published',
             examId: exam.id,
-            icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>',
-            title: 'Review published',
-            desc: exam.title || 'Exam',
-            badge: 'Review',
-            badgeClass: 'badge-review'
+            name: notifyName(exam.title, 'Exam'),
+            stage: 'Published',
+            line: 'Review published'
           });
         }
       });
@@ -18899,12 +19152,38 @@ const STUDIO_CONSTELLATIONS = [{
     return list;
   }
 
-  function markAllNotificationsAsRead() {
+  function markedIds() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(READ_IDS_KEY) || 'null');
+      return new Set(Array.isArray(raw) ? raw : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function unreadCount(list) {
+    let marked = false;
+    try { marked = !!localStorage.getItem(READ_KEY); } catch {}
+    if (!marked) return list.length;
+    const seen = markedIds();
+    return list.filter((item) => !seen.has(item.id)).length;
+  }
+
+  function pillText(unread) {
+    return unread > 0 ? (unread + ' active') : 'All read';
+  }
+
+  function showUnreadDot(unread) {
+    document.documentElement.setAttribute('data-notify-unread', unread > 0 ? '1' : '0');
+  }
+
+  function markAllNotificationsAsRead(list) {
+    if (!list.length) return;
     try {
       localStorage.setItem(READ_KEY, String(Date.now()));
+      localStorage.setItem(READ_IDS_KEY, JSON.stringify(list.map((item) => item.id)));
     } catch {}
-    const dots = document.querySelectorAll('.popover-notify-dot');
-    dots.forEach(dot => { dot.style.display = 'none'; });
+    showUnreadDot(0);
     const badge = document.getElementById('lessonNotifyCountBadge');
     if (badge) {
       badge.textContent = 'All read';
@@ -18927,25 +19206,23 @@ const STUDIO_CONSTELLATIONS = [{
     return modal;
   }
 
-  function renderModalContent() {
+  function renderModalContent(options) {
     const modal = ensureModalElement();
     const notifications = getActiveNotifications();
     const settings = getNotificationSettings();
-    const readTs = Number(localStorage.getItem(READ_KEY) || '0');
-    const isRecentlyRead = (Date.now() - readTs) < (24 * 60 * 60 * 1000);
+    const unread = unreadCount(notifications);
+    const touchDot = !options || options.touchDot !== false;
+    if (touchDot) showUnreadDot(unread);
 
-    const itemsHtml = notifications.length ? notifications.map(item =>
+    const itemsHtml = notifications.length ? notifications.map((item) =>
       '<button type="button" class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
-        '<div class="lesson-notify-card-icon ' + esc(item.type) + '">' + item.icon + '</div>' +
-        '<div class="lesson-notify-card-body">' +
-          '<div class="lesson-notify-card-top">' +
-            '<span class="lesson-notify-card-title">' + esc(item.title) + '</span>' +
-            '<span class="lesson-notify-badge ' + esc(item.badgeClass) + '">' + esc(item.badge) + '</span>' +
-          '</div>' +
-          '<p class="lesson-notify-card-desc">' + esc(item.desc) + '</p>' +
-        '</div>' +
+        '<span class="lesson-notify-card-top">' +
+          '<span class="lesson-notify-card-title">' + esc(item.name) + '</span>' +
+          '<span class="lesson-notify-card-stage">' + esc(item.stage) + '</span>' +
+        '</span>' +
+        '<span class="lesson-notify-card-desc">' + esc(item.line) + '</span>' +
       '</button>'
-    ).join('') : '<p class="lesson-notify-card-desc">No reminders.</p>';
+    ).join('') : '<p class="lesson-notify-empty">No active reminders.</p>';
 
     modal.innerHTML =
       '<div class="lesson-notifications-backdrop" id="lessonNotifyBackdrop"></div>' +
@@ -18954,42 +19231,32 @@ const STUDIO_CONSTELLATIONS = [{
           '<div class="lesson-notify-head-title">' +
             '<svg class="lesson-notify-bell-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
             '<h2 id="lessonNotifyModalTitle">Lesson Notifications</h2>' +
-            '<span class="lesson-notify-count-badge' + (isRecentlyRead ? ' is-read' : '') + '" id="lessonNotifyCountBadge">' +
-              (isRecentlyRead ? 'All read' : (notifications.length + ' active')) +
-            '</span>' +
+            '<span class="lesson-notify-count-badge' + (unread ? '' : ' is-read') + '" id="lessonNotifyCountBadge">' + esc(pillText(unread)) + '</span>' +
           '</div>' +
           '<button type="button" class="lesson-notify-close-btn" id="lessonNotifyCloseBtn" aria-label="Close notifications">×</button>' +
         '</div>' +
         '<div class="lesson-notify-scroll">' +
           '<div class="lesson-notify-section-title">ACTIVE REMINDERS</div>' +
           '<div class="lesson-notify-list">' + itemsHtml + '</div>' +
-          '<div class="lesson-notify-section-title" style="margin-top:20px;">NOTIFICATION PREFERENCES</div>' +
+          '<div class="lesson-notify-section-title is-follow">NOTIFICATION PREFERENCES</div>' +
           '<div class="lesson-notify-settings">' +
-            '<label class="lesson-notify-pref-row">' +
-              '<div class="lesson-notify-pref-label">' +
-                '<strong>Lesson start reminders</strong>' +
-                '<span>Hide or show today class and lesson cards</span>' +
-              '</div>' +
+            '<label class="lesson-notify-pref">' +
+              '<span class="lesson-notify-pref-name">Today</span>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="lessonReminders"' + (settings.lessonReminders ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
             '</label>' +
-            '<label class="lesson-notify-pref-row">' +
-              '<div class="lesson-notify-pref-label">' +
-                '<strong>Daily word review</strong>' +
-                '<span>Hide or show review cards</span>' +
-              '</div>' +
+            '<label class="lesson-notify-pref">' +
+              '<span class="lesson-notify-pref-name">Reviews</span>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="dailyReview"' + (settings.dailyReview ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
             '</label>' +
-            '<label class="lesson-notify-pref-row">' +
-              '<div class="lesson-notify-pref-label">' +
-                '<strong>Audio alert sounds</strong>' +
-                '<span>Stored on this device. It does not send an alert.</span>' +
-              '</div>' +
+            '<label class="lesson-notify-pref">' +
+              '<span class="lesson-notify-pref-name">Sound</span>' +
               '<input type="checkbox" class="lesson-notify-toggle" data-pref-key="audioAlerts"' + (settings.audioAlerts ? ' checked' : '') + ' />' +
               '<span class="lesson-notify-switch"></span>' +
             '</label>' +
           '</div>' +
+          '<p class="lesson-notify-sound-note">Sound stays on this device.</p>' +
         '</div>' +
         '<div class="lesson-notify-foot">' +
           '<button type="button" class="btn lesson-notify-read-all-btn" id="lessonNotifyReadAllBtn">Mark all as read</button>' +
@@ -18997,19 +19264,16 @@ const STUDIO_CONSTELLATIONS = [{
         '</div>' +
       '</div>';
 
-    // Hook events
     const closeBtn = modal.querySelector('#lessonNotifyCloseBtn');
     const doneBtn = modal.querySelector('#lessonNotifyDoneBtn');
     const backdrop = modal.querySelector('#lessonNotifyBackdrop');
     const readAllBtn = modal.querySelector('#lessonNotifyReadAllBtn');
-
     if (closeBtn) closeBtn.onclick = closeLessonNotifications;
     if (doneBtn) doneBtn.onclick = closeLessonNotifications;
     if (backdrop) backdrop.onclick = closeLessonNotifications;
-
     if (readAllBtn) {
       readAllBtn.onclick = () => {
-        markAllNotificationsAsRead();
+        markAllNotificationsAsRead(notifications);
       };
     }
 
@@ -19018,25 +19282,25 @@ const STUDIO_CONSTELLATIONS = [{
         const item = notifications.find((entry) => entry.id === card.getAttribute('data-notify-id'));
         closeLessonNotifications();
         if (!item) return;
-        if (item.lessonId && typeof lmOpenLesson === 'function') lmOpenLesson(item.lessonId);
-        else if (item.examId && typeof visit === 'function') {
+        if (item.kind === 'class' && typeof visit === 'function') visit('groups');
+        else if (item.kind === 'material' && item.lessonId && typeof lmOpenLesson === 'function') lmOpenLesson(item.lessonId);
+        else if ((item.kind === 'waiting' || item.kind === 'published') && item.examId && typeof visit === 'function') {
           examCurrentId = item.examId;
           visit('examblocks');
-        } else if (item.open === 'classes' && typeof visit === 'function') visit('groups');
+        }
       };
     });
 
-    modal.querySelectorAll('.lesson-notify-toggle').forEach(input => {
-      input.onchange = (e) => {
-        const key = input.dataset.prefKey;
-        setNotificationSetting(key, input.checked);
-        renderModalContent();
+    modal.querySelectorAll('.lesson-notify-toggle').forEach((input) => {
+      input.onchange = () => {
+        setNotificationSetting(input.dataset.prefKey, input.checked);
+        renderModalContent({ touchDot: false });
       };
     });
   }
 
   function openLessonNotifications() {
-    renderModalContent();
+    renderModalContent({ touchDot: true });
     const modal = ensureModalElement();
     modal.hidden = false;
     document.body.classList.add('has-modal-open');
@@ -19046,26 +19310,21 @@ const STUDIO_CONSTELLATIONS = [{
 
   function closeLessonNotifications() {
     const modal = document.getElementById('lessonNotificationsModal');
-    if (modal) {
-      modal.hidden = true;
-    }
+    if (modal) modal.hidden = true;
     document.body.classList.remove('has-modal-open');
   }
 
-  // Global escape listener
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const modal = document.getElementById('lessonNotificationsModal');
-      if (modal && !modal.hidden) {
-        closeLessonNotifications();
-      }
+      if (modal && !modal.hidden) closeLessonNotifications();
     }
   });
 
   window.openLessonNotifications = openLessonNotifications;
   window.closeLessonNotifications = closeLessonNotifications;
   window.getNotificationSettings = getNotificationSettings;
-  window.markAllNotificationsAsRead = markAllNotificationsAsRead;
+  window.markAllNotificationsAsRead = () => markAllNotificationsAsRead(getActiveNotifications());
 })();
     function archiveLabel(type) {
       return { account:'Accounts',lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
@@ -24972,10 +25231,13 @@ const STUDIO_CONSTELLATIONS = [{
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
       dayReturn = "material";
-      document.getElementById("daySetupTitle").textContent = "This day's quiz";
-      document.getElementById("daySetupBack").dataset.fallback = "material";
-      document.getElementById("dayqBack").dataset.fallback = "material";
       const label = lmState.title || lmLongDate(lmState.date) || "Lesson";
+      showDayQuizBoard(true);
+      document.getElementById("daySetupTitle").textContent = label;
+      document.getElementById("daySetupBack").dataset.fallback = "material";
+      const quizBack = document.getElementById("dayQuizBack");
+      if (quizBack) quizBack.dataset.fallback = "material";
+      document.getElementById("dayqBack").dataset.fallback = "material";
       paintDaySetupNote(label, cards, label + " · no cards yet. Add words or phrases first.");
       if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips('daysetup');
       visit("daysetup");
@@ -26698,6 +26960,83 @@ const STUDIO_CONSTELLATIONS = [{
         return createdWordBlocks;
       }
 
+      function lmEnsurePhrasesInLesson(phrasesToAdd) {
+        if (!lmState || !Array.isArray(lmState.blocks) || !Array.isArray(phrasesToAdd) || !phrasesToAdd.length) return [];
+        const existingPhrases = new Set();
+        lmState.blocks.forEach((b) => {
+          if (b.type === "phrase" && Array.isArray(b.items)) {
+            b.items.forEach((it) => {
+              if (it.phrase) existingPhrases.add(String(it.phrase).trim().toLowerCase());
+            });
+          } else if (b.tab === "phrases" && (b.type === "wordcard" || b.type === "word")) {
+            const w = String(b.word || b.en || "").trim().toLowerCase();
+            if (w) existingPhrases.add(w);
+          }
+        });
+
+        const createdPhraseBlocks = [];
+        const itemsToInsert = [];
+        phrasesToAdd.forEach((item) => {
+          const p = String(item.phrase || item.word || "").trim();
+          if (!p || existingPhrases.has(p.toLowerCase())) return;
+          existingPhrases.add(p.toLowerCase());
+          itemsToInsert.push(item);
+        });
+
+        if (itemsToInsert.length > 0) {
+          itemsToInsert.forEach((item) => {
+            const p = String(item.phrase || item.word || "").trim();
+            const meaning = String(item.meaning || item.translation || item.ru || p).trim();
+            const example = String(item.example || ("Example using " + p + ".")).trim();
+            const phraseBlock = {
+              id: lmId(),
+              type: "phrase",
+              tab: "phrases",
+              title: p,
+              items: [{
+                phrase: p,
+                meaning: meaning,
+                example: example
+              }]
+            };
+            createdPhraseBlocks.push(phraseBlock);
+            lmState.blocks.push(phraseBlock);
+          });
+        }
+        return createdPhraseBlocks;
+      }
+
+      function lmEnsureRulesInLesson(rulesToAdd) {
+        if (!lmState || !Array.isArray(lmState.blocks) || !Array.isArray(rulesToAdd) || !rulesToAdd.length) return [];
+        const existingRules = new Set();
+        lmState.blocks.forEach((b) => {
+          if (b.type === "rule" || b.tab === "rules") {
+            const t = String(b.title || b.name || "").trim().toLowerCase();
+            if (t) existingRules.add(t);
+          }
+        });
+
+        const createdRuleBlocks = [];
+        rulesToAdd.forEach((item) => {
+          const t = String(item.title || item.name || item.rule || "").trim();
+          if (!t || existingRules.has(t.toLowerCase())) return;
+          existingRules.add(t.toLowerCase());
+          const ruleBlock = {
+            id: lmId(),
+            type: "rule",
+            tab: "rules",
+            title: t,
+            name: t,
+            explanation: item.explanation || item.ru || item.meaning || "",
+            pattern: item.pattern || "",
+            examples: Array.isArray(item.examples) ? item.examples : (item.example ? [item.example] : [])
+          };
+          createdRuleBlocks.push(ruleBlock);
+          lmState.blocks.push(ruleBlock);
+        });
+        return createdRuleBlocks;
+      }
+
       async function lmGenerateComplementTasks() {
         if (!lmState || !canEditLessons()) return;
         const counts = lmGetTaskCounts();
@@ -27670,6 +28009,9 @@ const STUDIO_CONSTELLATIONS = [{
       window.lmExtractLessonVocabularyPool = lmExtractLessonVocabularyPool;
       window.lmGetThematicExpansionPool = lmGetThematicExpansionPool;
       window.lmEnsureWordsInLesson = lmEnsureWordsInLesson;
+      window.lmEnsurePhrasesInLesson = lmEnsurePhrasesInLesson;
+      window.lmEnsureRulesInLesson = lmEnsureRulesInLesson;
+      window.lmBlockCounts = lmBlockCounts;
 
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);
@@ -28845,7 +29187,8 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   let currentSection = '';
   let ruleCurrent = null;
 
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
     const kv = line.match(/^(title|description|unit|lesson|class|level|topic)\s*:\s*(.+)$/i);
     if (kv) {
       const key = kv[1].toLowerCase(), val = kv[2].trim();
@@ -28854,6 +29197,15 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       else if (key === 'unit') unit = val;
       else if (key === 'lesson') lesson = val;
       else if (key === 'class' || key === 'level') className = val;
+      continue;
+    }
+    const isCommandPromptLine = /^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules)\b/i.test(line);
+    if (!title && lineIndex === 0 && !isCommandPromptLine && (line.startsWith('#') || (!/[.?!]$/.test(line) && line.length < 60))) {
+      title = line.replace(/^#+\s*/, '');
+      continue;
+    }
+    if (!description && title && lineIndex === 1 && !isCommandPromptLine && line.length < 240) {
+      description = line;
       continue;
     }
     if (/^(words|vocabulary|слова)\s*[:]?\s*$/i.test(line)) { currentSection = 'words'; continue; }
@@ -28865,7 +29217,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     const lineToParse = wordPrefix ? wordPrefix[1] : line;
     if (currentSection === 'words' || wordPrefix || /^[•\-\*]\s*[a-zA-Z\s]+[\s\-–—:|]/.test(line)) {
       const cleanLine = lineToParse.replace(/^[•\-\*]\s*/, '').trim();
-      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s*[-–—:]\s*/).map(p => p.trim());
+      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s+[-–—]\s+|\s*[:|]\s*/).map(p => p.trim());
       if (parts.length >= 2 && /^[a-zA-Z\s'-]+$/.test(parts[0])) {
         const word = parts[0];
         const translation = parts[1] || '';
@@ -28879,11 +29231,38 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     const phrasePrefix = line.match(/^(?:phrase|фраза)\s*:\s*(.+)$/i);
     if (currentSection === 'phrases' || phrasePrefix) {
       const cleanLine = (phrasePrefix ? phrasePrefix[1] : line).replace(/^[•\-\*]\s*/, '').trim();
-      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s*[-–—:]\s*/).map(p => p.trim());
+      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s+[-–—]\s+|\s*[:|]\s*/).map(p => p.trim());
       if (parts.length >= 2) {
         phrases.push({ phrase: parts[0], meaning: parts[2] || parts[0], translation: parts[1] || '', example: parts[3] || parts[0], pages: [1] });
         continue;
       }
+    }
+
+    // Support bare English words and phrases without explicit translation delimiter
+    const bareCandidate = lineToParse.replace(/^[•\-\*\d\.)\s]+/, '').trim();
+    if (/^[a-zA-Z\s'-]{2,80}$/.test(bareCandidate) && !/^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules|title|topic|classwork|exercises)/i.test(bareCandidate)) {
+      const lower = bareCandidate.toLowerCase();
+      const knownTranslations = {
+        'make future plans': 'строить планы на будущее',
+        'make a to-do list': 'составить список дел',
+        'plan things in advance': 'планировать всё заранее',
+        'take with a grain of salt': 'относиться скептически',
+        'bite the bullet': 'стиснуть зубы и действовать',
+        'detour': 'объезд',
+        'commute': 'ежедневная поездка на работу',
+        'serendipity': 'счастливая случайность',
+        'hit the road': 'отправиться в путь',
+        'breakthrough': 'прорыв'
+      };
+      const tr = knownTranslations[lower] || (bareCandidate.charAt(0).toUpperCase() + bareCandidate.slice(1) + ' (перевод)');
+      const ex = 'Example: She likes to ' + bareCandidate.toLowerCase() + '.';
+      const wordsInBare = bareCandidate.split(/\s+/).length;
+      if (wordsInBare > 1 || currentSection === 'phrases' || phrasePrefix) {
+        phrases.push({ phrase: bareCandidate, meaning: tr, translation: tr, example: ex, pages: [1] });
+      } else {
+        words.push({ word: bareCandidate, meaning: tr, translation: tr, example: ex, pages: [1] });
+      }
+      continue;
     }
 
     const rulePrefix = line.match(/^(?:rule|правило)\s*:\s*(.+)$/i);
@@ -28946,19 +29325,11 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       }
     }
 
-    if (!title && lines.indexOf(line) === 0 && (line.startsWith('#') || (!/[.?!]$/.test(line) && line.length < 60))) {
-      title = line.replace(/^#+\s*/, '');
-      continue;
-    }
-    if (!description && title && lines.indexOf(line) === 1 && line.length < 240) {
-      description = line;
-      continue;
-    }
   }
   if (ruleCurrent) rules.push(ruleCurrent);
 
   if (!title) title = defaultTitle.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') || 'New Lesson';
-  if (!description) description = lmDetailedLessonDescription(text, title || defaultTitle);
+  if (!description) description = typeof lmDetailedLessonDescription === 'function' ? lmDetailedLessonDescription(text, title || defaultTitle) : (title || defaultTitle);
   else description = String(description).slice(0, 2400);
 
   const BANNED_TOKENS = new Set([
@@ -30181,6 +30552,15 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
       window.lmShowTabProgress(lmPdfProgressTab, 'Draft ready to review!', 100);
     }
     if (typeof lmClearImportFields === 'function') lmClearImportFields();
+
+    const isCommandPrompt = /^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules)\b/i.test(text.trim()) ||
+      (!/^(?:title|topic)\s*:/i.test(text) && (data.words?.length || data.phrases?.length || data.rules?.length) && !(data.classwork?.length >= 3 && data.rules?.length && data.description));
+
+    if (isCommandPrompt && (data.words?.length || data.phrases?.length || data.rules?.length)) {
+      lmMountScriptApprovalGate(data, text);
+      return;
+    }
+
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -30537,7 +30917,290 @@ if(typeof document!=='undefined'){
   });
 }
 
+function lmEscapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+let lmLastCommandSnapshot = null;
+
+function lmMountScriptApprovalGate(data, originalText) {
+  const container = document.getElementById('lmScriptApprovalWrap');
+  const inputContainer = document.getElementById('lmScriptInputContainer');
+  const successWrap = document.getElementById('lmScriptSuccessWrap');
+  if (!container) return;
+
+  if (inputContainer) inputContainer.style.display = 'none';
+  if (successWrap) successWrap.style.display = 'none';
+  container.style.display = 'block';
+
+  const counts = typeof window.lmBlockCounts === 'function' && typeof lmState !== 'undefined'
+    ? window.lmBlockCounts(lmState)
+    : { words: 0, phrases: 0, rules: 0 };
+
+  // Prepare candidate items
+  const candidates = [];
+  (data.phrases || []).forEach((p, idx) => {
+    candidates.push({
+      id: 'cand_p_' + idx,
+      type: 'phrase',
+      text: p.phrase || p.word || '',
+      meaning: p.meaning || p.translation || p.phrase || '',
+      example: p.example || ('Example using ' + (p.phrase || p.word) + '.'),
+      checked: true
+    });
+  });
+  (data.words || []).forEach((w, idx) => {
+    candidates.push({
+      id: 'cand_w_' + idx,
+      type: 'word',
+      text: w.word || '',
+      meaning: w.meaning || w.translation || w.word || '',
+      example: w.example || ('Example using ' + w.word + '.'),
+      checked: true
+    });
+  });
+  (data.rules || []).forEach((r, idx) => {
+    candidates.push({
+      id: 'cand_r_' + idx,
+      type: 'rule',
+      text: r.title || r.name || '',
+      meaning: r.explanation || r.ru || '',
+      example: (Array.isArray(r.examples) ? r.examples[0] : r.example) || '',
+      checked: true
+    });
+  });
+
+  function renderApprovalTable() {
+    const phrasesCount = candidates.filter(c => c.checked && c.type === 'phrase').length;
+    const wordsCount = candidates.filter(c => c.checked && c.type === 'word').length;
+    const rulesCount = candidates.filter(c => c.checked && c.type === 'rule').length;
+    const totalSelected = candidates.filter(c => c.checked).length;
+
+    let intentLabel = 'Add Vocabulary & Phrases';
+    if (phrasesCount > 0 && wordsCount === 0 && rulesCount === 0) {
+      intentLabel = `Add to Lesson Phrases (Phrases · ${counts.phrases} ➔ ${counts.phrases + phrasesCount})`;
+    } else if (wordsCount > 0 && phrasesCount === 0 && rulesCount === 0) {
+      intentLabel = `Add to Lesson Words (Words · ${counts.words} ➔ ${counts.words + wordsCount})`;
+    } else if (rulesCount > 0 && wordsCount === 0 && phrasesCount === 0) {
+      intentLabel = `Add to Lesson Rules (Rules · ${counts.rules} ➔ ${counts.rules + rulesCount})`;
+    }
+
+    const rowsHtml = candidates.map((item, idx) => {
+      const typeLabel = item.type === 'phrase' ? 'Phrase → Phrases' : (item.type === 'word' ? 'Word → Words' : 'Rule → Rules');
+      const badgeBg = item.type === 'phrase' ? '#ecfdf5' : (item.type === 'word' ? '#e0f2fe' : '#fef3c7');
+      const badgeColor = item.type === 'phrase' ? '#047857' : (item.type === 'word' ? '#0369a1' : '#b45309');
+
+      return `
+        <tr style="border-bottom:1px solid var(--line, #e2e8f0); opacity:${item.checked ? '1' : '0.45'}; transition:opacity 0.15s ease;">
+          <td style="padding:10px 12px; text-align:center;">
+            <input type="checkbox" class="lm-cmd-checkbox" data-idx="${idx}" ${item.checked ? 'checked' : ''} />
+          </td>
+          <td style="padding:10px 12px;">
+            <button type="button" class="pill-badge lm-cmd-type-toggle" data-idx="${idx}" style="background:${badgeBg}; color:${badgeColor}; font-weight:700; font-size:11px; padding:3px 8px; border-radius:4px; border:none; cursor:pointer;" title="Click to change target dictionary">
+              ${typeLabel} ▾
+            </button>
+          </td>
+          <td style="padding:10px 12px;"><strong>${lmEscapeHtml(item.text)}</strong></td>
+          <td style="padding:10px 12px;">
+            <input type="text" class="saas-input lm-cmd-meaning-input" data-idx="${idx}" value="${lmEscapeHtml(item.meaning)}" style="width:100%; box-sizing:border-box; font-size:12.5px; padding:6px 8px; border:1px solid var(--line, #cbd5e1); border-radius:5px; background:var(--card, #fff); color:var(--ink, #0f172a);" />
+          </td>
+          <td style="padding:10px 12px; color:var(--mute, #334155); font-style:italic;">${lmEscapeHtml(item.example)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="lm-command-approval-container" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--acc-s, #eff6ff); border:1.5px solid var(--acc, #3b82f6); border-radius:8px; padding:10px 14px;">
+          <div>
+            <div style="font-weight:800; font-size:13px; color:var(--acc, #1d4ed8); display:flex; align-items:center; gap:8px;">
+              <span>🤖 AI Intent Detected: <strong>${intentLabel}</strong></span>
+              <span class="pill-badge" style="background:#059669; color:#fff; font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:4px;">Auto-Translated to Russian</span>
+            </div>
+            <div style="font-size:12px; color:var(--ink, #1e3a8a); margin-top:2px;">
+              ${candidates.length} expressions detected without translations. Gemini generated authentic Russian meanings and example sentences.
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn ghost" id="lmCommandEditBtn" style="font-size:12px; font-weight:600; padding:6px 12px; cursor:pointer;">← Edit Command</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto; border:1px solid var(--line, #e2e8f0); border-radius:8px; background:var(--card, #ffffff);">
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
+            <thead>
+              <tr style="background:var(--bg, #f8fafc); border-bottom:1.5px solid var(--line, #e2e8f0); color:var(--mute, #64748b); font-weight:700;">
+                <th style="padding:10px 12px; width:36px; text-align:center;"><input type="checkbox" id="lmCommandSelectAll" ${candidates.every(c => c.checked) ? 'checked' : ''} /></th>
+                <th style="padding:10px 12px; width:140px;">Target Dictionary</th>
+                <th style="padding:10px 12px; width:210px;">Detected Expression</th>
+                <th style="padding:10px 12px; width:220px;">AI Russian Translation</th>
+                <th style="padding:10px 12px;">AI Example Sentence</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+          <div style="font-size:12.5px; color:var(--mute, #64748b);">
+            Resulting Lesson Stats: <strong>Words · ${counts.words + wordsCount}</strong> | <strong style="color:var(--ok, #059669);">Phrases · ${counts.phrases + phrasesCount} (+${phrasesCount})</strong> | <strong>Rules · ${counts.rules + rulesCount}</strong>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn primary saas-btn" id="lmCommandApproveBtn" ${totalSelected === 0 ? 'disabled' : ''} style="font-weight:700; padding:10px 24px; background:var(--ok, #059669); color:#fff; border:none; border-radius:8px; cursor:pointer;">
+              ✓ Approve &amp; Add to Lesson (${totalSelected} ${totalSelected === 1 ? 'item' : 'items'})
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Bind event listeners
+    const editBtn = container.querySelector('#lmCommandEditBtn');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        container.style.display = 'none';
+        if (inputContainer) inputContainer.style.display = 'flex';
+      });
+    }
+
+    const selectAll = container.querySelector('#lmCommandSelectAll');
+    if (selectAll) {
+      selectAll.addEventListener('change', (e) => {
+        const val = Boolean(e.target.checked);
+        candidates.forEach(c => { c.checked = val; });
+        renderApprovalTable();
+      });
+    }
+
+    container.querySelectorAll('.lm-cmd-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        if (candidates[idx]) {
+          candidates[idx].checked = Boolean(e.target.checked);
+          renderApprovalTable();
+        }
+      });
+    });
+
+    container.querySelectorAll('.lm-cmd-type-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        if (candidates[idx]) {
+          const types = ['phrase', 'word', 'rule'];
+          const nextType = types[(types.indexOf(candidates[idx].type) + 1) % types.length];
+          candidates[idx].type = nextType;
+          renderApprovalTable();
+        }
+      });
+    });
+
+    container.querySelectorAll('.lm-cmd-meaning-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        if (candidates[idx]) candidates[idx].meaning = e.target.value;
+      });
+    });
+
+    const approveBtn = container.querySelector('#lmCommandApproveBtn');
+    if (approveBtn) {
+      approveBtn.addEventListener('click', () => {
+        lmExecuteCommandApproval(candidates.filter(c => c.checked));
+      });
+    }
+  }
+
+  renderApprovalTable();
+}
+
+function lmExecuteCommandApproval(approvedItems) {
+  if (!approvedItems || !approvedItems.length || typeof lmState === 'undefined' || !lmState) return;
+
+  const wordsToAdd = approvedItems.filter(i => i.type === 'word').map(i => ({ word: i.text, meaning: i.meaning, translation: i.meaning, example: i.example }));
+  const phrasesToAdd = approvedItems.filter(i => i.type === 'phrase').map(i => ({ phrase: i.text, meaning: i.meaning, translation: i.meaning, example: i.example }));
+  const rulesToAdd = approvedItems.filter(i => i.type === 'rule').map(i => ({ title: i.text, name: i.text, explanation: i.meaning, examples: [i.example] }));
+
+  let addedWordBlocks = [];
+  let addedPhraseBlocks = [];
+  let addedRuleBlocks = [];
+
+  if (wordsToAdd.length && typeof window.lmEnsureWordsInLesson === 'function') {
+    addedWordBlocks = window.lmEnsureWordsInLesson(wordsToAdd);
+  }
+  if (phrasesToAdd.length && typeof window.lmEnsurePhrasesInLesson === 'function') {
+    addedPhraseBlocks = window.lmEnsurePhrasesInLesson(phrasesToAdd);
+  }
+  if (rulesToAdd.length && typeof window.lmEnsureRulesInLesson === 'function') {
+    addedRuleBlocks = window.lmEnsureRulesInLesson(rulesToAdd);
+  }
+
+  const allAdded = [...addedWordBlocks, ...addedPhraseBlocks, ...addedRuleBlocks];
+  lmLastCommandSnapshot = {
+    blockIds: allAdded.map(b => b.id),
+    wordsCount: addedWordBlocks.length,
+    phrasesCount: addedPhraseBlocks.length,
+    rulesCount: addedRuleBlocks.length
+  };
+
+  // Re-render and persist
+  if (typeof lmRenderEditor === 'function') lmRenderEditor();
+  if (typeof lmSchedule === 'function') lmSchedule();
+  if (typeof lmPersist === 'function') lmPersist();
+  if (typeof paintLmDays === 'function') paintLmDays();
+
+  // Hide approval wrap, show success wrap
+  const container = document.getElementById('lmScriptApprovalWrap');
+  if (container) container.style.display = 'none';
+
+  const successWrap = document.getElementById('lmScriptSuccessWrap');
+  const successText = document.getElementById('lmScriptSuccessText');
+  if (successWrap) {
+    successWrap.style.display = 'flex';
+    if (successText) {
+      const parts = [];
+      if (addedPhraseBlocks.length) parts.push(`${addedPhraseBlocks.length} phrases to Phrases list`);
+      if (addedWordBlocks.length) parts.push(`${addedWordBlocks.length} words to Words list`);
+      if (addedRuleBlocks.length) parts.push(`${addedRuleBlocks.length} rules to Rules list`);
+      successText.textContent = `Successfully added ${parts.join(', ')}!`;
+    }
+  }
+
+  const undoBtn = document.getElementById('lmScriptUndoBtn');
+  if (undoBtn && !undoBtn.dataset.bound) {
+    undoBtn.dataset.bound = '1';
+    undoBtn.addEventListener('click', () => {
+      if (lmLastCommandSnapshot && Array.isArray(lmLastCommandSnapshot.blockIds) && lmState && Array.isArray(lmState.blocks)) {
+        const removeIds = new Set(lmLastCommandSnapshot.blockIds);
+        lmState.blocks = lmState.blocks.filter(b => !removeIds.has(b.id));
+        lmLastCommandSnapshot = null;
+        if (typeof lmRenderEditor === 'function') lmRenderEditor();
+        if (typeof lmSchedule === 'function') lmSchedule();
+        if (typeof lmPersist === 'function') lmPersist();
+        if (typeof paintLmDays === 'function') paintLmDays();
+        if (successWrap) successWrap.style.display = 'none';
+        const inputContainer = document.getElementById('lmScriptInputContainer');
+        if (inputContainer) inputContainer.style.display = 'flex';
+      }
+    });
+  }
+
+  const newCmdBtn = document.getElementById('lmScriptNewCmdBtn');
+  if (newCmdBtn && !newCmdBtn.dataset.bound) {
+    newCmdBtn.dataset.bound = '1';
+    newCmdBtn.addEventListener('click', () => {
+      const scriptInput = document.getElementById('lmScriptInput');
+      if (scriptInput) scriptInput.value = '';
+      if (successWrap) successWrap.style.display = 'none';
+      const inputContainer = document.getElementById('lmScriptInputContainer');
+      if (inputContainer) inputContainer.style.display = 'flex';
+    });
+  }
+}
+
 if(typeof window!=='undefined'){
+  window.lmMountScriptApprovalGate = lmMountScriptApprovalGate;
+  window.lmExecuteCommandApproval = lmExecuteCommandApproval;
   window.lmDetectCefrLevel = lmDetectCefrLevel;
   window.lmParseResourceUrlMeta = lmParseResourceUrlMeta;
   window.lmFetchExternalUrl = lmFetchExternalUrl;

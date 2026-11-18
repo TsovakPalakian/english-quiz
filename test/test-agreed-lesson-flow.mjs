@@ -37,9 +37,11 @@ test('voice mode asks the conversation route and notifications keep real cards',
   assert.doesNotMatch(voice, /interesting thought/);
   assert.doesNotMatch(notes, /Vocabulary Review Ready/);
   assert.doesNotMatch(notes, /v2\.4\.0/);
-  assert.match(notes, /No reminders\./);
-  assert.match(notes, /Work is waiting for review/);
+  assert.match(notes, /No active reminders\./);
+  assert.match(notes, /Waiting for review/);
   assert.match(notes, /Review published/);
+  assert.match(notes, /Class today/);
+  assert.doesNotMatch(notes, /lesson-notify-card-icon/);
   assert.match(worker, /\/api\/lessons\/voice-reply/);
 });
 

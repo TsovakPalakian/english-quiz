@@ -151,7 +151,7 @@ export async function parseLessonPdfMeta({bytes,apiKey='',model='',fetchImpl=glo
 export async function generateLessonFromText({text='', level='B1', title='', apiKey='', model='', fetchImpl=globalThis.fetch, timeoutMs=45000, signal, quizTypes=[], taskCount=3}={}) {
   const cleanText = String(text || '').trim();
   if (apiKey && model && /^gemini-[a-z0-9][a-z0-9.-]{0,100}$/.test(model)) {
-    const promptText = `Level: ${level}\nTopic/Script: ${cleanText || title}\nGenerate a complete lesson draft strictly grounded in this topic with vocabulary, grammar, and exercises.`;
+    const promptText = `Level: ${level}\nTopic/Script: ${cleanText || title}\nIf natural language commands or instructions are present (such as "Добавь эти слова или фразы" or "Add these words"), extract all indicated vocabulary terms, phrases, and rules into the corresponding collections. If translations are missing, provide accurate Russian translations and clear English example sentences for each extracted word and phrase. Generate a complete lesson draft strictly grounded in this topic with vocabulary, grammar, and exercises.`;
     const payload = {
       systemInstruction: { parts: [{ text: fullInstruction + ' Always ensure every word and phrase has a Russian translation. Provide 5 distinct learning stages for classwork.' }] },
       contents: [{ role: 'user', parts: [{ text: promptText }] }],
@@ -186,7 +186,81 @@ export async function generateLessonFromText({text='', level='B1', title='', api
   if (lessonMatch) lesson = lessonMatch[1];
 
   let words = [];
-  // Parse explicit words from text if present
+  let parsedPhrases = [];
+  let parsedWords = [];
+  let parsedRules = [];
+
+  // Parse explicit words/phrases from raw lines or command inputs
+  const rawLines = cleanText.split('\n').map(l => l.trim()).filter(Boolean);
+  for (const line of rawLines) {
+    if (/^(?:title|topic|unit|lesson|level|class|classwork|homework|exercises)\s*:/i.test(line)) continue;
+    if (/^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules)/i.test(line) && !line.includes('-') && !line.includes(':') && line.split(' ').length <= 7 && !/^[a-z\s]+$/i.test(line)) {
+      continue;
+    }
+    const cleanLine = line.replace(/^[•\-\*\d\.)\s]+/, '').trim();
+    if (!cleanLine) continue;
+
+    const ruleMatch = cleanLine.match(/^(?:rule|правило)\s*:\s*(.+)$/i);
+    if (ruleMatch) {
+      const rName = ruleMatch[1].trim();
+      parsedRules.push({
+        title: rName,
+        name: rName,
+        explanation: 'Grammar rule for ' + rName + '.',
+        pattern: '',
+        examples: ['Example applying ' + rName + '.'],
+        pages: [1],
+        generated: true
+      });
+      continue;
+    }
+
+    const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s+[-–—]\s+|\s*[:|]\s*/).map(p => p.trim());
+    const en = parts[0];
+    if (!en || !/^[a-zA-Z\s'-]+$/.test(en)) continue;
+
+    let ru = parts[1] || '';
+    if (!ru) {
+      const lowerEn = en.toLowerCase();
+      const knownTranslations = {
+        'make future plans': 'строить планы на будущее',
+        'make a to-do list': 'составить список дел',
+        'plan things in advance': 'планировать всё заранее',
+        'take with a grain of salt': 'относиться скептически',
+        'bite the bullet': 'стиснуть зубы и действовать',
+        'detour': 'объезд',
+        'commute': 'ежедневная поездка на работу',
+        'serendipity': 'счастливая случайность',
+        'hit the road': 'отправиться в путь',
+        'breakthrough': 'прорыв'
+      };
+      ru = knownTranslations[lowerEn] || (en.charAt(0).toUpperCase() + en.slice(1) + ' (перевод)');
+    }
+
+    const example = parts[2] || parts[3] || ('Example: She likes to ' + en.toLowerCase() + '.');
+    const wordCount = en.trim().split(/\s+/).length;
+    if (wordCount > 1) {
+      parsedPhrases.push({
+        phrase: en,
+        meaning: ru,
+        translation: ru,
+        example: example,
+        pages: [1],
+        generated: true
+      });
+    } else {
+      parsedWords.push({
+        word: en,
+        meaning: ru,
+        translation: ru,
+        example: example,
+        pages: [1],
+        generated: true
+      });
+    }
+  }
+
+  // Parse explicit words from text if present with Words: prefix
   const wordsSection = cleanText.match(/Words:?\s*([^\n]+)/i);
   if (wordsSection && wordsSection[1]) {
     const rawPairs = wordsSection[1].split(',').map(s => s.trim()).filter(Boolean);
@@ -203,6 +277,10 @@ export async function generateLessonFromText({text='', level='B1', title='', api
         });
       }
     }
+  }
+
+  if (words.length === 0 && parsedWords.length > 0) {
+    words = parsedWords;
   }
 
   if (words.length === 0) {
@@ -223,13 +301,13 @@ export async function generateLessonFromText({text='', level='B1', title='', api
     }
   }
 
-  const phrases = isRelativeClauses ? [
+  const phrases = parsedPhrases.length > 0 ? parsedPhrases : (isRelativeClauses ? [
     { phrase: 'who / which / that', meaning: 'core relative pronouns in English', translation: 'кто / который / что', example: 'Use who for people and which for objects.', pages: [1], generated: true }
   ] : [
     { phrase: 'in a nutshell', meaning: 'in summary or briefly', translation: 'в двух словах', example: 'In a nutshell, this lesson focuses on mastery.', pages: [1], generated: true }
-  ];
+  ]);
 
-  const rules = isRelativeClauses ? [
+  const rules = parsedRules.length > 0 ? parsedRules : (isRelativeClauses ? [
     {
       title: 'Defining vs Non-defining Relative Clauses',
       explanation: 'Use who for people, which for things, that for people or things in defining clauses, where for places, and whose for possession. Defining clauses take no commas.',
@@ -242,7 +320,7 @@ export async function generateLessonFromText({text='', level='B1', title='', api
     }
   ] : [
     { title: 'Sentence patterns and discourse markers', explanation: 'Use proper connectors and grammatical structures to link clauses logically.', examples: ['Although it was late, they continued practicing. — Хотя было поздно, они продолжили практику.'], pages: [1], generated: true }
-  ];
+  ]);
 
   const classwork = [
     { stage: 'explanation', title: 'Lesson Overview: ' + lessonTitle, text: 'Study target structures and principles.', kind: 'explanation', options: [], answer: -1, feedback: '', criteria: '', teacherAnswer: '', pages: [1], generated: true },

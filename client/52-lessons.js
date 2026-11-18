@@ -1472,10 +1472,13 @@
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
       dayReturn = "material";
-      document.getElementById("daySetupTitle").textContent = "This day's quiz";
-      document.getElementById("daySetupBack").dataset.fallback = "material";
-      document.getElementById("dayqBack").dataset.fallback = "material";
       const label = lmState.title || lmLongDate(lmState.date) || "Lesson";
+      showDayQuizBoard(true);
+      document.getElementById("daySetupTitle").textContent = label;
+      document.getElementById("daySetupBack").dataset.fallback = "material";
+      const quizBack = document.getElementById("dayQuizBack");
+      if (quizBack) quizBack.dataset.fallback = "material";
+      document.getElementById("dayqBack").dataset.fallback = "material";
       paintDaySetupNote(label, cards, label + " · no cards yet. Add words or phrases first.");
       if (typeof window.resetQuizTypeChips === 'function') window.resetQuizTypeChips('daysetup');
       visit("daysetup");
@@ -3198,6 +3201,83 @@
         return createdWordBlocks;
       }
 
+      function lmEnsurePhrasesInLesson(phrasesToAdd) {
+        if (!lmState || !Array.isArray(lmState.blocks) || !Array.isArray(phrasesToAdd) || !phrasesToAdd.length) return [];
+        const existingPhrases = new Set();
+        lmState.blocks.forEach((b) => {
+          if (b.type === "phrase" && Array.isArray(b.items)) {
+            b.items.forEach((it) => {
+              if (it.phrase) existingPhrases.add(String(it.phrase).trim().toLowerCase());
+            });
+          } else if (b.tab === "phrases" && (b.type === "wordcard" || b.type === "word")) {
+            const w = String(b.word || b.en || "").trim().toLowerCase();
+            if (w) existingPhrases.add(w);
+          }
+        });
+
+        const createdPhraseBlocks = [];
+        const itemsToInsert = [];
+        phrasesToAdd.forEach((item) => {
+          const p = String(item.phrase || item.word || "").trim();
+          if (!p || existingPhrases.has(p.toLowerCase())) return;
+          existingPhrases.add(p.toLowerCase());
+          itemsToInsert.push(item);
+        });
+
+        if (itemsToInsert.length > 0) {
+          itemsToInsert.forEach((item) => {
+            const p = String(item.phrase || item.word || "").trim();
+            const meaning = String(item.meaning || item.translation || item.ru || p).trim();
+            const example = String(item.example || ("Example using " + p + ".")).trim();
+            const phraseBlock = {
+              id: lmId(),
+              type: "phrase",
+              tab: "phrases",
+              title: p,
+              items: [{
+                phrase: p,
+                meaning: meaning,
+                example: example
+              }]
+            };
+            createdPhraseBlocks.push(phraseBlock);
+            lmState.blocks.push(phraseBlock);
+          });
+        }
+        return createdPhraseBlocks;
+      }
+
+      function lmEnsureRulesInLesson(rulesToAdd) {
+        if (!lmState || !Array.isArray(lmState.blocks) || !Array.isArray(rulesToAdd) || !rulesToAdd.length) return [];
+        const existingRules = new Set();
+        lmState.blocks.forEach((b) => {
+          if (b.type === "rule" || b.tab === "rules") {
+            const t = String(b.title || b.name || "").trim().toLowerCase();
+            if (t) existingRules.add(t);
+          }
+        });
+
+        const createdRuleBlocks = [];
+        rulesToAdd.forEach((item) => {
+          const t = String(item.title || item.name || item.rule || "").trim();
+          if (!t || existingRules.has(t.toLowerCase())) return;
+          existingRules.add(t.toLowerCase());
+          const ruleBlock = {
+            id: lmId(),
+            type: "rule",
+            tab: "rules",
+            title: t,
+            name: t,
+            explanation: item.explanation || item.ru || item.meaning || "",
+            pattern: item.pattern || "",
+            examples: Array.isArray(item.examples) ? item.examples : (item.example ? [item.example] : [])
+          };
+          createdRuleBlocks.push(ruleBlock);
+          lmState.blocks.push(ruleBlock);
+        });
+        return createdRuleBlocks;
+      }
+
       async function lmGenerateComplementTasks() {
         if (!lmState || !canEditLessons()) return;
         const counts = lmGetTaskCounts();
@@ -4170,6 +4250,9 @@
       window.lmExtractLessonVocabularyPool = lmExtractLessonVocabularyPool;
       window.lmGetThematicExpansionPool = lmGetThematicExpansionPool;
       window.lmEnsureWordsInLesson = lmEnsureWordsInLesson;
+      window.lmEnsurePhrasesInLesson = lmEnsurePhrasesInLesson;
+      window.lmEnsureRulesInLesson = lmEnsureRulesInLesson;
+      window.lmBlockCounts = lmBlockCounts;
 
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);

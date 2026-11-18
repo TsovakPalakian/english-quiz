@@ -750,33 +750,50 @@
               <!-- Tab 3: Manual Script -->
               <div id="lmTabPaneScript" class="lm-tab-pane" role="tabpanel" style="display:none;">
                 <div class="lm-script-container" style="display:flex; flex-direction:column; gap:10px;">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <label for="lmScriptInput" style="font-weight:700; font-size:13px; color:var(--saas-text, #0c4a6e);">Enter lesson script, notes, or grammar topic:</label>
-                    <div class="lm-quick-templates" style="display:flex; gap:6px; align-items:center;">
-                      <span style="font-size:11px; color:var(--saas-text-muted, #64748b);">Quick templates:</span>
-                      <button type="button" class="lm-template-pill" data-template="rule">+ Grammar Rule</button>
-                      <button type="button" class="lm-template-pill" data-template="vocab">+ Vocabulary List</button>
-                      <button type="button" class="lm-template-pill" data-template="dialogue">+ Dialogue / Text</button>
-                    </div>
-                  </div>
-                  <textarea id="lmScriptInput" class="saas-textarea" style="min-height:140px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; line-height:1.5; padding:12px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="Paste lesson script, syllabus outline, or topic description. E.g.:&#10;&#10;Title: Travel and Transport&#10;Words: detour - объезд, commuter - пригородный пассажир&#10;Rule: Phrasal verbs of travel"></textarea>
-                  <div id="lmScriptProgressWrap" class="lm-progress-box" style="display:none;">
+                  <div id="lmScriptInputContainer" style="display:flex; flex-direction:column; gap:10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <span style="font-size:13px; font-weight:700; color:#065f46; display:flex; align-items:center; gap:8px;">
-                        <span class="lm-spin">⏳</span>
-                        <span id="lmScriptProgressText">Structuring script and generating lesson tasks...</span>
-                      </span>
-                      <span id="lmScriptProgressPercent" style="font-size:13px; font-weight:800; color:#047857;">0%</span>
+                      <label for="lmScriptInput" style="font-weight:700; font-size:13px; color:var(--saas-text, #0c4a6e);">Enter lesson script, notes, or natural language command:</label>
+                      <div class="lm-quick-templates" style="display:flex; gap:6px; align-items:center;">
+                        <span style="font-size:11px; color:var(--saas-text-muted, #64748b);">Quick templates:</span>
+                        <button type="button" class="lm-template-pill" data-template="rule">+ Grammar Rule</button>
+                        <button type="button" class="lm-template-pill" data-template="vocab">+ Vocabulary List</button>
+                        <button type="button" class="lm-template-pill" data-template="dialogue">+ Dialogue / Text</button>
+                      </div>
                     </div>
-                    <div class="lm-progress-track">
-                      <div id="lmScriptProgressBar" class="lm-progress-fill" style="width:0%;"></div>
+                    <textarea id="lmScriptInput" class="saas-textarea" style="min-height:140px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; line-height:1.5; padding:12px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="Paste lesson script or natural command. E.g.:&#10;&#10;Добавь эти слова или фразы:&#10;make future plans&#10;make a to-do list&#10;plan things in advance"></textarea>
+                    <div id="lmScriptProgressWrap" class="lm-progress-box" style="display:none;">
+                      <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:13px; font-weight:700; color:#065f46; display:flex; align-items:center; gap:8px;">
+                          <span class="lm-spin">⏳</span>
+                          <span id="lmScriptProgressText">Structuring script and generating lesson tasks...</span>
+                        </span>
+                        <span id="lmScriptProgressPercent" style="font-size:13px; font-weight:800; color:#047857;">0%</span>
+                      </div>
+                      <div class="lm-progress-track">
+                        <div id="lmScriptProgressBar" class="lm-progress-fill" style="width:0%;"></div>
+                      </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; margin-top:2px;">
+                      <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" disabled style="font-weight:700; padding:10px 22px;">✨ Execute AI Command &rarr;</button>
+                    </div>
+                    <div class="lm-note-box" style="margin-top:10px; font-size:12px; color:var(--acc, #0284c7); background:var(--acc-s, rgba(2,132,199,0.08)); border:1px solid var(--saas-border, #bae6fd); padding:10px 14px; border-radius:8px; display:flex; align-items:center; gap:8px;">
+                      <span>🤖 <strong>Natural Language Command Execution:</strong> Write in Russian or English (e.g. <em>"Добавь слова ниже"</em>). Gemini detects categories (Words, Phrases, Rules), generates translations and examples autonomously, and asks for approval before adding.</span>
                     </div>
                   </div>
-                  <div style="display:flex; justify-content:flex-end; margin-top:2px;">
-                    <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" disabled style="font-weight:700; padding:10px 22px;">Generate Lesson Draft &rarr;</button>
-                  </div>
-                  <div class="lm-note-box" style="margin-top:10px; font-size:12px; color:var(--acc, #0284c7); background:var(--acc-s, rgba(2,132,199,0.08)); border:1px solid var(--saas-border, #bae6fd); padding:10px 14px; border-radius:8px; display:flex; align-items:center; gap:8px; white-space:nowrap;">
-                    <span>💡 <strong>Direct AI Structuring:</strong> Gemini detects title, vocabulary, and grammar rules automatically.</span>
+
+                  <!-- Approval Gate container for Manual Script commands -->
+                  <div id="lmScriptApprovalWrap" style="display:none;"></div>
+
+                  <!-- Success Banner with Undo -->
+                  <div id="lmScriptSuccessWrap" style="display:none; background:#ecfdf5; border:1.5px solid #10b981; border-radius:8px; padding:12px 16px; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#065f46;">
+                      <span>✅</span>
+                      <span id="lmScriptSuccessText">Successfully added expressions to lesson!</span>
+                    </div>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                      <button type="button" class="btn ghost" id="lmScriptUndoBtn" style="font-size:12px; font-weight:700; color:#065f46; border:1px solid #a7f3d0; background:#fff; padding:6px 12px; border-radius:6px; cursor:pointer;">↩ Undo</button>
+                      <button type="button" class="btn ghost" id="lmScriptNewCmdBtn" style="font-size:12px; font-weight:600; padding:6px 12px;">+ New Command</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1114,6 +1131,149 @@
     </section>
 
     <section id="daysetup">
+      <div id="dayQuizBoard" class="dq-board" hidden>
+        <div class="dq-head">
+          <button class="btn ghost saas-btn dq-back" type="button" data-fallback="lesson" id="dayQuizBack" aria-label="Back">←</button>
+          <div>
+            <p class="dq-kicker" id="dayQuizWho"></p>
+            <h1 id="dayQuizTitle">This day's quiz</h1>
+          </div>
+        </div>
+        <p class="dq-label">Cards</p>
+        <div class="dq-cards" id="dayQuizCards">
+          <button class="dq-card on" type="button" data-dq-source="all" aria-pressed="true">
+            <span class="dq-ico" aria-hidden="true">📚</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>All <span data-dq-all-count>0</span></b>
+            <small>Every card in the lesson</small>
+          </button>
+          <button class="dq-card" type="button" data-dq-source="range" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">🗓️</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Range</b>
+            <small>Cards <span data-dq-range-label>1–0</span></small>
+          </button>
+          <button class="dq-card" type="button" data-dq-source="random" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">🎲</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Random</b>
+            <small>Any <span data-dq-random-label>0</span> of <span data-dq-total>0</span></small>
+          </button>
+          <button class="dq-card" type="button" data-dq-source="mistakes" aria-pressed="false">
+            <span class="dq-ico dq-bad" aria-hidden="true">!</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Mistakes · <span data-dq-miss-count>0</span></b>
+            <small>Only what you missed</small>
+          </button>
+        </div>
+        <div class="dq-panel" id="dayQuizRange" hidden>
+          <span>Cards</span>
+          <input class="dq-pill" type="text" inputmode="numeric" maxlength="4" value="1" data-dq-from aria-label="From">
+          <span>to</span>
+          <input class="dq-pill" type="text" inputmode="numeric" maxlength="4" value="1" data-dq-to aria-label="To">
+        </div>
+        <div class="dq-panel" id="dayQuizRandom" hidden>
+          <input class="dq-slider" type="range" min="1" max="1" value="1" data-dq-count aria-label="Cards">
+          <b><span data-dq-random-count>1</span> cards</b>
+        </div>
+        <p class="dq-label">Mode</p>
+        <div class="dq-modes" id="dayQuizModes">
+          <button class="dq-card on" type="button" data-dq-mode="quick" aria-pressed="true">
+            <span class="dq-ico" aria-hidden="true">⚡</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Quick review</b>
+            <small>Flip &amp; Choice</small>
+          </button>
+          <button class="dq-card" type="button" data-dq-mode="write" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">✍️</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Write it</b>
+            <small>Type, Gap, Spell, Build</small>
+          </button>
+          <button class="dq-card" type="button" data-dq-mode="listen" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">🎧</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Listen</b>
+            <small>Listen &amp; Definition</small>
+          </button>
+          <button class="dq-card" type="button" data-dq-mode="play" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">🎮</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Play</b>
+            <small>Memory &amp; Hangman</small>
+          </button>
+          <button class="dq-card" type="button" data-dq-mode="fsrs" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">🧠</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Spaced repetition</b>
+            <small>FSRS flashcards</small>
+          </button>
+          <button class="dq-card" type="button" data-dq-mode="custom" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">▦</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Custom mix</b>
+            <small>Pick types yourself</small>
+          </button>
+        </div>
+        <div id="dayQuizCustom" hidden>
+          <section class="dq-group" data-dq-group="recognize">
+            <header><div><b>Recognize</b><span data-dq-picked>0 of 7 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <div class="dq-types">
+              <button type="button" data-dq-type="Flip"><b>Flip</b><small>See the card, rate yourself</small></button>
+              <button type="button" data-dq-type="Choice"><b>Choice</b><small>Pick the right option</small></button>
+              <button type="button" data-dq-type="True / false"><b>True / false</b><small>Judge the sentence</small></button>
+              <button type="button" data-dq-type="Match"><b>Match</b><small>Pair the halves</small></button>
+              <button type="button" data-dq-type="Odd one out"><b>Odd one out</b><small>Find the different one</small></button>
+              <button type="button" data-dq-type="Select all"><b>Select all</b><small>Tick every match</small></button>
+              <button type="button" data-dq-type="Tap"><b>Tap</b><small>Tap the answer</small></button>
+            </div>
+          </section>
+          <section class="dq-group" data-dq-group="write">
+            <header><div><b>Write</b><span data-dq-picked>0 of 6 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <div class="dq-types">
+              <button type="button" data-dq-type="Type"><b>Type</b><small>Type the whole thing</small></button>
+              <button type="button" data-dq-type="Gap"><b>Gap</b><small>Fill the gap</small></button>
+              <button type="button" data-dq-type="Spell"><b>Spell</b><small>Type it without mistakes</small></button>
+              <button type="button" data-dq-type="Letters"><b>Letters</b><small>Unscramble the letters</small></button>
+              <button type="button" data-dq-type="Build"><b>Build</b><small>Build from word parts</small></button>
+              <button type="button" data-dq-type="Reverse"><b>Reverse</b><small>Translate back</small></button>
+            </div>
+          </section>
+          <section class="dq-group" data-dq-group="listen">
+            <header><div><b>Listen &amp; meaning</b><span data-dq-picked>0 of 2 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <div class="dq-types">
+              <button type="button" data-dq-type="Listen"><b>Listen</b><small>Hear and choose</small></button>
+              <button type="button" data-dq-type="Definition"><b>Definition</b><small>Match the meaning</small></button>
+            </div>
+          </section>
+          <section class="dq-group" data-dq-group="games">
+            <header><div><b>Games</b><span data-dq-picked>0 of 2 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <div class="dq-types">
+              <button type="button" data-dq-type="Memory"><b>Memory</b><small>Find the pairs</small></button>
+              <button type="button" data-dq-type="Hangman"><b>Hangman</b><small>Guess the letters</small></button>
+            </div>
+          </section>
+          <section class="dq-group" data-dq-group="review">
+            <header><div><b>Review</b><span data-dq-picked>0 of 1 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <div class="dq-types">
+              <button type="button" data-dq-type="FSRS Flashcard"><b>FSRS Flashcard</b><small>Due today</small></button>
+            </div>
+          </section>
+        </div>
+        <div class="dq-foot">
+          <div class="dq-ready">
+            <span class="dq-ico" aria-hidden="true" id="dayQuizMark">⚡</span>
+            <div>
+              <span class="dq-ready-label">Ready to start</span>
+              <b id="dayQuizReady">Quick review · 2 types</b>
+              <span class="dq-chips" id="dayQuizChips"></span>
+            </div>
+          </div>
+          <button class="dq-start" type="button" id="dayQuizStart">Start</button>
+        </div>
+        <p class="hint" id="dayQuizNote"></p>
+      </div>
+      <div id="dayStudyClassic">
       <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="lesson" id="daySetupBack">Back</button><h1 id="daySetupTitle">This day's quiz</h1></div>
       <div class="card saas-card">
         <p class="hint" id="daySetupNote" style="margin-top:0"></p>
@@ -1152,6 +1312,7 @@
           <button class="btn saas-btn" type="button" id="dayMistakes">Mistakes</button>
         </div>
         <p class="hint">Flip is self-rated and does not close the card. The other types are checked.</p>
+      </div>
       </div>
     </section>
 

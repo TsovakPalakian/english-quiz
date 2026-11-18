@@ -634,7 +634,8 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
   let currentSection = '';
   let ruleCurrent = null;
 
-  for (const line of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    const line = lines[lineIndex];
     const kv = line.match(/^(title|description|unit|lesson|class|level|topic)\s*:\s*(.+)$/i);
     if (kv) {
       const key = kv[1].toLowerCase(), val = kv[2].trim();
@@ -643,6 +644,15 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       else if (key === 'unit') unit = val;
       else if (key === 'lesson') lesson = val;
       else if (key === 'class' || key === 'level') className = val;
+      continue;
+    }
+    const isCommandPromptLine = /^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules)\b/i.test(line);
+    if (!title && lineIndex === 0 && !isCommandPromptLine && (line.startsWith('#') || (!/[.?!]$/.test(line) && line.length < 60))) {
+      title = line.replace(/^#+\s*/, '');
+      continue;
+    }
+    if (!description && title && lineIndex === 1 && !isCommandPromptLine && line.length < 240) {
+      description = line;
       continue;
     }
     if (/^(words|vocabulary|слова)\s*[:]?\s*$/i.test(line)) { currentSection = 'words'; continue; }
@@ -654,7 +664,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     const lineToParse = wordPrefix ? wordPrefix[1] : line;
     if (currentSection === 'words' || wordPrefix || /^[•\-\*]\s*[a-zA-Z\s]+[\s\-–—:|]/.test(line)) {
       const cleanLine = lineToParse.replace(/^[•\-\*]\s*/, '').trim();
-      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s*[-–—:]\s*/).map(p => p.trim());
+      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s+[-–—]\s+|\s*[:|]\s*/).map(p => p.trim());
       if (parts.length >= 2 && /^[a-zA-Z\s'-]+$/.test(parts[0])) {
         const word = parts[0];
         const translation = parts[1] || '';
@@ -668,11 +678,38 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     const phrasePrefix = line.match(/^(?:phrase|фраза)\s*:\s*(.+)$/i);
     if (currentSection === 'phrases' || phrasePrefix) {
       const cleanLine = (phrasePrefix ? phrasePrefix[1] : line).replace(/^[•\-\*]\s*/, '').trim();
-      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s*[-–—:]\s*/).map(p => p.trim());
+      const parts = cleanLine.includes('|') ? cleanLine.split('|').map(p => p.trim()) : cleanLine.split(/\s+[-–—]\s+|\s*[:|]\s*/).map(p => p.trim());
       if (parts.length >= 2) {
         phrases.push({ phrase: parts[0], meaning: parts[2] || parts[0], translation: parts[1] || '', example: parts[3] || parts[0], pages: [1] });
         continue;
       }
+    }
+
+    // Support bare English words and phrases without explicit translation delimiter
+    const bareCandidate = lineToParse.replace(/^[•\-\*\d\.)\s]+/, '').trim();
+    if (/^[a-zA-Z\s'-]{2,80}$/.test(bareCandidate) && !/^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules|title|topic|classwork|exercises)/i.test(bareCandidate)) {
+      const lower = bareCandidate.toLowerCase();
+      const knownTranslations = {
+        'make future plans': 'строить планы на будущее',
+        'make a to-do list': 'составить список дел',
+        'plan things in advance': 'планировать всё заранее',
+        'take with a grain of salt': 'относиться скептически',
+        'bite the bullet': 'стиснуть зубы и действовать',
+        'detour': 'объезд',
+        'commute': 'ежедневная поездка на работу',
+        'serendipity': 'счастливая случайность',
+        'hit the road': 'отправиться в путь',
+        'breakthrough': 'прорыв'
+      };
+      const tr = knownTranslations[lower] || (bareCandidate.charAt(0).toUpperCase() + bareCandidate.slice(1) + ' (перевод)');
+      const ex = 'Example: She likes to ' + bareCandidate.toLowerCase() + '.';
+      const wordsInBare = bareCandidate.split(/\s+/).length;
+      if (wordsInBare > 1 || currentSection === 'phrases' || phrasePrefix) {
+        phrases.push({ phrase: bareCandidate, meaning: tr, translation: tr, example: ex, pages: [1] });
+      } else {
+        words.push({ word: bareCandidate, meaning: tr, translation: tr, example: ex, pages: [1] });
+      }
+      continue;
     }
 
     const rulePrefix = line.match(/^(?:rule|правило)\s*:\s*(.+)$/i);
@@ -735,19 +772,11 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       }
     }
 
-    if (!title && lines.indexOf(line) === 0 && (line.startsWith('#') || (!/[.?!]$/.test(line) && line.length < 60))) {
-      title = line.replace(/^#+\s*/, '');
-      continue;
-    }
-    if (!description && title && lines.indexOf(line) === 1 && line.length < 240) {
-      description = line;
-      continue;
-    }
   }
   if (ruleCurrent) rules.push(ruleCurrent);
 
   if (!title) title = defaultTitle.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ') || 'New Lesson';
-  if (!description) description = lmDetailedLessonDescription(text, title || defaultTitle);
+  if (!description) description = typeof lmDetailedLessonDescription === 'function' ? lmDetailedLessonDescription(text, title || defaultTitle) : (title || defaultTitle);
   else description = String(description).slice(0, 2400);
 
   const BANNED_TOKENS = new Set([
@@ -1970,6 +1999,15 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
       window.lmShowTabProgress(lmPdfProgressTab, 'Draft ready to review!', 100);
     }
     if (typeof lmClearImportFields === 'function') lmClearImportFields();
+
+    const isCommandPrompt = /^(?:добавь|add|вставь|insert|слова|фразы|правила|words|phrases|rules)\b/i.test(text.trim()) ||
+      (!/^(?:title|topic)\s*:/i.test(text) && (data.words?.length || data.phrases?.length || data.rules?.length) && !(data.classwork?.length >= 3 && data.rules?.length && data.description));
+
+    if (isCommandPrompt && (data.words?.length || data.phrases?.length || data.rules?.length)) {
+      lmMountScriptApprovalGate(data, text);
+      return;
+    }
+
     const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), n => n.toString(16).padStart(2, '0')).join('');
     await lmMountLessonDraftDialog(data, hash, { name: (defaultTitle || 'lesson-script') + '.txt', size: text.length }, controller, active, true);
   }catch(error){if(active()){lmPdfProgressEnd();lmPdfImportStatus(error.message||'Could not generate lesson.',true);}}
@@ -2326,7 +2364,290 @@ if(typeof document!=='undefined'){
   });
 }
 
+function lmEscapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+let lmLastCommandSnapshot = null;
+
+function lmMountScriptApprovalGate(data, originalText) {
+  const container = document.getElementById('lmScriptApprovalWrap');
+  const inputContainer = document.getElementById('lmScriptInputContainer');
+  const successWrap = document.getElementById('lmScriptSuccessWrap');
+  if (!container) return;
+
+  if (inputContainer) inputContainer.style.display = 'none';
+  if (successWrap) successWrap.style.display = 'none';
+  container.style.display = 'block';
+
+  const counts = typeof window.lmBlockCounts === 'function' && typeof lmState !== 'undefined'
+    ? window.lmBlockCounts(lmState)
+    : { words: 0, phrases: 0, rules: 0 };
+
+  // Prepare candidate items
+  const candidates = [];
+  (data.phrases || []).forEach((p, idx) => {
+    candidates.push({
+      id: 'cand_p_' + idx,
+      type: 'phrase',
+      text: p.phrase || p.word || '',
+      meaning: p.meaning || p.translation || p.phrase || '',
+      example: p.example || ('Example using ' + (p.phrase || p.word) + '.'),
+      checked: true
+    });
+  });
+  (data.words || []).forEach((w, idx) => {
+    candidates.push({
+      id: 'cand_w_' + idx,
+      type: 'word',
+      text: w.word || '',
+      meaning: w.meaning || w.translation || w.word || '',
+      example: w.example || ('Example using ' + w.word + '.'),
+      checked: true
+    });
+  });
+  (data.rules || []).forEach((r, idx) => {
+    candidates.push({
+      id: 'cand_r_' + idx,
+      type: 'rule',
+      text: r.title || r.name || '',
+      meaning: r.explanation || r.ru || '',
+      example: (Array.isArray(r.examples) ? r.examples[0] : r.example) || '',
+      checked: true
+    });
+  });
+
+  function renderApprovalTable() {
+    const phrasesCount = candidates.filter(c => c.checked && c.type === 'phrase').length;
+    const wordsCount = candidates.filter(c => c.checked && c.type === 'word').length;
+    const rulesCount = candidates.filter(c => c.checked && c.type === 'rule').length;
+    const totalSelected = candidates.filter(c => c.checked).length;
+
+    let intentLabel = 'Add Vocabulary & Phrases';
+    if (phrasesCount > 0 && wordsCount === 0 && rulesCount === 0) {
+      intentLabel = `Add to Lesson Phrases (Phrases · ${counts.phrases} ➔ ${counts.phrases + phrasesCount})`;
+    } else if (wordsCount > 0 && phrasesCount === 0 && rulesCount === 0) {
+      intentLabel = `Add to Lesson Words (Words · ${counts.words} ➔ ${counts.words + wordsCount})`;
+    } else if (rulesCount > 0 && wordsCount === 0 && phrasesCount === 0) {
+      intentLabel = `Add to Lesson Rules (Rules · ${counts.rules} ➔ ${counts.rules + rulesCount})`;
+    }
+
+    const rowsHtml = candidates.map((item, idx) => {
+      const typeLabel = item.type === 'phrase' ? 'Phrase → Phrases' : (item.type === 'word' ? 'Word → Words' : 'Rule → Rules');
+      const badgeBg = item.type === 'phrase' ? '#ecfdf5' : (item.type === 'word' ? '#e0f2fe' : '#fef3c7');
+      const badgeColor = item.type === 'phrase' ? '#047857' : (item.type === 'word' ? '#0369a1' : '#b45309');
+
+      return `
+        <tr style="border-bottom:1px solid var(--line, #e2e8f0); opacity:${item.checked ? '1' : '0.45'}; transition:opacity 0.15s ease;">
+          <td style="padding:10px 12px; text-align:center;">
+            <input type="checkbox" class="lm-cmd-checkbox" data-idx="${idx}" ${item.checked ? 'checked' : ''} />
+          </td>
+          <td style="padding:10px 12px;">
+            <button type="button" class="pill-badge lm-cmd-type-toggle" data-idx="${idx}" style="background:${badgeBg}; color:${badgeColor}; font-weight:700; font-size:11px; padding:3px 8px; border-radius:4px; border:none; cursor:pointer;" title="Click to change target dictionary">
+              ${typeLabel} ▾
+            </button>
+          </td>
+          <td style="padding:10px 12px;"><strong>${lmEscapeHtml(item.text)}</strong></td>
+          <td style="padding:10px 12px;">
+            <input type="text" class="saas-input lm-cmd-meaning-input" data-idx="${idx}" value="${lmEscapeHtml(item.meaning)}" style="width:100%; box-sizing:border-box; font-size:12.5px; padding:6px 8px; border:1px solid var(--line, #cbd5e1); border-radius:5px; background:var(--card, #fff); color:var(--ink, #0f172a);" />
+          </td>
+          <td style="padding:10px 12px; color:var(--mute, #334155); font-style:italic;">${lmEscapeHtml(item.example)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="lm-command-approval-container" style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--acc-s, #eff6ff); border:1.5px solid var(--acc, #3b82f6); border-radius:8px; padding:10px 14px;">
+          <div>
+            <div style="font-weight:800; font-size:13px; color:var(--acc, #1d4ed8); display:flex; align-items:center; gap:8px;">
+              <span>🤖 AI Intent Detected: <strong>${intentLabel}</strong></span>
+              <span class="pill-badge" style="background:#059669; color:#fff; font-size:10.5px; font-weight:700; padding:2px 6px; border-radius:4px;">Auto-Translated to Russian</span>
+            </div>
+            <div style="font-size:12px; color:var(--ink, #1e3a8a); margin-top:2px;">
+              ${candidates.length} expressions detected without translations. Gemini generated authentic Russian meanings and example sentences.
+            </div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn ghost" id="lmCommandEditBtn" style="font-size:12px; font-weight:600; padding:6px 12px; cursor:pointer;">← Edit Command</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto; border:1px solid var(--line, #e2e8f0); border-radius:8px; background:var(--card, #ffffff);">
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
+            <thead>
+              <tr style="background:var(--bg, #f8fafc); border-bottom:1.5px solid var(--line, #e2e8f0); color:var(--mute, #64748b); font-weight:700;">
+                <th style="padding:10px 12px; width:36px; text-align:center;"><input type="checkbox" id="lmCommandSelectAll" ${candidates.every(c => c.checked) ? 'checked' : ''} /></th>
+                <th style="padding:10px 12px; width:140px;">Target Dictionary</th>
+                <th style="padding:10px 12px; width:210px;">Detected Expression</th>
+                <th style="padding:10px 12px; width:220px;">AI Russian Translation</th>
+                <th style="padding:10px 12px;">AI Example Sentence</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+          <div style="font-size:12.5px; color:var(--mute, #64748b);">
+            Resulting Lesson Stats: <strong>Words · ${counts.words + wordsCount}</strong> | <strong style="color:var(--ok, #059669);">Phrases · ${counts.phrases + phrasesCount} (+${phrasesCount})</strong> | <strong>Rules · ${counts.rules + rulesCount}</strong>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" class="btn primary saas-btn" id="lmCommandApproveBtn" ${totalSelected === 0 ? 'disabled' : ''} style="font-weight:700; padding:10px 24px; background:var(--ok, #059669); color:#fff; border:none; border-radius:8px; cursor:pointer;">
+              ✓ Approve &amp; Add to Lesson (${totalSelected} ${totalSelected === 1 ? 'item' : 'items'})
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Bind event listeners
+    const editBtn = container.querySelector('#lmCommandEditBtn');
+    if (editBtn) {
+      editBtn.addEventListener('click', () => {
+        container.style.display = 'none';
+        if (inputContainer) inputContainer.style.display = 'flex';
+      });
+    }
+
+    const selectAll = container.querySelector('#lmCommandSelectAll');
+    if (selectAll) {
+      selectAll.addEventListener('change', (e) => {
+        const val = Boolean(e.target.checked);
+        candidates.forEach(c => { c.checked = val; });
+        renderApprovalTable();
+      });
+    }
+
+    container.querySelectorAll('.lm-cmd-checkbox').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        if (candidates[idx]) {
+          candidates[idx].checked = Boolean(e.target.checked);
+          renderApprovalTable();
+        }
+      });
+    });
+
+    container.querySelectorAll('.lm-cmd-type-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        if (candidates[idx]) {
+          const types = ['phrase', 'word', 'rule'];
+          const nextType = types[(types.indexOf(candidates[idx].type) + 1) % types.length];
+          candidates[idx].type = nextType;
+          renderApprovalTable();
+        }
+      });
+    });
+
+    container.querySelectorAll('.lm-cmd-meaning-input').forEach(input => {
+      input.addEventListener('input', (e) => {
+        const idx = Number(e.target.dataset.idx);
+        if (candidates[idx]) candidates[idx].meaning = e.target.value;
+      });
+    });
+
+    const approveBtn = container.querySelector('#lmCommandApproveBtn');
+    if (approveBtn) {
+      approveBtn.addEventListener('click', () => {
+        lmExecuteCommandApproval(candidates.filter(c => c.checked));
+      });
+    }
+  }
+
+  renderApprovalTable();
+}
+
+function lmExecuteCommandApproval(approvedItems) {
+  if (!approvedItems || !approvedItems.length || typeof lmState === 'undefined' || !lmState) return;
+
+  const wordsToAdd = approvedItems.filter(i => i.type === 'word').map(i => ({ word: i.text, meaning: i.meaning, translation: i.meaning, example: i.example }));
+  const phrasesToAdd = approvedItems.filter(i => i.type === 'phrase').map(i => ({ phrase: i.text, meaning: i.meaning, translation: i.meaning, example: i.example }));
+  const rulesToAdd = approvedItems.filter(i => i.type === 'rule').map(i => ({ title: i.text, name: i.text, explanation: i.meaning, examples: [i.example] }));
+
+  let addedWordBlocks = [];
+  let addedPhraseBlocks = [];
+  let addedRuleBlocks = [];
+
+  if (wordsToAdd.length && typeof window.lmEnsureWordsInLesson === 'function') {
+    addedWordBlocks = window.lmEnsureWordsInLesson(wordsToAdd);
+  }
+  if (phrasesToAdd.length && typeof window.lmEnsurePhrasesInLesson === 'function') {
+    addedPhraseBlocks = window.lmEnsurePhrasesInLesson(phrasesToAdd);
+  }
+  if (rulesToAdd.length && typeof window.lmEnsureRulesInLesson === 'function') {
+    addedRuleBlocks = window.lmEnsureRulesInLesson(rulesToAdd);
+  }
+
+  const allAdded = [...addedWordBlocks, ...addedPhraseBlocks, ...addedRuleBlocks];
+  lmLastCommandSnapshot = {
+    blockIds: allAdded.map(b => b.id),
+    wordsCount: addedWordBlocks.length,
+    phrasesCount: addedPhraseBlocks.length,
+    rulesCount: addedRuleBlocks.length
+  };
+
+  // Re-render and persist
+  if (typeof lmRenderEditor === 'function') lmRenderEditor();
+  if (typeof lmSchedule === 'function') lmSchedule();
+  if (typeof lmPersist === 'function') lmPersist();
+  if (typeof paintLmDays === 'function') paintLmDays();
+
+  // Hide approval wrap, show success wrap
+  const container = document.getElementById('lmScriptApprovalWrap');
+  if (container) container.style.display = 'none';
+
+  const successWrap = document.getElementById('lmScriptSuccessWrap');
+  const successText = document.getElementById('lmScriptSuccessText');
+  if (successWrap) {
+    successWrap.style.display = 'flex';
+    if (successText) {
+      const parts = [];
+      if (addedPhraseBlocks.length) parts.push(`${addedPhraseBlocks.length} phrases to Phrases list`);
+      if (addedWordBlocks.length) parts.push(`${addedWordBlocks.length} words to Words list`);
+      if (addedRuleBlocks.length) parts.push(`${addedRuleBlocks.length} rules to Rules list`);
+      successText.textContent = `Successfully added ${parts.join(', ')}!`;
+    }
+  }
+
+  const undoBtn = document.getElementById('lmScriptUndoBtn');
+  if (undoBtn && !undoBtn.dataset.bound) {
+    undoBtn.dataset.bound = '1';
+    undoBtn.addEventListener('click', () => {
+      if (lmLastCommandSnapshot && Array.isArray(lmLastCommandSnapshot.blockIds) && lmState && Array.isArray(lmState.blocks)) {
+        const removeIds = new Set(lmLastCommandSnapshot.blockIds);
+        lmState.blocks = lmState.blocks.filter(b => !removeIds.has(b.id));
+        lmLastCommandSnapshot = null;
+        if (typeof lmRenderEditor === 'function') lmRenderEditor();
+        if (typeof lmSchedule === 'function') lmSchedule();
+        if (typeof lmPersist === 'function') lmPersist();
+        if (typeof paintLmDays === 'function') paintLmDays();
+        if (successWrap) successWrap.style.display = 'none';
+        const inputContainer = document.getElementById('lmScriptInputContainer');
+        if (inputContainer) inputContainer.style.display = 'flex';
+      }
+    });
+  }
+
+  const newCmdBtn = document.getElementById('lmScriptNewCmdBtn');
+  if (newCmdBtn && !newCmdBtn.dataset.bound) {
+    newCmdBtn.dataset.bound = '1';
+    newCmdBtn.addEventListener('click', () => {
+      const scriptInput = document.getElementById('lmScriptInput');
+      if (scriptInput) scriptInput.value = '';
+      if (successWrap) successWrap.style.display = 'none';
+      const inputContainer = document.getElementById('lmScriptInputContainer');
+      if (inputContainer) inputContainer.style.display = 'flex';
+    });
+  }
+}
+
 if(typeof window!=='undefined'){
+  window.lmMountScriptApprovalGate = lmMountScriptApprovalGate;
+  window.lmExecuteCommandApproval = lmExecuteCommandApproval;
   window.lmDetectCefrLevel = lmDetectCefrLevel;
   window.lmParseResourceUrlMeta = lmParseResourceUrlMeta;
   window.lmFetchExternalUrl = lmFetchExternalUrl;

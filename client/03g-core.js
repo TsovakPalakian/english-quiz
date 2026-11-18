@@ -935,8 +935,175 @@
       syncMemorySizeInputs(n);
       visit("setup");
     }
+    let dayQuizBoardOn = false;
+    const DAY_QUIZ_MODE_TYPES = {
+      quick: ["Flip", "Choice"],
+      write: ["Type", "Gap", "Spell", "Build"],
+      listen: ["Listen", "Definition"],
+      play: ["Hangman", "Memory"],
+      fsrs: ["FSRS Flashcard"]
+    };
+    const DAY_QUIZ_MODE_LABEL = {
+      quick: "Quick review",
+      write: "Write it",
+      listen: "Listen",
+      play: "Play",
+      fsrs: "Spaced repetition",
+      custom: "Custom mix"
+    };
+    function showDayQuizBoard(on) {
+      dayQuizBoardOn = !!on;
+      const board = document.getElementById("dayQuizBoard");
+      const classic = document.getElementById("dayStudyClassic");
+      if (board) board.hidden = !dayQuizBoardOn;
+      if (classic) classic.hidden = dayQuizBoardOn;
+    }
+    function dayQuizMode() {
+      const on = document.querySelector("#dayQuizModes [data-dq-mode].on");
+      return (on && on.dataset.dqMode) || "quick";
+    }
+    function dayQuizSource() {
+      const on = document.querySelector("#dayQuizCards [data-dq-source].on");
+      return (on && on.dataset.dqSource) || "all";
+    }
+    function dayQuizWhoLine() {
+      const user = typeof authUser !== "undefined" ? authUser : null;
+      if (!user) return "";
+      const name = user.name || user.login || "";
+      const level = user.level || user.cefr || "";
+      return [level, name].filter(Boolean).join(" ");
+    }
+    function lessonHeading(place) {
+      const home = lessonHome(place);
+      const section = document.getElementById(home.id);
+      const h1 = section && section.querySelector("h1");
+      const text = h1 && h1.textContent.trim();
+      return text || home.label;
+    }
+    function dayMistakeCards(cards) {
+      const map = loadMistakeMap();
+      const missed = new Set();
+      Object.keys(map).forEach((key) => {
+        const row = map[key];
+        if (row && row.misses > 0 && row.en) missed.add(String(row.en).trim().toLowerCase());
+      });
+      return cards.filter((card) => missed.has(String(card.en || "").trim().toLowerCase()));
+    }
+    function clampDayQuizCount(raw, total) {
+      const cap = Math.max(0, total || 0);
+      if (!cap) return 0;
+      let n = Math.floor(Number(String(raw == null ? "" : raw).replace(/[^\d]/g, "")));
+      if (!Number.isFinite(n) || n < 1) n = 1;
+      if (n > cap) n = cap;
+      return n;
+    }
+    function dayQuizTypes() {
+      const mode = dayQuizMode();
+      if (mode === "custom") {
+        return [...document.querySelectorAll("#dayQuizCustom [data-dq-type].on")].map((b) => b.dataset.dqType);
+      }
+      return (DAY_QUIZ_MODE_TYPES[mode] || []).slice();
+    }
+    function resetDayQuizBoardPicks() {
+      document.querySelectorAll("[data-dq-source]").forEach((b) => {
+        const on = b.dataset.dqSource === "all";
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      document.querySelectorAll("[data-dq-mode]").forEach((b) => {
+        const on = b.dataset.dqMode === "quick";
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      document.querySelectorAll("#dayQuizCustom [data-dq-type]").forEach((b) => b.classList.remove("on"));
+    }
+    function resetDayQuizBoardInputs(total) {
+      const from = document.querySelector("[data-dq-from]");
+      const to = document.querySelector("[data-dq-to]");
+      const slider = document.querySelector("[data-dq-count]");
+      const cap = Math.max(total || 0, 0);
+      if (from) from.value = "1";
+      if (to) to.value = String(Math.max(cap, 1));
+      if (slider) {
+        slider.min = "1";
+        slider.max = String(Math.max(cap, 1));
+        slider.value = String(cap > 8 ? 8 : Math.max(cap, 1));
+      }
+    }
+    function paintDayQuizBoard() {
+      const board = document.getElementById("dayQuizBoard");
+      if (!board) return;
+      const pool = quizPool();
+      const total = pool.length;
+      const source = dayQuizSource();
+      const mode = dayQuizMode();
+      const types = dayQuizTypes();
+      const missed = dayMistakeCards(pool);
+      const from = clampDayQuizCount(document.querySelector("[data-dq-from]") && document.querySelector("[data-dq-from]").value, total);
+      const to = clampDayQuizCount(document.querySelector("[data-dq-to]") && document.querySelector("[data-dq-to]").value, total);
+      const randomN = clampDayQuizCount(document.querySelector("[data-dq-count]") && document.querySelector("[data-dq-count]").value, total);
+      const lo = Math.min(from || 1, to || 1);
+      const hi = Math.max(from || 1, to || 1);
+      const rangeN = total ? (hi - lo + 1) : 0;
+      const selectedN = source === "mistakes" ? missed.length : source === "random" ? randomN : source === "range" ? rangeN : total;
+      const setText = (sel, text) => {
+        const node = board.querySelector(sel);
+        if (node) node.textContent = text;
+      };
+      setText("[data-dq-all-count]", String(total));
+      setText("[data-dq-total]", String(total));
+      setText("[data-dq-miss-count]", String(missed.length));
+      setText("[data-dq-range-label]", (from || 1) + "–" + (to || Math.max(total, 1)));
+      setText("[data-dq-random-label]", String(randomN));
+      setText("[data-dq-random-count]", String(randomN));
+      const rangePanel = document.getElementById("dayQuizRange");
+      const randomPanel = document.getElementById("dayQuizRandom");
+      const custom = document.getElementById("dayQuizCustom");
+      if (rangePanel) rangePanel.hidden = source !== "range";
+      if (randomPanel) randomPanel.hidden = source !== "random";
+      if (custom) custom.hidden = mode !== "custom";
+      board.querySelectorAll("[data-dq-group]").forEach((group) => {
+        const buttons = [...group.querySelectorAll("[data-dq-type]")];
+        const picked = buttons.filter((b) => b.classList.contains("on")).length;
+        const slot = group.querySelector("[data-dq-picked]");
+        if (slot) slot.textContent = picked + " of " + buttons.length + " selected";
+      });
+      const label = DAY_QUIZ_MODE_LABEL[mode] || "Quick review";
+      const ready = document.getElementById("dayQuizReady");
+      if (ready) ready.textContent = label + " · " + types.length + (types.length === 1 ? " type" : " types");
+      const chips = document.getElementById("dayQuizChips");
+      if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
+      const mark = document.getElementById("dayQuizMark");
+      const modeBtn = document.querySelector('#dayQuizModes [data-dq-mode].on .dq-ico');
+      if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
+      const mins = Math.max(0, Math.round(selectedN * 30 / 60));
+      const start = document.getElementById("dayQuizStart");
+      if (start) {
+        const cardsWord = selectedN === 1 ? " card" : " cards";
+        start.textContent = "Start · " + selectedN + cardsWord + " · ~" + mins + " min";
+        start.disabled = !selectedN || !types.length;
+      }
+      const note = document.getElementById("dayQuizNote");
+      if (note) {
+        let text = "";
+        if (!total) text = "No cards on this page yet.";
+        else if (source === "mistakes" && !missed.length) text = "No mistakes for these cards yet.";
+        else if (!types.length) text = "Pick at least one answer type.";
+        note.classList.toggle("bad", !!text);
+        note.textContent = text;
+      }
+      const title = document.getElementById("dayQuizTitle");
+      if (title && daySetupLabel) title.textContent = daySetupLabel;
+      const who = document.getElementById("dayQuizWho");
+      if (who) who.textContent = dayQuizWhoLine();
+    }
     function chosenTypes(exam) {
       const here = (document.querySelector("section.on") || {}).id;
+      if (dayQuizBoardOn && here === "daysetup") {
+        let types = dayQuizTypes();
+        if (exam) types = types.filter((t) => t !== "Flip");
+        return types;
+      }
       const sel = here === "daysetup" ? "#dayModes .chip.on, #dayModesMore .chip.on" : "#modes .chip.on, #modesMore .chip.on";
       let types = [...document.querySelectorAll(sel)].map((b) => {
         if (b.dataset.quizType) return b.dataset.quizType;
@@ -1026,6 +1193,22 @@
       const list = Array.isArray(cards) ? cards.slice() : [];
       const total = list.length;
       if (!total) return list;
+      if (dayQuizBoardOn && sectionId === "daysetup") {
+        const source = dayQuizSource();
+        if (source === "mistakes") return dayMistakeCards(list);
+        if (source === "random") {
+          const n = clampDayQuizCount(document.querySelector("[data-dq-count]") && document.querySelector("[data-dq-count]").value, total);
+          return (preview ? list : shuffle(list)).slice(0, n);
+        }
+        if (source === "range") {
+          const from = clampDayQuizCount(document.querySelector("[data-dq-from]") && document.querySelector("[data-dq-from]").value, total);
+          const to = clampDayQuizCount(document.querySelector("[data-dq-to]") && document.querySelector("[data-dq-to]").value, total);
+          const lo = Math.min(from, to);
+          const hi = Math.max(from, to);
+          return list.slice(lo - 1, hi);
+        }
+        return list;
+      }
       const root = document.querySelector(mixRoot(sectionId));
       const on = root && root.querySelector("[data-day-mix].on, [data-mix].on");
       const mode = on && (on.dataset.dayMix || on.dataset.mix);
@@ -1071,6 +1254,7 @@
       return mins + ":" + String(secs).padStart(2, "0");
     }
     function refreshDaySetupTime() {
+      if (dayQuizBoardOn) { paintDayQuizBoard(); return; }
       const note = document.getElementById("daySetupNote");
       if (!note || !dayCardTotal) return;
       const word = dayCardTotal === 1 ? " card" : " cards";
@@ -1083,6 +1267,12 @@
       const note = document.getElementById("daySetupNote");
       dayCardTotal = cards.length;
       daySetupLabel = label;
+      if (dayQuizBoardOn) {
+        resetDayQuizBoardPicks();
+        resetDayQuizBoardInputs(cards.length);
+        paintDayQuizBoard();
+        return;
+      }
       const empty = !cards.length;
       if (note) note.classList.toggle("bad", empty);
       if (empty) {
@@ -1445,9 +1635,13 @@
       const pooled = cards.slice();
       cards = await dayQuizVisibleCards(cards);
       if (openTicket !== dayQuizOpen) return;
-      const note = document.getElementById(here === "daysetup" ? "daySetupNote" : "studyNote");
+      const note = document.getElementById(here === "daysetup" ? (dayQuizBoardOn ? "dayQuizNote" : "daySetupNote") : "studyNote");
       const types = chosenTypes(exam);
       if (!cards.length) {
+        if (dayQuizBoardOn && dayQuizSource() === "mistakes" && pooled.length === 0 && quizPool().length) {
+          setQuizNote(note, "No mistakes for these cards yet.", true);
+          return;
+        }
         setQuizNote(note, pooled.length ? "These cards are no longer available." : "No cards on this page yet.", true);
         return;
       }
@@ -1469,7 +1663,7 @@
       examMistakes = 0;
       examCorrect = 0;
       examLog = [];
-      sessionMs = here === "daysetup" ? studyBudgetMs(cards, chosenTypes(false)) : EXAM_MS;
+      sessionMs = here === "daysetup" ? (dayQuizBoardOn ? cards.length * 30 * 1000 : studyBudgetMs(cards, chosenTypes(false))) : EXAM_MS;
       examStarted = Date.now();
       dayQueue = queue;
       dayAt = 0;
@@ -1480,6 +1674,7 @@
       if (here === "daysetup" || examMode) armExamClock();
     }
     function openListedStudy(cards, title, backTo, opts) {
+      showDayQuizBoard(false);
       studyTitle = title;
       studyScreen = "daysetup";
       dayPoolOverride = cards;
@@ -1575,11 +1770,15 @@
       studyTitle = "This day's quiz";
       studyScreen = "daysetup";
       const home = lessonHome(place);
+      const heading = lessonHeading(place);
       dayReturn = home.id;
-      document.getElementById("daySetupTitle").textContent = "This day's quiz";
+      showDayQuizBoard(true);
+      document.getElementById("daySetupTitle").textContent = heading;
       document.getElementById("daySetupBack").dataset.fallback = home.id;
+      const quizBack = document.getElementById("dayQuizBack");
+      if (quizBack) quizBack.dataset.fallback = home.id;
       document.getElementById("dayqBack").dataset.fallback = home.id;
-      paintDaySetupNote(home.label, lessonPool(place));
+      paintDaySetupNote(heading, lessonPool(place));
       visit("daysetup");
     }
     function dayNextButton(label) {
@@ -2003,6 +2202,56 @@
       refreshDaySetupTime();
     });
     document.getElementById("dayStart").onclick = () => beginQuiz(false);
+    const dayQuizBoardEl = document.getElementById("dayQuizBoard");
+    if (dayQuizBoardEl) {
+      dayQuizBoardEl.addEventListener("click", (e) => {
+        const back = e.target.closest("#dayQuizBack");
+        if (back) {
+          e.preventDefault();
+          const setupBack = document.getElementById("daySetupBack");
+          if (setupBack) setupBack.click();
+          else if (typeof navBack === "function") navBack(back.dataset.fallback || "lesson");
+          return;
+        }
+        const source = e.target.closest("[data-dq-source]");
+        if (source) {
+          document.querySelectorAll("[data-dq-source]").forEach((b) => {
+            const on = b === source;
+            b.classList.toggle("on", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          paintDayQuizBoard();
+          return;
+        }
+        const mode = e.target.closest("[data-dq-mode]");
+        if (mode) {
+          document.querySelectorAll("[data-dq-mode]").forEach((b) => {
+            const on = b === mode;
+            b.classList.toggle("on", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          paintDayQuizBoard();
+          return;
+        }
+        const typeBtn = e.target.closest("[data-dq-type]");
+        if (typeBtn) {
+          typeBtn.classList.toggle("on");
+          paintDayQuizBoard();
+          return;
+        }
+        const all = e.target.closest("[data-dq-all]");
+        if (all) {
+          const group = all.closest("[data-dq-group]");
+          if (group) group.querySelectorAll("[data-dq-type]").forEach((b) => b.classList.add("on"));
+          paintDayQuizBoard();
+          return;
+        }
+        if (e.target.closest("#dayQuizStart")) beginQuiz(false);
+      });
+      dayQuizBoardEl.addEventListener("input", (e) => {
+        if (e.target.closest("[data-dq-from], [data-dq-to], [data-dq-count]")) paintDayQuizBoard();
+      });
+    }
     document.addEventListener("learning-card-unreadable", event => {
       const step = dayQuizWithoutCard(dayQueue, dayAt, event.detail && event.detail.cardId);
       if (!step.removed) return;

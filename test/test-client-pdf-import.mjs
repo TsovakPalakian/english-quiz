@@ -13,6 +13,7 @@ const IMPORT_PDF_FUNCTIONS = [
   'lmExtractTextFromFile',
   'lmDetectCefrLevel',
   'lmParseScriptToLessonData',
+  'lmDetailedLessonDescription',
   'lmPdfIdentity',
   'lmPdfContentKey',
   'lmPdfGrammarMatch',
