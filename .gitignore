@@ -1,6 +1,7 @@
 accounts.sqlite
 speakout/data/*.db
 speakout/data/*.db-*
+speakout/data/recordings/
 .dev.vars
 .env
 .gemini.local.env

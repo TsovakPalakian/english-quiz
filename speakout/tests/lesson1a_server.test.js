@@ -174,16 +174,16 @@ test('Speakout Standalone Server & Streaming API', async (t) => {
     });
     const cookieHeader = sessionRes.headers['set-cookie']?.[0] || sessionRes.headers['set-cookie'];
 
-    const payload = JSON.stringify({ lessonId: '1A', trackId: '1.01', audioBase64: 'data:audio/webm;base64,GkXfo59ChoEB' });
+    const payload = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x44]);
     const res = await new Promise((resolve, reject) => {
       const req = http.request({
         hostname: '127.0.0.1',
         port,
-        path: '/api/speakout/speech/record',
+        path: '/api/speakout/speech/record?lessonId=1A&trackId=1.01',
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
+          'Content-Type': 'audio/webm',
+          'Content-Length': payload.length,
           cookie: cookieHeader
         }
       }, (r) => {
@@ -200,5 +200,22 @@ test('Speakout Standalone Server & Streaming API', async (t) => {
     assert.equal(data.success, true);
     assert.equal(data.lessonId, '1A');
     assert.ok(data.id.startsWith('rec_'));
+    const played = await new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: '/api/speakout/speech/record?lessonId=1A&trackId=1.01',
+        method: 'GET',
+        headers: { cookie: cookieHeader }
+      }, (r) => {
+        const chunks = [];
+        r.on('data', chunk => chunks.push(chunk));
+        r.on('end', () => resolve({ statusCode: r.statusCode, body: Buffer.concat(chunks) }));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    assert.equal(played.statusCode, 200);
+    assert.deepEqual(played.body, payload);
   });
 });

@@ -58,6 +58,7 @@ const state = {
   audioChunks: [],
   isRecording: false,
   lastRecordedAudioUrl: null,
+  studentSampleLoading: false,
   activeMediaType: 'audio', // 'audio' | 'video'
   renderTask: null,
   keysRenderTaskLeft: null,
@@ -1146,10 +1147,37 @@ function animateStudioTeacherPlayhead() {
   }
 }
 
-function toggleStudioStudentPlay() {
+async function toggleStudioStudentPlay() {
+  if (state.studentSampleLoading) return;
   if (!state.lastRecordedAudioUrl) {
-    showSpeechError('No student recording available. Press 🎙️ Record first.');
-    return;
+    state.studentSampleLoading = true;
+    try {
+      const params = new URLSearchParams({
+        lessonId: state.activeLesson || '',
+        trackId: state.activeTrack || ''
+      });
+      const res = await fetch('/api/speakout/speech/record?' + params.toString());
+      const data = res.ok ? {} : await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showSpeechError(res.status === 404 && data.error !== 'Recording file missing.'
+          ? 'No student recording available. Press 🎙️ Record first.'
+          : 'Student recording could not be played.');
+        return;
+      }
+      const blob = await res.blob();
+      if (!blob.size) {
+        showSpeechError('Student recording could not be played.');
+        return;
+      }
+      if (state.lastRecordedAudioUrl) URL.revokeObjectURL(state.lastRecordedAudioUrl);
+      state.lastRecordedAudioUrl = URL.createObjectURL(blob);
+      if (DOM.btnPlayStudentSample) DOM.btnPlayStudentSample.disabled = false;
+    } catch (_) {
+      showSpeechError('Student recording could not be played.');
+      return;
+    } finally {
+      state.studentSampleLoading = false;
+    }
   }
   const player = state.studioStudentPlayer || (state.studioStudentPlayer = el('studio-student-player') || new Audio());
   if (player.src !== state.lastRecordedAudioUrl) {
@@ -1408,13 +1436,7 @@ async function toggleSpeechRecord() {
           DOM.btnPlayStudentSample.disabled = false;
         }
 
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          if (reader.result) {
-            await sendSpeechRecording(reader.result);
-          }
-        };
-        reader.readAsDataURL(audioBlob);
+        void sendSpeechRecording(audioBlob);
         stream.getTracks().forEach(t => t.stop());
 
         if (state.suppressReview) {
@@ -1492,25 +1514,25 @@ function playTwoPhaseReview() {
   });
 }
 
-async function sendSpeechRecording(audioBase64) {
-  if (!audioBase64 || !audioBase64.startsWith('data:audio/')) return;
+async function sendSpeechRecording(audioBlob) {
+  if (!audioBlob || !audioBlob.size) return;
+  const mime = (audioBlob.type || 'audio/webm').split(';')[0];
+  const params = new URLSearchParams({
+    lessonId: state.recordingLesson || '',
+    trackId: state.recordingTrack || ''
+  });
   try {
-    const res = await fetch('/api/speakout/speech/record', {
+    const res = await fetch('/api/speakout/speech/record' + '?' + params.toString(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: state.currentUser || 'student_session',
-        lessonId: state.recordingLesson,
-        trackId: state.recordingTrack,
-        audioBase64
-      })
+      headers: { 'Content-Type': mime },
+      body: audioBlob
     });
     const result = await res.json().catch(() => ({}));
     if (!res.ok || !result.success) {
       showReaderError(result.error || 'Recording was not saved.');
       return;
     }
-    if (DOM.btnRecordSpeech) DOM.btnRecordSpeech.title = 'Saved to speakout.db';
+    if (DOM.btnRecordSpeech) DOM.btnRecordSpeech.innerHTML = '<span>Saved</span>';
   } catch (err) {
     console.warn('Speech save error:', err.message);
   }

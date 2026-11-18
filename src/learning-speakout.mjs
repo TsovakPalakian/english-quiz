@@ -11,9 +11,12 @@ export function ensureSpeakout(db){
     s(`CREATE TABLE IF NOT EXISTS speakout_documents(level TEXT NOT NULL,unit_index INTEGER NOT NULL,lesson_index INTEGER NOT NULL,content_json TEXT NOT NULL CHECK(json_valid(content_json)),published INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(level,unit_index,lesson_index))`),
     s(`CREATE TABLE IF NOT EXISTS speakout_answers(account_id TEXT NOT NULL,level TEXT NOT NULL,unit_index INTEGER NOT NULL,lesson_index INTEGER NOT NULL,definition_revision INTEGER NOT NULL,answers_json TEXT NOT NULL CHECK(json_valid(answers_json)),PRIMARY KEY(account_id,level,unit_index,lesson_index))`),
     s(`CREATE TABLE IF NOT EXISTS speakout_progress(user_id TEXT NOT NULL,lesson_id TEXT NOT NULL,current_page INTEGER NOT NULL,completed_steps TEXT NOT NULL DEFAULT '[]',updated_at TEXT NOT NULL,PRIMARY KEY(user_id,lesson_id))`),
-    s(`CREATE TABLE IF NOT EXISTS speakout_audio_recordings(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,lesson_id TEXT NOT NULL,track_id TEXT NOT NULL,audio_base64 TEXT NOT NULL,created_at TEXT NOT NULL)`),
+    s(`CREATE TABLE IF NOT EXISTS speakout_audio_recordings(id TEXT PRIMARY KEY,user_id TEXT NOT NULL,lesson_id TEXT NOT NULL,track_id TEXT NOT NULL,audio_base64 TEXT NOT NULL,media_key TEXT,created_at TEXT NOT NULL)`),
     s(`CREATE UNIQUE INDEX IF NOT EXISTS idx_speakout_audio_user_lesson_track ON speakout_audio_recordings(user_id,lesson_id,track_id)`)
-  ]).catch(error=>{ready.delete(db);throw error;}));return ready.get(db);
+  ]).then(async()=>{
+    const cols=await db.read('PRAGMA table_info(speakout_audio_recordings)');
+    if(!cols.some(col=>col.name==='media_key'))await db.atomic([s('ALTER TABLE speakout_audio_recordings ADD COLUMN media_key TEXT')]);
+  }).catch(error=>{ready.delete(db);throw error;}));return ready.get(db);
 }
 export async function speakoutRevisions(db,actor){
   const tables=await db.read("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('speakout_documents','speakout_answers')");
@@ -116,17 +119,42 @@ export async function saveSpeakoutProgress(db,actor,payload){
   await db.atomic([s(`INSERT INTO speakout_progress(user_id,lesson_id,current_page,completed_steps,updated_at) VALUES(?,?,?,?,datetime('now')) ON CONFLICT(user_id,lesson_id) DO UPDATE SET current_page=excluded.current_page,completed_steps=excluded.completed_steps,updated_at=excluded.updated_at`,[actor.id,lessonId,page,steps])]);
   return {success:true,userId:actor.id,lessonId,page};
 }
-export async function saveSpeakoutSpeechRecord(db,actor,payload){
+const SPEECH_LESSONS=['1A','1B','1C','1D','2A','2B'];
+const SPEECH_TRACKS=['1.01','1.02','1.03','1.04','1.0X','1.05','1.06','1.07','1.08','VB1.01','VB1.02','VB1.03','VB1.04','wb_1_01','wb_1_02','wb_1_03','wb_1_04'];
+const SPEECH_LIMIT=25*1024*1024;
+function speechPlace(lessonId,trackId){
+  const lesson=String(lessonId||'').trim();
+  const track=String(trackId||'').trim();
+  if(!SPEECH_LESSONS.includes(lesson)||!SPEECH_TRACKS.includes(track))throw new StudyError(400,'Invalid lessonId or trackId parameter');
+  return {lesson,track};
+}
+function speechUser(actor){
+  const userId=String(actor?.id??'');
+  if(!/^[A-Za-z0-9_-]{1,100}$/.test(userId))throw new StudyError(400,'Invalid account identity.');
+  return userId;
+}
+export async function saveSpeakoutSpeechRecord(db,actor,payload,bytes,store){
   await ensureSpeakout(db);
-  const audioBase64=String(payload?.audioBase64||'');
-  if(!audioBase64||!audioBase64.startsWith('data:audio/'))throw new StudyError(400,'Invalid or missing audio recording data');
-  if(audioBase64.length>524288)throw new StudyError(413,'Payload Too Large: Audio recording exceeds 512 KB limit');
-  const ALLOWED_LESSONS=['1A','1B','1C','1D','2A','2B'];
-  const lessonId=String(payload?.lessonId||'').trim();
-  const trackId=String(payload?.trackId||'').trim();
-  const ALLOWED_TRACKS=['1.01','1.02','1.03','1.04','1.0X','1.05','1.06','1.07','1.08','VB1.01','VB1.02','VB1.03','VB1.04','wb_1_01','wb_1_02','wb_1_03','wb_1_04'];
-  if(!ALLOWED_LESSONS.includes(lessonId)||!ALLOWED_TRACKS.includes(trackId))throw new StudyError(400,'Invalid lessonId or trackId parameter');
+  const {lesson,track}=speechPlace(payload?.lessonId,payload?.trackId);
+  if(payload?.mime!=='audio/webm')throw new StudyError(415,'Use audio/webm.');
+  if(!(bytes instanceof Uint8Array)||bytes.length<4||bytes.length>SPEECH_LIMIT)throw new StudyError(bytes?.length>SPEECH_LIMIT?413:400,bytes?.length>SPEECH_LIMIT?'File exceeds 25 MiB.':'Invalid or missing audio recording data');
+  if(![0x1a,0x45,0xdf,0xa3].every((byte,index)=>bytes[index]===byte))throw new StudyError(400,'Invalid or missing audio recording data');
+  if(!store)throw new StudyError(503,'Speakout storage unavailable.');
+  const userId=speechUser(actor);
+  const sha=await hash(bytes);
+  const key=`stage-local/recordings/${userId}/${lesson}/${sha}`;
+  await store.putImmutable(key,bytes,{sha256:sha,bytes:bytes.length,mime:'audio/webm',name:'speech.webm'});
   const id='rec_'+Date.now()+'_'+Math.random().toString(36).slice(2,7);
-  await db.atomic([s(`INSERT INTO speakout_audio_recordings(id,user_id,lesson_id,track_id,audio_base64,created_at) VALUES(?,?,?,?,?,datetime('now')) ON CONFLICT(user_id,lesson_id,track_id) DO UPDATE SET id=excluded.id,audio_base64=excluded.audio_base64,created_at=excluded.created_at`,[id,actor.id,lessonId,trackId,audioBase64])]);
-  return {success:true,id,userId:actor.id,lessonId,trackId};
+  await db.atomic([s(`INSERT INTO speakout_audio_recordings(id,user_id,lesson_id,track_id,audio_base64,media_key,created_at) VALUES(?,?,?,?,?,?,datetime('now')) ON CONFLICT(user_id,lesson_id,track_id) DO UPDATE SET id=excluded.id,audio_base64='',media_key=excluded.media_key,created_at=excluded.created_at`,[id,userId,lesson,track,'',key])]);
+  return {success:true,id,userId,lessonId:lesson,trackId:track};
+}
+export async function readSpeakoutSpeechRecord(db,actor,lessonId,trackId,store){
+  await ensureSpeakout(db);
+  const {lesson,track}=speechPlace(lessonId,trackId);
+  const userId=speechUser(actor);
+  const [row]=await db.read('SELECT media_key FROM speakout_audio_recordings WHERE user_id=? AND lesson_id=? AND track_id=?',[userId,lesson,track]);
+  if(!row?.media_key)throw new StudyError(404,'No recording.');
+  if(!store)throw new StudyError(503,'Speakout storage unavailable.');
+  try{return await store.response(row.media_key,'GET');}
+  catch(error){if(error instanceof StudyError&&error.status===404)throw new StudyError(404,'Recording file missing.');throw error;}
 }

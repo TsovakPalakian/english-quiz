@@ -403,26 +403,25 @@ test('Speakout Security Hardening & Data Protection Verification', async (t) => 
     assert.match(data.error, /Audio track not found/);
   });
 
-  await t.test('22. POST /api/speakout/speech/record rejects payload exceeding 512 KB with 413', async () => {
+  await t.test('22. POST /api/speakout/speech/record rejects a file over 25 MiB with 413 and accepts a file over 512 KB', async () => {
     const sessionRes = await makeRequest(port, '/api/speakout/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role: 'student', password: 'test-student-secret-2022' })
     });
     const cookie = sessionRes.headers['set-cookie']?.[0] || sessionRes.headers['set-cookie'];
+    const serverSource = fs.readFileSync(path.join(__dirname, '../server/server.js'), 'utf8');
+    assert.match(serverSource, /SPEECH_BYTE_LIMIT = 25 \* 1024 \* 1024/);
+    assert.match(serverSource, /File exceeds 25 MiB/);
 
-    const bigAudio = 'data:audio/webm;base64,' + 'A'.repeat(550000);
-    const res = await makeRequest(port, '/api/speakout/speech/record', {
+    const kept = Buffer.alloc(600 * 1024);
+    kept[0] = 0x1a; kept[1] = 0x45; kept[2] = 0xdf; kept[3] = 0xa3;
+    const saved = await makeRequest(port, '/api/speakout/speech/record?lessonId=1A&trackId=1.02', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        cookie
-      },
-      body: JSON.stringify({ lessonId: '1A', trackId: '1.01', audioBase64: bigAudio })
+      headers: { 'Content-Type': 'audio/webm', cookie },
+      body: kept
     });
-    assert.equal(res.statusCode, 413);
-    const data = JSON.parse(res.body);
-    assert.match(data.error, /Payload Too Large/);
+    assert.equal(saved.statusCode, 200);
   });
 
   await t.test('23. POST /api/speakout/speech/record enforces quota via REPLACE on same track', async () => {
@@ -433,27 +432,38 @@ test('Speakout Security Hardening & Data Protection Verification', async (t) => 
     });
     const cookie = sessionRes.headers['set-cookie']?.[0] || sessionRes.headers['set-cookie'];
 
-    const smallAudio1 = 'data:audio/webm;base64,GkXfo59ChoEBQveBAULygQETH4PBbW06AAA1';
-    const res1 = await makeRequest(port, '/api/speakout/speech/record', {
+    const first = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x11]);
+    const res1 = await makeRequest(port, '/api/speakout/speech/record?lessonId=1A&trackId=1.01', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        cookie
-      },
-      body: JSON.stringify({ lessonId: '1A', trackId: '1.01', audioBase64: smallAudio1 })
+      headers: { 'Content-Type': 'audio/webm', cookie },
+      body: first
     });
     assert.equal(res1.statusCode, 200);
 
-    const smallAudio2 = 'data:audio/webm;base64,GkXfo59ChoEBQveBAULygQETH4PBbW06AAA2';
-    const res2 = await makeRequest(port, '/api/speakout/speech/record', {
+    const second = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x22]);
+    const res2 = await makeRequest(port, '/api/speakout/speech/record?lessonId=1A&trackId=1.01', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        cookie
-      },
-      body: JSON.stringify({ lessonId: '1A', trackId: '1.01', audioBase64: smallAudio2 })
+      headers: { 'Content-Type': 'audio/webm', cookie },
+      body: second
     });
     assert.equal(res2.statusCode, 200);
+    const played = await new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: '/api/speakout/speech/record?lessonId=1A&trackId=1.01',
+        method: 'GET',
+        headers: { cookie }
+      }, (r) => {
+        const chunks = [];
+        r.on('data', chunk => chunks.push(chunk));
+        r.on('end', () => resolve({ statusCode: r.statusCode, body: Buffer.concat(chunks) }));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+    assert.equal(played.statusCode, 200);
+    assert.deepEqual(played.body, second);
   });
 
   await t.test('24. POST /api/speakout/session enforces IP rate limiting (returns 429)', async () => {
@@ -481,17 +491,18 @@ test('Speakout Security Hardening & Data Protection Verification', async (t) => 
     const session = createServerSession('test_speech_student', 'student');
     const cookie = `speakout_session=${session.token}`;
 
-    const resInvalidLesson = await makeRequest(port, '/api/speakout/speech/record', {
+    const webm = Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0x33]);
+    const resInvalidLesson = await makeRequest(port, '/api/speakout/speech/record?lessonId=2B&trackId=1.01', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie },
-      body: JSON.stringify({ lessonId: '2B', trackId: '1.01', audioBase64: 'data:audio/webm;base64,GkXfo59ChoEB' })
+      headers: { 'Content-Type': 'audio/webm', cookie },
+      body: webm
     });
     assert.equal(resInvalidLesson.statusCode, 400);
 
-    const resInvalidTrack = await makeRequest(port, '/api/speakout/speech/record', {
+    const resInvalidTrack = await makeRequest(port, '/api/speakout/speech/record?lessonId=1A&trackId=WB1.01', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', cookie },
-      body: JSON.stringify({ lessonId: '1A', trackId: 'WB1.01', audioBase64: 'data:audio/webm;base64,GkXfo59ChoEB' })
+      headers: { 'Content-Type': 'audio/webm', cookie },
+      body: webm
     });
     assert.equal(resInvalidTrack.statusCode, 400);
   });

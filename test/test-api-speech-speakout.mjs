@@ -133,7 +133,19 @@ function createFixture() {
     async head(key) {
       return this.get(key);
     },
-    async put() {}
+    async put(key, bytes, options) {
+      if (r2Storage.has(key)) return null;
+      const meta = options?.customMetadata || {};
+      const mime = options?.httpMetadata?.contentType || meta.mime;
+      const item = {bytes, mime, sha256: meta.sha256, name: meta.name || ''};
+      r2Storage.set(key, item);
+      return {
+        size: bytes.length,
+        body: bytes,
+        httpMetadata: {contentType: mime},
+        customMetadata: {sha256: meta.sha256, bytes: String(bytes.length), mime, name: item.name}
+      };
+    }
   };
 
   const env = {
@@ -637,43 +649,23 @@ test('GET and POST /api/speakout/progress records and reads user lesson progress
   }
 });
 
-test('POST /api/speakout/speech/record saves student voice recording', async () => {
+test('POST /api/speakout/speech/record stores webm in media and the key in the table', async () => {
   const f = createFixture();
   try {
-    const dummyAudio = 'data:audio/webm;codecs=opus;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQRChYECGFOAZwEAAAAAB+tuEU2bdLpNu4tTq4QVSalmU';
+    const webm = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0x81]);
+    const replacement = Uint8Array.from([0x1a, 0x45, 0xdf, 0xa3, 0x82]);
+    const recordUrl = 'https://stage.example/api/speakout/speech/record?lessonId=1A&trackId=1.01';
+    const post = (body, headers = {}) => stageWorker.fetch(new Request(recordUrl, {
+      method: 'POST',
+      headers: {Origin: 'https://stage.example', 'Content-Type': 'audio/webm', ...headers},
+      body
+    }), f.env);
 
-    // 1. Unauthenticated -> 401
     f.setActor(null);
-    const unauthPost = await stageWorker.fetch(
-      new Request('https://stage.example/api/speakout/speech/record', {
-        method: 'POST',
-        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          userId: 1,
-          lessonId: '1A',
-          trackId: '1.01',
-          audioBase64: dummyAudio
-        })
-      }),
-      f.env
-    );
-    assert.equal(unauthPost.status, 401);
+    assert.equal((await post(webm)).status, 401);
 
-    // 2. Authenticated -> 200
     f.setActor({id: 'student-99', role: 'USER'});
-    const saveRes = await stageWorker.fetch(
-      new Request('https://stage.example/api/speakout/speech/record', {
-        method: 'POST',
-        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          userId: 1,
-          lessonId: '1A',
-          trackId: '1.01',
-          audioBase64: dummyAudio
-        })
-      }),
-      f.env
-    );
+    const saveRes = await post(webm);
     assert.equal(saveRes.status, 200);
     const saveData = await saveRes.json();
     assert.equal(saveData.success, true);
@@ -682,42 +674,48 @@ test('POST /api/speakout/speech/record saves student voice recording', async () 
     assert.equal(saveData.trackId, '1.01');
     assert.ok(saveData.id.startsWith('rec_'));
 
-    // Check DB row
-    const row = f.sql.prepare("SELECT user_id, lesson_id, track_id, audio_base64 FROM speakout_audio_recordings WHERE user_id = 'student-99'").get();
-    assert.ok(row);
+    const row = f.sql.prepare("SELECT lesson_id, track_id, audio_base64, media_key FROM speakout_audio_recordings WHERE user_id = 'student-99'").get();
     assert.equal(row.lesson_id, '1A');
     assert.equal(row.track_id, '1.01');
-    assert.equal(row.audio_base64, dummyAudio);
+    assert.equal(row.audio_base64, '');
+    assert.match(row.media_key, /^stage-local\/recordings\/student-99\/1A\/[a-f0-9]{64}$/);
+    assert.equal(f.r2Storage.has(row.media_key), true);
 
-    // 3. Validation: missing audioBase64 -> 400
-    const noAudio = await stageWorker.fetch(
-      new Request('https://stage.example/api/speakout/speech/record', {
-        method: 'POST',
-        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          lessonId: '1A',
-          trackId: '1.01',
-          audioBase64: ''
-        })
-      }),
-      f.env
-    );
-    assert.equal(noAudio.status, 400);
+    const played = await stageWorker.fetch(new Request(recordUrl), f.env);
+    assert.equal(played.status, 200);
+    assert.deepEqual(new Uint8Array(await played.arrayBuffer()), webm);
 
-    // 4. Validation: invalid track -> 400
-    const badTrack = await stageWorker.fetch(
-      new Request('https://stage.example/api/speakout/speech/record', {
-        method: 'POST',
-        headers: {Origin: 'https://stage.example', 'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          lessonId: '1A',
-          trackId: 'unknown.99',
-          audioBase64: dummyAudio
-        })
-      }),
-      f.env
-    );
+    const replaced = await post(replacement);
+    assert.equal(replaced.status, 200);
+    const next = f.sql.prepare("SELECT media_key, audio_base64 FROM speakout_audio_recordings WHERE user_id = 'student-99'").get();
+    assert.notEqual(next.media_key, row.media_key);
+    assert.equal(next.audio_base64, '');
+    const playedNext = await stageWorker.fetch(new Request(recordUrl), f.env);
+    assert.deepEqual(new Uint8Array(await playedNext.arrayBuffer()), replacement);
+
+    f.r2Storage.delete(next.media_key);
+    const missing = await stageWorker.fetch(new Request(recordUrl), f.env);
+    assert.equal(missing.status, 404);
+    assert.equal((await missing.json()).error, 'Recording file missing.');
+
+    const absent = await stageWorker.fetch(new Request('https://stage.example/api/speakout/speech/record?lessonId=1A&trackId=1.02'), f.env);
+    assert.equal(absent.status, 404);
+    assert.equal((await absent.json()).error, 'No recording.');
+
+    const empty = await post(new Uint8Array());
+    assert.equal(empty.status, 400);
+    const badTrack = await stageWorker.fetch(new Request('https://stage.example/api/speakout/speech/record?lessonId=1A&trackId=unknown.99', {
+      method: 'POST',
+      headers: {Origin: 'https://stage.example', 'Content-Type': 'audio/webm'},
+      body: webm
+    }), f.env);
     assert.equal(badTrack.status, 400);
+
+    const big = new Uint8Array(25 * 1024 * 1024 + 1);
+    big[0] = 0x1a; big[1] = 0x45; big[2] = 0xdf; big[3] = 0xa3;
+    const over = await post(big);
+    assert.equal(over.status, 413);
+    assert.equal((await over.json()).error, 'File exceeds 25 MiB.');
   } finally {
     f.close();
   }

@@ -8,7 +8,7 @@ import {ExamService} from './learning-exams.mjs';
 import {GroupService} from './learning-groups.mjs';
 import {ArchiveService} from './learning-archive.mjs';
 import {legacyTexts,legacyLessons,publicCatalogs,legacyCard,publicCatalogPage,publicCatalogCard,publicCatalogCards,accountBootstrap,accountThemes,accountCards,accountQuizzes,accountProgress,accountSongs,catalogSection,speakoutLevel,staticDocument,staticSlice,pageLimit} from './learning-legacy-read.mjs';
-import {speakoutLesson,speakoutRevisions,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout,readSpeakoutProgress,saveSpeakoutProgress,saveSpeakoutSpeechRecord} from './learning-speakout.mjs';
+import {speakoutLesson,speakoutRevisions,saveSpeakout,uploadSpeakout,speakoutMedia,answerSpeakout,readSpeakoutProgress,saveSpeakoutProgress,saveSpeakoutSpeechRecord,readSpeakoutSpeechRecord} from './learning-speakout.mjs';
 import {mediaKey,mediaPlaceholders,storedMediaResponse,inlineMedia} from './learning-media.mjs';
 import {SongMediaService} from './learning-song-media.mjs';
 import {ThemeMediaService} from './learning-theme-media.mjs';
@@ -162,7 +162,7 @@ export default {async fetch(request,env){
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
       ||(path==='/api/me/theme'&&method==='PUT')||(path==='/api/me/custom-themes'&&method==='PUT')||(progress&&method===(progress[2]==='answers'?'POST':'PATCH'))||(response&&method==='PUT')||(lesson&&['PATCH','DELETE'].includes(method))||(own&&method==='DELETE')||(library&&['PATCH','DELETE'].includes(method))||binaryWrite||(lessonUpload&&method==='DELETE')||(songUpload&&method==='DELETE');
-    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest','/api/speakout/session','/api/speakout/progress'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
+    const read=method==='GET'&&(allowedRead.includes(path)||['/api/speakout/lesson','/api/speakout/media','/api/speakout/revisions','/api/speakout/audio','/api/speakout/video','/api/speakout/document','/api/speakout/manifest','/api/speakout/session','/api/speakout/progress','/api/speakout/speech/record'].includes(path)||path==='/api/archive/media'||path==='/api/me/cards/dictionary'||dictionary||library||(grammarCustom&&method==='GET')||card?.[1]==='cards'&&!card[3])
       ||method==='HEAD'&&['/api/speakout/media','/api/speakout/audio','/api/speakout/video','/api/speakout/document'].includes(path)
       ||method==='HEAD'&&['/api/archive/media','/api/song-file','/api/lesson-file','/api/theme-photo'].includes(path)||inline&&['GET','HEAD'].includes(method);
     const catalogPage=path.match(/^\/api\/catalogs\/(LESSON_DATA|IRREGULAR|GRAMMAR|TENSE_BANK|SPEAKOUT)$/),catalogCard=path.match(/^\/api\/catalogs\/cards\/([1-9]\d{0,15})$/),catalogCards=path==='/api/catalogs/cards';
@@ -239,7 +239,11 @@ export default {async fetch(request,env){
       if(path==='/api/speakout/media')return method==='POST'?json(await uploadSpeakout(db,actor,{...location,expectedRevision:Number(url.searchParams.get('expectedRevision')),mutationId:url.searchParams.get('mutationId')},await boundedMediaBytes(request),request.headers.get('content-type')?.split(';')[0],url.searchParams.get('name'),store)):await speakoutMedia(db,actor,location,store,request);
       if(path==='/api/speakout/answers')return json(await answerSpeakout(db,actor,await body(request,JSON_BODY_LIMIT),store));
       if(path==='/api/speakout/progress')return json(method==='GET'?await readSpeakoutProgress(db,actor):await saveSpeakoutProgress(db,actor,await body(request,8192)));
-      if(path==='/api/speakout/speech/record')return json(await saveSpeakoutSpeechRecord(db,actor,await body(request,524288)));
+      if(path==='/api/speakout/speech/record'){
+        if(method==='GET')return await readSpeakoutSpeechRecord(db,actor,url.searchParams.get('lessonId'),url.searchParams.get('trackId'),store);
+        const mime=request.headers.get('content-type')?.split(';')[0];
+        return json(await saveSpeakoutSpeechRecord(db,actor,{lessonId:url.searchParams.get('lessonId'),trackId:url.searchParams.get('trackId'),mime},await boundedMediaBytes(request),store));
+      }
       if(path==='/api/speakout/audio'){
         const track=url.searchParams.get('track')||'1.01';
         const keyMap={'1.01':'speakout/a1/unit1/audio/1_01.mp3','1.02':'speakout/a1/unit1/audio/1_02.mp3','1.03':'speakout/a1/unit1/audio/1_03.mp3','1.04':'speakout/a1/unit1/audio/1_04.mp3','1.0X':'speakout/a1/unit1/audio/1_0x.mp3','1.05':'speakout/a1/unit1/audio/1_05.mp3','1.06':'speakout/a1/unit1/audio/1_06.mp3','1.07':'speakout/a1/unit1/audio/1_07.mp3','1.08':'speakout/a1/unit1/audio/1_08.mp3','VB1.01':'speakout/a1/unit1/audio/vb1_01.mp3','VB1.02':'speakout/a1/unit1/audio/vb1_02.mp3','VB1.03':'speakout/a1/unit1/audio/vb1_03.mp3','VB1.04':'speakout/a1/unit1/audio/vb1_04.mp3','wb_1_01':'speakout/a1/unit1/audio/wb_1_01.mp3','wb_1_02':'speakout/a1/unit1/audio/wb_1_02.mp3','wb_1_03':'speakout/a1/unit1/audio/wb_1_03.mp3','wb_1_04':'speakout/a1/unit1/audio/wb_1_04.mp3'};

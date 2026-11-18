@@ -13,6 +13,9 @@ const __dirname = path.dirname(__filename);
 const MANIFEST_PATH = path.join(__dirname, '../data/manifest.json');
 const WEB_DIR = path.join(__dirname, '../web');
 const DB_PATH = path.join(__dirname, '../data/speakout.db');
+const RECORDINGS_DIR = path.join(__dirname, '../data/recordings');
+const SPEECH_BYTE_LIMIT = 25 * 1024 * 1024;
+const SPEECH_KEY = /^stage-local\/recordings\/[A-Za-z0-9_-]{1,100}\/[A-Za-z0-9_-]{1,100}\/([a-f0-9]{64})$/;
 const COURSE_BASE_DIR = path.resolve(process.env.SPEAKOUT_COURSE_DIR || path.join(__dirname, '../../../../Education/English/Speakout 3rd Edition (2022)/Speakout 3rd Edition A1'));
 
 let sqliteDb = null;
@@ -44,6 +47,7 @@ export function getDb() {
           lesson_id TEXT NOT NULL,
           track_id TEXT NOT NULL,
           audio_base64 TEXT NOT NULL,
+          media_key TEXT,
           created_at TEXT NOT NULL DEFAULT (datetime('now')),
           UNIQUE(user_id, lesson_id, track_id)
         );
@@ -52,6 +56,7 @@ export function getDb() {
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_speakout_audio_user_lesson_track ON speakout_audio_recordings (user_id, lesson_id, track_id);
       `);
+      try { sqliteDb.exec('ALTER TABLE speakout_audio_recordings ADD COLUMN media_key TEXT'); } catch (_) {}
     } catch (_) {
       console.warn('SQLite init failed');
     }
@@ -457,6 +462,146 @@ function requireGet(req, res) {
   return false;
 }
 
+function isWebm(buffer) {
+  return buffer.length >= 4 && buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+}
+
+function speechFile(mediaKey) {
+  const match = SPEECH_KEY.exec(String(mediaKey || ''));
+  if (!match) return null;
+  const filePath = path.join(RECORDINGS_DIR, match[1]);
+  const root = path.resolve(RECORDINGS_DIR);
+  if (!path.resolve(filePath).startsWith(root + path.sep)) return null;
+  return filePath;
+}
+
+function writeSpeechFile(bytes) {
+  fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
+  const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+  const filePath = path.join(RECORDINGS_DIR, sha);
+  try { fs.writeFileSync(filePath, bytes, { flag: 'wx' }); } catch (error) { if (error.code !== 'EEXIST') throw error; }
+  return sha;
+}
+
+function sendSpeechJson(res, status, payload) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(payload));
+}
+
+function serveSpeechRecording(req, res, reqUrl) {
+  const userId = resolveUserId(req);
+  if (!userId) {
+    sendSpeechJson(res, 401, { error: 'Unauthorized: Active session required to save recordings' });
+    return;
+  }
+  const db = getDb();
+  if (!db) {
+    sendSpeechJson(res, 500, { error: 'Database not initialized' });
+    return;
+  }
+  const lessonId = String(reqUrl.searchParams.get('lessonId') || '').trim();
+  const trackId = String(reqUrl.searchParams.get('trackId') || '').trim();
+  const ALLOWED_LESSONS = ['1A', '1D'];
+  const ALLOWED_TRACKS = ['1.01', '1.02', '1.03', 'VB1.01', 'VB1.04'];
+  if (!ALLOWED_LESSONS.includes(lessonId) || !ALLOWED_TRACKS.includes(trackId)) {
+    sendSpeechJson(res, 400, { error: 'Invalid lessonId or trackId parameter' });
+    return;
+  }
+  const row = db.prepare('SELECT media_key FROM speakout_audio_recordings WHERE user_id = ? AND lesson_id = ? AND track_id = ?').get(userId, lessonId, trackId);
+  if (!row?.media_key) {
+    sendSpeechJson(res, 404, { error: 'No recording.' });
+    return;
+  }
+  const filePath = speechFile(row.media_key);
+  if (!filePath || !fs.existsSync(filePath)) {
+    sendSpeechJson(res, 404, { error: 'Recording file missing.' });
+    return;
+  }
+  res.writeHead(200, {
+    'Content-Type': 'audio/webm',
+    'Content-Length': String(fs.statSync(filePath).size),
+    'Cache-Control': 'private, no-store'
+  });
+  fs.createReadStream(filePath).pipe(res);
+}
+
+function saveSpeechRecording(req, res, reqUrl) {
+  const declared = Number(req.headers['content-length'] || 0);
+  if (Number.isFinite(declared) && declared > SPEECH_BYTE_LIMIT) {
+    sendSpeechJson(res, 413, { error: 'File exceeds 25 MiB.' });
+    req.resume();
+    return;
+  }
+  const chunks = [];
+  let size = 0;
+  let tooLarge = false;
+  req.on('data', chunk => {
+    if (tooLarge || res.headersSent) return;
+    size += chunk.length;
+    if (size > SPEECH_BYTE_LIMIT) {
+      tooLarge = true;
+      chunks.length = 0;
+      sendSpeechJson(res, 413, { error: 'File exceeds 25 MiB.' });
+      req.resume();
+      return;
+    }
+    chunks.push(chunk);
+  });
+  req.on('end', () => {
+    if (tooLarge || res.headersSent) return;
+    try {
+      const bytes = Buffer.concat(chunks);
+      const mime = String(req.headers['content-type'] || '').split(';')[0];
+      if (mime !== 'audio/webm') {
+        sendSpeechJson(res, 415, { error: 'Use audio/webm.' });
+        return;
+      }
+      if (!isWebm(bytes)) {
+        sendSpeechJson(res, 400, { error: 'Invalid or missing audio recording data' });
+        return;
+      }
+      const db = getDb();
+      if (!db) {
+        sendSpeechJson(res, 500, { error: 'Database not initialized' });
+        return;
+      }
+      const userId = resolveUserId(req);
+      if (!userId || !/^[A-Za-z0-9_-]{1,100}$/.test(userId)) {
+        sendSpeechJson(res, 401, { error: 'Unauthorized: Active session required to save recordings' });
+        return;
+      }
+      const ALLOWED_LESSONS = ['1A', '1D'];
+      const ALLOWED_TRACKS = ['1.01', '1.02', '1.03', 'VB1.01', 'VB1.04'];
+      const lessonId = String(reqUrl.searchParams.get('lessonId') || '').trim();
+      const trackId = String(reqUrl.searchParams.get('trackId') || '').trim();
+      if (!ALLOWED_LESSONS.includes(lessonId) || !ALLOWED_TRACKS.includes(trackId)) {
+        sendSpeechJson(res, 400, { error: 'Invalid lessonId or trackId parameter' });
+        return;
+      }
+      const sha = writeSpeechFile(bytes);
+      const mediaKey = `stage-local/recordings/${userId}/${lessonId}/${sha}`;
+      const id = 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+      try {
+        db.prepare(`
+          INSERT INTO speakout_audio_recordings (id, user_id, lesson_id, track_id, audio_base64, media_key, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+          ON CONFLICT(user_id, lesson_id, track_id) DO UPDATE SET
+            id = excluded.id,
+            audio_base64 = '',
+            media_key = excluded.media_key,
+            created_at = excluded.created_at
+        `).run(id, userId, lessonId, trackId, '', mediaKey);
+      } catch (dbErr) {
+        sendSpeechJson(res, 400, { error: 'Failed to save recording' });
+        return;
+      }
+      sendSpeechJson(res, 200, { success: true, id, userId, lessonId, trackId });
+    } catch (_) {
+      sendSpeechJson(res, 400, { error: 'Failed to save recording' });
+    }
+  });
+}
+
 export function handleRequest(req, res) {
   let reqUrl;
   try {
@@ -796,89 +941,20 @@ export function handleRequest(req, res) {
     return;
   }
 
-  // 1.10 API Speech Recording (SQLite speakout.db with strict DB verification)
-  if (pathname === '/api/speakout/speech/record' && req.method === 'POST') {
+  if (pathname === '/api/speakout/speech/record' && (req.method === 'GET' || req.method === 'POST')) {
     if (!originAllowed(req)) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Forbidden origin' }));
+      sendSpeechJson(res, 403, { error: 'Forbidden origin' });
+      return;
+    }
+    if (req.method === 'GET') {
+      serveSpeechRecording(req, res, reqUrl);
       return;
     }
     if (!checkWriteRateLimit(getClientIp(req))) {
-      res.writeHead(429, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Too Many Requests' }));
+      sendSpeechJson(res, 429, { error: 'Too Many Requests' });
       return;
     }
-    let body = '';
-    let tooLarge = false;
-    req.on('data', chunk => {
-      if (tooLarge) return;
-      body += chunk;
-      if (body.length > 524288) {
-        tooLarge = true;
-        body = '';
-        if (!res.headersSent) {
-          res.writeHead(413, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Payload Too Large: Audio recording exceeds 512 KB limit' }));
-        }
-        req.resume();
-      }
-    });
-    req.on('end', async () => {
-      if (tooLarge || res.headersSent) return;
-      try {
-        const payload = JSON.parse(body || '{}');
-        const db = getDb();
-        if (!db) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Database not initialized' }));
-          return;
-        }
-        const audioBase64 = String(payload.audioBase64 || '');
-        if (!audioBase64 || !audioBase64.startsWith('data:audio/')) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid or missing audio recording data' }));
-          return;
-        }
-        if (audioBase64.length > 524288) {
-          res.writeHead(413, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Payload Too Large: Audio recording exceeds 512 KB limit' }));
-          return;
-        }
-        const userId = resolveUserId(req);
-        if (!userId) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Unauthorized: Active session required to save recordings' }));
-          return;
-        }
-
-        const ALLOWED_LESSONS = ['1A', '1D'];
-        const ALLOWED_TRACKS = ['1.01', '1.02', '1.03', 'VB1.01', 'VB1.04'];
-
-        const lessonId = String(payload.lessonId || '').trim();
-        const trackId = String(payload.trackId || '').trim();
-
-        if (!ALLOWED_LESSONS.includes(lessonId) || !ALLOWED_TRACKS.includes(trackId)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Invalid lessonId or trackId parameter' }));
-          return;
-        }
-
-        const id = 'rec_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
-        db.prepare(`
-          INSERT INTO speakout_audio_recordings (id, user_id, lesson_id, track_id, audio_base64, created_at)
-          VALUES (?, ?, ?, ?, ?, datetime('now'))
-          ON CONFLICT(user_id, lesson_id, track_id) DO UPDATE SET
-            id = excluded.id,
-            audio_base64 = excluded.audio_base64,
-            created_at = excluded.created_at
-        `).run(id, userId, lessonId, trackId, audioBase64);
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, id, userId, lessonId, trackId }));
-      } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Failed to save recording' }));
-      }
-    });
+    saveSpeechRecording(req, res, reqUrl);
     return;
   }
 

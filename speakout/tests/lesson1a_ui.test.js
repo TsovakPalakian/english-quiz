@@ -106,7 +106,12 @@ test('Phase 1 Approved UI Specification Verification (Screenshot 17 & 18)', asyn
 
     // Media and Speech recording without fake percentages
     assert.match(js, /navigator\.mediaDevices\.getUserMedia/, 'Must support microphone access');
-    assert.match(js, /fetch\('\/api\/speakout\/speech\/record'/, 'Must save audio recording to SQLite');
+    assert.match(js, /fetch\('\/api\/speakout\/speech\/record'/, 'Must save the speech recording');
+    assert.match(js, /<span>Saved<\/span>/, 'A saved recording shows Saved on the record button');
+    assert.match(js, /No student recording available\. Press 🎙️ Record first\./, 'Play without a key shows the empty recording message');
+    assert.match(js, /Recording file missing\./, 'Play distinguishes a missing media file');
+    assert.match(js, /Student recording could not be played\./, 'Play shows the file error');
+    assert.doesNotMatch(js, /audioBase64/, 'The page does not send the recording as base64');
     assert.doesNotMatch(js, /89%|92%|94%|95%|96%/, 'Must NOT contain hardcoded fake recognition percentages');
 
     // Progress persistence to SQLite
