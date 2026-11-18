@@ -481,3 +481,21 @@ test('a large PDF import saves in bounded batches and shows the block room first
   assert.match(source, /lmPdfPrepareCards\(/);
   assert.match(source, /pdfGrammarAlerts\(/);
 });
+
+test('published lesson draft review has no unpublish consent checkbox', async () => {
+  assert.doesNotMatch(source, /I agree to unpublish this lesson/);
+  assert.doesNotMatch(source, /Confirm saving the published lesson as a draft/);
+  const { win, doc, state } = createLessonImportEnvironment();
+  state.lmState.published = true;
+  win.lmState = state.lmState;
+  const data = { title: 'Published lesson', warnings: [], words: [], phrases: [], rules: [], classwork: [], homework: [], overview: '' };
+  await win.lmMountLessonDraftDialog(data, 'hash', { name: 'lesson.pdf', size: 10, type: 'application/pdf' }, new AbortController(), () => true, false);
+  const dialog = doc.getElementById('lmPdfDraftDialog');
+  assert.ok(dialog);
+  assert.equal(dialog.textContent.includes('I agree to unpublish this lesson and save it as a draft until I publish it again.'), false);
+  assert.equal(dialog.querySelector('input[type=checkbox]') !== null, true);
+  for (const input of dialog.querySelectorAll('input[type=checkbox]')) input.checked = false;
+  const apply = [...dialog.querySelectorAll('button')].find(button => button.textContent === 'Apply selected sections to draft');
+  await apply.onclick();
+  assert.equal(dialog.querySelector('[role=status]').textContent, 'Select at least one section.');
+});

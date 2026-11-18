@@ -118,41 +118,40 @@
 
     overlay.innerHTML =
       '<div class="focus-player-header">' +
-        '<div style="font-size:14px; font-weight:700;">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
+        '<div class="focus-q-count">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
-        '<div style="display:flex; align-items:center; gap:14px;">' +
-          '<span style="font-size:11px; opacity:0.8; font-family:monospace; background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:4px;">⌨️ 1-4: Select | Enter: Check/Next | Esc: Exit</span>' +
-          '<button type="button" class="btn-sm" id="lmFocusCloseBtn" style="font-size:16px; background:none; border:none; color:#ffffff; cursor:pointer;">✕</button>' +
+        '<div class="focus-header-tools">' +
+          '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Check/Next | Esc: Exit</span>' +
+          '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
       '</div>' +
 
       '<div class="focus-player-stage">' +
         '<div class="focus-card">' +
-          '<div style="font-size:12px; text-transform:uppercase; color:#94a3b8; font-weight:700; margin-bottom:6px;">' + esc(currentQ.title || 'Practice Task') + '</div>' +
-          '<h2 style="font-size:20px; font-weight:700; color:#f8fafc; margin-top:0; margin-bottom:18px;">' + esc(currentQ.prompt || '') + '</h2>' +
+          '<div class="focus-kicker">' + esc(currentQ.title || 'Practice Task') + '</div>' +
+          '<h2 class="focus-prompt">' + esc(currentQ.prompt || '') + '</h2>' +
           '<div class="focus-options-container">' + optionsHtml + '</div>' +
 
           (hasResult ? (
-            '<div class="focus-feedback-banner" style="margin-top:20px; padding:12px 16px; border-radius:8px; font-size:13.5px; font-weight:600; ' +
-              (isCorrect ? 'background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#34d399;' : 'background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#f87171;') + '">' +
+            '<div class="focus-feedback ' + (isCorrect ? 'is-correct' : 'is-incorrect') + '">' +
               (isCorrect ? '✓ Correct! Excellent grasp of concept.' : '✗ Needs review. Target concept: ' + esc(currentQ.concept || '')) +
-              '<div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:4px;">' + esc(currentQ.feedback || '') + '</div>' +
+              '<div class="focus-feedback-detail">' + esc(currentQ.feedback || '') + '</div>' +
             '</div>'
           ) : '') +
 
-          '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">' +
-            '<button type="button" class="btn secondary" id="focusPrevBtn" ' + (focusIndex === 0 ? 'disabled' : '') + ' style="font-size:13px;">← Previous</button>' +
+          '<div class="focus-actions">' +
+            '<button type="button" class="btn secondary" id="focusPrevBtn" ' + (focusIndex === 0 ? 'disabled' : '') + '>← Previous</button>' +
             (!hasResult ? (
-              '<button type="button" class="btn primary" id="focusCheckBtn" ' + (focusSelectedOption === null ? 'disabled' : '') + ' style="font-size:14px; font-weight:700; padding:8px 24px;">Check (Enter)</button>'
+              '<button type="button" class="btn primary" id="focusCheckBtn" ' + (focusSelectedOption === null ? 'disabled' : '') + '>Check (Enter)</button>'
             ) : (
-              '<button type="button" class="btn primary" id="focusNextBtn" style="font-size:14px; font-weight:700; padding:8px 24px;">' + (focusIndex < total - 1 ? 'Next question →' : 'Finish Session') + '</button>'
+              '<button type="button" class="btn primary" id="focusNextBtn">' + (focusIndex < total - 1 ? 'Next question →' : 'Finish Session') + '</button>'
             )) +
           '</div>' +
         '</div>' +
       '</div>' +
 
       '<div class="focus-player-footer">' +
-        '<div style="font-size:12px; color:#94a3b8;">Question Quick Jump:</div>' +
+        '<div class="focus-jump-label">Question Quick Jump:</div>' +
         '<div class="focus-strip">' + stripChips + '</div>' +
       '</div>';
   }

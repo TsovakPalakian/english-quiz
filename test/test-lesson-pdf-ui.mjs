@@ -147,10 +147,9 @@ try{
   yield "02. #material.on / checks";
   await page.locator('#material.on').waitFor();
   const homework=JSON.stringify(lesson.blocks[0]);
-  const importPdf=async(inspect,viaButton=false)=>{
+  const importPdf=async(inspect)=>{
     const input={name:fileName,mimeType:'application/pdf',buffer:pdf};
-    if(viaButton){const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'Import another PDF'}).click();await (await chooser).setFiles(input);}
-    else await page.locator('[data-lesson-pdf-import-file]').setInputFiles(input);
+    await page.locator('[data-lesson-pdf-import-file]').setInputFiles(input);
     if(inspect)await inspect();
     await page.waitForFunction(()=>document.querySelector('#lmPdfDraftDialog[open]')||document.querySelector('#lmPdfImportStatus.bad'),{},{timeout:75000});
     assert.equal(await page.locator('#lmPdfDraftDialog[open]').count(),1,await page.locator('#lmPdfImportStatus').textContent());
@@ -181,7 +180,9 @@ try{
   assert.equal(lesson.blocks.length,1+analysed.words.length);assert.equal(uploads,0);assert.equal(alertCalls,0);
   assert.equal(dictionaryCards.size,analysed.words.length);
   assert.equal(writeOrder[0],'personal');assert.ok(writeOrder.indexOf('dictionary')>0,'Personal writes must finish before dictionary card creation');
-  await importPdf(undefined,true);
+  assert.equal(await page.getByRole('button',{name:'Import another PDF'}).count(),0);
+  assert.equal(await page.locator('[data-lesson-pdf-import]').isVisible(),true);
+  await importPdf();
   await dialog.locator('details').first().locator('input').check();
   yield "03. click";
   await dialog.getByRole('button',{name:'Apply selected sections to draft'}).click();

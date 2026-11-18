@@ -28690,33 +28690,10 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
   else if(pane)pane.prepend(node);
   else return;
   node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
-  let nextUpload=document.getElementById('lmPdfNextUpload');
-  if(label==='Draft ready'){
-    if(typeof window.lmShowTabProgress==='function'){
-      window.lmShowTabProgress(tab,'Draft ready to review!',100);
-    }
-    if(!nextUpload){
-      nextUpload=document.createElement('div');
-      nextUpload.id='lmPdfNextUpload';
-      nextUpload.className='lm-pdf-next-upload card saas-card';
-      node.after(nextUpload);
-    }
-    nextUpload.innerHTML='<div class="lm-pdf-ready-box" style="padding:16px 20px;"><button type="button" class="btn" id="lmPdfImportAnotherBtn">Import another PDF</button><div class="lm-drop lm-pdf-import is-ready-drop" style="margin-top:12px;cursor:pointer;"><span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small></div></div>';
-    nextUpload.querySelector('#lmPdfImportAnotherBtn').onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
-    const dropPrompt=nextUpload.querySelector('.is-ready-drop');
-    dropPrompt.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
-    dropPrompt.ondragover=e=>{e.preventDefault();dropPrompt.classList.add('is-over');};
-    dropPrompt.ondragleave=()=>{dropPrompt.classList.remove('is-over');};
-    dropPrompt.ondrop=e=>{
-      e.preventDefault();
-      dropPrompt.classList.remove('is-over');
-      const file=e.dataTransfer?.files?.[0];
-      if(file)lmImportPdfDraft(file);
-    };
-  } else {
-    document.getElementById('lmPdfNextUpload')?.remove();
+  document.getElementById('lmPdfNextUpload')?.remove();
+  if(label==='Draft ready'&&typeof window.lmShowTabProgress==='function'){
+    window.lmShowTabProgress(tab,'Draft ready to review!',100);
   }
-  if(tab==='file'&&drop)drop.hidden=true;
 }
 function lmPdfProgressEnd(){
   if(typeof window.lmHideTabProgress==='function'){
@@ -30077,8 +30054,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     }
     if(data.warnings.length){const warnings=document.createElement('p');warnings.textContent='Review required: '+data.warnings.join(' ');dialog.append(warnings);}
     paintPdfBlockBudget();
-    let draftConsent=null;
-    if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
     const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
@@ -30103,7 +30078,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     apply.onclick=async()=>{
       window.scrollTo({top:0,behavior:'smooth'});
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
-      if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
       if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';status.classList.add('bad');return;}
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
       status.classList.remove('bad');
@@ -31338,41 +31312,40 @@ if(typeof window!=='undefined'){
 
     overlay.innerHTML =
       '<div class="focus-player-header">' +
-        '<div style="font-size:14px; font-weight:700;">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
+        '<div class="focus-q-count">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
-        '<div style="display:flex; align-items:center; gap:14px;">' +
-          '<span style="font-size:11px; opacity:0.8; font-family:monospace; background:rgba(255,255,255,0.1); padding:3px 8px; border-radius:4px;">⌨️ 1-4: Select | Enter: Check/Next | Esc: Exit</span>' +
-          '<button type="button" class="btn-sm" id="lmFocusCloseBtn" style="font-size:16px; background:none; border:none; color:#ffffff; cursor:pointer;">✕</button>' +
+        '<div class="focus-header-tools">' +
+          '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Check/Next | Esc: Exit</span>' +
+          '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
       '</div>' +
 
       '<div class="focus-player-stage">' +
         '<div class="focus-card">' +
-          '<div style="font-size:12px; text-transform:uppercase; color:#94a3b8; font-weight:700; margin-bottom:6px;">' + esc(currentQ.title || 'Practice Task') + '</div>' +
-          '<h2 style="font-size:20px; font-weight:700; color:#f8fafc; margin-top:0; margin-bottom:18px;">' + esc(currentQ.prompt || '') + '</h2>' +
+          '<div class="focus-kicker">' + esc(currentQ.title || 'Practice Task') + '</div>' +
+          '<h2 class="focus-prompt">' + esc(currentQ.prompt || '') + '</h2>' +
           '<div class="focus-options-container">' + optionsHtml + '</div>' +
 
           (hasResult ? (
-            '<div class="focus-feedback-banner" style="margin-top:20px; padding:12px 16px; border-radius:8px; font-size:13.5px; font-weight:600; ' +
-              (isCorrect ? 'background:rgba(16,185,129,0.15); border:1px solid #10b981; color:#34d399;' : 'background:rgba(239,68,68,0.15); border:1px solid #ef4444; color:#f87171;') + '">' +
+            '<div class="focus-feedback ' + (isCorrect ? 'is-correct' : 'is-incorrect') + '">' +
               (isCorrect ? '✓ Correct! Excellent grasp of concept.' : '✗ Needs review. Target concept: ' + esc(currentQ.concept || '')) +
-              '<div style="font-size:12px; font-weight:400; opacity:0.9; margin-top:4px;">' + esc(currentQ.feedback || '') + '</div>' +
+              '<div class="focus-feedback-detail">' + esc(currentQ.feedback || '') + '</div>' +
             '</div>'
           ) : '') +
 
-          '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:24px;">' +
-            '<button type="button" class="btn secondary" id="focusPrevBtn" ' + (focusIndex === 0 ? 'disabled' : '') + ' style="font-size:13px;">← Previous</button>' +
+          '<div class="focus-actions">' +
+            '<button type="button" class="btn secondary" id="focusPrevBtn" ' + (focusIndex === 0 ? 'disabled' : '') + '>← Previous</button>' +
             (!hasResult ? (
-              '<button type="button" class="btn primary" id="focusCheckBtn" ' + (focusSelectedOption === null ? 'disabled' : '') + ' style="font-size:14px; font-weight:700; padding:8px 24px;">Check (Enter)</button>'
+              '<button type="button" class="btn primary" id="focusCheckBtn" ' + (focusSelectedOption === null ? 'disabled' : '') + '>Check (Enter)</button>'
             ) : (
-              '<button type="button" class="btn primary" id="focusNextBtn" style="font-size:14px; font-weight:700; padding:8px 24px;">' + (focusIndex < total - 1 ? 'Next question →' : 'Finish Session') + '</button>'
+              '<button type="button" class="btn primary" id="focusNextBtn">' + (focusIndex < total - 1 ? 'Next question →' : 'Finish Session') + '</button>'
             )) +
           '</div>' +
         '</div>' +
       '</div>' +
 
       '<div class="focus-player-footer">' +
-        '<div style="font-size:12px; color:#94a3b8;">Question Quick Jump:</div>' +
+        '<div class="focus-jump-label">Question Quick Jump:</div>' +
         '<div class="focus-strip">' + stripChips + '</div>' +
       '</div>';
   }

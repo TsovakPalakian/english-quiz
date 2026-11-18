@@ -137,33 +137,10 @@ function lmPdfProgress(label,completed=[],done=null,total=null){
   else if(pane)pane.prepend(node);
   else return;
   node.innerHTML='<div class="lm-pdf-ring'+(measurable?'':' is-indeterminate')+'" role="progressbar" aria-label="'+esc(label)+'"'+(measurable?' aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+percent+'"':'')+' style="--pdf-progress:'+((percent||0)*3.6)+'deg"><span>'+(measurable?'<b>'+percent+'%</b>':'')+'<span>'+esc(label)+'</span></span></div><ul>'+completed.map(text=>'<li>'+esc(text)+'</li>').join('')+'</ul>';
-  let nextUpload=document.getElementById('lmPdfNextUpload');
-  if(label==='Draft ready'){
-    if(typeof window.lmShowTabProgress==='function'){
-      window.lmShowTabProgress(tab,'Draft ready to review!',100);
-    }
-    if(!nextUpload){
-      nextUpload=document.createElement('div');
-      nextUpload.id='lmPdfNextUpload';
-      nextUpload.className='lm-pdf-next-upload card saas-card';
-      node.after(nextUpload);
-    }
-    nextUpload.innerHTML='<div class="lm-pdf-ready-box" style="padding:16px 20px;"><button type="button" class="btn" id="lmPdfImportAnotherBtn">Import another PDF</button><div class="lm-drop lm-pdf-import is-ready-drop" style="margin-top:12px;cursor:pointer;"><span>Drop another file here or choose a file</span><small>Supports any lesson file or PDF</small></div></div>';
-    nextUpload.querySelector('#lmPdfImportAnotherBtn').onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
-    const dropPrompt=nextUpload.querySelector('.is-ready-drop');
-    dropPrompt.onclick=()=>document.querySelector('[data-lesson-pdf-import-file]')?.click();
-    dropPrompt.ondragover=e=>{e.preventDefault();dropPrompt.classList.add('is-over');};
-    dropPrompt.ondragleave=()=>{dropPrompt.classList.remove('is-over');};
-    dropPrompt.ondrop=e=>{
-      e.preventDefault();
-      dropPrompt.classList.remove('is-over');
-      const file=e.dataTransfer?.files?.[0];
-      if(file)lmImportPdfDraft(file);
-    };
-  } else {
-    document.getElementById('lmPdfNextUpload')?.remove();
+  document.getElementById('lmPdfNextUpload')?.remove();
+  if(label==='Draft ready'&&typeof window.lmShowTabProgress==='function'){
+    window.lmShowTabProgress(tab,'Draft ready to review!',100);
   }
-  if(tab==='file'&&drop)drop.hidden=true;
 }
 function lmPdfProgressEnd(){
   if(typeof window.lmHideTabProgress==='function'){
@@ -1524,8 +1501,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     }
     if(data.warnings.length){const warnings=document.createElement('p');warnings.textContent='Review required: '+data.warnings.join(' ');dialog.append(warnings);}
     paintPdfBlockBudget();
-    let draftConsent=null;
-    if(current.published){const label=document.createElement('label');draftConsent=document.createElement('input');draftConsent.type='checkbox';label.append(draftConsent,document.createTextNode(' I agree to unpublish this lesson and save it as a draft until I publish it again.'));dialog.append(label);}
     const status=document.createElement('p');status.setAttribute('role','status');dialog.append(status);
     const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancel';cancel.onclick=()=>{controller.abort();lmPdfProgressEnd();dialog.remove();};
     const apply=document.createElement('button');apply.type='button';apply.textContent='Apply selected sections to draft';dialog.append(cancel,apply);
@@ -1550,7 +1525,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     apply.onclick=async()=>{
       window.scrollTo({top:0,behavior:'smooth'});
       if(!active()){status.textContent='The lesson or account changed. Import again in the intended lesson.';return;}
-      if(current.published&&!draftConsent?.checked){status.textContent='Confirm saving the published lesson as a draft.';return;}
       if(![...choices.values()].some(input=>input.checked)){status.textContent='Select at least one section.';status.classList.add('bad');return;}
       if(!window.LearningMain?.saveLesson||!window.LearningMain?.uploadLessonFile){status.textContent='Server lesson storage is unavailable.';return;}
       status.classList.remove('bad');
