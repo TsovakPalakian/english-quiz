@@ -180,7 +180,6 @@
           if (personal) {
             return leaveAccount({authEntry:authOrInvite}).then(() => finishPlace(authOrInvite?'account':undefined));
           }
-          try { localStorage.removeItem(CUSTOM_THEME_KEY); localStorage.removeItem(THEME_PICTURE_KEY); } catch (e) {}
           settleThemeAudience();
           paintHomeAccount();
           finishPlace(authOrInvite?'account':undefined);

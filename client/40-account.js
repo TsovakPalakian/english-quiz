@@ -133,6 +133,10 @@
       paintDeveloperChrome();
       localStorage.setItem("enquiz-auth-on", "1");
       paintAccount();
+      const savedTheme = currentTheme();
+      if (savedTheme && (themeCanShow(savedTheme) || String(savedTheme).indexOf("user-") === 0)) {
+        applyTheme(savedTheme, { sync: false });
+      }
       const on = document.querySelector("section.on");
       if (on && (on.id === "account" || on.id === "profile")) show("home");
       else if (on && on.id === "home") show("home");
@@ -167,7 +171,7 @@
       }));
     }
     function clearOwnBrowserData(opts) {
-      viewKeys().forEach((key) => localStorage.removeItem(key));
+      viewKeys().filter((key) => key !== THEME_KEY && key !== CUSTOM_THEME_KEY && key !== THEME_PICTURE_KEY).forEach((key) => localStorage.removeItem(key));
       [CARD_QUIZ_KEY, STARTED_KEY, LM_KEY, "enquiz-anon-backup", "enquiz-auth-on", "enquiz-dev-stash", "enquiz-view-id", "enquiz-view-login", "enquiz-view-role", "enquiz-view-email", "enquiz-view-name"].forEach((key) => localStorage.removeItem(key));
       try {
         const prefs = JSON.parse(localStorage.getItem("learning-main-prefs") || "{}");
