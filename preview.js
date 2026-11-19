@@ -13014,7 +13014,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         b.classList.toggle("on", on);
         b.setAttribute("aria-pressed", on ? "true" : "false");
       });
-      document.querySelectorAll("#dayQuizCustom [data-dq-type]").forEach((b) => b.classList.remove("on"));
+      document.querySelectorAll("#dayQuizCustom [data-dq-type]").forEach((b) => {
+        const isFlip = b.dataset.dqType === "Flip";
+        b.classList.toggle("on", isFlip);
+      });
     }
     function resetDayQuizBoardInputs(total) {
       const from = document.querySelector("[data-dq-from]");
@@ -13068,14 +13071,18 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (slot) slot.textContent = picked + " of " + buttons.length + " selected";
       });
       const label = DAY_QUIZ_MODE_LABEL[mode] || "Quick review";
+      const selectedCards = limitStudyCards(pool, "daysetup", true);
+      const exercises = types.length ? studyExerciseCount(selectedCards, types) : 0;
       const ready = document.getElementById("dayQuizReady");
-      if (ready) ready.textContent = label + " · " + types.length + (types.length === 1 ? " type" : " types");
+      if (ready) {
+        ready.textContent = label + " · " + types.length + (types.length === 1 ? " type" : " types") + (exercises ? " · " + exercises + (exercises === 1 ? " exercise" : " exercises") : "");
+      }
       const chips = document.getElementById("dayQuizChips");
       if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
       const mark = document.getElementById("dayQuizMark");
       const modeBtn = document.querySelector('#dayQuizModes [data-dq-mode].on .dq-ico');
       if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
-      const mins = Math.max(0, Math.round(selectedN * 30 / 60));
+      const mins = Math.max(0, Math.round(exercises * 30 / 60));
       const start = document.getElementById("dayQuizStart");
       if (start) {
         const cardsWord = selectedN === 1 ? " card" : " cards";
@@ -13662,7 +13669,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       examMistakes = 0;
       examCorrect = 0;
       examLog = [];
-      sessionMs = here === "daysetup" ? (dayQuizBoardOn ? cards.length * 30 * 1000 : studyBudgetMs(cards, chosenTypes(false))) : EXAM_MS;
+      sessionMs = here === "daysetup" ? (dayQuizBoardOn ? queue.length * 30 * 1000 : studyBudgetMs(cards, chosenTypes(false))) : EXAM_MS;
       examStarted = Date.now();
       dayQueue = queue;
       dayAt = 0;

@@ -10056,8 +10056,8 @@ html[data-notify-unread="1"] .popover-notify-dot {
 }
 
 .dq-board { display: flex; flex-direction: column; gap: 14px; color: var(--ink); }
-.dq-head { display: flex; align-items: flex-start; gap: 10px; }
-.dq-head h1 { margin: 0; color: var(--ink); font-size: 28px; line-height: 1.15; }
+.dq-head { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.dq-head h1 { margin: 0; color: var(--ink); font-size: 26px; font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; white-space: nowrap; }
 .dq-kicker { margin: 0 0 2px; color: var(--mute); font-size: 13px; }
 .dq-kicker:empty { display: none; }
 .dq-back { min-width: 36px; }
@@ -10065,7 +10065,7 @@ html[data-notify-unread="1"] .popover-notify-dot {
 .dq-cards, .dq-modes, .dq-types { display: grid; gap: 12px; }
 .dq-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dq-modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.dq-types { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dq-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .dq-card, .dq-types button {
   position: relative;
   text-align: left;
@@ -10128,7 +10128,7 @@ html[data-notify-unread="1"] .popover-notify-dot {
   padding: 6px 8px;
 }
 .dq-slider { flex: 1; accent-color: var(--acc); }
-.dq-group { padding: 14px; margin-top: 12px; }
+.dq-group { display: block; padding: 14px; margin-top: 12px; }
 #dayQuizCustom { display: block; }
 .dq-group header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
 .dq-group header b { color: var(--ink); }

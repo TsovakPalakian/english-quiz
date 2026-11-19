@@ -56,7 +56,7 @@ async function api(path,payload){
 async function run(work){
   if(busy)return;busy=true;
   const buttons=[...document.querySelectorAll('button,select')].map(node=>({node,disabled:node.disabled}));buttons.forEach(({node})=>node.disabled=true);
-  try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);}
+  try{await work();}catch(error){message(error.message,true);}finally{busy=false;buttons.filter(({node})=>node.isConnected).forEach(({node,disabled})=>node.disabled=node.id==='account'?false:disabled);$('#edit-type').disabled=!!(editing?.id||editing?.repairJob);const acc=$('#account');if(acc)acc.disabled=false;}
 }
 async function loadSession(){
   sessionEpoch++;attemptCache.clear();quotaState=null;providerSettingsUI.reset();independentUI.reset();pipelineUI.reset();kitUI.reset();Object.keys(queueFilters).forEach(key=>queueFilters[key]='');
@@ -316,7 +316,8 @@ document.addEventListener('click',e=>{
         const generated=(await api('/local/quizzes/'+job.versionId)).quiz;
         if(['draft','returned'].includes(generated.state)&&generated.author.id!==boot.actor.id){$('#history-content').innerHTML=identity(generated)+'<p class="muted">Awaiting changes or submission by the author.</p>'+generated.content.items.map(item=>reviewItemPreview(generated.type,item)).join('');$('#history').showModal();return;}
         view=generated.state==='approved'?'word':generated.state==='submitted'?'queue':'mine';
-        if(view==='word')contextId=boot.contexts.find(c=>c.cardId===job.cardId&&c.lessonId===job.lessonId)?.id||contextId;
+        const targetContext=boot.contexts.find(c=>c.cardId===job.cardId&&c.lessonId===job.lessonId)||selected();
+        if(view==='word'&&targetContext)contextId=targetContext.id;
         expansion.set('type-'+(view==='word'?contextId:job.lessonId+'-'+job.senseId)+'-'+job.type,true);expansion.set('item-'+job.versionId,true);
       }
       pollFailures=0;await refresh();

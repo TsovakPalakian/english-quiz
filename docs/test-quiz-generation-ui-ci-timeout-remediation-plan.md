@@ -3,29 +3,32 @@
 > [!WARNING]
 > <span style="color: red; font-weight: bold;">WARNING</span>
 > Данная задача затрагивает компонент локального тестирования и ревью генерации квизов:
-> 1. `client/demos/quiz-review-local.js`: обработчик клика `open-generated` (открытие связанного квиза из карточки задания на генерацию).
-> 2. `test/test-quiz-generation-ui.mjs`: шаг 08 сценария UI-теста, ожидающий видимость плашки верификации преподавателя `.verified`.
-> Запрещено затрагивать и модифицировать любой несвязанный функционал.
+> 1. `client/demos/quiz-review-local.js`: обработчик клика `open-generated` и синхронизация состояния `busy` с доступностью элементов управления.
+> 2. `test/test-quiz-generation-ui.mjs`: шаг 08 сценария UI-теста, синхронизация ожидания неактивности фонового поллинга и раскрытие плашки `.verified`.
+> Запрещено затрагивать и модифицировать функционал, не относящийся к текущей задаче.
 
 ---
 
 ### Анализ причины сбоя
 
-- **Симптом в CI (GitHub Actions)**:
+- **Симптом в CI (GitHub Actions 2026-11-19)**:
   `locator.waitFor: Timeout 30000ms exceeded.`
-  `waiting for locator('[data-item="5759622b-8467-4d72-a032-92cba5a13bdb"] .verified') to be visible`
-  `62 × locator resolved to hidden <p class="verified">✓ Elena · 2026-11-18</p>`
+  `waiting for locator('[data-item="9f5f3904-07b6-4d47-9123-6135ddf4bbe2"] .verified') to be visible`
+  `63 × locator resolved to hidden <p class="verified">✓ Elena · 2026-11-19</p>`
+  `at test/test-quiz-generation-ui.mjs:83:69`
+
 - **Коренная причина**:
-  Элемент `.verified` присутствует в DOM (`62 × locator resolved to hidden`), но расположен внутри свернутого родительского элемента `<details>` (родительской группы типов или карточки квиза).
-  В `client/demos/quiz-review-local.js` функция `openKitVersion` обходит всех предков элемента и гарантированно раскрывает их:
-  `for(let node=item;node;node=node.parentElement)if(node.tagName==='DETAILS'){node.open=true;if(node.dataset.expand)expansion.set(node.dataset.expand,true);}`
-  Однако действие `open-generated` лишь выставляло флаги в `expansion` без принудительного раскрытия дерева предков после `refresh()`. Под нагрузкой CI родительский `<details>` оставался закрытым, что блокировало видимость `.verified` в Playwright.
+  1. В `client/demos/quiz-review-local.js` (строка 369) активен фоновый интервал `setInterval`, опрашивающий статус задач каждые 1000 мс при наличии задач в состояниях `queued`, `running`, `retry`. На шаге 06 задача `choice` была отправлена на повторную генерацию (`retry-job`), поэтому во время шага 08 фоновый поллинг периодически вызывает `run(async () => await refresh())` и выставляет флаг `busy = true`.
+  2. Во время работы `refresh()` вызывается `render()`, который перезаписывает `$('#content').innerHTML`. При этом вновь созданные кнопки внутри `#content` создавались без атрибута `disabled`, хотя флаг `busy` в этот момент был равен `true`.
+  3. Если Playwright на шаге 08 выполнял клик по кнопке `[data-action="open-generated"]`, событие клика попадало на проверку в строке 303: `if (!b || busy) return;`. Из-за активного флага `busy` клик отбрасывался без выполнения перехода и без раскрытия дерева предков.
+  4. В `test/test-quiz-generation-ui.mjs` на шаге 08 отсутствовала синхронизация с окончанием работы `run()` (ожидание разблокировки `#account`), а вызов `evaluate` на строке 82 был обернут в пустой `.catch(() => {})`, что маскировало отсутствие эффекта при параллельном перерендере. В результате элемент `<details class="queue-type">` оставался закрытым, а элемент `<p class="verified">` внутри него признавался Playwright скрытым на протяжении всех 30 секунд.
 
 ---
 
 ### Чеклист этапов реализации
 
-- 🟩 **Этап 1**: Обеспечение раскрытия родительских `<details>` и сохранения состояния в `client/demos/quiz-review-local.js` при действии `open-generated`
-- 🟩 **Этап 2**: Добавление защитного раскрытия предков в `test/test-quiz-generation-ui.mjs` (по аналогии со шагами 11 и 15 того же теста)
-- 🟩 **Этап 3**: Верификация теста `node --test test/test-quiz-generation-ui.mjs`
-- 🟩 **Этап 4**: Полный прогон `node ops/check-all.mjs` (280 из 280)
+- 🟩 **Этап 1**: Анализ состояния гонки и фиксация плана устранения в документации
+- 🟩 **Этап 2**: Корректировка `client/demos/quiz-review-local.js`: блокировка элементов при перерендере во время `busy`, корректная обработка раскрытия предков для `open-generated`
+- 🟩 **Этап 3**: Корректировка шага 08 в `test/test-quiz-generation-ui.mjs`: ожидание завершения фоновых операций через `#account:not([disabled])` перед и после клика `open-generated`, детерминированное раскрытие контейнера
+- 🟩 **Этап 4**: Локальная верификация `node --test test/test-quiz-generation-ui.mjs` (включая стресс-прогоны с замедлением процессора)
+- 🟩 **Этап 5**: Верификация с целевыми тестами и сборка ассетов через `ops/build-learning-production-assets.mjs`

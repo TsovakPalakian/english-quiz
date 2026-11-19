@@ -1120,12 +1120,12 @@
 
     <section id="daysetup">
       <div id="dayQuizBoard" class="dq-board" hidden>
-        <div class="dq-head">
-          <button class="btn ghost saas-btn dq-back" type="button" data-fallback="lesson" id="dayQuizBack" aria-label="Back">←</button>
-          <div>
-            <p class="dq-kicker" id="dayQuizWho"></p>
-            <h1 id="dayQuizTitle">This day's quiz</h1>
-          </div>
+        <div class="dq-head" id="dayQuizHead">
+          <span class="crumb">
+            <button class="btn ghost icon" type="button" data-jump="home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg></button>
+            <button class="btn ghost saas-btn dq-back icon" type="button" data-fallback="material" id="dayQuizBack" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg></button>
+          </span>
+          <h1 id="dayQuizTitle">This day's quiz</h1>
         </div>
         <p class="dq-label">Cards</p>
         <div class="dq-cards" id="dayQuizCards">
@@ -1197,7 +1197,7 @@
             <small>FSRS flashcards</small>
           </button>
           <button class="dq-card" type="button" data-dq-mode="custom" aria-pressed="false">
-            <span class="dq-ico" aria-hidden="true">▦</span>
+            <span class="dq-ico" aria-hidden="true">🎛️</span>
             <span class="dq-check" aria-hidden="true">✓</span>
             <b>Custom mix</b>
             <small>Pick types yourself</small>
@@ -1205,9 +1205,9 @@
         </div>
         <div id="dayQuizCustom" hidden>
           <section class="dq-group" data-dq-group="recognize">
-            <header><div><b>Recognize</b><span data-dq-picked>0 of 7 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <header><div><b>Recognize</b><span data-dq-picked>1 of 7 selected</span></div><button type="button" data-dq-all>Select all</button></header>
             <div class="dq-types">
-              <button type="button" data-dq-type="Flip"><b>Flip</b><small>See the card, rate yourself</small></button>
+              <button class="on" type="button" data-dq-type="Flip"><b>Flip</b><small>See the card, rate yourself</small></button>
               <button type="button" data-dq-type="Choice"><b>Choice</b><small>Pick the right option</small></button>
               <button type="button" data-dq-type="True / false"><b>True / false</b><small>Judge the sentence</small></button>
               <button type="button" data-dq-type="Match"><b>Match</b><small>Pair the halves</small></button>
@@ -1242,7 +1242,7 @@
             </div>
           </section>
           <section class="dq-group" data-dq-group="review">
-            <header><div><b>Review</b><span data-dq-picked>0 of 1 selected</span></div><button type="button" data-dq-all>Select all</button></header>
+            <header><div><b>Review</b><span data-dq-picked>0 of 1 selected</span></div></header>
             <div class="dq-types">
               <button type="button" data-dq-type="FSRS Flashcard"><b>FSRS Flashcard</b><small>Due today</small></button>
             </div>
