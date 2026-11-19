@@ -148,7 +148,6 @@ function lmPdfProgressEnd(){
   }
   document.getElementById('lmPdfProgress')?.remove();
   document.getElementById('lmPdfNextUpload')?.remove();
-  document.getElementById('lmPdfDraftFloatingBar')?.remove();
   document.getElementById('lmPdfManualToggle')?.remove();
   document.querySelector('.lm-import-methods')?.classList.remove('is-reviewing-draft','show-manual-inputs');
   const drop=document.querySelector('[data-lesson-pdf-import]');if(drop)drop.hidden=false;
@@ -963,7 +962,6 @@ async function lmImportPdfDraft(file) {
   const isDocx = /\.docx$/i.test(file.name||'');
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
-  document.getElementById('lmPdfDraftFloatingBar')?.remove();
   document.getElementById('lmPdfManualToggle')?.remove();
   document.querySelector('.lm-import-methods')?.classList.remove('is-reviewing-draft','show-manual-inputs');
   const controller=new AbortController();lmPdfDraftRequest=controller;
@@ -1037,21 +1035,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     dialog.append(headWrap);
     const budgetNote=document.createElement('p');budgetNote.id='lmPdfBlockBudget';dialog.append(budgetNote);
 
-    document.getElementById('lmPdfDraftFloatingBar')?.remove();
     document.getElementById('lmPdfManualToggle')?.remove();
-    const floatingBar=document.createElement('div');floatingBar.setAttribute("id", "lmPdfDraftFloatingBar");floatingBar.className='lm-pdf-floating-bar';
-    floatingBar.innerHTML=
-      '<div class="lm-pdf-floating-info">'+
-        '<span class="lm-pdf-floating-badge" id="lmPdfFloatingBadge">0 sections selected</span>'+
-        '<span class="lm-pdf-floating-text" id="lmPdfFloatingText">0 items ready to be applied to lesson draft</span>'+
-      '</div>'+
-      '<div class="lm-pdf-floating-actions">'+
-        '<button type="button" class="lm-pdf-floating-cancel" id="lmPdfFloatingCancel">Cancel</button>'+
-        '<button type="button" class="lm-pdf-floating-apply" id="lmPdfFloatingApply"><span>✓</span><span>Apply selected sections to draft</span></button>'+
-      '</div>';
-    document.body.append(floatingBar);
-    const floatCancelBtn=floatingBar.querySelector('#lmPdfFloatingCancel');
-    const floatApplyBtn=floatingBar.querySelector('#lmPdfFloatingApply');
 
     function updateCounts(){
       const selectedKeys=new Set([...choices].filter(([,input])=>input.checked).map(([key])=>key));
@@ -1086,16 +1070,7 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         totalItems+=(totalCards>0?checked:(data.homework||[]).length);
       }
 
-      const selectedCount=selectedKeys.size;
-      const badge=floatingBar.querySelector('#lmPdfFloatingBadge');
-      if(badge) badge.textContent=`${selectedCount} section${selectedCount===1?'':'s'} selected`;
-      const text=floatingBar.querySelector('#lmPdfFloatingText');
-      if(text) text.textContent=`${totalItems} item${totalItems===1?'':'s'} ready to be applied to lesson draft`;
       if(quickApply) quickApply.textContent=totalItems>0?`✓ Apply to draft (${totalItems})`:'✓ Apply to draft';
-      if(floatApplyBtn){
-        const labelSpan=floatApplyBtn.querySelector('span:last-child');
-        if(labelSpan) labelSpan.textContent=totalItems>0?`Apply selected sections to draft (${totalItems})`:'Apply selected sections to draft';
-      }
     }
     dialog.addEventListener('change',updateCounts);
 
@@ -1510,12 +1485,9 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
 
     quickCancel.onclick=()=>cancel.click();
     quickApply.onclick=()=>apply.click();
-    floatCancelBtn.onclick=()=>cancel.click();
-    floatApplyBtn.onclick=()=>apply.click();
 
     const origDialogRemove=dialog.remove.bind(dialog);
     dialog.remove=()=>{
-      floatingBar?.remove();
       document.getElementById('lmPdfManualToggle')?.remove();
       const importBox=document.querySelector('.lm-import-methods');
       importBox?.classList.remove('is-reviewing-draft','show-manual-inputs');
@@ -1530,7 +1502,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       status.classList.remove('bad');
       apply.disabled=true;cancel.disabled=true;
       quickApply.disabled=true;quickCancel.disabled=true;
-      floatApplyBtn.disabled=true;floatCancelBtn.disabled=true;
       try{
         await window.LearningMain.perform(async()=>{
           if(!active())throw new Error('The lesson changed.');
@@ -1759,7 +1730,6 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
       finally{
         apply.disabled=false;cancel.disabled=false;
         quickApply.disabled=false;quickCancel.disabled=false;
-        floatApplyBtn.disabled=false;floatCancelBtn.disabled=false;
       }
     };
     const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
@@ -1922,7 +1892,6 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
   if(!lmState)return;
   lmPdfDraftRequest?.abort();
   document.getElementById('lmPdfDraftDialog')?.remove();
-  document.getElementById('lmPdfDraftFloatingBar')?.remove();
   document.getElementById('lmPdfManualToggle')?.remove();
   document.querySelector('.lm-import-methods')?.classList.remove('is-reviewing-draft','show-manual-inputs');
   const controller=new AbortController();lmPdfDraftRequest=controller;

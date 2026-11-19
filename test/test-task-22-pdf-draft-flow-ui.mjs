@@ -117,15 +117,8 @@ await scenarioSubtests("task-22-pdf-draft-flow-ui", async function*(){
 
     await importPdf();
 
-    yield "02. Verify floating action bar, header quick actions, guide banner, and collapsed manual script";
-    const floatingBar=page.locator('#lmPdfDraftFloatingBar');
-    assert.equal(await floatingBar.isVisible(), true, 'Floating action bar must be mounted and visible');
-
-    const badge=page.locator('#lmPdfFloatingBadge');
-    assert.match(await badge.textContent(), /sections selected/, 'Badge must display selected sections count');
-
-    const floatingText=page.locator('#lmPdfFloatingText');
-    assert.match(await floatingText.textContent(), /items ready to be applied/, 'Floating text must state ready items');
+    yield "02. Verify header quick actions, guide banner, and collapsed manual script without floating bar";
+    assert.equal(await page.locator('#lmPdfDraftFloatingBar').count(), 0, 'Floating action bar must not be mounted');
 
     const quickApply=page.locator('#lmPdfDraftDialog .lm-pdf-quick-apply');
     assert.equal(await quickApply.isVisible(), true, 'Header quick apply button must be visible');
@@ -149,40 +142,40 @@ await scenarioSubtests("task-22-pdf-draft-flow-ui", async function*(){
     await manualToggle.click();
     assert.equal(await importContainer.evaluate(el=>el.classList.contains('show-manual-inputs')), false, 'Clicking toggle again collapses manual inputs');
 
-    yield "03. Dynamic count updates when toggling section checkboxes";
-    const initialBadge=await badge.textContent();
+    yield "03. Dynamic count updates on quick apply when toggling section checkboxes";
+    const initialApplyText=await quickApply.textContent();
     const detailsList=await page.locator('#lmPdfDraftDialog details').all();
     assert.ok(detailsList.length >= 2, 'Dialog should contain multiple sections');
 
     // Uncheck first section (Basic info)
     const firstCheckbox=detailsList[0].locator('summary input[type="checkbox"]');
     await firstCheckbox.uncheck();
-    const updatedBadge=await badge.textContent();
-    assert.notEqual(initialBadge, updatedBadge, 'Floating badge must update when section checkbox changes');
+    const updatedApplyText=await quickApply.textContent();
+    assert.notEqual(initialApplyText, updatedApplyText, 'Quick apply text must update when section checkbox changes');
 
     // Recheck first section
     await firstCheckbox.check();
-    assert.equal(await badge.textContent(), initialBadge, 'Floating badge must revert when section is rechecked');
+    assert.equal(await quickApply.textContent(), initialApplyText, 'Quick apply text must revert when section is rechecked');
 
-    yield "04. Cancelling from floating bar restores editor state and cleans up";
-    await page.locator('#lmPdfFloatingCancel').click();
+    yield "04. Cancelling from header quick cancel restores editor state and cleans up";
+    await page.locator('#lmPdfDraftDialog .lm-pdf-quick-cancel').click();
     await page.waitForFunction(()=>!document.querySelector('#lmPdfDraftDialog'));
-    assert.equal(await page.locator('#lmPdfDraftFloatingBar').count(), 0, 'Floating bar must be removed on cancel');
+    assert.equal(await page.locator('#lmPdfDraftFloatingBar').count(), 0, 'Floating bar must not exist on cancel');
     assert.equal(await page.locator('#lmPdfManualToggle').count(), 0, 'Manual toggle must be removed on cancel');
     assert.equal(await importContainer.evaluate(el=>el.classList.contains('is-reviewing-draft')), false, 'is-reviewing-draft class must be removed');
 
-    yield "05. Re-import and apply using the floating bar apply button";
+    yield "05. Re-import and apply using the quick apply button";
     await importPdf();
-    assert.equal(await page.locator('#lmPdfDraftFloatingBar').isVisible(), true);
-    await page.locator('#lmPdfFloatingApply').click();
+    assert.equal(await page.locator('#lmPdfDraftFloatingBar').count(), 0, 'Floating bar must not be mounted');
+    await page.locator('#lmPdfDraftDialog .lm-pdf-quick-apply').click();
 
     await page.waitForFunction(()=>!document.querySelector('#lmPdfDraftDialog')||document.querySelector('#lmPdfDraftDialog [role=status]')?.classList.contains('bad'));
     const statusText=await page.locator('#lmPdfDraftDialog [role=status]').textContent().catch(()=>'');
     assert.equal(await page.locator('#lmPdfDraftDialog').count(), 0, statusText);
-    assert.equal(await page.locator('#lmPdfDraftFloatingBar').count(), 0, 'Floating bar must be removed after successful apply');
+    assert.equal(await page.locator('#lmPdfDraftFloatingBar').count(), 0, 'Floating bar must not exist after apply');
     assert.equal(await page.locator('#lmPdfManualToggle').count(), 0, 'Manual toggle must be removed after successful apply');
     assert.equal(await importContainer.evaluate(el=>el.classList.contains('is-reviewing-draft')), false, 'is-reviewing-draft class must be removed');
-    assert.ok(lesson.blocks.length > 0, 'Lesson must have blocks populated after applying via floating bar');
+    assert.ok(lesson.blocks.length > 0, 'Lesson must have blocks populated after applying via quick apply');
 
     assert.deepEqual(errors, []);
   } finally {
