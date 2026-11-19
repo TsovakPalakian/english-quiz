@@ -4714,30 +4714,30 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   overflow: visible;
   padding: 24px;
   margin: 16px 0;
-  border: 1px solid var(--saas-border, #e2e8f0);
+  border: 1px solid var(--line);
   border-radius: var(--saas-radius-xl, 16px);
-  background: var(--saas-card, #ffffff);
-  color: var(--saas-text, #0f172a);
-  box-shadow: var(--saas-shadow-card, 0 1px 3px rgba(0,0,0,0.05));
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   box-sizing: border-box;
 }
 .lm-pdf-draft::backdrop { display: none; }
-.lm-pdf-draft h2 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--saas-text, #0f172a); }
-.lm-pdf-draft > p { margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: var(--saas-text-muted, #64748b); }
+.lm-pdf-draft h2 { margin: 0 0 8px; font-size: 20px; font-weight: 700; color: var(--ink); }
+.lm-pdf-draft > p { margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: var(--mute); }
 .lm-pdf-draft details {
   padding: 12px 16px;
   margin: 8px 0;
-  border: 1px solid var(--saas-border, #e2e8f0);
+  border: 1px solid var(--line);
   border-radius: var(--saas-radius-md, 8px);
-  background: var(--saas-subtle, #f8fafc);
+  background: var(--bg);
   transition: all 0.15s ease;
 }
-.lm-pdf-draft details[open] { background: var(--saas-card, #ffffff); color: var(--saas-text-primary, #0f172a); box-shadow: var(--saas-shadow-sm); }
+.lm-pdf-draft details[open] { background: var(--saas-card, var(--card, #ffffff)); color: var(--saas-text-primary, var(--ink, #0f172a)); box-shadow: var(--saas-shadow-sm, 0 1px 2px rgba(0,0,0,0.05)); }
 .lm-pdf-draft details > summary {
   cursor: pointer;
   font-weight: 600;
   font-size: 14px;
-  color: var(--saas-text, #0f172a);
+  color: var(--ink);
   display: flex;
   align-items: center;
 }
@@ -4764,8 +4764,8 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: var(--saas-brand, #0d9488);
-  color: #ffffff;
+  background: var(--acc);
+  color: var(--on-acc, #ffffff);
   font-size: 12px;
   font-weight: 700;
   margin: 0 !important;
@@ -4778,7 +4778,7 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   display: inline !important;
   font-size: 15px;
   font-weight: 700;
-  color: var(--saas-text, #0f172a);
+  color: var(--ink);
 }
 
 .lm-pdf-section-num::before {
@@ -4786,8 +4786,8 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 }
 
 .lm-pdf-section-num.is-off {
-  background: var(--saas-card-muted, #e2e8f0);
-  color: var(--saas-text-muted, #64748b);
+  background: var(--line);
+  color: var(--mute);
 }
 
 .lm-pdf-draft details.is-section-off {
@@ -4801,20 +4801,20 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 .lm-pdf-draft pre {
   margin: 12px 0 4px;
   padding: 12px;
-  background: var(--saas-subtle, #f8fafc);
-  border: 1px solid var(--saas-border, #e2e8f0);
+  background: var(--bg);
+  border: 1px solid var(--line);
   border-radius: 6px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 12.5px;
   line-height: 1.5;
-  color: var(--saas-text, #0f172a);
+  color: var(--ink);
 }
 .lm-pdf-form-box {
   margin: 12px 0 4px;
   padding: 14px 16px;
-  background: var(--saas-subtle, #f8fafc);
-  border: 1px solid var(--saas-border, #e2e8f0);
+  background: var(--bg);
+  border: 1px solid var(--line);
   border-radius: var(--saas-radius-md, 8px);
 }
 .lm-pdf-words-container,
@@ -4838,15 +4838,15 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 .lm-pdf-word-card,
 .lm-pdf-rule-card {
   padding: 14px 16px;
-  border: 1px solid var(--saas-border, #e2e8f0);
+  border: 1px solid var(--line);
   border-radius: var(--saas-radius-md, 8px);
-  background: #ffffff;
+  background: var(--card);
   transition: opacity 0.15s ease, border-color 0.15s ease;
 }
 .lm-pdf-word-card.is-unselected,
 .lm-pdf-rule-card.is-unselected {
   opacity: 0.45;
-  background: var(--saas-subtle, #f8fafc);
+  background: var(--bg);
 }
 .lm-pdf-word-header {
   display: flex;
@@ -4861,7 +4861,7 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
-  color: var(--saas-text, #0f172a);
+  color: var(--ink);
 }
 .lm-pdf-word-actions {
   display: flex;
@@ -4873,7 +4873,7 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   height: auto;
   margin: 0;
 }
-.lm-pdf-draft input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--saas-brand, #0d9488); cursor: pointer; }
+.lm-pdf-draft input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--acc); cursor: pointer; }
 .lm-pdf-draft button {
   height: 40px;
   padding: 0 18px;
@@ -4885,22 +4885,21 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   transition: all 0.15s ease;
 }
 .lm-pdf-draft button:not([disabled]):last-of-type {
-  background: var(--saas-brand, #0d9488);
-  color: #ffffff;
-  border: 1px solid var(--saas-brand, #0d9488);
-  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.2);
+  background: var(--acc);
+  color: var(--on-acc, #ffffff);
+  border: 1px solid var(--acc);
 }
 .lm-pdf-draft button:not([disabled]):last-of-type:hover {
-  background: #0f766e;
+  filter: brightness(0.9);
 }
 .lm-pdf-draft button:first-of-type {
-  background: #ffffff;
-  color: var(--saas-text-muted, #64748b);
-  border: 1px solid var(--saas-border, #e2e8f0);
+  background: var(--card);
+  color: var(--mute);
+  border: 1px solid var(--line);
 }
 .lm-pdf-draft button:first-of-type:hover {
-  background: #f8fafc;
-  color: var(--saas-text, #0f172a);
+  background: var(--bg);
+  color: var(--ink);
 }
 
 /* TASK-22: Floating Action Bar and Review Header for Lesson PDF Draft */
@@ -4916,13 +4915,13 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   margin: 0 0 6px;
   font-size: 20px;
   font-weight: 700;
-  color: var(--saas-text, #0f172a);
+  color: var(--ink);
 }
 .lm-pdf-review-header p {
   margin: 0;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--saas-text-muted, #64748b);
+  color: var(--mute);
 }
 .lm-pdf-quick-actions {
   display: flex;
@@ -4933,9 +4932,9 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 .lm-pdf-quick-cancel {
   height: 34px !important;
   padding: 0 14px !important;
-  border: 1px solid var(--saas-border, #cbd5e1) !important;
-  background: #ffffff !important;
-  color: var(--saas-text-muted, #64748b) !important;
+  border: 1px solid var(--line) !important;
+  background: var(--card) !important;
+  color: var(--mute) !important;
   border-radius: 6px !important;
   font-size: 12.5px !important;
   font-weight: 600 !important;
@@ -4944,30 +4943,29 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   transition: all 0.15s ease;
 }
 .lm-pdf-quick-cancel:hover {
-  background: var(--saas-subtle, #f8fafc) !important;
-  color: var(--saas-text, #0f172a) !important;
+  background: var(--bg) !important;
+  color: var(--ink) !important;
 }
 .lm-pdf-quick-apply {
   height: 34px !important;
   padding: 0 16px !important;
-  border: 1px solid var(--saas-brand, #0d9488) !important;
-  background: var(--saas-brand, #0d9488) !important;
-  color: #ffffff !important;
+  border: 1px solid var(--acc) !important;
+  background: var(--acc) !important;
+  color: var(--on-acc, #ffffff) !important;
   border-radius: 6px !important;
   font-size: 12.5px !important;
   font-weight: 700 !important;
   cursor: pointer;
   margin: 0 !important;
-  box-shadow: 0 1px 3px rgba(13, 148, 136, 0.3) !important;
   transition: all 0.15s ease;
 }
 .lm-pdf-quick-apply:hover {
-  background: #0f766e !important;
+  filter: brightness(0.9) !important;
 }
 
 .lm-pdf-guide-banner {
-  background: #f0fdfa;
-  border: 1px solid #99f6e4;
+  background: var(--acc-s);
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px 16px;
   margin: 16px 0 6px;
@@ -4976,7 +4974,7 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
   gap: 12px;
   font-size: 13px;
   line-height: 1.5;
-  color: #0f766e;
+  color: var(--ink);
 }
 .lm-pdf-guide-icon {
   font-size: 16px;
@@ -4986,21 +4984,21 @@ body:is(.guest-home,.guest-auth) .studio-brand { cursor: default; }
 .lm-pdf-manual-collapsed {
   margin-top: 14px;
   padding: 10px 14px;
-  background: var(--saas-subtle, #f8fafc);
-  border: 1px dashed var(--saas-border, #cbd5e1);
+  background: var(--bg);
+  border: 1px dashed var(--line);
   border-radius: 8px;
   font-size: 12.5px;
-  color: var(--saas-text-muted, #64748b);
+  color: var(--mute);
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
 }
 .lm-pdf-manual-collapsed:hover {
-  background: #f1f5f9;
+  background: var(--acc-s);
 }
 .lm-pdf-manual-toggle-text {
-  color: var(--saas-brand, #0d9488);
+  color: var(--acc);
   font-weight: 600;
 }
 

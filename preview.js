@@ -25389,6 +25389,7 @@ const STUDIO_CONSTELLATIONS = [{
       });
     }
     async function lmLookupWord() {
+      if (typeof stageLookupLessonWord === 'function') return stageLookupLessonWord();
       const input = document.getElementById("lmWordInput");
       const status = document.getElementById("lmWordStatus");
       const button = document.getElementById("lmWordGo");
@@ -27674,11 +27675,7 @@ const STUDIO_CONSTELLATIONS = [{
           timeLimitWrap.style.display = isExam ? "inline-flex" : "none";
         }
         if (btn) {
-          if (isExam) {
-            btn.textContent = hasBlocks ? "Generate tasks" : "Generate exam";
-          } else {
-            btn.textContent = hasBlocks ? "Generate tasks" : "Generate lesson";
-          }
+          btn.textContent = "Generate";
         }
         lmSyncLessonComplementTab();
       }
@@ -30042,6 +30039,8 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
     const origDialogRemove=dialog.remove.bind(dialog);
     dialog.remove=()=>{
       document.getElementById('lmPdfManualToggle')?.remove();
+      const scriptInputContainer = document.getElementById('lmScriptInputContainer');
+      if (scriptInputContainer) scriptInputContainer.style.display = '';
       const importBox=document.querySelector('.lm-import-methods');
       importBox?.classList.remove('is-reviewing-draft','show-manual-inputs');
       origDialogRemove();
@@ -30285,10 +30284,22 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         quickApply.disabled=false;quickCancel.disabled=false;
       }
     };
-    const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
-    if(mount&&mount.id==='lmPdfProgress'){mount.insertAdjacentElement('afterend',dialog);}
-    else if(mount){mount.prepend(dialog);}
-    else{document.body.append(dialog);}
+    const activeTabKey = (typeof lmPdfProgressTab !== 'undefined' && lmPdfProgressTab) ? lmPdfProgressTab : 'file';
+    const paneId = activeTabKey === 'file' ? 'lmTabPaneFile' : (activeTabKey === 'url' ? 'lmTabPaneUrl' : (activeTabKey === 'lesson' ? 'lmTabPaneLesson' : 'lmTabPaneScript'));
+    const activePane = document.getElementById(paneId) || document.querySelector('.lm-tab-pane.active');
+    if (activePane) {
+      activePane.append(dialog);
+    } else {
+      const mount=document.getElementById('lmPdfProgress')||document.getElementById('material');
+      if(mount&&mount.id==='lmPdfProgress'){mount.insertAdjacentElement('afterend',dialog);}
+      else if(mount){mount.prepend(dialog);}
+      else{document.body.append(dialog);}
+    }
+
+    const scriptInputContainer = document.getElementById('lmScriptInputContainer');
+    if (scriptInputContainer && activeTabKey === 'script') {
+      scriptInputContainer.style.display = 'none';
+    }
 
     const importMethods=document.querySelector('.lm-import-methods');
     if(importMethods){
@@ -30301,6 +30312,9 @@ async function lmMountLessonDraftDialog(data, hash, file, controller, active, is
         importMethods.classList.toggle('show-manual-inputs');
         const isShown=importMethods.classList.contains('show-manual-inputs');
         manualToggle.querySelector('.lm-pdf-manual-toggle-text').textContent=isShown?'Hide options ▲':'Show options ▼';
+        if (scriptInputContainer && activeTabKey === 'script') {
+          scriptInputContainer.style.display = isShown ? '' : 'none';
+        }
       };
       dialog.after(manualToggle);
     }
@@ -30418,6 +30432,7 @@ async function lmGenerateLessonFromScript(text, defaultTitle, sourceTab) {
     text = lmExtractLessonContextText(lmState) || (lmState.title ? 'Title: ' + lmState.title : '');
   }
   if(!text||!canEditLessons())return;
+  if (typeof lmClearImportFields === 'function') lmClearImportFields();
   if (typeof lmPdfUseSource === 'function') lmPdfUseSource(sourceTab||'script');
   if(typeof window.lmShowTabProgress === 'function') {
     window.lmShowTabProgress(lmPdfProgressTab, 'Parsing script & analyzing context...', 25);

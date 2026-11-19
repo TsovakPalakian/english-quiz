@@ -31,7 +31,7 @@ export async function localSpeech(text,voice,signal){
   try{
     if(!['Samantha','Daniel'].includes(voice))throw Error();
     const input=join(directory,'input.txt'),output=join(directory,'output.wav');await writeFile(input,text,{mode:0o600});
-    await exec('/usr/bin/say',['-v',voice,'-r','150','--data-format=LEI16@24000','-f',input,'-o',output],{timeout:20000,maxBuffer:2000,signal});
+    await exec('/usr/bin/say',['-v',voice,'-r','150','--data-format=LEI16@24000','-f',input,'-o',output],{timeout:60000,maxBuffer:2000,signal});
     return new Uint8Array(await readFile(output));
   }catch{throw Error('Local voice unavailable. No fallback was used.');}
   finally{await rm(directory,{recursive:true,force:true});}

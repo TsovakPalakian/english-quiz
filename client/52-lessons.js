@@ -1630,6 +1630,7 @@
       });
     }
     async function lmLookupWord() {
+      if (typeof stageLookupLessonWord === 'function') return stageLookupLessonWord();
       const input = document.getElementById("lmWordInput");
       const status = document.getElementById("lmWordStatus");
       const button = document.getElementById("lmWordGo");
@@ -3915,11 +3916,7 @@
           timeLimitWrap.style.display = isExam ? "inline-flex" : "none";
         }
         if (btn) {
-          if (isExam) {
-            btn.textContent = hasBlocks ? "Generate tasks" : "Generate exam";
-          } else {
-            btn.textContent = hasBlocks ? "Generate tasks" : "Generate lesson";
-          }
+          btn.textContent = "Generate";
         }
         lmSyncLessonComplementTab();
       }

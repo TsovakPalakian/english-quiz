@@ -96,7 +96,7 @@ test('TASK-53: Existing unpublished lesson (draft) is preserved without wiping',
   // Verify persistent append mode badge in HTML
   const html = fs.readFileSync(path.join(rootDir, 'site/preview.html'), 'utf8');
   assert.ok(html.includes('id="lmAppendModeBadge"'), 'preview.html must include lmAppendModeBadge');
-  assert.ok(html.includes('Append Mode Active'), 'preview.html must display Append Mode Active text');
+  assert.ok(html.includes('expand this lesson'), 'preview.html must display expand this lesson text');
 });
 
 test('TASK-54: Thematic expansion pool enriches vocabulary with phrasal verbs, idioms, and collocations', () => {

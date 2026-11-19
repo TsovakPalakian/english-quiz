@@ -10,11 +10,11 @@ const rootDir = process.cwd();
 test('Stage 18: Voice Mode AI Tutor & Speaking Examiner markup and controls', () => {
   const html = fs.readFileSync(path.join(rootDir, 'site/preview.html'), 'utf8');
 
-  // 1. Interactive Bar trigger
-  assert.ok(html.includes('id="lmVoiceModeBar"'), '#lmVoiceModeBar exists in HTML');
-  assert.ok(html.includes('role="button"'), 'Voice bar has role=button');
-  assert.ok(html.includes('tabindex="0"'), 'Voice bar has tabindex=0 for keyboard accessibility');
-  assert.ok(html.includes('Speaking Examiner'), 'Voice bar reflects Speaking Examiner renaming');
+  // 1. Voice Mode trigger button in editor controls and removal of Frame 1 bar
+  const lessonsJs = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
+  assert.ok(lessonsJs.includes('id="lmVoiceModeBtn"'), '#lmVoiceModeBtn is defined in lesson editor controls');
+  assert.ok(!html.includes('id="lmVoiceModeBar"'), '#lmVoiceModeBar is removed from Frame 1');
+  assert.ok(html.includes('Speaking Examiner'), 'Voice mode reflects Speaking Examiner naming');
 
   // 2. Modal structure
   assert.ok(html.includes('id="lmVoiceModeModal"'), '#lmVoiceModeModal exists');
@@ -92,15 +92,15 @@ test('Stage 18: Voice Mode interactive browser flows (Playwright)', async () => 
 
     await page.waitForTimeout(300);
 
-    // 1. Verify clicking #lmVoiceModeBar opens modal
+    // 1. Verify clicking #lmVoiceModeBtn opens modal
     const initialModalDisplay = await page.evaluate(() => document.getElementById('lmVoiceModeModal')?.style.display);
     assert.strictEqual(initialModalDisplay, 'none', 'Modal is hidden initially');
 
-    await page.click('#lmVoiceModeBar');
+    await page.click('#lmVoiceModeBtn');
     await page.waitForTimeout(300);
 
     const openedModalDisplay = await page.evaluate(() => document.getElementById('lmVoiceModeModal')?.style.display);
-    assert.strictEqual(openedModalDisplay, 'flex', 'Clicking #lmVoiceModeBar opened the modal');
+    assert.strictEqual(openedModalDisplay, 'flex', 'Clicking #lmVoiceModeBtn opened the modal');
 
     // 2. Verify Timer started
     await page.waitForTimeout(1100);

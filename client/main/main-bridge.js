@@ -30,6 +30,18 @@
       if(cardId && block.stageDefinition)content={...clone(block.stageDefinition.content),...(block.collapsed!==undefined?{collapsed:block.collapsed}:{})};
       else if(cardId && ['word','wordcard'].includes(block.type))content={}; // Link the definition; never copy its dictionary into the lesson.
       else content=Object.fromEntries(Object.entries(clone(block)).filter(([key])=>!key.startsWith('stage')&&!['id','type','tab','response','score'].includes(key)));
+      if(cardId){
+        if(block.teacherVerified)content.teacherVerified=true;
+        else delete content.teacherVerified;
+        if(block.assignmentKey)content.assignmentKey=block.assignmentKey;
+        else delete content.assignmentKey;
+        if(block.assignmentId)content.assignmentId=block.assignmentId;
+        else delete content.assignmentId;
+        if(block.pdfImport)content.pdfImport=clone(block.pdfImport);
+        else delete content.pdfImport;
+        if(block.pdfVocabulary)content.pdfVocabulary=clone(block.pdfVocabulary);
+        else delete content.pdfVocabulary;
+      }
       delete content.response;delete content.responseFormatting;delete content.score;delete content.pdfFeedback;
       if(block.documentFormatting)content.documentFormatting=clone(block.documentFormatting);
       // Expanding a block is local UI state, not an edit to its definition.
@@ -657,6 +669,16 @@
         const rows=await api('/api/cards?exact=1&q='+encodeURIComponent(block.word||''));
         const shared=rows.filter(row=>row.scope==='shared'&&row.en.trim().toLowerCase()===String(block.word||'').trim().toLowerCase());
         const matching=shared.filter(row=>row.ru===block.ru),candidates=matching.length?matching:shared;
+        if(!candidates.length&&(typeof this.lookupLessonCard==='function'||typeof window.LearningMain?.lookupLessonCard==='function')){
+          try{
+            const lookup=this.lookupLessonCard||window.LearningMain.lookupLessonCard;
+            const created=await lookup(block.word);
+            if(created&&created.id){
+              block.stageId=created.id;block.stageRevision=created.revision||1;block.stageScope='shared';
+              continue;
+            }
+          }catch{}
+        }
         if(candidates.length!==1)throw new Error('Select an existing shared card before publishing. Remove this unlinked word and add it again using the lesson card selector.');
         block.stageId=candidates[0].id;block.stageRevision=candidates[0].revision;block.stageScope='shared';
       }

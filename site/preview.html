@@ -680,7 +680,7 @@
                     <span>Active Lesson: <strong id="lmAppendModeLessonTitle">Superstitions and Prepositions</strong> (<span id="lmAppendModeLessonStats">26 blocks</span>)</span>
                   </div>
                   <div style="font-size:11.5px; color:#2563eb; margin-top:2px;">
-                    <strong>Append Mode Active:</strong> Materials generated in any tab will be safely added as new blocks. Existing blocks and metadata will never be overwritten.
+                    Generate additional exercises, vocabulary, and practice tasks to expand this lesson.
                   </div>
                 </div>
                 <span class="pill-badge" style="background:#2563eb; color:#fff; font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:4px; text-transform:uppercase;">Append Only</span>
@@ -751,8 +751,7 @@
               <div id="lmTabPaneScript" class="lm-tab-pane" role="tabpanel" style="display:none;">
                 <div class="lm-script-container" style="display:flex; flex-direction:column; gap:10px;">
                   <div id="lmScriptInputContainer" style="display:flex; flex-direction:column; gap:10px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                      <label for="lmScriptInput" style="font-weight:700; font-size:13px; color:var(--saas-text, #0c4a6e);">Enter lesson script, notes, or natural language command:</label>
+                    <div style="display:flex; justify-content:flex-start; align-items:center;">
                       <div class="lm-quick-templates" style="display:flex; gap:6px; align-items:center;">
                         <span style="font-size:11px; color:var(--saas-text-muted, #64748b);">Quick templates:</span>
                         <button type="button" class="lm-template-pill" data-template="rule">+ Grammar Rule</button>
@@ -774,10 +773,7 @@
                       </div>
                     </div>
                     <div style="display:flex; justify-content:flex-end; margin-top:2px;">
-                      <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" disabled style="font-weight:700; padding:10px 22px;">✨ Execute AI Command &rarr;</button>
-                    </div>
-                    <div class="lm-note-box" style="margin-top:10px; font-size:12px; color:var(--acc, #0284c7); background:var(--acc-s, rgba(2,132,199,0.08)); border:1px solid var(--saas-border, #bae6fd); padding:10px 14px; border-radius:8px; display:flex; align-items:center; gap:8px;">
-                      <span>🤖 <strong>Natural Language Command Execution:</strong> Write in Russian or English (e.g. <em>"Добавь слова ниже"</em>). Gemini detects categories (Words, Phrases, Rules), generates translations and examples autonomously, and asks for approval before adding.</span>
+                      <button type="button" class="btn primary saas-btn" id="lmGenerateFromScriptBtn" disabled style="font-weight:700; padding:10px 22px;">Generate</button>
                     </div>
                   </div>
 
@@ -890,15 +886,7 @@
             </div>
             <p class="hint" id="lmPdfImportStatus" hidden></p>
 
-            <!-- Voice mode notification bar -->
-            <div class="lm-voice-mode-bar" id="lmVoiceModeBar" role="button" tabindex="0" style="padding:10px 14px; background:rgba(59, 130, 246, 0.08); border:1px solid rgba(59, 130, 246, 0.2); border-radius:8px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; cursor:pointer;" aria-label="Open Voice Mode">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-size:16px;">🎙️</span>
-                <span style="font-size:12px; font-weight:700; color:var(--saas-text, #334155);">Voice Mode in Antigravity (AI Tutor & Speaking Examiner)</span>
-                <span class="pill-badge" style="font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:6px; background:rgba(37,99,235,0.12); color:#2563eb;">Open AI Tutor</span>
-              </div>
-              <small style="font-size:11px; color:#64748b;">AI answers may contain inaccuracies. Teacher maintains final review authority.</small>
-            </div>
+
           </section>
 
           <!-- FRAME 2: BASIC INFORMATION -->

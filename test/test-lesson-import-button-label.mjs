@@ -85,11 +85,7 @@ test('Stage 2, Stage 8, Stage E2: 20 quiz types, Quiz options dropdown, dynamic 
       timeLimitWrap.style.display = isExam ? 'inline-flex' : 'none';
     }
     if (btn) {
-      if (isExam) {
-        btn.textContent = hasBlocks ? 'Generate tasks' : 'Generate exam';
-      } else {
-        btn.textContent = hasBlocks ? 'Generate tasks' : 'Generate lesson';
-      }
+      btn.textContent = 'Generate';
     }
   }
 
@@ -136,7 +132,7 @@ test('Stage 2, Stage 8, Stage E2: 20 quiz types, Quiz options dropdown, dynamic 
   await t.test('Dynamic button label for empty lesson', () => {
     mockLmState = { blocks: [], examOwned: false };
     lmSyncGenerateControls();
-    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate lesson');
+    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate');
     assert.equal(elements.lmFrameImportTitle.textContent, 'Generate & Import Lessons');
     assert.equal(elements.lmExamTimeLimitWrap.style.display, 'none');
   });
@@ -144,7 +140,7 @@ test('Stage 2, Stage 8, Stage E2: 20 quiz types, Quiz options dropdown, dynamic 
   await t.test('Dynamic button label for non-empty lesson', () => {
     mockLmState = { blocks: [{ id: 'b1' }], examOwned: false };
     lmSyncGenerateControls();
-    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate tasks');
+    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate');
     assert.equal(elements.lmFrameImportTitle.textContent, 'Generate & Import Lessons');
     assert.equal(elements.lmExamTimeLimitWrap.style.display, 'none');
   });
@@ -152,7 +148,7 @@ test('Stage 2, Stage 8, Stage E2: 20 quiz types, Quiz options dropdown, dynamic 
   await t.test('Dynamic button label for empty exam', () => {
     mockLmState = { blocks: [], examOwned: true };
     lmSyncGenerateControls();
-    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate exam');
+    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate');
     assert.equal(elements.lmFrameImportTitle.textContent, 'Generate & Import Exam');
     assert.equal(elements.lmExamTimeLimitWrap.style.display, 'inline-flex');
   });
@@ -160,7 +156,7 @@ test('Stage 2, Stage 8, Stage E2: 20 quiz types, Quiz options dropdown, dynamic 
   await t.test('Dynamic button label for non-empty exam', () => {
     mockLmState = { blocks: [{ id: 'eb1' }], examOwned: true };
     lmSyncGenerateControls();
-    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate tasks');
+    assert.equal(elements.lmGenerateFromScriptBtn.textContent, 'Generate');
     assert.equal(elements.lmFrameImportTitle.textContent, 'Generate & Import Exam');
     assert.equal(elements.lmExamTimeLimitWrap.style.display, 'inline-flex');
   });
@@ -189,5 +185,33 @@ test('Stage 2, Stage 8, Stage E2: 20 quiz types, Quiz options dropdown, dynamic 
     updateCountAndWarnings();
     assert.equal(elements.lmQuizSelectedCount.textContent, '19');
     assert.equal(elements.lmVideoChoiceWarning.style.display, 'none');
+  });
+
+  await t.test('Clean Manual Script tab, removed voice mode bar, left-aligned templates, and theme variables in preview', () => {
+    const html = fs.readFileSync(path.resolve('site/preview.html'), 'utf8');
+    const css = fs.readFileSync(path.resolve('site/preview.css'), 'utf8');
+    const clientCode = fs.readFileSync(path.resolve('client/52b-lesson-pdf-import.js'), 'utf8');
+
+    // Button label is "Generate"
+    assert.ok(html.includes('>Generate</button>'), 'Button label in preview.html is Generate');
+
+    // Voice mode bar removed
+    assert.ok(!html.includes('id="lmVoiceModeBar"'), 'Voice mode bar is removed from preview.html');
+
+    // Notes box and redundant label removed
+    assert.ok(!html.includes('Enter lesson script, notes, or natural language command:'), 'Redundant script input label removed');
+    assert.ok(!html.includes('Natural Language Command Execution:'), 'Redundant script note box removed');
+
+    // Templates left-aligned
+    assert.ok(html.includes('justify-content:flex-start') || html.includes('justify-content: flex-start'), 'Quick templates aligned to the left edge');
+
+    // Banner subtitle rewritten
+    assert.ok(html.includes('Generate additional exercises, vocabulary, and practice tasks to expand this lesson.'), 'Append banner subtitle rewritten to concise description');
+
+    // CSS uses theme variables for draft review
+    assert.ok(css.includes('.lm-pdf-draft {') && css.includes('background: var(--card);') && css.includes('color: var(--ink);'), 'lm-pdf-draft uses standard theme variables');
+
+    // Tab-scoped mounting in client code
+    assert.ok(clientCode.includes('activePane.append(dialog)'), 'Draft dialog mounts directly into the active tab pane');
   });
 });

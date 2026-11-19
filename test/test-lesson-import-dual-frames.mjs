@@ -33,9 +33,10 @@ test('Stage 1: site/preview.html contains dual-frame layout and all required con
   // 6. Action button with dynamic text capability
   assert.ok(html.includes('id="lmGenerateFromScriptBtn"'), '#lmGenerateFromScriptBtn exists');
 
-  // 7. Voice Mode bar and disclaimer
-  assert.ok(html.includes('Voice Mode in Antigravity'), 'Voice mode bar is present');
-  assert.ok(html.includes('AI answers may contain inaccuracies'), 'Voice mode disclaimer is present');
+  // 7. Voice Mode modal dialog and disclaimer
+  assert.ok(html.includes('id="lmVoiceModeModal"'), '#lmVoiceModeModal is present');
+  assert.ok(html.includes('AI-generated responses may contain inaccuracies'), 'Voice mode disclaimer is present in modal');
+  assert.ok(!html.includes('id="lmVoiceModeBar"'), '#lmVoiceModeBar is removed from Frame 1');
 
   // 8. Teacher verification checkbox in Basic information
   assert.ok(html.includes('id="lmTeacherVerifyCheckbox"'), '#lmTeacherVerifyCheckbox exists');
