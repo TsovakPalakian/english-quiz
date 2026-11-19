@@ -44,11 +44,20 @@
       } else if (b.type === 'exercise' && Array.isArray(b.items)) {
         b.items.forEach((it, itIdx) => {
           const concept = b.title || 'Exercise Practice';
+          let title = b.title || '';
+          let prompt = it.prompt || 'Select the correct statement:';
+          if (!title && prompt.includes('\n')) {
+            const parts = prompt.split(/\n+/).map(p => p.trim()).filter(Boolean);
+            if (parts.length > 1) {
+              title = parts[0];
+              prompt = parts.slice(1).join(' ');
+            }
+          }
           questions.push({
             id: 'exercise-' + (b.id || bIdx) + '-' + itIdx,
-            title: b.title || 'Exercise',
+            title: title || 'Exercise',
             concept,
-            prompt: it.prompt || 'Select the correct statement:',
+            prompt,
             options: it.options || ['Correct usage', 'Distractor 1', 'Distractor 2'],
             answer: it.answer || 0,
             feedback: b.pdfTeacherNotes || 'Correct answer matches standard grammar rule.'
@@ -116,20 +125,50 @@
       '</button>';
     }).join('');
 
+    // Title & prompt separation and formatting
+    let kicker = 'Practice Task';
+    let exerciseTitle = '';
+    let promptRaw = String(currentQ.prompt || '');
+
+    if (currentQ.title) {
+      if (/^exercise$/i.test(currentQ.title)) {
+        kicker = 'Exercise';
+      } else {
+        kicker = 'Exercise';
+        exerciseTitle = currentQ.title;
+      }
+    }
+
+    if (promptRaw.includes('\n')) {
+      const lines = promptRaw.split(/\n+/).map(l => l.trim()).filter(Boolean);
+      if (lines.length > 1) {
+        if (!exerciseTitle) {
+          exerciseTitle = lines[0];
+          promptRaw = lines.slice(1).join(' ');
+        }
+      }
+    }
+
+    // Format prompt text: escape HTML, then highlight single-quoted and double-quoted target words
+    const formattedPrompt = esc(promptRaw).replace(/(?:'([^']+)'|&quot;([^&]+)&quot;)/g, (match) => {
+      return '<strong>' + match + '</strong>';
+    });
+
     overlay.innerHTML =
       '<div class="focus-player-header">' +
         '<div class="focus-q-count">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
         '<div class="focus-header-tools">' +
-          '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Check/Next | Esc: Exit</span>' +
+          '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Next | Esc: Exit</span>' +
           '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
       '</div>' +
 
       '<div class="focus-player-stage">' +
         '<div class="focus-card">' +
-          '<div class="focus-kicker">' + esc(currentQ.title || 'Practice Task') + '</div>' +
-          '<h2 class="focus-prompt">' + esc(currentQ.prompt || '') + '</h2>' +
+          '<div class="focus-kicker">' + esc(kicker) + '</div>' +
+          (exerciseTitle ? '<div class="focus-exercise-title">' + esc(exerciseTitle) + '</div>' : '') +
+          '<h2 class="focus-prompt">' + formattedPrompt + '</h2>' +
           '<div class="focus-options-container">' + optionsHtml + '</div>' +
 
           (hasResult ? (
@@ -141,11 +180,9 @@
 
           '<div class="focus-actions">' +
             '<button type="button" class="btn secondary" id="focusPrevBtn" ' + (focusIndex === 0 ? 'disabled' : '') + '>← Previous</button>' +
-            (!hasResult ? (
-              '<button type="button" class="btn primary" id="focusCheckBtn" ' + (focusSelectedOption === null ? 'disabled' : '') + '>Check (Enter)</button>'
-            ) : (
+            (hasResult ? (
               '<button type="button" class="btn primary" id="focusNextBtn">' + (focusIndex < total - 1 ? 'Next question →' : 'Finish Session') + '</button>'
-            )) +
+            ) : '') +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -242,7 +279,7 @@
   function focusSelectOption(optIdx) {
     if (focusResults[focusIndex] !== undefined) return;
     focusSelectedOption = optIdx;
-    renderFocusPlayer();
+    focusCheckAnswer();
   }
 
   function openFocusPlayer(customQuestions = null) {

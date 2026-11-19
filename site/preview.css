@@ -9798,12 +9798,25 @@ html[data-notify-unread="1"] .popover-notify-dot {
   font-weight: 700;
   margin-bottom: 6px;
 }
+.focus-exercise-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 4px;
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
 .focus-prompt {
   font-size: 20px;
   font-weight: 700;
   color: var(--ink);
   margin-top: 0;
   margin-bottom: 18px;
+  line-height: 1.4;
+}
+.focus-prompt strong {
+  font-weight: 700;
+  color: var(--acc);
 }
 .focus-option-btn {
   display: flex;

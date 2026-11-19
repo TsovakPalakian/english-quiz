@@ -64,9 +64,9 @@ test('Focus Mode paint follows sky, dark and grey', async () => {
   }];
 
   const expectPaint = {
-    sky: { bg: '#E3F1FB', card: '#F5FBFF', acc: '#0B649C' },
-    dark: { bg: '#0D1020', card: '#171B33', acc: '#7C7BFF' },
-    grey: { bg: '#CFD0D3', card: '#E3E4E6', acc: '#3D3BF3' }
+    sky: { bg: '#E3F1FB', card: '#F5FBFF', ok: '#1B8A4A' },
+    dark: { bg: '#0D1020', card: '#171B33', ok: '#3DD598' },
+    grey: { bg: '#CFD0D3', card: '#E3E4E6', ok: '#12795A' }
   };
 
   for (const name of ['sky', 'dark', 'grey']) {
@@ -79,7 +79,28 @@ test('Focus Mode paint follows sky, dark and grey', async () => {
     const paint = expectPaint[name];
     assert.equal(dom.getComputedStyle(overlay).backgroundColor.toLowerCase(), paint.bg.toLowerCase(), name);
     assert.equal(dom.getComputedStyle(card).backgroundColor.toLowerCase(), paint.card.toLowerCase(), name);
-    assert.equal(dom.getComputedStyle(selected).backgroundColor.toLowerCase(), paint.acc.toLowerCase(), name);
+    assert.equal(dom.getComputedStyle(selected).backgroundColor.toLowerCase(), paint.ok.toLowerCase(), name);
+    assert.equal(overlay.querySelector('#focusCheckBtn'), null, 'Check button must be removed');
+    assert.ok(overlay.querySelector('#focusNextBtn'), 'Next button must appear immediately on answer');
+    assert.ok(overlay.querySelector('.focus-feedback'), 'Feedback banner must appear immediately');
     assert.equal(overlay.innerHTML.includes('#'), false, name);
   }
+
+  // Verification of title separation and bolded quoted target words
+  const splitQuestions = [{
+    id: 'split-1',
+    title: 'Exercise',
+    concept: 'interested',
+    prompt: "Check Adjective Preposition Pairs\nWhich preposition correctly follows 'interested'?",
+    options: ['at', 'in', 'with', 'for'],
+    answer: 1,
+    feedback: 'interested in'
+  }];
+  dom.openFocusPlayer(splitQuestions);
+  const overlay = dom.document.getElementById('lmFocusPlayerOverlay');
+  const titleEl = overlay.querySelector('.focus-exercise-title');
+  assert.ok(titleEl, 'Exercise title must be separated into .focus-exercise-title');
+  assert.equal(titleEl.textContent, 'Check Adjective Preposition Pairs');
+  const promptEl = overlay.querySelector('.focus-prompt');
+  assert.ok(promptEl.innerHTML.includes("<strong>'interested'</strong>"), 'Target word in quotes must be bolded');
 });

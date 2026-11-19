@@ -272,7 +272,7 @@ async function lmPdfDraftBlocks(data, hash) {
           pdfTeacherNotes: r.feedback
         }, r, i);
       } else if (r.kind === 'choice') {
-        add(tab, 'exercise', { items: [{ prompt: (r.title ? r.title + '\n' : '') + r.text, kind: 'choice', options: r.options, answer: r.answer, write: '' }], pdfTeacherNotes: r.feedback }, r, i);
+        add(tab, 'exercise', { title: r.title || 'Exercise', items: [{ prompt: r.text || r.prompt || (r.title ? r.title + '\n' : '') + r.text, kind: 'choice', options: r.options, answer: r.answer, write: '' }], pdfTeacherNotes: r.feedback }, r, i);
       } else {
         add(tab, 'task', { title: r.title, text: r.text, criteria: r.criteria || 'Grammar and accuracy | 3\nVocabulary usage | 2', maxPoints: (r.criteria || '').split('\n').reduce((sum, line) => sum + (Number(line.split('|').pop()) || 0), 0) || 5, pdfTeacherNotes: r.teacherAnswer }, r, i);
       }
