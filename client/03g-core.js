@@ -770,7 +770,7 @@
           isNew: true
         }));
         const combined = matchable.concat(extraPairs).slice(0, reqPairs);
-        if (combined.length >= 2) {
+        if (combined.length >= 1) {
           const faces = shuffle(combined.reduce((all, c, j) => all.concat([
             { id: String(j), text: c.en, image: c.image || null, isNew: Boolean(c.isNew), en: c.en, ru: c.ru },
             { id: String(j), text: c.ru, isNew: Boolean(c.isNew), en: c.en, ru: c.ru }
@@ -1111,10 +1111,22 @@
         const isMemOn = types.includes("Memory");
         if (isMemOn && requestedPairs > matchable.length) {
           shortageAlert.hidden = false;
+          const titleEl = shortageAlert.querySelector("#dqMemShortageTitle");
+          const descEl = shortageAlert.querySelector("#dqMemShortageDesc");
+          const wordsWord = matchable.length === 1 ? "word" : "words";
+          const maxPairsWord = matchable.length === 1 ? "pair" : "pairs";
+          const reqPairsWord = requestedPairs === 1 ? "pair" : "pairs";
+          const diff = Math.max(1, requestedPairs - matchable.length);
+          const diffWord = diff === 1 ? "word" : "words";
+          if (titleEl) titleEl.textContent = "Only " + matchable.length + " " + wordsWord + " in this lesson (max " + matchable.length + " " + maxPairsWord + ")";
+          if (descEl) descEl.textContent = "You requested " + requestedPairs + " " + reqPairsWord + ". Gemini can generate " + diff + " new thematic " + diffWord + " with pictures for this quiz.";
           const msg = shortageAlert.querySelector("[data-dq-mem-shortage-msg]");
           if (msg) msg.textContent = "This lesson has " + matchable.length + " word pairs. You requested " + requestedPairs + " pairs.";
           const keepBtn = shortageAlert.querySelector("[data-dq-mem-keep]");
-          if (keepBtn) keepBtn.textContent = "Keep " + matchable.length + " pairs";
+          if (keepBtn) {
+            const keepWord = matchable.length === 1 ? "pair" : "pairs";
+            keepBtn.textContent = "Keep " + matchable.length + " " + keepWord;
+          }
         } else {
           shortageAlert.hidden = true;
         }
@@ -1133,6 +1145,91 @@
       const who = document.getElementById("dayQuizWho");
       if (who) who.textContent = dayQuizWhoLine();
     }
+    function dayQuizGenerateExtraMemoryPairs(immediate = false) {
+      const shortageAlert = document.getElementById("dqMemShortageAlert");
+      const actionsEl = document.getElementById("dqMemShortageActions");
+      const progressEl = document.getElementById("dqMemProgress");
+      const pctEl = document.getElementById("dqMemProgressPct");
+      const fillEl = document.getElementById("dqMemProgressFill");
+
+      if (actionsEl) actionsEl.hidden = true;
+      if (progressEl) progressEl.hidden = false;
+
+      const pool = quizPool();
+      const selectedCards = limitStudyCards(pool, "daysetup", true);
+      const matchable = selectedCards.filter((c) => c.en && c.ru);
+      const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+      const requestedPairs = Math.floor(Number(memInp?.value) || 4);
+      const needed = Math.max(1, requestedPairs - matchable.length);
+
+      const vocabularyBank = [
+        { en: "compass", ru: "компас", image: "🧭" },
+        { en: "lighthouse", ru: "маяк", image: "🗼" },
+        { en: "adventure", ru: "приключение", image: "🎒" },
+        { en: "treasure", ru: "сокровище", image: "💎" },
+        { en: "journey", ru: "путешествие", image: "🚀" },
+        { en: "constellation", ru: "созвездие", image: "✨" },
+        { en: "telescope", ru: "телескоп", image: "🔭" },
+        { en: "discovery", ru: "открытие", image: "💡" },
+        { en: "horizon", ru: "горизонт", image: "🌅" },
+        { en: "explorer", ru: "исследователь", image: "🗺️" },
+        { en: "starlight", ru: "звездный свет", image: "🌟" },
+        { en: "mystery", ru: "тайна", image: "🔮" }
+      ];
+
+      const existingEn = new Set(matchable.map((c) => String(c.en || "").toLowerCase().trim()));
+      const candidates = vocabularyBank.filter((v) => !existingEn.has(v.en.toLowerCase()));
+      const extraNeeded = candidates.slice(0, needed).map((v) => ({
+        en: v.en,
+        ru: v.ru,
+        image: v.image,
+        isNew: true
+      }));
+
+      while (extraNeeded.length < needed) {
+        const idx = extraNeeded.length + 1;
+        extraNeeded.push({
+          en: "Word " + idx,
+          ru: "Слово " + idx,
+          image: "✨",
+          isNew: true
+        });
+      }
+
+      window.dayQuizExtraMemoryPairs = extraNeeded;
+
+      const finish = () => {
+        if (progressEl) progressEl.hidden = true;
+        if (actionsEl) actionsEl.hidden = false;
+        if (shortageAlert) shortageAlert.hidden = true;
+        paintDayQuizBoard();
+        beginQuiz(false);
+      };
+
+      if (immediate) {
+        if (pctEl) pctEl.textContent = "100%";
+        if (fillEl) {
+          fillEl.style.width = "100%";
+          fillEl.classList.add("is-done");
+        }
+        finish();
+        return;
+      }
+
+      let pct = 0;
+      const interval = setInterval(() => {
+        pct += 25;
+        if (pctEl) pctEl.textContent = pct + "%";
+        if (fillEl) fillEl.style.width = pct + "%";
+
+        if (pct >= 100) {
+          clearInterval(interval);
+          if (fillEl) fillEl.classList.add("is-done");
+          setTimeout(finish, 350);
+        }
+      }, 350);
+    }
+    window.dayQuizGenerateExtraMemoryPairs = dayQuizGenerateExtraMemoryPairs;
     function chosenTypes(exam) {
       const here = (document.querySelector("section.on") || {}).id;
       if (dayQuizBoardOn && here === "daysetup") {
@@ -2355,10 +2452,47 @@
           paintDayQuizBoard();
           return;
         }
-        const typeBtn = e.target.closest("[data-dq-type]");
-        if (typeBtn) {
-          typeBtn.classList.toggle("on");
+        const memSub = e.target.closest("[data-dq-mem-sub]");
+        const memAdd = e.target.closest("[data-dq-mem-add]");
+        const memStepper = e.target.closest("[data-dq-mem-stepper]");
+        if (memSub || memAdd) {
+          e.stopPropagation();
+          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+          let val = Math.floor(Number(memInp?.value) || 4);
+          if (memSub && val > 1) val -= 1;
+          if (memAdd && val < 50) val += 1;
+          if (memInp) memInp.value = String(val);
+          const valEl = document.querySelector('[data-dq-mem-val]');
+          if (valEl) valEl.textContent = String(val);
+          const cardsEl = document.querySelector('[data-dq-mem-cards]');
+          if (cardsEl) cardsEl.textContent = '(' + (val * 2) + (val === 1 ? ' card)' : ' cards)');
           paintDayQuizBoard();
+          return;
+        }
+        if (memStepper) {
+          e.stopPropagation();
+          return;
+        }
+        const keepBtn = e.target.closest("[data-dq-mem-keep]");
+        if (keepBtn) {
+          const pool = quizPool();
+          const selectedCards = limitStudyCards(pool, "daysetup", true);
+          const matchable = selectedCards.filter((c) => c.en && c.ru);
+          const count = Math.max(1, matchable.length);
+          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+          if (memInp) memInp.value = String(count);
+          const valEl = document.querySelector('[data-dq-mem-val]');
+          if (valEl) valEl.textContent = String(count);
+          const cardsEl = document.querySelector('[data-dq-mem-cards]');
+          if (cardsEl) cardsEl.textContent = '(' + (count * 2) + (count === 1 ? ' card)' : ' cards)');
+          const alert = document.getElementById("dqMemShortageAlert");
+          if (alert) alert.hidden = true;
+          paintDayQuizBoard();
+          return;
+        }
+        const genBtn = e.target.closest("[data-dq-mem-gen]");
+        if (genBtn) {
+          dayQuizGenerateExtraMemoryPairs();
           return;
         }
         const chip = e.target.closest("[data-dq-chip]");
@@ -2374,42 +2508,6 @@
           }
           return;
         }
-        const memSub = e.target.closest("[data-dq-mem-sub]");
-        const memAdd = e.target.closest("[data-dq-mem-add]");
-        if (memSub || memAdd) {
-          e.stopPropagation();
-          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
-          let val = Math.floor(Number(memInp?.value) || 4);
-          if (memSub && val > 2) val -= 1;
-          if (memAdd && val < 50) val += 1;
-          if (memInp) memInp.value = String(val);
-          const valEl = document.querySelector('[data-dq-mem-val]');
-          if (valEl) valEl.textContent = String(val);
-          const cardsEl = document.querySelector('[data-dq-mem-cards]');
-          if (cardsEl) cardsEl.textContent = '(' + (val * 2) + ' cards)';
-          paintDayQuizBoard();
-          return;
-        }
-        const keepBtn = e.target.closest("[data-dq-mem-keep]");
-        if (keepBtn) {
-          const pool = quizPool();
-          const selectedCards = limitStudyCards(pool, "daysetup", true);
-          const matchable = selectedCards.filter((c) => c.en && c.ru);
-          const count = Math.max(2, matchable.length);
-          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
-          if (memInp) memInp.value = String(count);
-          const valEl = document.querySelector('[data-dq-mem-val]');
-          if (valEl) valEl.textContent = String(count);
-          const cardsEl = document.querySelector('[data-dq-mem-cards]');
-          if (cardsEl) cardsEl.textContent = '(' + (count * 2) + ' cards)';
-          paintDayQuizBoard();
-          return;
-        }
-        const genBtn = e.target.closest("[data-dq-mem-gen]");
-        if (genBtn) {
-          dayQuizGenerateExtraMemoryPairs();
-          return;
-        }
         const all = e.target.closest("[data-dq-all]");
         if (all) {
           const group = all.closest("[data-dq-group]");
@@ -2418,6 +2516,12 @@
             const allOn = buttons.length > 0 && buttons.every((b) => b.classList.contains("on"));
             buttons.forEach((b) => b.classList.toggle("on", !allOn));
           }
+          paintDayQuizBoard();
+          return;
+        }
+        const typeBtn = e.target.closest("[data-dq-type]");
+        if (typeBtn) {
+          typeBtn.classList.toggle("on");
           paintDayQuizBoard();
           return;
         }

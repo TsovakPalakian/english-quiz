@@ -1263,9 +1263,18 @@
                   <span id="dqMemShortageDesc">You requested 8 pairs. Gemini can generate 5 new thematic words with pictures for this quiz.</span>
                 </div>
               </div>
-              <div class="dq-mem-shortage-actions">
+              <div class="dq-mem-shortage-actions" id="dqMemShortageActions">
                 <button type="button" class="dq-btn-sub" data-dq-mem-keep>Keep 3 pairs</button>
                 <button type="button" class="btn primary" data-dq-mem-gen style="display:inline-flex; align-items:center; gap:6px;">✨ Generate pairs with Gemini</button>
+              </div>
+              <div class="dq-mem-progress" id="dqMemProgress" hidden>
+                <div class="dq-mem-progress-head">
+                  <span class="dq-mem-progress-label">✨ Generating pairs with Gemini…</span>
+                  <span class="dq-mem-progress-pct" id="dqMemProgressPct">0%</span>
+                </div>
+                <div class="dq-progress-track">
+                  <div class="dq-progress-fill" id="dqMemProgressFill" style="width:0%"></div>
+                </div>
               </div>
             </div>
           </section>

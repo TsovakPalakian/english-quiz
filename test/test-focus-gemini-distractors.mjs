@@ -97,3 +97,72 @@ test('extractFocusQuestionsFromLesson generates bidirectional questions with 5 o
   assert.equal(shuffledQ.options.length, 5);
   assert.equal(shuffledQ.options[shuffledQ.answer], 'Correct', 'Answer index must still point to "Correct" after shuffle');
 });
+
+test('cleanTranslationString strips surrogate (перевод) and maps known phrase translations', async () => {
+  const dom = new Window();
+  dom.document.documentElement.innerHTML = '<head></head><body></body>';
+  globalThis.window = dom;
+  globalThis.document = dom.document;
+  await import(new URL('../client/52c-focus-player.js', import.meta.url).href + '?t=' + (Date.now() + 10));
+
+  assert.equal(dom.cleanTranslationString('Have a good time (перевод)', 'have a good time'), 'отлично провести время');
+  assert.equal(dom.cleanTranslationString('разговаривать с самим собой (перевод)', 'talk to yourself'), 'разговаривать с самим собой');
+  assert.equal(dom.cleanTranslationString('break the ice (translation)', 'break the ice'), 'разрядить обстановку');
+});
+
+test('have a good time generates clean translation and close semantic distractors', async () => {
+  const dom = new Window();
+  dom.document.documentElement.innerHTML = '<head></head><body></body>';
+  globalThis.window = dom;
+  globalThis.document = dom.document;
+  await import(new URL('../client/52c-focus-player.js', import.meta.url).href + '?t=' + (Date.now() + 20));
+
+  const lesson = {
+    blocks: [
+      {
+        type: 'phrase',
+        tab: 'phrases',
+        items: [
+          { phrase: 'have a good time', translation: 'Have a good time (перевод)' }
+        ]
+      }
+    ]
+  };
+
+  const questions = dom.extractFocusQuestionsFromLesson(lesson, { bidirectional: true, shuffle: false });
+  assert.equal(questions.length, 2);
+
+  const direct = questions.find(q => q.id.endsWith('-direct'));
+  assert.ok(direct);
+  assert.equal(direct.options[0], 'отлично провести время', 'Direct answer must be cleaned to real Russian translation');
+  assert.ok(!direct.options.some(opt => opt.includes('(перевод)')), 'No options must contain (перевод)');
+  assert.ok(direct.options.includes('приятно отдохнуть'), 'Must contain close semantic distractor');
+  assert.ok(direct.options.includes('повеселиться от души'), 'Must contain close semantic distractor');
+
+  const reverse = questions.find(q => q.id.endsWith('-reverse'));
+  assert.ok(reverse);
+  assert.equal(reverse.options[0], 'have a good time', 'Reverse answer must be the English phrase');
+  assert.ok(reverse.options.includes('enjoy oneself') || reverse.options.includes('have fun'), 'Must contain close English semantic distractor');
+});
+
+test('Progress modal opens, updates percentages, and closes', async () => {
+  const dom = new Window();
+  dom.document.documentElement.innerHTML = '<head></head><body></body>';
+  globalThis.window = dom;
+  globalThis.document = dom.document;
+  await import(new URL('../client/52c-focus-player.js', import.meta.url).href + '?t=' + (Date.now() + 30));
+
+  dom.showGeminiProgressModal();
+  const overlay = dom.document.getElementById('lmGeminiProgressOverlay');
+  assert.ok(overlay, 'Progress overlay created');
+  assert.equal(overlay.style.display, 'flex');
+
+  dom.updateGeminiProgress(68, 'Processing cards: 14 of 20');
+  const percentEl = dom.document.getElementById('lmGeminiProgressPercent');
+  const labelEl = dom.document.getElementById('lmGeminiProgressLabel');
+  assert.equal(percentEl.textContent, '68%');
+  assert.equal(labelEl.textContent, 'Processing cards: 14 of 20');
+
+  dom.hideGeminiProgressModal();
+  assert.equal(overlay.style.display, 'none');
+});

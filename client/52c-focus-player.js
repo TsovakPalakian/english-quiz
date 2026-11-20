@@ -40,14 +40,67 @@
     });
   }
 
-  function getSemanticDistractors(target, itemDistractors, pool, defaultPool, count = 4) {
+  const knownPhraseTranslations = {
+    'have a good time': 'отлично провести время',
+    'talk to yourself': 'разговаривать с самим собой',
+    'break the ice': 'разрядить обстановку',
+    'call it a day': 'закончить работу на сегодня',
+    'bite the bullet': 'стиснуть зубы и смириться',
+    'keep in shape': 'поддерживать себя в форме',
+    'be afraid of': 'бояться чего-либо',
+    'do some work': 'немного поработать'
+  };
+
+  const knownPhraseDistractors = {
+    'have a good time': {
+      ru: ['приятно отдохнуть', 'повеселиться от души', 'насладиться моментом', 'хорошо погулять'],
+      en: ['enjoy oneself', 'have fun', 'spend quality time', 'hang out']
+    },
+    'talk to yourself': {
+      ru: ['вести внутренний диалог', 'рассуждать вслух', 'говорить наедине с собой', 'бормотать под нос'],
+      en: ['speak out loud', 'think to yourself', 'speak for yourself', 'talk through']
+    },
+    'break the ice': {
+      ru: ['снять напряжение', 'разрядить атмосферу', 'начать разговор', 'растопить лед'],
+      en: ['clear the air', 'smooth things over', 'warm up to someone', 'ease tensions']
+    },
+    'call it a day': {
+      ru: ['закругляться', 'сделать паузу', 'отложить до завтра', 'завершить дела'],
+      en: ['wrap it up', 'wind down', 'pack it in', 'take a break']
+    },
+    'bite the bullet': {
+      ru: ['перетерпеть трудности', 'пойти на неприятный шаг', 'собрать волю в кулак', 'смириться с неизбежным'],
+      en: ['face the music', 'swallow one’s pride', 'take the plunge', 'brace oneself']
+    }
+  };
+
+  function cleanTranslationString(translation, word) {
+    let clean = String(translation || '').replace(/\s*\((?:перевод|translation)\)\s*$/i, '').trim();
+    const cleanWord = String(word || '').trim().toLowerCase();
+    if (!clean || clean.toLowerCase() === cleanWord) {
+      if (knownPhraseTranslations[cleanWord]) {
+        return knownPhraseTranslations[cleanWord];
+      }
+    }
+    return clean || word;
+  }
+
+  function getSemanticDistractors(word, translation, itemDistractors, pool, defaultPool, isReverse = false, count = 4) {
     if (Array.isArray(itemDistractors) && itemDistractors.length >= count) {
       return itemDistractors.slice(0, count);
     }
-    const normTarget = String(target || '').trim().toLowerCase();
+    const cleanKey = String(word || '').trim().toLowerCase();
+    if (knownPhraseDistractors[cleanKey]) {
+      const known = isReverse ? knownPhraseDistractors[cleanKey].en : knownPhraseDistractors[cleanKey].ru;
+      if (Array.isArray(known) && known.length >= count) {
+        return known.slice(0, count);
+      }
+    }
+
+    const normTarget = String((isReverse ? word : translation) || '').trim().toLowerCase();
     const seen = new Set([normTarget]);
     const res = [];
-    (pool || []).forEach(val => {
+    (defaultPool || []).forEach(val => {
       const s = String(val || '').trim();
       const norm = s.toLowerCase();
       if (s && !seen.has(norm)) {
@@ -55,7 +108,7 @@
         res.push(s);
       }
     });
-    (defaultPool || []).forEach(val => {
+    (pool || []).forEach(val => {
       const s = String(val || '').trim();
       const norm = s.toLowerCase();
       if (s && !seen.has(norm)) {
@@ -125,10 +178,10 @@
         items.forEach((it, itIdx) => {
           const w = String(it.word || it.en || b.word || 'Vocabulary').trim();
           if (!w) return;
-          const meaning = String(it.translation || it.meaning || it.ru || w).trim();
+          const meaning = cleanTranslationString(it.translation || it.meaning || it.ru, w);
           if (bidirectional) {
             // Direct: EN -> RU (5 options)
-            const ruDist = getSemanticDistractors(meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, 4);
+            const ruDist = getSemanticDistractors(w, meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, false, 4);
             const directOpts = [meaning, ...ruDist];
             const directQ = {
               id: 'word-' + bIdx + '-' + itIdx + '-direct',
@@ -143,7 +196,7 @@
             questions.push(doShuffle ? shuffleQuestionOptions(directQ) : directQ);
 
             // Reverse: RU -> EN (5 options)
-            const enDist = getSemanticDistractors(w, it.distractorsEn, allLessonWords, defaultEnDistractors, 4);
+            const enDist = getSemanticDistractors(w, meaning, it.distractorsEn, allLessonWords, defaultEnDistractors, true, 4);
             const revOpts = [w, ...enDist];
             const reverseQ = {
               id: 'word-' + bIdx + '-' + itIdx + '-reverse',
@@ -179,11 +232,11 @@
         items.forEach((it, itIdx) => {
           const phraseText = String(it.phrase || it.word || it.en || b.title || 'Phrase').trim();
           if (!phraseText) return;
-          const meaning = String(it.translation || it.meaning || it.ru || phraseText).trim();
+          const meaning = cleanTranslationString(it.translation || it.meaning || it.ru, phraseText);
           const example = String(it.example || ('Usage: "' + phraseText + '" in everyday English.')).trim();
           if (bidirectional) {
             // Direct: EN -> RU (5 options)
-            const ruDist = getSemanticDistractors(meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, 4);
+            const ruDist = getSemanticDistractors(phraseText, meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, false, 4);
             const directOpts = [meaning, ...ruDist];
             const directQ = {
               id: 'phrase-' + (b.id || bIdx) + '-' + itIdx + '-direct',
@@ -198,7 +251,7 @@
             questions.push(doShuffle ? shuffleQuestionOptions(directQ) : directQ);
 
             // Reverse: RU -> EN (5 options)
-            const enDist = getSemanticDistractors(phraseText, it.distractorsEn, allLessonWords, defaultEnDistractors, 4);
+            const enDist = getSemanticDistractors(phraseText, meaning, it.distractorsEn, allLessonWords, defaultEnDistractors, true, 4);
             const revOpts = [phraseText, ...enDist];
             const reverseQ = {
               id: 'phrase-' + (b.id || bIdx) + '-' + itIdx + '-reverse',
@@ -411,16 +464,140 @@
     if (overlay) overlay.style.display = 'none';
   }
 
-  function startFocusSessionWithScope(scope, subCat) {
+  let geminiProgressAbort = false;
+
+  function createGeminiProgressDom() {
+    let overlay = document.getElementById('lmGeminiProgressOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'lmGeminiProgressOverlay';
+      overlay.className = 'focus-scope-overlay';
+      overlay.style.display = 'none';
+      overlay.innerHTML =
+        '<div class="gemini-progress-dialog">' +
+          '<div class="gemini-progress-icon">✨</div>' +
+          '<h3 class="gemini-progress-title">Generating Smart Choices with Gemini</h3>' +
+          '<p class="gemini-progress-desc">Creating close semantic distractors and bidirectional question pairs for your lesson vocabulary...</p>' +
+          '<div class="gemini-progress-track">' +
+            '<div class="gemini-progress-fill" id="lmGeminiProgressFill"></div>' +
+          '</div>' +
+          '<div class="gemini-progress-stats">' +
+            '<span id="lmGeminiProgressLabel">Preparing cards...</span>' +
+            '<span class="gemini-progress-percent" id="lmGeminiProgressPercent">0%</span>' +
+          '</div>' +
+          '<button type="button" class="btn secondary" id="lmGeminiProgressCancelBtn">Cancel</button>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      const cancelBtn = overlay.querySelector('#lmGeminiProgressCancelBtn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          geminiProgressAbort = true;
+          hideGeminiProgressModal();
+        });
+      }
+    }
+    return overlay;
+  }
+
+  function showGeminiProgressModal() {
+    geminiProgressAbort = false;
+    const overlay = createGeminiProgressDom();
+    updateGeminiProgress(0, 'Starting Gemini generation...');
+    overlay.style.display = 'flex';
+  }
+
+  function hideGeminiProgressModal() {
+    const overlay = document.getElementById('lmGeminiProgressOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function updateGeminiProgress(percent, label) {
+    const fill = document.getElementById('lmGeminiProgressFill');
+    const labelEl = document.getElementById('lmGeminiProgressLabel');
+    const percentEl = document.getElementById('lmGeminiProgressPercent');
+    const p = Math.max(0, Math.min(100, Math.round(percent)));
+    if (fill) fill.style.width = p + '%';
+    if (labelEl && label) labelEl.textContent = label;
+    if (percentEl) percentEl.textContent = p + '%';
+  }
+
+  function checkLessonNeedsGeminiEnrichment(lesson) {
+    if (!lesson || !Array.isArray(lesson.blocks)) return false;
+    let needs = false;
+    lesson.blocks.forEach(b => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && Array.isArray(b.items)) {
+        b.items.forEach(it => {
+          if (!it.distractorsRu || !it.distractorsEn) needs = true;
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) ? b.items : [b];
+        items.forEach(it => {
+          if (!it.distractorsRu || !it.distractorsEn) needs = true;
+        });
+      }
+    });
+    return needs;
+  }
+
+  async function runGeminiEnrichmentProgress(lesson) {
+    if (!lesson || !Array.isArray(lesson.blocks)) return;
+    const items = [];
+    lesson.blocks.forEach(b => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && Array.isArray(b.items)) {
+        b.items.forEach(it => items.push(it));
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const blkItems = Array.isArray(b.items) ? b.items : [b];
+        blkItems.forEach(it => items.push(it));
+      }
+    });
+    const total = items.length;
+    if (total === 0) return;
+
+    updateGeminiProgress(15, 'Preparing cards: 0 of ' + total);
+
+    const enrichPromise = stageEnrichLessonDistractors(lesson);
+
+    for (let p = 25; p <= 90; p += 15) {
+      if (geminiProgressAbort) break;
+      await new Promise(r => setTimeout(r, 200));
+      const doneCount = Math.min(total, Math.round((p / 100) * total));
+      updateGeminiProgress(p, 'Processing cards: ' + doneCount + ' of ' + total);
+    }
+
+    try {
+      await Promise.race([
+        enrichPromise,
+        new Promise(r => setTimeout(r, 2500))
+      ]);
+    } catch (_) {}
+
+    updateGeminiProgress(100, 'Done! Opening Focus Mode...');
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  async function startFocusSessionWithScope(scope, subCat) {
     focusActiveScope = scope || 'all';
     focusActiveSubCategory = subCat || 'words';
+    closeFocusScopeModal();
+
+    const currentLesson = (typeof lmState !== 'undefined' && lmState) ? lmState : (typeof window !== 'undefined' && window.lmState ? window.lmState : null);
+    const isBrowserNetwork = typeof window !== 'undefined' && window.location && /^https?:/.test(window.location.protocol);
+    const needsEnrichment = checkLessonNeedsGeminiEnrichment(currentLesson);
+
+    if (needsEnrichment && isBrowserNetwork && !geminiProgressAbort) {
+      showGeminiProgressModal();
+      await runGeminiEnrichmentProgress(currentLesson);
+      hideGeminiProgressModal();
+    }
+
+    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson, { bidirectional: true, shuffle: true });
     const filtered = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
     focusQuestions = shuffleArray(filtered).map(shuffleQuestionOptions);
     if (!focusQuestions || focusQuestions.length === 0) {
       alert('No questions found for the selected practice scope.');
       return;
     }
-    closeFocusScopeModal();
     focusActive = true;
     focusIndex = 0;
     focusSelectedOption = null;
@@ -1541,6 +1718,10 @@
     window.shuffleArray = shuffleArray;
     window.shuffleQuestionOptions = shuffleQuestionOptions;
     window.stageEnrichLessonDistractors = stageEnrichLessonDistractors;
+    window.showGeminiProgressModal = showGeminiProgressModal;
+    window.hideGeminiProgressModal = hideGeminiProgressModal;
+    window.updateGeminiProgress = updateGeminiProgress;
+    window.cleanTranslationString = cleanTranslationString;
     window.calculateMasteryScore = calculateMasteryScore;
     window.evaluateTwoFactorSubmission = evaluateTwoFactorSubmission;
     window.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
@@ -1564,5 +1745,9 @@
     globalThis.shuffleArray = shuffleArray;
     globalThis.shuffleQuestionOptions = shuffleQuestionOptions;
     globalThis.stageEnrichLessonDistractors = stageEnrichLessonDistractors;
+    globalThis.showGeminiProgressModal = showGeminiProgressModal;
+    globalThis.hideGeminiProgressModal = hideGeminiProgressModal;
+    globalThis.updateGeminiProgress = updateGeminiProgress;
+    globalThis.cleanTranslationString = cleanTranslationString;
   }
 })();

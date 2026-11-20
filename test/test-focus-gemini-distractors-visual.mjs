@@ -97,6 +97,26 @@ test('Visual rendering and hotkey interaction of 5-option bidirectional focus ca
     const fifthBtnClass = await page.$eval('.focus-option-btn[data-focus-option="4"]', el => el.className);
     assert.ok(fifthBtnClass.includes('is-selected') || fifthBtnClass.includes('is-incorrect-opt'), 'Fifth option was selected via hotkey 5');
 
+    // Verify opacity is 1 (no blur) when buttons are disabled after result
+    const disabledBtnOpacity = await page.$eval('.focus-option-btn:disabled', el => window.getComputedStyle(el).opacity);
+    assert.equal(disabledBtnOpacity, '1', 'Disabled option buttons must maintain opacity 1 (no blur)');
+
+    // Test Progress Bar modal in DOM
+    await page.evaluate(() => {
+      window.closeFocusPlayer();
+      window.showGeminiProgressModal();
+      window.updateGeminiProgress(68, 'Processing cards: 14 of 20');
+    });
+    await page.waitForTimeout(50);
+    const progressModalVisible = await page.$eval('#lmGeminiProgressOverlay', el => el.style.display !== 'none');
+    assert.ok(progressModalVisible, 'Gemini progress modal is visible');
+    const progressFillWidth = await page.$eval('#lmGeminiProgressFill', el => el.style.width);
+    assert.equal(progressFillWidth, '68%');
+
+    await page.evaluate(() => {
+      window.hideGeminiProgressModal();
+    });
+
     // Verify Dark theme
     await page.evaluate(() => {
       document.documentElement.setAttribute('data-theme', 'dark');
