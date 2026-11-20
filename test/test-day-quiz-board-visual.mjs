@@ -92,6 +92,14 @@ test('Visual rendering of day quiz board header, custom mix, and exercise counts
       const typesGrid = document.querySelector('.dq-types');
       const gridColumns = typesGrid ? window.getComputedStyle(typesGrid).gridTemplateColumns.split(' ').length : 0;
 
+      // Anki cards review block verification
+      const reviewRow = document.querySelector('.dq-review-row');
+      const ankiCard = document.querySelector('#dayQuizReview [data-dq-mode="fsrs"]');
+      const quickCard = document.querySelector('#dayQuizModes [data-dq-mode="quick"]');
+      const ankiWidth = ankiCard ? ankiCard.getBoundingClientRect().width : 0;
+      const quickWidth = quickCard ? quickCard.getBoundingClientRect().width : 0;
+      const ankiTitle = ankiCard ? ankiCard.querySelector('b')?.textContent : '';
+
       return {
         hasCrumb: !!crumb,
         hasHomeBtn: !!homeBtn,
@@ -102,7 +110,11 @@ test('Visual rendering of day quiz board header, custom mix, and exercise counts
         visibleGroups: visibleGroups.length,
         isFlipOn,
         hasSelectAllInReview,
-        gridColumns
+        gridColumns,
+        hasReviewRow: !!reviewRow,
+        hasAnkiCard: !!ankiCard,
+        ankiTitle,
+        widthMatch: Math.abs(ankiWidth - quickWidth) < 2
       };
     });
 
@@ -116,6 +128,39 @@ test('Visual rendering of day quiz board header, custom mix, and exercise counts
     assert.ok(state.isFlipOn, 'Flip must be on by default');
     assert.equal(state.hasSelectAllInReview, false, 'Review group must not have Select all');
     assert.equal(state.gridColumns, 2, 'Types grid must have 2 columns');
+    assert.ok(state.hasReviewRow, 'Review row must exist');
+    assert.ok(state.hasAnkiCard, 'Anki card must exist');
+    assert.equal(state.ankiTitle, 'Anki cards', 'Anki card title must be Anki cards');
+    assert.ok(state.widthMatch, 'Anki card width must match Quick review card width');
+
+    // Test selection transfer
+    const clickResult = await page.evaluate(() => {
+      const anki = document.querySelector('#dayQuizReview [data-dq-mode="fsrs"]');
+      if (anki) anki.click();
+      const readyWithAnki = document.getElementById('dayQuizReady')?.textContent;
+      const isAnkiOn = anki?.classList.contains('on');
+      const isQuickOff = !document.querySelector('#dayQuizModes [data-dq-mode="quick"]')?.classList.contains('on');
+
+      const quick = document.querySelector('#dayQuizModes [data-dq-mode="quick"]');
+      if (quick) quick.click();
+      const readyWithQuick = document.getElementById('dayQuizReady')?.textContent;
+      const isQuickOn = quick?.classList.contains('on');
+      const isAnkiOff = !document.querySelector('#dayQuizReview [data-dq-mode="fsrs"]')?.classList.contains('on');
+
+      return {
+        readyWithAnki,
+        isAnkiOn,
+        isQuickOff,
+        readyWithQuick,
+        isQuickOn,
+        isAnkiOff
+      };
+    });
+
+    assert.ok(clickResult.isAnkiOn && clickResult.isQuickOff, 'Anki must be selected on click');
+    assert.ok(clickResult.readyWithAnki.includes('Anki cards'), 'Ready label must reflect Anki cards');
+    assert.ok(clickResult.isQuickOn && clickResult.isAnkiOff, 'Quick review must be selected on click');
+    assert.ok(clickResult.readyWithQuick.includes('Quick review'), 'Ready label must reflect Quick review');
 
     // Test themes
     for (const theme of ['sky', 'dark', 'sand']) {

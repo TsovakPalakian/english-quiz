@@ -21,7 +21,7 @@ test('Verified cards accordion across phrases, words, rules, and classwork tabs'
 
   await t.test('2. Single block renderer collapses verified blocks by default inside verified section', () => {
     assert.ok(
-      code.includes('const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);'),
+      code.includes('const isShut = isVerifiedSection ? !block.unfolded : Boolean(block.collapsed);'),
       'renderSingleBlock must set isShut for verified section unless explicitly expanded'
     );
     assert.ok(
@@ -32,7 +32,7 @@ test('Verified cards accordion across phrases, words, rules, and classwork tabs'
 
   await t.test('3. Fold button handler correctly toggles collapsed state on verified blocks', () => {
     assert.ok(
-      code.includes('const isCurrentlyShut = block.teacherVerified ? (block.collapsed !== false) : Boolean(block.collapsed);'),
+      code.includes('const isCurrentlyShut = block.teacherVerified ? !block.unfolded : Boolean(block.collapsed);'),
       'data-lm-fold must handle verified blocks default shut state'
     );
   });
@@ -41,5 +41,15 @@ test('Verified cards accordion across phrases, words, rules, and classwork tabs'
     assert.ok(previewCode.includes('Verified phrases'), 'preview.js must include Verified phrases');
     assert.ok(previewCode.includes('Verified words'), 'preview.js must include Verified words');
     assert.ok(previewCode.includes('Verified rules'), 'preview.js must include Verified rules');
+  });
+
+  await t.test('5. Word input fields and summary have bold and enlarged typography', () => {
+    const css = fs.readFileSync(path.join(rootDir, 'site/preview.css'), 'utf8');
+    assert.ok(css.includes('input[data-item-field="word"]'), 'Must target data-item-field="word"');
+    assert.ok(css.includes('input[data-field="word"]'), 'Must target data-field="word"');
+    assert.ok(css.includes('input[data-item-field="phrase"]'), 'Must target data-item-field="phrase"');
+    assert.ok(css.includes('font-weight: 700;'), 'Must apply bold font weight');
+    assert.ok(css.includes('font-size: 16px;'), 'Must increase word font size to 16px');
+    assert.ok(css.includes('.lm-block.is-shut .lm-summary'), 'Must style collapsed block summary');
   });
 });

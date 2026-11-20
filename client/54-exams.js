@@ -786,6 +786,53 @@
         const prompt = (item) => kind === "Gap" ? (item.shown || "Fill the gap") : (item.parts || "Build the phrase");
         return title + items.map((item, index) => '<div class="lm-q"><b>' + esc(prompt(item)) + "</b>" + (reviewer ? examTextReview(block, item, index, kind) : '<input type="text" data-exam-given="' + block.id + ":" + index + '" value="' + esc(item.given || "") + '"' + lock + " />") + "</div>").join("");
       }
+      if (kind === "TextGaps") {
+        const parseFn = typeof parseGapsFromText === "function" ? parseGapsFromText : (window.parseGapsFromText || (() => []));
+        return title + items.map((item, index) => {
+          const itemIndex = block.assessmentIndex ?? index;
+          const sourceBlock = block.assessmentSource || block;
+          const gaps = (Array.isArray(item.gaps) && item.gaps.length) ? item.gaps : parseFn(item.text || "");
+          let givenMap = {};
+          if (item.given) {
+            try { givenMap = typeof item.given === "object" ? item.given : JSON.parse(item.given); } catch {}
+          }
+          const prompt = item.prompt ? '<p class="gap-task-instructions" style="margin-bottom:8px;">' + esc(item.prompt) + '</p>' : '';
+          let bankHtml = '';
+          if (item.mode === "bank" && !reviewer) {
+            const allWords = gaps.map(g => g.target).concat((item.distractors || "").split(/[\s,]+/).filter(Boolean));
+            const chips = allWords.map(w => '<span class="word-chip">' + esc(w) + '</span>').join("");
+            bankHtml = '<div class="word-bank-box" style="margin-bottom:12px;"><div class="word-bank-label"><span>Available Words</span></div><div class="word-bank-chips">' + chips + '</div></div>';
+          }
+          let passageHtml = esc(item.text || "");
+          let slotOrder = 1;
+          passageHtml = passageHtml.replace(/\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g, () => {
+            const gap = gaps.find(g => g.index === slotOrder) || gaps[slotOrder - 1];
+            const sIdx = gap ? gap.index : slotOrder;
+            slotOrder++;
+            if (!gap) return "";
+            const val = givenMap[sIdx] ?? givenMap[String(sIdx)] ?? "";
+            const targetVal = gap.target || "";
+            const isMatch = val && (val.trim().toLowerCase() === targetVal.trim().toLowerCase() || (Array.isArray(gap.alternatives) && gap.alternatives.some(a => a.trim().toLowerCase() === val.trim().toLowerCase())));
+            const stemBadge = gap.stem ? '<span class="gap-stem-tag">' + esc(gap.stem) + '</span>' : '';
+            if (reviewer) {
+              const mark = isMatch
+                ? '<span class="exam-hit">' + esc(val || targetVal) + '</span>'
+                : '<span class="exam-miss exam-strike">' + esc(val || "—") + '</span> <span class="exam-hit">' + esc(targetVal) + '</span>';
+              return '<span class="gap-slot' + (isMatch ? ' is-correct' : ' is-wrong') + '"><span class="gap-num">' + sIdx + '</span>' + mark + stemBadge + '</span>';
+            }
+            let control = '';
+            if (gap.options?.length > 0 || item.mode === "dropdown") {
+              const opts = gap.options?.length > 0 ? gap.options : [gap.target];
+              const optionsHtml = '<option value="">Choose ▾</option>' + opts.map(opt => '<option value="' + esc(opt) + '"' + (String(val).toLowerCase() === opt.toLowerCase() ? " selected" : "") + '>' + esc(opt) + '</option>').join("");
+              control = '<select class="gap-select" data-exam-gap="' + sourceBlock.id + ':' + itemIndex + ':' + sIdx + '"' + lock + '>' + optionsHtml + '</select>';
+            } else {
+              control = '<input type="text" class="gap-input" data-exam-gap="' + sourceBlock.id + ':' + itemIndex + ':' + sIdx + '" value="' + esc(val) + '" placeholder="(' + sIdx + ')"' + lock + ' />';
+            }
+            return '<span class="gap-slot"><span class="gap-num">' + sIdx + '</span>' + control + stemBadge + '</span>';
+          });
+          return '<div class="lm-q"><b>' + esc(item.title || "Text with Gaps") + '</b>' + prompt + bankHtml + '<div class="gap-passage" style="margin: 12px 0;">' + passageHtml + '</div>' + tail(index) + '</div>';
+        }).join("");
+      }
       return title + items.map((item, index) => {
         const prompt = item.prompt || item.front || item.word || item.text || kind;
         const field = reviewer ? examTextReview(block, item, index, kind) : '<input type="text" data-exam-given="' + block.id + ":" + index + '" value="' + esc(item.given || "") + '"' + lock + " />";
@@ -804,7 +851,7 @@
           const reviewer = canTuneStudentLessons(), given = block.response || "";
           panel.innerHTML = "<h3>" + esc(block.title || "Task") + "</h3><p>" + esc(block.text || "") + '</p><label>Your answer<textarea data-exam-response="' + block.id + '"' + (reviewer || lmState.studentSaved ? " disabled" : "") + ">" + esc(given) + "</textarea></label>" + (reviewer ? examFixInput(block, 0) + examPointInput(block, 0) : assessmentFeedback(block,0));
         } else {
-          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, assessmentSource:block, assessmentIndex:index, quizType: item.kind === "write" ? "Type" : "Choice", items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll('data-exam-given="' + block.id + ':0"', 'data-exam-given="' + block.id + ':' + index + '"').replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
+          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, assessmentSource:block, assessmentIndex:index, quizType: item.kind === "write" ? "Type" : (item.kind === "text_gaps" ? "TextGaps" : "Choice"), items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll('data-exam-given="' + block.id + ':0"', 'data-exam-given="' + block.id + ':' + index + '"').replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
         }
       });
       if (canTuneStudentLessons()) {
@@ -901,6 +948,20 @@
         lmState[bucket][partId][index] = points ? source.value : source.value;
         assessmentStatus('Unsaved review');
         examRefreshTaskScores();
+        return;
+      }
+      const gapInput = input.closest("[data-exam-gap]");
+      if (gapInput && !reviewer) {
+        const bits = gapInput.dataset.examGap.split(":");
+        const block = (lmState.blocks || []).find((row) => row.id === domEntityId(bits[0]));
+        const item = block && (block.items || [])[Number(bits[1])];
+        if (item) {
+          let map = {};
+          try { map = typeof item.given === 'object' && item.given ? item.given : JSON.parse(item.given || '{}'); } catch { map = {}; }
+          map[bits[2]] = gapInput.value;
+          item.given = JSON.stringify(map);
+          assessmentAutosave(lmState);
+        }
         return;
       }
       const source = input.closest("[data-exam-given]");

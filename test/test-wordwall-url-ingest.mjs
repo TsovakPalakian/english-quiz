@@ -261,22 +261,25 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
       const btn = document.getElementById('lmTabBtnLesson');
       const pane = document.getElementById('lmTabPaneLesson');
       const cloud = document.getElementById('lmQuizTypesPillCloud');
-      return btn?.classList.contains('active') && pane?.style.display === 'block' && cloud?.children.length === 20;
+      const expectedCount = Array.isArray(window.LM_ALL_QUIZ_TYPES) ? window.LM_ALL_QUIZ_TYPES.length : 21;
+      return btn?.classList.contains('active') && pane?.style.display === 'block' && cloud?.children.length === expectedCount;
     });
-    assert.ok(tab4Active, 'Tab 4 should be active and display 20 quiz type pills');
+    assert.ok(tab4Active, 'Tab 4 should be active and display all quiz type pills');
 
-    // Tab 4 initial state: 19 active, Video choice deselected, warning hidden
+    // Tab 4 initial state: total minus 1 active, Video choice deselected, warning hidden
     const initialTab4State = await page.evaluate(() => {
       const count = document.getElementById('lmQuizSelectedCount')?.textContent?.trim();
       const warning = document.getElementById('lmVideoChoiceWarning');
       const videoPill = document.querySelector('[data-quiz-type="Video choice"]');
+      const total = Array.isArray(window.LM_ALL_QUIZ_TYPES) ? window.LM_ALL_QUIZ_TYPES.length : 21;
       return {
         count,
+        expectedInitialCount: String(total - 1),
         warningDisplay: warning?.style.display,
         isInactivePill: videoPill?.classList.contains('pill-inactive')
       };
     });
-    assert.strictEqual(initialTab4State.count, '19', 'Default active quiz count should be 19');
+    assert.strictEqual(initialTab4State.count, initialTab4State.expectedInitialCount, 'Default active quiz count should match total minus 1');
     assert.strictEqual(initialTab4State.warningDisplay, 'none', 'Warning should be hidden by default');
     assert.strictEqual(initialTab4State.isInactivePill, true, 'Video choice pill should start inactive');
 
@@ -286,13 +289,15 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
       videoPill?.click();
       const count = document.getElementById('lmQuizSelectedCount')?.textContent?.trim();
       const warning = document.getElementById('lmVideoChoiceWarning');
+      const total = Array.isArray(window.LM_ALL_QUIZ_TYPES) ? window.LM_ALL_QUIZ_TYPES.length : 21;
       return {
         count,
+        expectedOnCount: String(total),
         warningDisplay: warning?.style.display,
         isActiveCoral: videoPill?.classList.contains('pill-active-coral')
       };
     });
-    assert.strictEqual(stateAfterVideoOn.count, '20', 'Active quiz count should be 20 when Video choice is selected');
+    assert.strictEqual(stateAfterVideoOn.count, stateAfterVideoOn.expectedOnCount, 'Active quiz count should equal total when Video choice is selected');
     assert.notStrictEqual(stateAfterVideoOn.warningDisplay, 'none', 'Warning should be visible when Video choice is selected');
     assert.strictEqual(stateAfterVideoOn.isActiveCoral, true, 'Video choice pill should have coral active style');
 
@@ -302,13 +307,15 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
       videoPill?.click();
       const count = document.getElementById('lmQuizSelectedCount')?.textContent?.trim();
       const warning = document.getElementById('lmVideoChoiceWarning');
+      const total = Array.isArray(window.LM_ALL_QUIZ_TYPES) ? window.LM_ALL_QUIZ_TYPES.length : 21;
       return {
         count,
+        expectedOffCount: String(total - 1),
         warningDisplay: warning?.style.display,
         isInactivePill: videoPill?.classList.contains('pill-inactive')
       };
     });
-    assert.strictEqual(stateAfterVideoOff.count, '19', 'Active quiz count should return to 19');
+    assert.strictEqual(stateAfterVideoOff.count, stateAfterVideoOff.expectedOffCount, 'Active quiz count should return to total minus 1');
     assert.strictEqual(stateAfterVideoOff.warningDisplay, 'none', 'Warning should be hidden again when Video choice is deselected');
     assert.strictEqual(stateAfterVideoOff.isInactivePill, true, 'Video choice pill should be inactive again');
 

@@ -6,6 +6,12 @@
   let focusSelectedOption = null;
   let focusResults = {}; // index -> boolean (true: correct, false: incorrect)
   let sessionConceptErrors = new Map(); // concept -> count of errors in this session
+  let focusAllQuestions = [];
+  let focusActiveScope = 'all'; // 'words_phrases' | 'classwork_homework' | 'single' | 'all'
+  let focusActiveSubCategory = 'words'; // 'words' | 'phrases' | 'classwork' | 'homework'
+  let focusScopeMenuOpen = false;
+  let modalSelectedScope = 'all';
+  let modalSelectedSubCat = 'words';
 
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -15,25 +21,58 @@
     if (!lesson || !Array.isArray(lesson.blocks)) return [];
     const questions = [];
     lesson.blocks.forEach((b, bIdx) => {
-      if (b.tab === 'words' && Array.isArray(b.items)) {
-        b.items.forEach((it, itIdx) => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && (Array.isArray(b.items) || b.word)) {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{ word: b.word, translation: b.translation || b.meaning || b.ru }];
+        items.forEach((it, itIdx) => {
+          const w = String(it.word || it.en || b.word || 'Vocabulary').trim();
+          if (!w) return;
+          const meaning = String(it.translation || it.meaning || it.ru || w).trim();
           questions.push({
             id: 'word-' + bIdx + '-' + itIdx,
-            title: 'Vocabulary: ' + it.word,
-            concept: it.word,
-            prompt: 'Identify the definition of "' + it.word + '":',
-            options: [it.translation || it.meaning || it.word, 'Alternative form', 'Unrelated context'],
+            category: 'words',
+            title: 'Vocabulary: ' + w,
+            concept: w,
+            prompt: 'Identify the definition of "' + w + '":',
+            options: [meaning, 'Alternative form', 'Unrelated context'],
             answer: 0,
-            feedback: '"' + it.word + '" means: ' + (it.translation || it.meaning || it.word)
+            feedback: '"' + w + '" means: ' + meaning
+          });
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{
+          phrase: b.title || b.word || 'Phrase',
+          meaning: b.meaning || b.translation || b.ru || 'Expression',
+          example: b.example || ''
+        }];
+        const allMeanings = items.map(it => String(it.translation || it.meaning || it.ru || '').trim()).filter(Boolean);
+        items.forEach((it, itIdx) => {
+          const phraseText = String(it.phrase || it.word || it.en || b.title || 'Phrase').trim();
+          if (!phraseText) return;
+          const meaning = String(it.translation || it.meaning || it.ru || phraseText).trim();
+          const example = String(it.example || ('Usage: "' + phraseText + '" in everyday English.')).trim();
+          const distractors = allMeanings.filter(m => m !== meaning);
+          const opt1 = distractors[0] || 'Alternative colloquial usage';
+          const opt2 = distractors[1] || 'Opposite contextual meaning';
+          questions.push({
+            id: 'phrase-' + (b.id || bIdx) + '-' + itIdx,
+            category: 'phrases',
+            title: 'Phrase: ' + phraseText,
+            concept: phraseText,
+            prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
+            options: [meaning, opt1, opt2],
+            answer: 0,
+            feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
           });
         });
       } else if (b.type === 'quiz') {
+        const isHw = b.tab === 'homework' || b.homework === true || b.isHomework === true || /^(?:HW|Homework)\b/i.test(b.title || '');
         const item = b.items?.[0] || b;
         const concept = item.word || b.title?.replace(/^(?:HW|CW)\s+[^:]+:\s*/i, '') || 'Grammar & Usage';
         const options = item.options || [item.answer || 'Option A', 'Option B', 'Option C'];
         const ans = typeof item.answer === 'number' ? item.answer : 0;
         questions.push({
           id: 'quiz-' + (b.id || bIdx),
+          category: isHw ? 'homework' : 'classwork',
           title: b.title || b.quizType || 'Quiz Task',
           concept,
           prompt: item.prompt || item.text || b.text || 'Choose the best option:',
@@ -42,6 +81,7 @@
           feedback: b.pdfTeacherNotes || item.feedback || 'Target concept: ' + concept
         });
       } else if (b.type === 'exercise' && Array.isArray(b.items)) {
+        const isHw = b.tab === 'homework' || b.homework === true || b.isHomework === true || /^(?:HW|Homework)\b/i.test(b.title || '');
         b.items.forEach((it, itIdx) => {
           const concept = b.title || 'Exercise Practice';
           let title = b.title || '';
@@ -55,6 +95,7 @@
           }
           questions.push({
             id: 'exercise-' + (b.id || bIdx) + '-' + itIdx,
+            category: isHw ? 'homework' : 'classwork',
             title: title || 'Exercise',
             concept,
             prompt,
@@ -66,6 +107,181 @@
       }
     });
     return questions;
+  }
+
+  function filterFocusQuestionsByScope(questions, scope, subCat) {
+    if (!Array.isArray(questions)) return [];
+    if (!scope || scope === 'all') return questions.slice();
+    if (scope === 'words_phrases') {
+      return questions.filter(q => q.category === 'words' || q.category === 'phrases');
+    }
+    if (scope === 'classwork_homework') {
+      return questions.filter(q => q.category === 'classwork' || q.category === 'homework');
+    }
+    if (scope === 'single') {
+      const target = subCat || 'words';
+      return questions.filter(q => q.category === target);
+    }
+    return questions.slice();
+  }
+
+  function getFocusScopeCounts(allQuestions) {
+    const counts = {
+      words: 0,
+      phrases: 0,
+      classwork: 0,
+      homework: 0,
+      words_phrases: 0,
+      classwork_homework: 0,
+      all: 0
+    };
+    if (!Array.isArray(allQuestions)) return counts;
+    allQuestions.forEach(q => {
+      const cat = q.category || 'classwork';
+      if (counts[cat] !== undefined) counts[cat]++;
+    });
+    counts.words_phrases = counts.words + counts.phrases;
+    counts.classwork_homework = counts.classwork + counts.homework;
+    counts.all = allQuestions.length;
+    return counts;
+  }
+
+  function createScopeModalDom() {
+    let overlay = document.getElementById('lmFocusScopeOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'lmFocusScopeOverlay';
+      overlay.className = 'focus-scope-overlay';
+      overlay.style.display = 'none';
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function renderFocusScopeModal() {
+    const overlay = createScopeModalDom();
+    const counts = getFocusScopeCounts(focusAllQuestions);
+
+    let selectedCount = 0;
+    if (modalSelectedScope === 'words_phrases') selectedCount = counts.words_phrases;
+    else if (modalSelectedScope === 'classwork_homework') selectedCount = counts.classwork_homework;
+    else if (modalSelectedScope === 'single') selectedCount = counts[modalSelectedSubCat] || 0;
+    else selectedCount = counts.all;
+
+    overlay.innerHTML =
+      '<div class="focus-scope-modal" id="lmFocusScopeModal">' +
+        '<div class="focus-scope-header">' +
+          '<div>' +
+            '<h2>Focus Mode Practice Scope</h2>' +
+            '<div class="focus-scope-subtitle">Choose the practice scope for this session</div>' +
+          '</div>' +
+          '<button type="button" class="focus-close-btn" id="focusScopeCloseBtn">✕</button>' +
+        '</div>' +
+        '<div class="focus-scope-grid">' +
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'words_phrases' ? 'is-active' : '') + '" data-scope="words_phrases">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">📚</span>' +
+                '<span class="focus-scope-title">Words &amp; Phrases</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + counts.words_phrases + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Vocabulary cards, definitions and collocations</div>' +
+          '</div>' +
+
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'classwork_homework' ? 'is-active' : '') + '" data-scope="classwork_homework">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">📝</span>' +
+                '<span class="focus-scope-title">Classwork &amp; Homework</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + counts.classwork_homework + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Interactive exercises, grammar tasks and assignments</div>' +
+          '</div>' +
+
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'single' ? 'is-active' : '') + '" data-scope="single">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">🎯</span>' +
+                '<span class="focus-scope-title">Single Category</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + (counts[modalSelectedSubCat] || 0) + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Focus strictly on one specific material type</div>' +
+            '<div class="focus-sub-pills">' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'words' ? 'is-selected' : '') + '" data-subcat="words">Words (' + counts.words + ')</button>' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'phrases' ? 'is-selected' : '') + '" data-subcat="phrases">Phrases (' + counts.phrases + ')</button>' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'classwork' ? 'is-selected' : '') + '" data-subcat="classwork">Classwork (' + counts.classwork + ')</button>' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'homework' ? 'is-selected' : '') + '" data-subcat="homework">Homework (' + counts.homework + ')</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'all' ? 'is-active' : '') + '" data-scope="all">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">⚡</span>' +
+                '<span class="focus-scope-title">All Together</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + counts.all + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Comprehensive session covering all available lesson materials</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="focus-scope-actions">' +
+          '<button type="button" class="btn secondary" id="focusScopeCancelBtn">Cancel</button>' +
+          '<button type="button" class="btn primary" id="focusScopeStartBtn" ' + (selectedCount === 0 ? 'disabled' : '') + '>Start Focus Mode (' + selectedCount + ') →</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function openFocusScopeModal() {
+    modalSelectedScope = focusActiveScope || 'all';
+    modalSelectedSubCat = focusActiveSubCategory || 'words';
+    const overlay = createScopeModalDom();
+    renderFocusScopeModal();
+    overlay.style.display = 'flex';
+  }
+
+  function closeFocusScopeModal() {
+    const overlay = document.getElementById('lmFocusScopeOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function startFocusSessionWithScope(scope, subCat) {
+    focusActiveScope = scope || 'all';
+    focusActiveSubCategory = subCat || 'words';
+    focusQuestions = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    if (!focusQuestions || focusQuestions.length === 0) {
+      alert('No questions found for the selected practice scope.');
+      return;
+    }
+    closeFocusScopeModal();
+    focusActive = true;
+    focusIndex = 0;
+    focusSelectedOption = null;
+    focusResults = {};
+    sessionConceptErrors.clear();
+    focusScopeMenuOpen = false;
+    renderFocusPlayer();
+  }
+
+  function switchFocusScope(newScope, newSubCat) {
+    focusActiveScope = newScope || 'all';
+    if (newSubCat) focusActiveSubCategory = newSubCat;
+    focusScopeMenuOpen = false;
+    const filtered = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    if (!filtered || filtered.length === 0) {
+      alert('No questions found for this category in the current lesson.');
+      renderFocusPlayer();
+      return;
+    }
+    focusQuestions = filtered;
+    focusIndex = 0;
+    focusSelectedOption = null;
+    focusResults = {};
+    sessionConceptErrors.clear();
+    renderFocusPlayer();
   }
 
   function createPlayerDom() {
@@ -130,7 +346,19 @@
     let exerciseTitle = '';
     let promptRaw = String(currentQ.prompt || '');
 
-    if (currentQ.title) {
+    if (currentQ.category === 'phrases') {
+      kicker = 'Phrase & Collocation';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.category === 'words') {
+      kicker = 'Vocabulary';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.category === 'homework') {
+      kicker = 'Homework';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.category === 'classwork') {
+      kicker = 'Classwork';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.title) {
       if (/^exercise$/i.test(currentQ.title)) {
         kicker = 'Exercise';
       } else {
@@ -154,11 +382,52 @@
       return '<strong>' + match + '</strong>';
     });
 
+    let scopeLabel = 'Scope: All';
+    if (focusActiveScope === 'words_phrases') {
+      scopeLabel = 'Scope: Words & Phrases';
+    } else if (focusActiveScope === 'classwork_homework') {
+      scopeLabel = 'Scope: CW & HW';
+    } else if (focusActiveScope === 'single') {
+      if (focusActiveSubCategory === 'words') scopeLabel = 'Scope: Only Words';
+      else if (focusActiveSubCategory === 'phrases') scopeLabel = 'Scope: Only Phrases';
+      else if (focusActiveSubCategory === 'classwork') scopeLabel = 'Scope: Only CW';
+      else if (focusActiveSubCategory === 'homework') scopeLabel = 'Scope: Only HW';
+      else scopeLabel = 'Scope: Single Category';
+    }
+
+    const counts = getFocusScopeCounts(focusAllQuestions.length ? focusAllQuestions : focusQuestions);
+
+    const scopeMenuHtml = focusScopeMenuOpen ? (
+      '<div class="focus-scope-menu" id="focusScopeMenu">' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'words_phrases' ? 'is-active' : '') + '" data-switch-scope="words_phrases"><span>📚 Words &amp; Phrases</span><span>' + counts.words_phrases + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'classwork_homework' ? 'is-active' : '') + '" data-switch-scope="classwork_homework"><span>📝 Classwork &amp; Homework</span><span>' + counts.classwork_homework + '</span></button>' +
+        '<div class="focus-menu-divider"></div>' +
+        '<div class="focus-menu-label">Single Category</div>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'words' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="words"><span>Words</span><span>' + counts.words + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'phrases' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="phrases"><span>Phrases</span><span>' + counts.phrases + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'classwork' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="classwork"><span>Classwork</span><span>' + counts.classwork + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'homework' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="homework"><span>Homework</span><span>' + counts.homework + '</span></button>' +
+        '<div class="focus-menu-divider"></div>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'all' ? 'is-active' : '') + '" data-switch-scope="all"><span>⚡ All Together</span><span>' + counts.all + '</span></button>' +
+      '</div>'
+    ) : '';
+
+    const scopeSelectorHtml =
+      '<div class="focus-scope-selector-wrap">' +
+        '<button type="button" class="focus-scope-selector-btn" id="focusHeaderScopeBtn">' +
+          '<span>🎯</span>' +
+          '<span>' + esc(scopeLabel) + '</span>' +
+          '<span>▾</span>' +
+        '</button>' +
+        scopeMenuHtml +
+      '</div>';
+
     overlay.innerHTML =
       '<div class="focus-player-header">' +
         '<div class="focus-q-count">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
         '<div class="focus-header-tools">' +
+          scopeSelectorHtml +
           '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Next | Esc: Exit</span>' +
           '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
@@ -282,22 +551,49 @@
     focusCheckAnswer();
   }
 
-  function openFocusPlayer(customQuestions = null) {
-    focusQuestions = customQuestions || extractFocusQuestionsFromLesson(typeof lmState !== 'undefined' ? lmState : null);
-    if (!focusQuestions || focusQuestions.length === 0) {
+  function openFocusPlayer(customQuestions = null, scope = null, subCat = null) {
+    if (customQuestions && Array.isArray(customQuestions)) {
+      focusAllQuestions = customQuestions.slice();
+      if (scope) {
+        focusActiveScope = scope;
+        focusActiveSubCategory = subCat || 'words';
+        focusQuestions = filterFocusQuestionsByScope(focusAllQuestions, scope, subCat);
+      } else {
+        focusActiveScope = 'all';
+        focusActiveSubCategory = 'words';
+        focusQuestions = customQuestions.slice();
+      }
+      if (!focusQuestions || focusQuestions.length === 0) {
+        alert('No quiz or exercise tasks available to practice in Focus Mode.');
+        return;
+      }
+      focusActive = true;
+      focusIndex = 0;
+      focusSelectedOption = null;
+      focusResults = {};
+      sessionConceptErrors.clear();
+      focusScopeMenuOpen = false;
+      renderFocusPlayer();
+      return;
+    }
+
+    const currentLesson = (typeof lmState !== 'undefined' && lmState) ? lmState : (typeof window !== 'undefined' && window.lmState ? window.lmState : null);
+    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson);
+    if (!focusAllQuestions || focusAllQuestions.length === 0) {
       alert('No quiz or exercise tasks available to practice in Focus Mode.');
       return;
     }
-    focusActive = true;
-    focusIndex = 0;
-    focusSelectedOption = null;
-    focusResults = {};
-    sessionConceptErrors.clear();
-    renderFocusPlayer();
+
+    if (scope) {
+      startFocusSessionWithScope(scope, subCat);
+    } else {
+      openFocusScopeModal();
+    }
   }
 
   function closeFocusPlayer() {
     focusActive = false;
+    focusScopeMenuOpen = false;
     const overlay = document.getElementById('lmFocusPlayerOverlay');
     if (overlay) overlay.style.display = 'none';
   }
@@ -778,6 +1074,53 @@
 
   if (typeof document !== 'undefined') {
     document.addEventListener('click', (e) => {
+      // Focus Mode Scope Modal triggers
+      if (e.target.closest('#focusScopeCloseBtn') || e.target.closest('#focusScopeCancelBtn')) {
+        e.preventDefault();
+        closeFocusScopeModal();
+        return;
+      }
+      const subPill = e.target.closest('.focus-sub-pill');
+      if (subPill) {
+        e.preventDefault();
+        modalSelectedScope = 'single';
+        modalSelectedSubCat = subPill.dataset.subcat || 'words';
+        renderFocusScopeModal();
+        return;
+      }
+      const scopeCard = e.target.closest('.focus-scope-card');
+      if (scopeCard) {
+        e.preventDefault();
+        modalSelectedScope = scopeCard.dataset.scope || 'all';
+        renderFocusScopeModal();
+        return;
+      }
+      if (e.target.closest('#focusScopeStartBtn')) {
+        e.preventDefault();
+        startFocusSessionWithScope(modalSelectedScope, modalSelectedSubCat);
+        return;
+      }
+
+      // Focus Mode Player triggers
+      if (e.target.closest('#focusHeaderScopeBtn')) {
+        e.preventDefault();
+        focusScopeMenuOpen = !focusScopeMenuOpen;
+        renderFocusPlayer();
+        return;
+      }
+      const menuItem = e.target.closest('[data-switch-scope]');
+      if (menuItem) {
+        e.preventDefault();
+        const newScope = menuItem.dataset.switchScope;
+        const newSubCat = menuItem.dataset.switchSubcat;
+        switchFocusScope(newScope, newSubCat);
+        return;
+      }
+      if (focusScopeMenuOpen && !e.target.closest('#focusScopeMenu') && !e.target.closest('#focusHeaderScopeBtn')) {
+        focusScopeMenuOpen = false;
+        renderFocusPlayer();
+      }
+
       if (e.target.closest('#lmFocusPlayerBtn')) {
         e.preventDefault();
         openFocusPlayer();
@@ -965,6 +1308,12 @@
   if (typeof window !== 'undefined') {
     window.openFocusPlayer = openFocusPlayer;
     window.closeFocusPlayer = closeFocusPlayer;
+    window.openFocusScopeModal = openFocusScopeModal;
+    window.closeFocusScopeModal = closeFocusScopeModal;
+    window.startFocusSessionWithScope = startFocusSessionWithScope;
+    window.switchFocusScope = switchFocusScope;
+    window.filterFocusQuestionsByScope = filterFocusQuestionsByScope;
+    window.getFocusScopeCounts = getFocusScopeCounts;
     window.focusNextQuestion = focusNextQuestion;
     window.focusPrevQuestion = focusPrevQuestion;
     window.focusSelectOption = focusSelectOption;
@@ -986,5 +1335,10 @@
     globalThis.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
     globalThis.extractFocusQuestionsFromLesson = extractFocusQuestionsFromLesson;
     globalThis.focusApplyAdaptiveRemediation = focusApplyAdaptiveRemediation;
+    globalThis.filterFocusQuestionsByScope = filterFocusQuestionsByScope;
+    globalThis.getFocusScopeCounts = getFocusScopeCounts;
+    globalThis.openFocusPlayer = openFocusPlayer;
+    globalThis.startFocusSessionWithScope = startFocusSessionWithScope;
+    globalThis.switchFocusScope = switchFocusScope;
   }
 })();

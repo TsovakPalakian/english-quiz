@@ -6,6 +6,11 @@
   };
   const READ_KEY = 'lumiscia-notify-read-ts';
   const READ_IDS_KEY = 'lumiscia-notify-read-ids';
+  const TIMING_KEY = 'lumiscia-notify-sound-alerts';
+  const ANKI_DUE_KEY = 'lumiscia-anki-next-due';
+  const DEFAULT_TIMINGS = [180, 60, 15, 5];
+
+  const safeEsc = typeof esc === 'function' ? esc : (s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
 
   function getNotificationSettings() {
     return {
@@ -21,6 +26,55 @@
         localStorage.setItem(PREF_KEYS[key], String(val));
       } catch {}
     }
+  }
+
+  function getSoundAlertTimings() {
+    try {
+      const raw = localStorage.getItem(TIMING_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(Number).filter(n => Number.isFinite(n) && n > 0).sort((a, b) => b - a);
+        }
+      }
+    } catch {}
+    return [...DEFAULT_TIMINGS];
+  }
+
+  function saveSoundAlertTimings(arr) {
+    try {
+      localStorage.setItem(TIMING_KEY, JSON.stringify(arr));
+    } catch {}
+  }
+
+  function formatAlertTiming(minutes) {
+    if (minutes >= 60 && minutes % 60 === 0) {
+      return (minutes / 60) + 'h before';
+    }
+    return minutes + 'm before';
+  }
+
+  function playChimeNotification() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const notes = [659.25, 830.61, 987.77];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.35);
+      });
+      setTimeout(() => { ctx.close().catch(() => {}); }, 1500);
+    } catch {}
   }
 
   function notifyName(value, fallback) {
@@ -42,6 +96,36 @@
     const prefs = getNotificationSettings();
     const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
     const teacher = typeof isTeacher === 'function' && isTeacher();
+
+    // Anki cards FSRS reminders
+    if (prefs.dailyReview) {
+      let ankiInfo = null;
+      try {
+        const raw = localStorage.getItem(ANKI_DUE_KEY);
+        if (raw) ankiInfo = JSON.parse(raw);
+      } catch {}
+
+      if (!ankiInfo && typeof curLesson !== 'undefined' && Array.isArray(curLesson?.cards)) {
+        const fsrsCards = curLesson.cards.filter(c => c && (c.type === 'FSRS Flashcard' || c.quizType === 'FSRS Flashcard'));
+        if (fsrsCards.length > 0) {
+          ankiInfo = {
+            count: fsrsCards.length,
+            stage: 'Due tomorrow',
+            timeDesc: 'tomorrow at 10:00'
+          };
+        }
+      }
+
+      if (ankiInfo) {
+        list.push({
+          id: 'anki-cards-spaced-repetition',
+          kind: 'anki',
+          name: 'Anki cards · Spaced repetition',
+          stage: ankiInfo.stage || 'Due tomorrow',
+          line: (ankiInfo.count || 1) + ' card due for essential review · Scheduled for ' + (ankiInfo.timeDesc || 'tomorrow at 10:00')
+        });
+      }
+    }
 
     if (prefs.lessonReminders && typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
       classGroups.filter((group) => group && group.date === today && !group.hidden).forEach((group) => {
@@ -160,14 +244,23 @@
     if (touchDot) showUnreadDot(unread);
 
     const itemsHtml = notifications.length ? notifications.map((item) =>
-      '<button type="button" class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
+      '<button type="button" class="lesson-notify-card" data-notify-id="' + safeEsc(item.id) + '"' +
+        (item.kind === 'anki' ? ' style="border-left: 3px solid var(--acc);"' : '') + '>' +
         '<span class="lesson-notify-card-top">' +
-          '<span class="lesson-notify-card-title">' + esc(item.name) + '</span>' +
-          '<span class="lesson-notify-card-stage">' + esc(item.stage) + '</span>' +
+          '<span class="lesson-notify-card-title">' + safeEsc(item.name) + '</span>' +
+          '<span class="lesson-notify-card-stage">' + safeEsc(item.stage) + '</span>' +
         '</span>' +
-        '<span class="lesson-notify-card-desc">' + esc(item.line) + '</span>' +
+        '<span class="lesson-notify-card-desc">' + safeEsc(item.line) + '</span>' +
       '</button>'
     ).join('') : '<p class="lesson-notify-empty">No active reminders.</p>';
+
+    const timings = getSoundAlertTimings();
+    const chipsHtml = timings.map((m) =>
+      '<span class="lesson-notify-chip">' +
+        '🔔 ' + safeEsc(formatAlertTiming(m)) + ' ' +
+        '<button type="button" class="lesson-notify-chip-del" data-timing-mins="' + safeEsc(String(m)) + '" aria-label="Remove alert">×</button>' +
+      '</span>'
+    ).join('');
 
     modal.innerHTML =
       '<div class="lesson-notifications-backdrop" id="lessonNotifyBackdrop"></div>' +
@@ -176,7 +269,7 @@
           '<div class="lesson-notify-head-title">' +
             '<svg class="lesson-notify-bell-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
             '<h2 id="lessonNotifyModalTitle">Lesson Notifications</h2>' +
-            '<span class="lesson-notify-count-badge' + (unread ? '' : ' is-read') + '" id="lessonNotifyCountBadge">' + esc(pillText(unread)) + '</span>' +
+            '<span class="lesson-notify-count-badge' + (unread ? '' : ' is-read') + '" id="lessonNotifyCountBadge">' + safeEsc(pillText(unread)) + '</span>' +
           '</div>' +
           '<button type="button" class="lesson-notify-close-btn" id="lessonNotifyCloseBtn" aria-label="Close notifications">×</button>' +
         '</div>' +
@@ -202,6 +295,19 @@
             '</label>' +
           '</div>' +
           '<p class="lesson-notify-sound-note">Sound stays on this device.</p>' +
+          '<div class="lesson-notify-timing-section" id="notifyAudioScheduleSection">' +
+            '<div class="lesson-notify-section-title is-follow">SOUND ALERT TIMING</div>' +
+            '<p class="lesson-notify-timing-note" style="margin-bottom: 8px;">Sound alert triggers before training starts:</p>' +
+            '<div class="lesson-notify-chips">' + chipsHtml + '</div>' +
+            '<div class="lesson-notify-adder">' +
+              '<input type="number" class="lesson-notify-input" id="notifyNewAlertMinutes" min="1" max="1440" placeholder="e.g. 30" />' +
+              '<select class="lesson-notify-select" id="notifyNewAlertUnit">' +
+                '<option value="m">minutes before</option>' +
+                '<option value="h">hours before</option>' +
+              '</select>' +
+              '<button type="button" class="lesson-notify-add-btn" id="notifyAddAlertBtn">+ Add alert</button>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
         '<div class="lesson-notify-foot">' +
           '<button type="button" class="btn lesson-notify-read-all-btn" id="lessonNotifyReadAllBtn">Mark all as read</button>' +
@@ -227,9 +333,17 @@
         const item = notifications.find((entry) => entry.id === card.getAttribute('data-notify-id'));
         closeLessonNotifications();
         if (!item) return;
-        if (item.kind === 'class' && typeof visit === 'function') visit('groups');
-        else if (item.kind === 'material' && item.lessonId && typeof lmOpenLesson === 'function') lmOpenLesson(item.lessonId);
-        else if ((item.kind === 'waiting' || item.kind === 'published') && item.examId && typeof visit === 'function') {
+        if (item.kind === 'anki') {
+          if (typeof dayQuizMode === 'function') {
+            dayQuizMode('fsrs');
+          } else if (typeof startDayStudy === 'function') {
+            startDayStudy();
+          }
+        } else if (item.kind === 'class' && typeof visit === 'function') {
+          visit('groups');
+        } else if (item.kind === 'material' && item.lessonId && typeof lmOpenLesson === 'function') {
+          lmOpenLesson(item.lessonId);
+        } else if ((item.kind === 'waiting' || item.kind === 'published') && item.examId && typeof visit === 'function') {
           examCurrentId = item.examId;
           visit('examblocks');
         }
@@ -239,9 +353,50 @@
     modal.querySelectorAll('.lesson-notify-toggle').forEach((input) => {
       input.onchange = () => {
         setNotificationSetting(input.dataset.prefKey, input.checked);
+        if (input.dataset.prefKey === 'audioAlerts' && input.checked) {
+          playChimeNotification();
+        }
         renderModalContent({ touchDot: false });
       };
     });
+
+    modal.querySelectorAll('.lesson-notify-chip-del').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const mins = Number(btn.getAttribute('data-timing-mins'));
+        const current = getSoundAlertTimings().filter(m => m !== mins);
+        saveSoundAlertTimings(current);
+        renderModalContent({ touchDot: false });
+      };
+    });
+
+    const addAlertBtn = modal.querySelector('#notifyAddAlertBtn');
+    if (addAlertBtn) {
+      addAlertBtn.onclick = () => {
+        const input = modal.querySelector('#notifyNewAlertMinutes');
+        const unitSelect = modal.querySelector('#notifyNewAlertUnit');
+        const val = Number(input?.value);
+        if (!val || val <= 0) {
+          if (input) {
+            input.focus();
+            input.style.borderColor = 'var(--acc)';
+          }
+          return;
+        }
+        const unit = unitSelect?.value || 'm';
+        const mins = unit === 'h' ? Math.round(val * 60) : Math.round(val);
+        const current = getSoundAlertTimings();
+        if (!current.includes(mins)) {
+          current.push(mins);
+          current.sort((a, b) => b - a);
+          saveSoundAlertTimings(current);
+          if (settings.audioAlerts) {
+            playChimeNotification();
+          }
+        }
+        renderModalContent({ touchDot: false });
+      };
+    }
   }
 
   function openLessonNotifications() {
@@ -259,6 +414,13 @@
     document.body.classList.remove('has-modal-open');
   }
 
+  function setAnkiNextDue(info) {
+    try {
+      if (!info) localStorage.removeItem(ANKI_DUE_KEY);
+      else localStorage.setItem(ANKI_DUE_KEY, JSON.stringify(info));
+    } catch {}
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const modal = document.getElementById('lessonNotificationsModal');
@@ -270,4 +432,9 @@
   window.closeLessonNotifications = closeLessonNotifications;
   window.getNotificationSettings = getNotificationSettings;
   window.markAllNotificationsAsRead = () => markAllNotificationsAsRead(getActiveNotifications());
+  window.playChimeNotification = playChimeNotification;
+  window.getSoundAlertTimings = getSoundAlertTimings;
+  window.saveSoundAlertTimings = saveSoundAlertTimings;
+  window.formatAlertTiming = formatAlertTiming;
+  window.setAnkiNextDue = setAnkiNextDue;
 })();

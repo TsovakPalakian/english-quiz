@@ -12947,7 +12947,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       write: "Write it",
       listen: "Listen",
       play: "Play",
-      fsrs: "Spaced repetition",
+      fsrs: "Anki cards",
       custom: "Custom mix"
     };
     function showDayQuizBoard(on) {
@@ -12958,7 +12958,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (classic) classic.hidden = dayQuizBoardOn;
     }
     function dayQuizMode() {
-      const on = document.querySelector("#dayQuizModes [data-dq-mode].on");
+      const on = document.querySelector("#dayQuizBoard [data-dq-mode].on");
       return (on && on.dataset.dqMode) || "quick";
     }
     function dayQuizSource() {
@@ -13080,7 +13080,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const chips = document.getElementById("dayQuizChips");
       if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
       const mark = document.getElementById("dayQuizMark");
-      const modeBtn = document.querySelector('#dayQuizModes [data-dq-mode].on .dq-ico');
+      const modeBtn = document.querySelector('#dayQuizBoard [data-dq-mode].on .dq-ico');
       if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
       const mins = Math.max(0, Math.round(exercises * 30 / 60));
       const start = document.getElementById("dayQuizStart");
@@ -13566,6 +13566,56 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       trackEvent("exam", reason || "score", passed ? "pass" : "fail");
       show("exam");
     }
+    function showAnkiCompletionScreen() {
+      clearDayTimer();
+      if (typeof window.setAnkiNextDue === 'function') {
+        window.setAnkiNextDue({
+          count: 1,
+          stage: 'Due tomorrow',
+          timeDesc: 'tomorrow at 10:00',
+          dueAt: Date.now() + 86400000
+        });
+      }
+      document.documentElement.setAttribute('data-notify-unread', '1');
+
+      const view = document.getElementById("dayView");
+      if (!view) {
+        dayBack();
+        return;
+      }
+      view.innerHTML =
+        '<div class="anki-completion-card" id="ankiCompletionCard">' +
+          '<div class="anki-complete-icon-wrap">' +
+            '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+              '<path d="M20 6L9 17l-5-5"/>' +
+            '</svg>' +
+          '</div>' +
+          '<h2 class="anki-complete-title">Session Complete!</h2>' +
+          '<p class="anki-complete-sub">All Anki cards reviewed for today.</p>' +
+          '<div class="anki-complete-warning-banner">' +
+            '<div class="anki-complete-warning-title">' +
+              '<span>⚠️</span>' +
+              '<span>Essential review required tomorrow</span>' +
+            '</div>' +
+            '<p class="anki-complete-warning-desc">Daily spaced repetition is essential for long-term retention. Notification and sound alert set in 🔔 notifications.</p>' +
+          '</div>' +
+          '<div class="anki-complete-actions">' +
+            '<button type="button" class="btn" id="ankiBackToBoardBtn">Back to training</button>' +
+            '<button type="button" class="btn primary" id="ankiOpenNotifyBtn">Open notifications</button>' +
+          '</div>' +
+        '</div>';
+
+      const backBtn = document.getElementById("ankiBackToBoardBtn");
+      const notifyBtn = document.getElementById("ankiOpenNotifyBtn");
+      if (backBtn) backBtn.onclick = () => dayBack();
+      if (notifyBtn) {
+        notifyBtn.onclick = () => {
+          if (typeof window.openLessonNotifications === 'function') {
+            window.openLessonNotifications();
+          }
+        };
+      }
+    }
     function paintQuizContrast() {
       const root = document.documentElement;
       const body = getComputedStyle(document.body);
@@ -13986,7 +14036,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           4: typeof window.formatFsrsInterval === 'function' ? window.formatFsrsInterval(7) : '7d'
         };
         const hintText = custom?.hint || meaningOf(card) || (card.pos ? esc(card.pos) : "");
-        view.innerHTML = '<p class="prompt">FSRS Flashcard · Spaced repetition</p>' +
+        view.innerHTML = '<p class="prompt">Anki cards · Spaced repetition</p>' +
           '<div class="flip-scene fsrs-scene" id="dayFsrsScene" tabindex="0" role="button" aria-label="Flip card">' +
             '<div class="flip-inner fsrs-inner" id="dayFsrsInner">' +
               '<div class="flip-face flip-front fsrs-face fsrs-front">' +
@@ -14052,7 +14102,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
             }
             if (dayAt + 1 >= dayQueue.length) {
               if (examMode) showExamResult(examPassed(), "");
-              else dayBack();
+              else showAnkiCompletionScreen();
             } else {
               dayAt += 1;
               renderDay();
@@ -18816,7 +18866,18 @@ const STUDIO_CONSTELLATIONS = [{
       const dotId = isMain ? 'pillStatusDot' : 'lmPillStatusDot';
       const popoverDotId = isMain ? 'popoverStatusDot' : 'lmPopoverStatusDot';
 
+      const bellHtml = isMain
+        ? '<button type="button" class="shell-header-bell-btn" id="shellHeaderNotifyBell" aria-label="Reminders and notifications" title="Reminders & Notifications">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+              '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>' +
+              '<path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
+            '</svg>' +
+            '<span class="shell-header-bell-dot"></span>' +
+          '</button>'
+        : '';
+
       host.innerHTML =
+        bellHtml +
         '<div class="user-profile-pill-wrap" id="' + wrapId + '">' +
           '<button type="button" class="user-profile-pill is-circle" id="' + pillId + '" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
             '<div class="pill-avatar-wrap">' +
@@ -18903,6 +18964,16 @@ const STUDIO_CONSTELLATIONS = [{
           popover.hidden = !willOpen;
           pillBtn.classList.toggle('is-open', willOpen);
           pillBtn.setAttribute('aria-expanded', String(willOpen));
+        };
+      }
+
+      const bellBtn = host.querySelector('#shellHeaderNotifyBell');
+      if (bellBtn) {
+        bellBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (typeof window.openLessonNotifications === 'function') {
+            window.openLessonNotifications();
+          }
         };
       }
 
@@ -19068,6 +19139,11 @@ const STUDIO_CONSTELLATIONS = [{
   };
   const READ_KEY = 'lumiscia-notify-read-ts';
   const READ_IDS_KEY = 'lumiscia-notify-read-ids';
+  const TIMING_KEY = 'lumiscia-notify-sound-alerts';
+  const ANKI_DUE_KEY = 'lumiscia-anki-next-due';
+  const DEFAULT_TIMINGS = [180, 60, 15, 5];
+
+  const safeEsc = typeof esc === 'function' ? esc : (s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'));
 
   function getNotificationSettings() {
     return {
@@ -19083,6 +19159,55 @@ const STUDIO_CONSTELLATIONS = [{
         localStorage.setItem(PREF_KEYS[key], String(val));
       } catch {}
     }
+  }
+
+  function getSoundAlertTimings() {
+    try {
+      const raw = localStorage.getItem(TIMING_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(Number).filter(n => Number.isFinite(n) && n > 0).sort((a, b) => b - a);
+        }
+      }
+    } catch {}
+    return [...DEFAULT_TIMINGS];
+  }
+
+  function saveSoundAlertTimings(arr) {
+    try {
+      localStorage.setItem(TIMING_KEY, JSON.stringify(arr));
+    } catch {}
+  }
+
+  function formatAlertTiming(minutes) {
+    if (minutes >= 60 && minutes % 60 === 0) {
+      return (minutes / 60) + 'h before';
+    }
+    return minutes + 'm before';
+  }
+
+  function playChimeNotification() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+      const notes = [659.25, 830.61, 987.77];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.12);
+        gain.gain.setValueAtTime(0.2, now + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + idx * 0.12);
+        osc.stop(now + idx * 0.12 + 0.35);
+      });
+      setTimeout(() => { ctx.close().catch(() => {}); }, 1500);
+    } catch {}
   }
 
   function notifyName(value, fallback) {
@@ -19104,6 +19229,36 @@ const STUDIO_CONSTELLATIONS = [{
     const prefs = getNotificationSettings();
     const today = (typeof lmToday === 'function') ? lmToday() : new Date().toISOString().slice(0, 10);
     const teacher = typeof isTeacher === 'function' && isTeacher();
+
+    // Anki cards FSRS reminders
+    if (prefs.dailyReview) {
+      let ankiInfo = null;
+      try {
+        const raw = localStorage.getItem(ANKI_DUE_KEY);
+        if (raw) ankiInfo = JSON.parse(raw);
+      } catch {}
+
+      if (!ankiInfo && typeof curLesson !== 'undefined' && Array.isArray(curLesson?.cards)) {
+        const fsrsCards = curLesson.cards.filter(c => c && (c.type === 'FSRS Flashcard' || c.quizType === 'FSRS Flashcard'));
+        if (fsrsCards.length > 0) {
+          ankiInfo = {
+            count: fsrsCards.length,
+            stage: 'Due tomorrow',
+            timeDesc: 'tomorrow at 10:00'
+          };
+        }
+      }
+
+      if (ankiInfo) {
+        list.push({
+          id: 'anki-cards-spaced-repetition',
+          kind: 'anki',
+          name: 'Anki cards · Spaced repetition',
+          stage: ankiInfo.stage || 'Due tomorrow',
+          line: (ankiInfo.count || 1) + ' card due for essential review · Scheduled for ' + (ankiInfo.timeDesc || 'tomorrow at 10:00')
+        });
+      }
+    }
 
     if (prefs.lessonReminders && typeof classGroups !== 'undefined' && Array.isArray(classGroups)) {
       classGroups.filter((group) => group && group.date === today && !group.hidden).forEach((group) => {
@@ -19222,14 +19377,23 @@ const STUDIO_CONSTELLATIONS = [{
     if (touchDot) showUnreadDot(unread);
 
     const itemsHtml = notifications.length ? notifications.map((item) =>
-      '<button type="button" class="lesson-notify-card" data-notify-id="' + esc(item.id) + '">' +
+      '<button type="button" class="lesson-notify-card" data-notify-id="' + safeEsc(item.id) + '"' +
+        (item.kind === 'anki' ? ' style="border-left: 3px solid var(--acc);"' : '') + '>' +
         '<span class="lesson-notify-card-top">' +
-          '<span class="lesson-notify-card-title">' + esc(item.name) + '</span>' +
-          '<span class="lesson-notify-card-stage">' + esc(item.stage) + '</span>' +
+          '<span class="lesson-notify-card-title">' + safeEsc(item.name) + '</span>' +
+          '<span class="lesson-notify-card-stage">' + safeEsc(item.stage) + '</span>' +
         '</span>' +
-        '<span class="lesson-notify-card-desc">' + esc(item.line) + '</span>' +
+        '<span class="lesson-notify-card-desc">' + safeEsc(item.line) + '</span>' +
       '</button>'
     ).join('') : '<p class="lesson-notify-empty">No active reminders.</p>';
+
+    const timings = getSoundAlertTimings();
+    const chipsHtml = timings.map((m) =>
+      '<span class="lesson-notify-chip">' +
+        '🔔 ' + safeEsc(formatAlertTiming(m)) + ' ' +
+        '<button type="button" class="lesson-notify-chip-del" data-timing-mins="' + safeEsc(String(m)) + '" aria-label="Remove alert">×</button>' +
+      '</span>'
+    ).join('');
 
     modal.innerHTML =
       '<div class="lesson-notifications-backdrop" id="lessonNotifyBackdrop"></div>' +
@@ -19238,7 +19402,7 @@ const STUDIO_CONSTELLATIONS = [{
           '<div class="lesson-notify-head-title">' +
             '<svg class="lesson-notify-bell-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>' +
             '<h2 id="lessonNotifyModalTitle">Lesson Notifications</h2>' +
-            '<span class="lesson-notify-count-badge' + (unread ? '' : ' is-read') + '" id="lessonNotifyCountBadge">' + esc(pillText(unread)) + '</span>' +
+            '<span class="lesson-notify-count-badge' + (unread ? '' : ' is-read') + '" id="lessonNotifyCountBadge">' + safeEsc(pillText(unread)) + '</span>' +
           '</div>' +
           '<button type="button" class="lesson-notify-close-btn" id="lessonNotifyCloseBtn" aria-label="Close notifications">×</button>' +
         '</div>' +
@@ -19264,6 +19428,19 @@ const STUDIO_CONSTELLATIONS = [{
             '</label>' +
           '</div>' +
           '<p class="lesson-notify-sound-note">Sound stays on this device.</p>' +
+          '<div class="lesson-notify-timing-section" id="notifyAudioScheduleSection">' +
+            '<div class="lesson-notify-section-title is-follow">SOUND ALERT TIMING</div>' +
+            '<p class="lesson-notify-timing-note" style="margin-bottom: 8px;">Sound alert triggers before training starts:</p>' +
+            '<div class="lesson-notify-chips">' + chipsHtml + '</div>' +
+            '<div class="lesson-notify-adder">' +
+              '<input type="number" class="lesson-notify-input" id="notifyNewAlertMinutes" min="1" max="1440" placeholder="e.g. 30" />' +
+              '<select class="lesson-notify-select" id="notifyNewAlertUnit">' +
+                '<option value="m">minutes before</option>' +
+                '<option value="h">hours before</option>' +
+              '</select>' +
+              '<button type="button" class="lesson-notify-add-btn" id="notifyAddAlertBtn">+ Add alert</button>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
         '<div class="lesson-notify-foot">' +
           '<button type="button" class="btn lesson-notify-read-all-btn" id="lessonNotifyReadAllBtn">Mark all as read</button>' +
@@ -19289,9 +19466,17 @@ const STUDIO_CONSTELLATIONS = [{
         const item = notifications.find((entry) => entry.id === card.getAttribute('data-notify-id'));
         closeLessonNotifications();
         if (!item) return;
-        if (item.kind === 'class' && typeof visit === 'function') visit('groups');
-        else if (item.kind === 'material' && item.lessonId && typeof lmOpenLesson === 'function') lmOpenLesson(item.lessonId);
-        else if ((item.kind === 'waiting' || item.kind === 'published') && item.examId && typeof visit === 'function') {
+        if (item.kind === 'anki') {
+          if (typeof dayQuizMode === 'function') {
+            dayQuizMode('fsrs');
+          } else if (typeof startDayStudy === 'function') {
+            startDayStudy();
+          }
+        } else if (item.kind === 'class' && typeof visit === 'function') {
+          visit('groups');
+        } else if (item.kind === 'material' && item.lessonId && typeof lmOpenLesson === 'function') {
+          lmOpenLesson(item.lessonId);
+        } else if ((item.kind === 'waiting' || item.kind === 'published') && item.examId && typeof visit === 'function') {
           examCurrentId = item.examId;
           visit('examblocks');
         }
@@ -19301,9 +19486,50 @@ const STUDIO_CONSTELLATIONS = [{
     modal.querySelectorAll('.lesson-notify-toggle').forEach((input) => {
       input.onchange = () => {
         setNotificationSetting(input.dataset.prefKey, input.checked);
+        if (input.dataset.prefKey === 'audioAlerts' && input.checked) {
+          playChimeNotification();
+        }
         renderModalContent({ touchDot: false });
       };
     });
+
+    modal.querySelectorAll('.lesson-notify-chip-del').forEach((btn) => {
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        const mins = Number(btn.getAttribute('data-timing-mins'));
+        const current = getSoundAlertTimings().filter(m => m !== mins);
+        saveSoundAlertTimings(current);
+        renderModalContent({ touchDot: false });
+      };
+    });
+
+    const addAlertBtn = modal.querySelector('#notifyAddAlertBtn');
+    if (addAlertBtn) {
+      addAlertBtn.onclick = () => {
+        const input = modal.querySelector('#notifyNewAlertMinutes');
+        const unitSelect = modal.querySelector('#notifyNewAlertUnit');
+        const val = Number(input?.value);
+        if (!val || val <= 0) {
+          if (input) {
+            input.focus();
+            input.style.borderColor = 'var(--acc)';
+          }
+          return;
+        }
+        const unit = unitSelect?.value || 'm';
+        const mins = unit === 'h' ? Math.round(val * 60) : Math.round(val);
+        const current = getSoundAlertTimings();
+        if (!current.includes(mins)) {
+          current.push(mins);
+          current.sort((a, b) => b - a);
+          saveSoundAlertTimings(current);
+          if (settings.audioAlerts) {
+            playChimeNotification();
+          }
+        }
+        renderModalContent({ touchDot: false });
+      };
+    }
   }
 
   function openLessonNotifications() {
@@ -19321,6 +19547,13 @@ const STUDIO_CONSTELLATIONS = [{
     document.body.classList.remove('has-modal-open');
   }
 
+  function setAnkiNextDue(info) {
+    try {
+      if (!info) localStorage.removeItem(ANKI_DUE_KEY);
+      else localStorage.setItem(ANKI_DUE_KEY, JSON.stringify(info));
+    } catch {}
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       const modal = document.getElementById('lessonNotificationsModal');
@@ -19332,6 +19565,11 @@ const STUDIO_CONSTELLATIONS = [{
   window.closeLessonNotifications = closeLessonNotifications;
   window.getNotificationSettings = getNotificationSettings;
   window.markAllNotificationsAsRead = () => markAllNotificationsAsRead(getActiveNotifications());
+  window.playChimeNotification = playChimeNotification;
+  window.getSoundAlertTimings = getSoundAlertTimings;
+  window.saveSoundAlertTimings = saveSoundAlertTimings;
+  window.formatAlertTiming = formatAlertTiming;
+  window.setAnkiNextDue = setAnkiNextDue;
 })();
     function archiveLabel(type) {
       return { account:'Accounts',lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
@@ -24764,16 +25002,323 @@ const STUDIO_CONSTELLATIONS = [{
       const upDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const downDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const bottomDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
-      const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);
+      const isShut = isVerifiedSection ? !block.unfolded : Boolean(block.collapsed);
       return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + verifiedBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (isShut ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+    }
+    function parseGapsFromText(text) {
+      if (typeof text !== "string") return [];
+      const re = /\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g;
+      const gaps = [];
+      let m;
+      let autoIdx = 1;
+      while ((m = re.exec(text)) !== null) {
+        const rawIdx = m[1] ? parseInt(m[1], 10) : autoIdx;
+        autoIdx++;
+        const mainPart = m[2].trim();
+        const extraPart = (m[3] || "").trim();
+        let target = mainPart;
+        let mode = "open";
+        let stem = "";
+        let hint = "";
+        let hints = [];
+        let time = "";
+        let options = [];
+        let alternatives = [];
+        if (mainPart.includes("/")) {
+          options = mainPart.split("/").map(s => s.trim()).filter(Boolean);
+          target = options[0] || "";
+        }
+        if (extraPart) {
+          const parts = extraPart.split("|");
+          for (const p of parts) {
+            const colonIdx = p.indexOf(":");
+            const k = (colonIdx > -1 ? p.slice(0, colonIdx) : p).trim();
+            const v = (colonIdx > -1 ? p.slice(colonIdx + 1) : "").trim();
+            if (k === "correct" && v) target = v;
+            else if (k === "stem" && v) { stem = v; mode = "stem"; }
+            else if ((k === "hint" || k === "first") && v) hint = v;
+            else if (k === "time" && v) time = v;
+            else if ((k === "hint1" || k === "hint2" || k === "hint3") && v) hints.push(v);
+            else if (k === "hints" && v) hints.push(...v.split(/[,;/]+/).map(s => s.trim()).filter(Boolean));
+            else if (k === "mode" && v) mode = v;
+            else if (k === "alt" && v) alternatives.push(...v.split(",").map(s => s.trim()));
+          }
+        }
+        if (options.length > 0 && mode === "open") mode = "dropdown";
+        gaps.push({ index: rawIdx, target: target, mode: mode, stem: stem, hint: hint, hints: hints, time: time, options: options, alternatives: alternatives });
+      }
+      return gaps;
+    }
+    window.parseGapsFromText = parseGapsFromText;
+    function lmRenderTextGapsPreview(block, index, question) {
+      const mode = question.mode || "open";
+      const gaps = parseGapsFromText(question.text || "");
+      const given = question.given || {};
+      const marked = Boolean(question.marked);
+      const hintsLevel = question.hintsLevel || {};
+
+      let mediaHtml = "";
+      const hasAudio = Boolean(question.audioUrl || question.audio || gaps.some(g => g.time));
+      const hasVisual = Boolean(question.imageUrl || question.image);
+
+      if (hasAudio || hasVisual) {
+        let audioCard = "";
+        if (hasAudio) {
+          audioCard = '<div class="gap-audio-card">' +
+            '<div class="gap-audio-head"><span>Audio Track: Lesson Listening</span><span class="gap-audio-badge">Audio</span></div>' +
+            '<div class="gap-audio-controls">' +
+              '<button type="button" class="gap-play-btn" data-gap-play="' + block.id + ":" + index + '" title="Play / Pause">▶</button>' +
+              '<div class="gap-audio-track"><div class="gap-progress-bar"><div class="gap-progress-fill" style="width:30%;"></div></div>' +
+              '<div class="gap-audio-time"><span>00:15</span><span>01:10</span></div></div>' +
+              '<div class="gap-audio-tools"><button type="button" class="gap-audio-sub-btn" data-gap-audio-rewind="' + block.id + ":" + index + '" title="Replay 5s">⟲ 5s</button>' +
+              '<button type="button" class="gap-audio-sub-btn" data-gap-audio-speed="' + block.id + ":" + index + '" title="Speed">1.0x</button></div>' +
+            '</div></div>';
+        }
+        let visualCard = "";
+        if (hasVisual) {
+          const imgUrl = question.imageUrl || question.image || "";
+          visualCard = '<div class="gap-visual-card">' +
+            '<button type="button" class="gap-visual-zoom" data-gap-zoom="' + block.id + ":" + index + '" title="Enlarge image">🔍 Zoom</button>' +
+            '<div class="gap-visual-img">' + (imgUrl ? '<img src="' + esc(imgUrl) + '" style="max-width:100%; max-height:90px; object-fit:contain;" />' : '<span>🗺️ Diagram</span>') + '</div>' +
+            '<div class="gap-visual-caption">Figure: Reference diagram</div>' +
+          '</div>';
+        }
+        mediaHtml = '<div class="gap-media-grid">' + audioCard + visualCard + '</div>';
+      }
+
+      let wordBankHtml = "";
+      if (mode === "bank") {
+        const allWords = gaps.map(g => g.target).concat((question.distractors || "").split(/[\s,]+/).filter(Boolean));
+        const usedCounts = {};
+        Object.values(given).forEach(w => {
+          const k = String(w || "").trim().toLowerCase();
+          if (k) usedCounts[k] = (usedCounts[k] || 0) + 1;
+        });
+        const currentSeen = {};
+        const chips = allWords.map((word) => {
+          const k = word.toLowerCase();
+          currentSeen[k] = (currentSeen[k] || 0) + 1;
+          const isUsed = (usedCounts[k] || 0) >= currentSeen[k];
+          return '<span class="word-chip' + (isUsed ? " is-used" : "") + '" draggable="' + (!isUsed) + '" data-gap-word="' + esc(word) + '" data-gap-target="' + block.id + ":" + index + '"><span class="drag-grip-icon">⠿</span>' + esc(word) + "</span>";
+        }).join("");
+        wordBankHtml = '<div class="word-bank-box"><div class="word-bank-label"><span>Available Words</span><span style="font-size:11px; color:var(--mute);">Drag chips or click to place</span></div><div class="word-bank-chips">' + chips + '</div></div>';
+      }
+
+      let passageHtml = esc(question.text || "");
+      let slotOrder = 1;
+      passageHtml = passageHtml.replace(/\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g, () => {
+        const gap = gaps.find(g => g.index === slotOrder) || gaps[slotOrder - 1];
+        const sIdx = gap ? gap.index : slotOrder;
+        slotOrder++;
+        if (!gap) return "";
+        const val = given[sIdx] || "";
+        const targetVal = String(gap.target || "").trim().toLowerCase();
+        const firstChar = String(gap.hint || "").trim().toLowerCase();
+        const sVal = String(val).trim().toLowerCase();
+        const isMatch = sVal === targetVal || (firstChar && (firstChar + sVal) === targetVal) || (Array.isArray(gap.alternatives) && gap.alternatives.some(a => String(a).trim().toLowerCase() === sVal || (firstChar && (firstChar + sVal) === String(a).trim().toLowerCase())));
+        const isCorrect = marked && isMatch;
+        const isWrong = marked && !isMatch;
+        const slotClass = "gap-slot" + (isCorrect ? " is-correct" : (isWrong ? " is-wrong" : ""));
+        const stemBadge = gap.stem ? '<span class="gap-stem-tag">' + esc(gap.stem) + "</span>" : "";
+        const markHint = isCorrect ? '<span class="gap-correct-hint">✓</span>' : (isWrong ? '<span class="gap-wrong-hint">✕ (' + esc(gap.target) + ")</span>" : "");
+        const timeBtn = gap.time ? '<button type="button" class="gap-hint-btn" data-gap-time="' + block.id + ":" + index + ":" + esc(gap.time) + '" title="Play timestamp">▶ ' + esc(gap.time) + "</button>" : "";
+
+        const hLvl = Number(hintsLevel[sIdx] || 0);
+        let hintBtn = "";
+        let hintPopover = "";
+        if (gap.hints && gap.hints.length > 0) {
+          hintBtn = '<button type="button" class="gap-hint-btn" data-gap-hint="' + block.id + ":" + index + ":" + sIdx + '" title="Get hint">💡' + (hLvl > 0 ? " " + hLvl : "") + "</button>";
+          if (hLvl > 0) {
+            const clueText = gap.hints[Math.min(hLvl - 1, gap.hints.length - 1)];
+            hintPopover = '<div class="gap-hint-popover">💡 ' + esc(clueText) + ' <span class="gap-hint-penalty">(-' + (hLvl * 25) + '%)</span></div>';
+          }
+        }
+
+        let control = "";
+        if (gap.hint) {
+          control = '<span class="gap-first-box"><span class="gap-first-char">' + esc(gap.hint) + '</span><input type="text" class="gap-first-input" data-gap-slot="' + block.id + ":" + index + ":" + sIdx + '" value="' + esc(val) + '" placeholder="____" />' + hintPopover + "</span>";
+        } else if (gap.options?.length > 0 || mode === "dropdown") {
+          const opts = gap.options?.length > 0 ? gap.options : [gap.target];
+          const optionsHtml = '<option value="">Select ▾</option>' + opts.map(opt => '<option value="' + esc(opt) + '"' + (String(val).toLowerCase() === opt.toLowerCase() ? " selected" : "") + ">" + esc(opt) + "</option>").join("");
+          control = '<select class="gap-select" data-gap-slot="' + block.id + ":" + index + ":" + sIdx + '">' + optionsHtml + "</select>" + hintPopover;
+        } else if (mode === "bank") {
+          if (val) {
+            control = '<span class="gap-placed-chip" draggable="true" data-gap-chip-move="' + block.id + ":" + index + ":" + sIdx + '"><span class="drag-grip-icon">⠿</span>' + esc(val) + '<span class="gap-placed-clear" data-gap-clear="' + block.id + ":" + index + ":" + sIdx + '" title="Return to bank">✕</span></span>' + hintPopover;
+          } else {
+            control = '<span class="gap-drop-target" data-gap-drop="' + block.id + ":" + index + ":" + sIdx + '"><span class="gap-drop-hint-text">Drop word here</span></span>' + hintPopover;
+          }
+        } else {
+          control = '<input type="text" class="gap-input" data-gap-slot="' + block.id + ":" + index + ":" + sIdx + '" value="' + esc(val) + '" placeholder="..." />' + hintPopover;
+        }
+        return '<span class="' + slotClass + '"><span class="gap-num">' + sIdx + "</span>" + control + stemBadge + timeBtn + hintBtn + markHint + "</span>";
+      });
+
+      const instructions = question.prompt ? '<p class="gap-task-instructions">' + esc(question.prompt) + "</p>" : "";
+      const scoreBadge = marked ? '<div class="gap-score-badge"><span>Results:</span> <span class="gap-score-val">' + esc(question.score || "") + "</span></div>" : "";
+
+      return '<div class="gap-task-card">' +
+        '<div class="gap-task-head">' +
+          '<div class="gap-task-title-group">' +
+            "<h3>" + esc(question.title || (question.prompt ? question.prompt : "Reading with Gaps")) + "</h3>" +
+            instructions +
+          "</div>" +
+          '<div class="gap-mode-pill"><span>' + (mode === "bank" ? "✨ Word Bank Mode" : (mode === "dropdown" ? "▼ Dropdown Mode" : (mode === "stem" ? "🔤 Word Formation" : "✍️ Open Cloze"))) + "</span></div>" +
+        "</div>" +
+        mediaHtml +
+        wordBankHtml +
+        '<div class="gap-passage">' + passageHtml.replace(/\n/g, "<br>") + "</div>" +
+        '<div class="gap-footer">' +
+          scoreBadge +
+          '<div class="gap-task-actions">' +
+            '<button type="button" class="gap-btn gap-btn-check" data-ex-check="' + block.id + '"><span>✓</span> Check Answers</button>' +
+            '<button type="button" class="gap-btn gap-btn-reset" data-gap-reset="' + block.id + '"><span>⟲</span> Reset</button>' +
+          "</div>" +
+        "</div>" +
+      "</div>";
     }
     function lmQuestions(block) {
       return (block.items || []).map((question, index) => {
+        const isGaps = block.type === "exercise" && question.kind === "text_gaps";
         const write = block.type === "exercise" && question.kind === "write";
-        const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (write ? "" : " selected") + '>Choices</option><option value="write"' + (write ? " selected" : "") + ">Type the answer</option></select></label>" : "";
-        const body = write ? '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>' : lmChoiceEditor(block, index);
-        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
+        const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (!write && !isGaps ? " selected" : "") + '>Choices</option><option value="write"' + (write ? " selected" : "") + '>Type the answer</option><option value="text_gaps"' + (isGaps ? " selected" : "") + ">Text with gaps</option></select></label>" : "";
+        let body = "";
+        if (isGaps) {
+          const mode = question.mode || "open";
+          const parsed = parseGapsFromText(question.text || "");
+          const tableRows = parsed.map(g => "<tr><td><b>(" + g.index + ")</b></td><td><span class=\"code-tag\">" + esc(g.target) + "</span>" + (g.hint ? " <small>(1st: " + esc(g.hint) + ")</small>" : "") + "</td><td>" + (g.stem ? "Stem: <span class=\"code-tag\">" + esc(g.stem) + "</span>" : (g.options?.length ? "Options: <span class=\"code-tag\">" + esc(g.options.join(", ")) + "</span>" : (g.hints?.length ? "Hints: " + esc(g.hints.join(" | ")) : "<span style=\"color:var(--mute); font-size:12.5px;\">Standard gap</span>"))) + "</td></tr>").join("");
+          const previewTable = parsed.length ? '<div class="parsed-gaps-box"><div class="parsed-gaps-head"><span class="parsed-title">Parsed Gaps (' + parsed.length + ' detected)</span><span class="parsed-badge">✓ Syntax Valid</span></div><table class="gaps-table"><thead><tr><th>Slot</th><th>Target Answer</th><th>Rule / Options / Cue</th></tr></thead><tbody>' + tableRows + "</tbody></table></div>" : "";
+          body = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+              '<span class="parsed-title" style="font-size:12px;">Cloze Configuration</span>' +
+              '<button type="button" class="ai-action-btn-secondary" data-open-gaps-ai="' + block.id + ":" + index + '" style="font-size:12px; padding:4px 12px; display:inline-flex; align-items:center; gap:5px;">✨ Open AI Generator</button>' +
+            '</div>' +
+            '<label>Interaction mode<select data-item-field="mode" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="open"' + (mode === "open" ? " selected" : "") + '>Open Cloze (Free Typing)</option><option value="bank"' + (mode === "bank" ? " selected" : "") + '>Word Bank (Automatic Pool)</option><option value="dropdown"' + (mode === "dropdown" ? " selected" : "") + '>Inline Dropdown per Gap</option><option value="stem"' + (mode === "stem" ? " selected" : "") + '>Word Formation (Stem cues)</option></select></label>' +
+            (mode === "bank" ? '<label>Distractor words (space separated)<input type="text" data-item-field="distractors" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.distractors || "") + '" placeholder="e.g. extra1 extra2" /></label>' : "") +
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><label>Audio URL (optional)<input type="text" data-item-field="audioUrl" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.audioUrl || "") + '" placeholder="https://...mp3" /></label><label>Image URL (optional)<input type="text" data-item-field="imageUrl" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.imageUrl || "") + '" placeholder="https://...jpg" /></label></div>' +
+            '<label class="lm-span">Passage text with [1:answer], [1:answer|stem:WORD], [1:answer|hint:first], or [1:answer|hint1:...|hint2:...]<textarea data-item-field="text" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" style="min-height:120px; font-family:monospace;">' + esc(question.text || "") + "</textarea></label>" + previewTable;
+        } else if (write) {
+          body = '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>';
+        } else {
+          body = lmChoiceEditor(block, index);
+        }
+        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", isGaps ? "Title / Instructions" : "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
       }).join("");
+    }
+    function lmOpenGapsAiModal(blockId, itemIdx) {
+      const old = document.getElementById("aiGapsModal");
+      if (old) old.remove();
+
+      const block = lmBlock(blockId);
+      const question = block && block.items && block.items[itemIdx];
+      if (!question) return;
+
+      const modal = document.createElement("div");
+      modal.id = "aiGapsModal";
+      modal.className = "ai-modal-backdrop";
+
+      const samples = {
+        open: "Mount Everest is the highest mountain in the world. It [1:rises|hint:r] to an elevation of 8,848 meters above sea level. Many climbers attempt to [2:reach|hint:r] its summit every year, but extreme weather [3:conditions] make it very dangerous. Survival requires strict [4:discipline] and adequate oxygen supplies.",
+        bank: "Renewable energy plays an essential role in [1:reducing] carbon emissions. Wind and solar power are now much more [2:affordable] than fossil fuels. Many nations have committed to [3:transitioning] their grids to clean sources, creating new [4:sustainable] jobs worldwide.",
+        stem: "The rapid [1:development|stem:DEVELOP] of renewable energy has transformed the market. Engineers have made significant [2:improvements|stem:IMPROVE] in battery technology. This shift has created an [3:attractive|stem:ATTRACT] environment for new investments.",
+        prepositions: "He is interested [1:in] modern architecture. She succeeded [2:in] passing the exam, and they apologized [3:for] arriving late. We must prepare [4:for] the upcoming challenge.",
+        phrasal: "The team had to [1:call off] the match due to rain. Don't [2:give up] on your dreams, and remember to [3:turn down] the volume.",
+        audio: "Listen to the lecture carefully. The speaker mentions that the company was founded in [1:1998|time:00:15]. Their first major breakthrough occurred when they [2:patented|time:00:42] the new engine."
+      };
+
+      let curMode = question.mode || "open";
+      let sampleText = samples[curMode] || samples.open;
+
+      modal.innerHTML = '<div class="ai-modal-card">' +
+        '<div class="ai-modal-head">' +
+          '<h3 class="ai-modal-title"><span>✨ AI Cloze Generator</span><span class="ai-modal-badge">Smart Assist</span></h3>' +
+          '<button type="button" class="ai-modal-close" data-ai-close title="Close">✕</button>' +
+        '</div>' +
+        '<div class="ai-form-grid">' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">Topic / Context</label>' +
+            '<input type="text" class="ai-form-input" id="aiGapsTopic" value="Renewable Energy & Climate" placeholder="e.g. Science, Travel, Business" />' +
+          '</div>' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">CEFR Target Level</label>' +
+            '<select class="ai-form-select" id="aiGapsCefr">' +
+              '<option value="A2">A2 - Elementary</option>' +
+              '<option value="B1">B1 - Intermediate</option>' +
+              '<option value="B2" selected>B2 - Upper-Intermediate</option>' +
+              '<option value="C1">C1 - Advanced</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">Exercise Variant</label>' +
+            '<select class="ai-form-select" id="aiGapsVariant">' +
+              '<option value="open"' + (curMode === "open" ? " selected" : "") + '>Open Cloze (First letter / context cues)</option>' +
+              '<option value="bank"' + (curMode === "bank" ? " selected" : "") + '>Word Bank (With/without distractors)</option>' +
+              '<option value="stem"' + (curMode === "stem" ? " selected" : "") + '>Word Formation (Stem cues [1:word|stem:STEM])</option>' +
+              '<option value="prepositions">Grammar: Dependent Prepositions</option>' +
+              '<option value="phrasal">Vocabulary: Phrasal Verbs</option>' +
+              '<option value="audio">Listening: Audio Cloze with Timecodes</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">Gaps Quantity</label>' +
+            '<select class="ai-form-select" id="aiGapsCount">' +
+              '<option value="3">3 Gaps (Micro drill)</option>' +
+              '<option value="4" selected>4 Gaps (Standard)</option>' +
+              '<option value="6">6 Gaps (Exam format)</option>' +
+              '<option value="8">8 Gaps (Long passage)</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ai-form-field" style="margin-top:6px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">' +
+            '<label class="ai-form-label" style="margin:0;">Generated Passage Preview</label>' +
+            '<span style="font-size:11px; color:var(--mute);">Ready for insert</span>' +
+          '</div>' +
+          '<div class="ai-preview-box" id="aiGapsPreview">' + esc(sampleText) + '</div>' +
+        '</div>' +
+        '<div class="ai-modal-actions">' +
+          '<button type="button" class="ai-action-btn-secondary" id="aiGapsRegen">⟲ Regenerate Sample</button>' +
+          '<div style="display:flex; gap:10px;">' +
+            '<button type="button" class="ai-action-btn-secondary" data-ai-close>Cancel</button>' +
+            '<button type="button" class="ai-action-btn-primary" id="aiGapsInsert">Insert into Lesson</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+      document.body.appendChild(modal);
+
+      const variantSelect = modal.querySelector("#aiGapsVariant");
+      const previewBox = modal.querySelector("#aiGapsPreview");
+      const updatePreview = () => {
+        const v = variantSelect.value;
+        const txt = samples[v] || samples.open;
+        previewBox.textContent = txt;
+      };
+      variantSelect.addEventListener("change", updatePreview);
+
+      modal.querySelector("#aiGapsRegen").addEventListener("click", updatePreview);
+
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal || e.target.closest("[data-ai-close]")) {
+          modal.remove();
+        }
+      });
+
+      modal.querySelector("#aiGapsInsert").addEventListener("click", () => {
+        const chosenText = previewBox.textContent.trim();
+        const v = variantSelect.value;
+        question.text = chosenText;
+        if (v === "bank") {
+          question.mode = "bank";
+          question.distractors = "reliable traditional";
+        } else if (v === "stem") {
+          question.mode = "stem";
+        } else if (v === "audio") {
+          question.audioUrl = "https://example.com/audio/listening-sample.mp3";
+        }
+        modal.remove();
+        lmRenderEditor();
+        lmRenderPreview();
+        lmSchedule();
+      });
     }
     function lmBody(block) {
       if (block.type === "interactive") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || '') + '"></label><label>Link or embed code<textarea data-interactive-source="' + block.id + '" maxlength="8000">' + esc(block.url || '') + '</textarea></label><p data-interactive-status role="status"></p><div data-interactive-preview>' + lmInteractiveFrame(block) + '</div>';
@@ -24898,7 +25443,7 @@ const STUDIO_CONSTELLATIONS = [{
         const verified = '<label class="lm-teacher-verify-label" style="font-size:12px; font-weight:700; color:#047857; display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:12px;"><input type="checkbox" data-block-teacher-verified="' + block.id + '"' + (block.teacherVerified ? ' checked' : '') + '> Verified by Teacher</label>';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
-        const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);
+        const isShut = isVerifiedSection ? !block.unfolded : Boolean(block.collapsed);
         const head = lmHead(block,label,isFirst,isLast,isVerifiedSection).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
@@ -25045,13 +25590,17 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if (block.type === "exercise") {
         const questions = (block.items || []).map((question, index) => {
+          if (question.kind === "text_gaps") {
+            return lmRenderTextGapsPreview(block, index, question);
+          }
           const body = question.kind === "write" ? '<input type="text" data-write="' + block.id + ":" + index + '" value="' + esc(question.typed || "") + '" placeholder="Your answer" />' : lmPreviewChoices(block, index, question);
           const mark = question.marked ? '<p class="lm-result ' + (question.correct ? "is-ok" : "is-no") + '">' + (question.correct ? "Correct" : "Not quite") + "</p>" : "";
           const explanation=question.marked&&(block.pdfFeedback||(block.pdfImport?.section==='classwork'&&block.pdfTeacherNotes));
           const feedback=explanation?'<p class="lm-pdf-feedback" data-pdf-feedback="'+block.id+'">'+esc(explanation)+'</p>':'';
           return '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + body + mark + feedback + "</div>";
         }).join("");
-        return questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>';
+        const hasGapsOnly = (block.items || []).length > 0 && (block.items || []).every(q => q.kind === "text_gaps");
+        return questions + (hasGapsOnly ? "" : '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>');
       }
       if (block.type === "quiz") {
         const kind = lmQuizType(block);
@@ -25913,6 +26462,7 @@ const STUDIO_CONSTELLATIONS = [{
             if (block.teacherVerified) {
               block.collapsed = true;
             }
+            if (block.teacherVerified) block.unfolded = false;
             lmSyncTeacherVerifySummary();
             lmRenderEditor();
             lmSchedule();
@@ -25925,7 +26475,10 @@ const STUDIO_CONSTELLATIONS = [{
           if (lmState && Array.isArray(lmState.blocks)) {
             lmState.blocks.forEach(b => {
               b.teacherVerified = val;
-              if (val) b.collapsed = true;
+              if (val) {
+                b.collapsed = true;
+                b.unfolded = false;
+              }
             });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
@@ -26010,6 +26563,18 @@ const STUDIO_CONSTELLATIONS = [{
           lmSchedule();
           return;
         }
+        const gapSlot = event.target.closest("[data-gap-slot]");
+        if (gapSlot) {
+          const bits = gapSlot.dataset.gapSlot.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) {
+            question.given = question.given || {};
+            question.given[bits[2]] = gapSlot.value;
+            lmSchedule();
+          }
+          return;
+        }
         const rich = event.target.closest("[data-rich]");
         if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
       });
@@ -26069,6 +26634,17 @@ const STUDIO_CONSTELLATIONS = [{
           }
           lmSchedule();
         }
+        const gapSelect = event.target.closest("[data-gap-slot]");
+        if (gapSelect && gapSelect.tagName === "SELECT") {
+          const bits = gapSelect.dataset.gapSlot.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) {
+            question.given = question.given || {};
+            question.given[bits[2]] = gapSelect.value;
+            lmSchedule();
+          }
+        }
         const pick = event.target.closest("[data-pick]");
         if (pick) {
           const bits = pick.dataset.pick.split(":");
@@ -26089,7 +26665,10 @@ const STUDIO_CONSTELLATIONS = [{
           if (lmState && Array.isArray(lmState.blocks)) {
             lmState.blocks.forEach(b => {
               b.teacherVerified = val;
-              if (val) b.collapsed = true;
+              if (val) {
+                b.collapsed = true;
+                b.unfolded = false;
+              }
             });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
@@ -26229,6 +26808,7 @@ const STUDIO_CONSTELLATIONS = [{
             lmState.blocks.forEach(b => {
               b.teacherVerified = true;
               b.collapsed = true;
+              b.unfolded = false;
             });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
@@ -26240,8 +26820,13 @@ const STUDIO_CONSTELLATIONS = [{
         if (fold) {
           const block = lmBlock(fold.dataset.lmFold);
           if (block) {
-            const isCurrentlyShut = block.teacherVerified ? (block.collapsed !== false) : Boolean(block.collapsed);
-            block.collapsed = !isCurrentlyShut;
+            const isCurrentlyShut = block.teacherVerified ? !block.unfolded : Boolean(block.collapsed);
+            if (block.teacherVerified) {
+              block.unfolded = isCurrentlyShut;
+              block.collapsed = !isCurrentlyShut;
+            } else {
+              block.collapsed = !isCurrentlyShut;
+            }
           }
           lmRenderEditor();
           lmSchedule();
@@ -26250,7 +26835,10 @@ const STUDIO_CONSTELLATIONS = [{
         const edit = event.target.closest("[data-lm-edit]");
         if (edit) {
           const block = lmBlock(edit.dataset.lmEdit);
-          if (block) block.collapsed = false;
+          if (block) {
+            block.collapsed = false;
+            block.unfolded = true;
+          }
           lmRenderEditor();
           const made = lmRoot.querySelector('[data-block-id="' + edit.dataset.lmEdit + '"] input, [data-block-id="' + edit.dataset.lmEdit + '"] .lm-rich');
           if (made) made.focus();
@@ -26343,13 +26931,130 @@ const STUDIO_CONSTELLATIONS = [{
         const exCheck = event.target.closest("[data-ex-check]");
         if (exCheck) {
           const block = lmBlock(exCheck.dataset.exCheck);
-          if (block) block.items.forEach((question) => {
+          if (block) (block.items || []).forEach((question) => {
             question.marked = true;
-            question.correct = question.kind === "write" ? String(question.typed || "").trim().toLowerCase() === String(question.write || "").trim().toLowerCase() : Number(question.picked) === Number(question.answer);
+            if (question.kind === "text_gaps") {
+              const gaps = parseGapsFromText(question.text || "");
+              const given = question.given || {};
+              const penalties = question.penalties || {};
+              let correctCount = 0;
+              let earnedScore = 0;
+              for (const g of gaps) {
+                const s = String(given[g.index] || "").trim().toLowerCase();
+                const t = String(g.target || "").trim().toLowerCase();
+                const firstChar = String(g.hint || "").trim().toLowerCase();
+                const isDirectMatch = s === t || (Array.isArray(g.alternatives) && g.alternatives.some(a => String(a).trim().toLowerCase() === s));
+                const isPrefixedMatch = Boolean(firstChar) && ((firstChar + s) === t || (Array.isArray(g.alternatives) && g.alternatives.some(a => (firstChar + s) === String(a).trim().toLowerCase())));
+                if (isDirectMatch || isPrefixedMatch) {
+                  correctCount++;
+                  const pen = Number(penalties[g.index] || 0);
+                  earnedScore += Math.max(0, 1 - pen);
+                }
+              }
+              question.correct = gaps.length > 0 && correctCount === gaps.length;
+              question.score = earnedScore.toFixed(earnedScore % 1 ? 2 : 0) + " / " + gaps.length + " points (" + correctCount + "/" + gaps.length + " correct)";
+            } else {
+              question.correct = question.kind === "write" ? String(question.typed || "").trim().toLowerCase() === String(question.write || "").trim().toLowerCase() : Number(question.picked) === Number(question.answer);
+            }
           });
           lmRenderPreview();
           lmSchedule();
           return;
+        }
+        const gapReset = event.target.closest("[data-gap-reset]");
+        if (gapReset) {
+          const block = lmBlock(gapReset.dataset.gapReset);
+          if (block) (block.items || []).forEach((question) => {
+            if (question.kind === "text_gaps") {
+              question.given = {};
+              question.marked = false;
+              question.hintsLevel = {};
+              question.penalties = {};
+              delete question.score;
+              delete question.correct;
+            }
+          });
+          lmRenderPreview();
+          lmSchedule();
+          return;
+        }
+        const gapHintBtn = event.target.closest("[data-gap-hint]");
+        if (gapHintBtn) {
+          const [blockId, itemIdx, slotIdx] = gapHintBtn.dataset.gapHint.split(":");
+          const block = lmBlock(blockId);
+          const question = block && block.items && block.items[Number(itemIdx)];
+          if (question) {
+            question.hintsLevel = question.hintsLevel || {};
+            question.penalties = question.penalties || {};
+            const gaps = parseGapsFromText(question.text || "");
+            const gap = gaps.find(g => String(g.index) === String(slotIdx));
+            const maxHints = (gap && gap.hints && gap.hints.length) ? gap.hints.length : 1;
+            const cur = Number(question.hintsLevel[slotIdx] || 0);
+            const nextLvl = (cur >= maxHints) ? 0 : cur + 1;
+            question.hintsLevel[slotIdx] = nextLvl;
+            question.penalties[slotIdx] = nextLvl * 0.25;
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const gapPlayBtn = event.target.closest("[data-gap-play]");
+        if (gapPlayBtn) {
+          gapPlayBtn.textContent = gapPlayBtn.textContent.includes("▶") ? "⏸" : "▶";
+          return;
+        }
+        const gapZoomBtn = event.target.closest("[data-gap-zoom]");
+        if (gapZoomBtn) {
+          const card = gapZoomBtn.closest(".gap-visual-card");
+          if (card) card.classList.toggle("is-zoomed");
+          return;
+        }
+        const gapTimeBtn = event.target.closest("[data-gap-time]");
+        if (gapTimeBtn) {
+          const card = gapTimeBtn.closest(".gap-card")?.querySelector(".gap-audio-card");
+          if (card) {
+            const fill = card.querySelector(".gap-progress-fill");
+            if (fill) fill.style.width = "45%";
+            const playBtn = card.querySelector(".gap-play-btn");
+            if (playBtn) playBtn.textContent = "⏸";
+          }
+          return;
+        }
+        const aiOpenBtn = event.target.closest("[data-open-gaps-ai]");
+        if (aiOpenBtn) {
+          const [blockId, itemIdx] = aiOpenBtn.dataset.openGapsAi.split(":");
+          lmOpenGapsAiModal(blockId, Number(itemIdx));
+          return;
+        }
+        const chip = event.target.closest("[data-gap-word]");
+        if (chip && !chip.classList.contains("is-used")) {
+          const [blockId, itemIdx] = chip.dataset.gapTarget.split(":");
+          const block = lmBlock(blockId);
+          const question = block && block.items && block.items[Number(itemIdx)];
+          if (question) {
+            const word = chip.dataset.gapWord;
+            question.given = question.given || {};
+            const gaps = parseGapsFromText(question.text || "");
+            const emptyGap = gaps.find(g => !question.given[g.index]);
+            if (emptyGap) {
+              question.given[emptyGap.index] = word;
+              lmRenderPreview();
+              lmSchedule();
+            }
+          }
+          return;
+        }
+        const gapClear = event.target.closest("[data-gap-clear]");
+        if (gapClear) {
+          const [blockId, itemIdx, slotIdx] = gapClear.dataset.gapClear.split(":");
+          const block = lmBlock(blockId);
+          const question = block && block.items && block.items[Number(itemIdx)];
+          if (question && question.given && question.given[slotIdx]) {
+            delete question.given[slotIdx];
+            lmRenderPreview();
+            lmSchedule();
+            return;
+          }
         }
         const pick = event.target.closest("[data-pick]");
         if (pick) {
@@ -26430,16 +27135,77 @@ const STUDIO_CONSTELLATIONS = [{
         }
       });
       lmRoot.addEventListener("dragstart", (event) => {
+        const chip = event.target.closest("[data-gap-word], [data-gap-chip-move]");
+        if (chip) {
+          const isBankChip = chip.hasAttribute("data-gap-word");
+          const word = isBankChip ? chip.dataset.gapWord : chip.innerText.replace("✕", "").replace("⠿", "").trim();
+          const origin = isBankChip ? ("bank:" + chip.dataset.gapTarget) : ("slot:" + chip.dataset.gapChipMove);
+          event.dataTransfer.setData("application/x-gap-chip", JSON.stringify({ word, origin }));
+          event.dataTransfer.effectAllowed = "move";
+          chip.classList.add("is-dragging");
+          return;
+        }
         const block = event.target.closest(".lm-block");
         if (!block || !block.getAttribute("draggable")) return;
         event.dataTransfer.setData("text/plain", block.dataset.blockId);
       });
       lmRoot.addEventListener("dragover", (event) => {
+        const gapDrop = event.target.closest("[data-gap-drop], [data-gap-chip-move], .word-bank-box");
+        if (gapDrop) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          gapDrop.classList.add("is-drop-active");
+          return;
+        }
         if (event.target.closest(".lm-block") || event.target.closest(".lm-drop")) event.preventDefault();
         const over = event.target.closest(".lm-block");
         lmRoot.querySelectorAll(".lm-block").forEach((item) => item.classList.toggle("is-over", item === over && event.target.closest("[data-grip], .lm-block") && !event.target.closest(".lm-drop")));
       });
+      lmRoot.addEventListener("dragleave", (event) => {
+        const gapDrop = event.target.closest("[data-gap-drop], [data-gap-chip-move], .word-bank-box");
+        if (gapDrop && !gapDrop.contains(event.relatedTarget)) {
+          gapDrop.classList.remove("is-drop-active");
+        }
+      });
       lmRoot.addEventListener("drop", (event) => {
+        const gapRaw = event.dataTransfer.getData("application/x-gap-chip");
+        if (gapRaw) {
+          event.preventDefault();
+          let data;
+          try { data = JSON.parse(gapRaw); } catch { return; }
+          const dropTarget = event.target.closest("[data-gap-drop], [data-gap-chip-move], .word-bank-box");
+          if (dropTarget && data && data.word) {
+            dropTarget.classList.remove("is-drop-active");
+            if (dropTarget.hasAttribute("data-gap-drop") || dropTarget.hasAttribute("data-gap-chip-move")) {
+              const attr = dropTarget.dataset.gapDrop || dropTarget.dataset.gapChipMove;
+              const [blockId, itemIdx, slotIdx] = attr.split(":");
+              const block = lmBlock(blockId);
+              const question = block && block.items && block.items[Number(itemIdx)];
+              if (question) {
+                question.given = question.given || {};
+                if (data.origin && data.origin.startsWith("slot:")) {
+                  const [, oBlockId, oItemIdx, oSlotIdx] = data.origin.split(":");
+                  if (oBlockId === blockId && Number(oItemIdx) === Number(itemIdx)) {
+                    delete question.given[oSlotIdx];
+                  }
+                }
+                question.given[slotIdx] = data.word;
+                lmRenderPreview();
+                lmSchedule();
+              }
+            } else if (dropTarget.closest(".word-bank-box") && data.origin && data.origin.startsWith("slot:")) {
+              const [, oBlockId, oItemIdx, oSlotIdx] = data.origin.split(":");
+              const block = lmBlock(oBlockId);
+              const question = block && block.items && block.items[Number(oItemIdx)];
+              if (question && question.given && question.given[oSlotIdx]) {
+                delete question.given[oSlotIdx];
+                lmRenderPreview();
+                lmSchedule();
+              }
+            }
+          }
+          return;
+        }
         const drop = event.target.closest(".lm-drop");
         if (drop) {
           const file = event.dataTransfer.files && event.dataTransfer.files[0];
@@ -26473,6 +27239,8 @@ const STUDIO_CONSTELLATIONS = [{
         lmSchedule();
       });
       lmRoot.addEventListener("dragend", () => {
+        lmRoot.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+        lmRoot.querySelectorAll(".is-drop-active").forEach((el) => el.classList.remove("is-drop-active"));
         lmRoot.querySelectorAll(".lm-block").forEach((item) => { item.classList.remove("is-over"); item.removeAttribute("draggable"); });
       });
       lmRoot.addEventListener("pointerdown", (event) => {
@@ -26535,6 +27303,7 @@ const STUDIO_CONSTELLATIONS = [{
       const LM_ALL_QUIZ_TYPES = [
         "Choice",
         "Gap",
+        "Text with Gaps",
         "Type",
         "Definition",
         "Odd one out",
@@ -26657,6 +27426,8 @@ const STUDIO_CONSTELLATIONS = [{
                 snippet = "\nWords: defining clause - определительное придаточное, relative pronoun - относительное местоимение, antecedent - антецедент\n";
               } else if (type === "dialogue") {
                 snippet = "\nDialogue:\nA: Do you know the woman who just arrived?\nB: Yes, that is the engineer whose project won first place.\n";
+              } else if (type === "gaps") {
+                snippet = "\nText with gaps:\nLast summer we [1:went|hint:w] to the coastal town of Brighton and [2:bought|stem:BUY] some souvenirs. The weather was [3:pleasant|hint1:adjective|hint2:agreeable] and everyone felt [4:relaxed|stem:RELAX].\n";
               }
               input.value = (input.value ? input.value.trim() + "\n" : "") + snippet.trim();
               const scriptBtn = document.getElementById("lmGenerateFromScriptBtn");
@@ -28937,7 +29708,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     }
 
     const selectedPool = (typeof window !== 'undefined' && typeof window.lmGetSelectedQuizTypes === 'function' ? window.lmGetSelectedQuizTypes() : []).filter(Boolean);
-    const availableTypes = selectedPool.length > 0 ? selectedPool : ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Smart Flashcard'];
+    const availableTypes = selectedPool.length > 0 ? selectedPool : ['Choice', 'Gap', 'Text with Gaps', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Smart Flashcard'];
 
     const items = [];
     for (let i = 0; i < targetCount; i++) {
@@ -28949,7 +29720,18 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       const d2 = pool[(i + 2) % pool.length].word;
       const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
 
-      if (t === 'Choice') {
+      if (t === 'Text with Gaps' || t === 'Text gaps') {
+        items.push({
+          stage: 'production',
+          title: (isHw ? 'HW Cloze: ' : 'CW Cloze: ') + title,
+          text: 'Fill in the numbered gaps in the passage:\nDuring our study of ' + title + ', we focused on [1:' + target + '] and practiced [2:' + d1 + ']. It is important to remember [3:' + d2 + '].',
+          kind: 'text_gaps',
+          mode: 'bank',
+          distractors: pool[(i + 3) % pool.length]?.word || 'extra',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Choice') {
         items.push({
           stage: 'comprehension',
           title: (isHw ? 'HW Choice: ' : 'CW Choice: ') + target,
@@ -29249,6 +30031,22 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     if (/^(phrases|фразы)\s*[:]?\s*$/i.test(line)) { currentSection = 'phrases'; continue; }
     if (/^(rules|grammar|правила|грамматика)\s*[:]?\s*$/i.test(line)) { currentSection = 'rules'; continue; }
     if (/^(classwork|practice|exercises|quizzes|упражнения|квизы)\s*[:]?\s*$/i.test(line)) { currentSection = 'classwork'; continue; }
+    if (/^(text with gaps|gaps|cloze|пропуски)\s*[:]?\s*$/i.test(line)) { currentSection = 'gaps'; continue; }
+
+    if (currentSection === 'gaps' || /\[(?:(?:\d+):)?[^\]|]+(?:\|[^\]]+)?\]/.test(line)) {
+      if (line.includes('[') && line.includes(']')) {
+        classwork.push({
+          stage: 'comprehension',
+          title: 'Text with Gaps',
+          text: line,
+          kind: 'text_gaps',
+          mode: 'bank',
+          pages: [1],
+          generated: true
+        });
+        continue;
+      }
+    }
 
     const wordPrefix = line.match(/^(?:word|слово)\s*:\s*(.+)$/i);
     const lineToParse = wordPrefix ? wordPrefix[1] : line;
@@ -31248,6 +32046,12 @@ if(typeof window!=='undefined'){
   let focusSelectedOption = null;
   let focusResults = {}; // index -> boolean (true: correct, false: incorrect)
   let sessionConceptErrors = new Map(); // concept -> count of errors in this session
+  let focusAllQuestions = [];
+  let focusActiveScope = 'all'; // 'words_phrases' | 'classwork_homework' | 'single' | 'all'
+  let focusActiveSubCategory = 'words'; // 'words' | 'phrases' | 'classwork' | 'homework'
+  let focusScopeMenuOpen = false;
+  let modalSelectedScope = 'all';
+  let modalSelectedSubCat = 'words';
 
   function esc(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -31257,25 +32061,58 @@ if(typeof window!=='undefined'){
     if (!lesson || !Array.isArray(lesson.blocks)) return [];
     const questions = [];
     lesson.blocks.forEach((b, bIdx) => {
-      if (b.tab === 'words' && Array.isArray(b.items)) {
-        b.items.forEach((it, itIdx) => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && (Array.isArray(b.items) || b.word)) {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{ word: b.word, translation: b.translation || b.meaning || b.ru }];
+        items.forEach((it, itIdx) => {
+          const w = String(it.word || it.en || b.word || 'Vocabulary').trim();
+          if (!w) return;
+          const meaning = String(it.translation || it.meaning || it.ru || w).trim();
           questions.push({
             id: 'word-' + bIdx + '-' + itIdx,
-            title: 'Vocabulary: ' + it.word,
-            concept: it.word,
-            prompt: 'Identify the definition of "' + it.word + '":',
-            options: [it.translation || it.meaning || it.word, 'Alternative form', 'Unrelated context'],
+            category: 'words',
+            title: 'Vocabulary: ' + w,
+            concept: w,
+            prompt: 'Identify the definition of "' + w + '":',
+            options: [meaning, 'Alternative form', 'Unrelated context'],
             answer: 0,
-            feedback: '"' + it.word + '" means: ' + (it.translation || it.meaning || it.word)
+            feedback: '"' + w + '" means: ' + meaning
+          });
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{
+          phrase: b.title || b.word || 'Phrase',
+          meaning: b.meaning || b.translation || b.ru || 'Expression',
+          example: b.example || ''
+        }];
+        const allMeanings = items.map(it => String(it.translation || it.meaning || it.ru || '').trim()).filter(Boolean);
+        items.forEach((it, itIdx) => {
+          const phraseText = String(it.phrase || it.word || it.en || b.title || 'Phrase').trim();
+          if (!phraseText) return;
+          const meaning = String(it.translation || it.meaning || it.ru || phraseText).trim();
+          const example = String(it.example || ('Usage: "' + phraseText + '" in everyday English.')).trim();
+          const distractors = allMeanings.filter(m => m !== meaning);
+          const opt1 = distractors[0] || 'Alternative colloquial usage';
+          const opt2 = distractors[1] || 'Opposite contextual meaning';
+          questions.push({
+            id: 'phrase-' + (b.id || bIdx) + '-' + itIdx,
+            category: 'phrases',
+            title: 'Phrase: ' + phraseText,
+            concept: phraseText,
+            prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
+            options: [meaning, opt1, opt2],
+            answer: 0,
+            feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
           });
         });
       } else if (b.type === 'quiz') {
+        const isHw = b.tab === 'homework' || b.homework === true || b.isHomework === true || /^(?:HW|Homework)\b/i.test(b.title || '');
         const item = b.items?.[0] || b;
         const concept = item.word || b.title?.replace(/^(?:HW|CW)\s+[^:]+:\s*/i, '') || 'Grammar & Usage';
         const options = item.options || [item.answer || 'Option A', 'Option B', 'Option C'];
         const ans = typeof item.answer === 'number' ? item.answer : 0;
         questions.push({
           id: 'quiz-' + (b.id || bIdx),
+          category: isHw ? 'homework' : 'classwork',
           title: b.title || b.quizType || 'Quiz Task',
           concept,
           prompt: item.prompt || item.text || b.text || 'Choose the best option:',
@@ -31284,6 +32121,7 @@ if(typeof window!=='undefined'){
           feedback: b.pdfTeacherNotes || item.feedback || 'Target concept: ' + concept
         });
       } else if (b.type === 'exercise' && Array.isArray(b.items)) {
+        const isHw = b.tab === 'homework' || b.homework === true || b.isHomework === true || /^(?:HW|Homework)\b/i.test(b.title || '');
         b.items.forEach((it, itIdx) => {
           const concept = b.title || 'Exercise Practice';
           let title = b.title || '';
@@ -31297,6 +32135,7 @@ if(typeof window!=='undefined'){
           }
           questions.push({
             id: 'exercise-' + (b.id || bIdx) + '-' + itIdx,
+            category: isHw ? 'homework' : 'classwork',
             title: title || 'Exercise',
             concept,
             prompt,
@@ -31308,6 +32147,181 @@ if(typeof window!=='undefined'){
       }
     });
     return questions;
+  }
+
+  function filterFocusQuestionsByScope(questions, scope, subCat) {
+    if (!Array.isArray(questions)) return [];
+    if (!scope || scope === 'all') return questions.slice();
+    if (scope === 'words_phrases') {
+      return questions.filter(q => q.category === 'words' || q.category === 'phrases');
+    }
+    if (scope === 'classwork_homework') {
+      return questions.filter(q => q.category === 'classwork' || q.category === 'homework');
+    }
+    if (scope === 'single') {
+      const target = subCat || 'words';
+      return questions.filter(q => q.category === target);
+    }
+    return questions.slice();
+  }
+
+  function getFocusScopeCounts(allQuestions) {
+    const counts = {
+      words: 0,
+      phrases: 0,
+      classwork: 0,
+      homework: 0,
+      words_phrases: 0,
+      classwork_homework: 0,
+      all: 0
+    };
+    if (!Array.isArray(allQuestions)) return counts;
+    allQuestions.forEach(q => {
+      const cat = q.category || 'classwork';
+      if (counts[cat] !== undefined) counts[cat]++;
+    });
+    counts.words_phrases = counts.words + counts.phrases;
+    counts.classwork_homework = counts.classwork + counts.homework;
+    counts.all = allQuestions.length;
+    return counts;
+  }
+
+  function createScopeModalDom() {
+    let overlay = document.getElementById('lmFocusScopeOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'lmFocusScopeOverlay';
+      overlay.className = 'focus-scope-overlay';
+      overlay.style.display = 'none';
+      document.body.appendChild(overlay);
+    }
+    return overlay;
+  }
+
+  function renderFocusScopeModal() {
+    const overlay = createScopeModalDom();
+    const counts = getFocusScopeCounts(focusAllQuestions);
+
+    let selectedCount = 0;
+    if (modalSelectedScope === 'words_phrases') selectedCount = counts.words_phrases;
+    else if (modalSelectedScope === 'classwork_homework') selectedCount = counts.classwork_homework;
+    else if (modalSelectedScope === 'single') selectedCount = counts[modalSelectedSubCat] || 0;
+    else selectedCount = counts.all;
+
+    overlay.innerHTML =
+      '<div class="focus-scope-modal" id="lmFocusScopeModal">' +
+        '<div class="focus-scope-header">' +
+          '<div>' +
+            '<h2>Focus Mode Practice Scope</h2>' +
+            '<div class="focus-scope-subtitle">Choose the practice scope for this session</div>' +
+          '</div>' +
+          '<button type="button" class="focus-close-btn" id="focusScopeCloseBtn">✕</button>' +
+        '</div>' +
+        '<div class="focus-scope-grid">' +
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'words_phrases' ? 'is-active' : '') + '" data-scope="words_phrases">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">📚</span>' +
+                '<span class="focus-scope-title">Words &amp; Phrases</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + counts.words_phrases + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Vocabulary cards, definitions and collocations</div>' +
+          '</div>' +
+
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'classwork_homework' ? 'is-active' : '') + '" data-scope="classwork_homework">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">📝</span>' +
+                '<span class="focus-scope-title">Classwork &amp; Homework</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + counts.classwork_homework + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Interactive exercises, grammar tasks and assignments</div>' +
+          '</div>' +
+
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'single' ? 'is-active' : '') + '" data-scope="single">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">🎯</span>' +
+                '<span class="focus-scope-title">Single Category</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + (counts[modalSelectedSubCat] || 0) + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Focus strictly on one specific material type</div>' +
+            '<div class="focus-sub-pills">' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'words' ? 'is-selected' : '') + '" data-subcat="words">Words (' + counts.words + ')</button>' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'phrases' ? 'is-selected' : '') + '" data-subcat="phrases">Phrases (' + counts.phrases + ')</button>' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'classwork' ? 'is-selected' : '') + '" data-subcat="classwork">Classwork (' + counts.classwork + ')</button>' +
+              '<button type="button" class="focus-sub-pill ' + (modalSelectedSubCat === 'homework' ? 'is-selected' : '') + '" data-subcat="homework">Homework (' + counts.homework + ')</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="focus-scope-card ' + (modalSelectedScope === 'all' ? 'is-active' : '') + '" data-scope="all">' +
+            '<div class="focus-scope-row">' +
+              '<div class="focus-scope-title-wrap">' +
+                '<span class="focus-scope-icon">⚡</span>' +
+                '<span class="focus-scope-title">All Together</span>' +
+              '</div>' +
+              '<span class="focus-scope-badge">' + counts.all + ' items</span>' +
+            '</div>' +
+            '<div class="focus-scope-desc">Comprehensive session covering all available lesson materials</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="focus-scope-actions">' +
+          '<button type="button" class="btn secondary" id="focusScopeCancelBtn">Cancel</button>' +
+          '<button type="button" class="btn primary" id="focusScopeStartBtn" ' + (selectedCount === 0 ? 'disabled' : '') + '>Start Focus Mode (' + selectedCount + ') →</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function openFocusScopeModal() {
+    modalSelectedScope = focusActiveScope || 'all';
+    modalSelectedSubCat = focusActiveSubCategory || 'words';
+    const overlay = createScopeModalDom();
+    renderFocusScopeModal();
+    overlay.style.display = 'flex';
+  }
+
+  function closeFocusScopeModal() {
+    const overlay = document.getElementById('lmFocusScopeOverlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function startFocusSessionWithScope(scope, subCat) {
+    focusActiveScope = scope || 'all';
+    focusActiveSubCategory = subCat || 'words';
+    focusQuestions = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    if (!focusQuestions || focusQuestions.length === 0) {
+      alert('No questions found for the selected practice scope.');
+      return;
+    }
+    closeFocusScopeModal();
+    focusActive = true;
+    focusIndex = 0;
+    focusSelectedOption = null;
+    focusResults = {};
+    sessionConceptErrors.clear();
+    focusScopeMenuOpen = false;
+    renderFocusPlayer();
+  }
+
+  function switchFocusScope(newScope, newSubCat) {
+    focusActiveScope = newScope || 'all';
+    if (newSubCat) focusActiveSubCategory = newSubCat;
+    focusScopeMenuOpen = false;
+    const filtered = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    if (!filtered || filtered.length === 0) {
+      alert('No questions found for this category in the current lesson.');
+      renderFocusPlayer();
+      return;
+    }
+    focusQuestions = filtered;
+    focusIndex = 0;
+    focusSelectedOption = null;
+    focusResults = {};
+    sessionConceptErrors.clear();
+    renderFocusPlayer();
   }
 
   function createPlayerDom() {
@@ -31372,7 +32386,19 @@ if(typeof window!=='undefined'){
     let exerciseTitle = '';
     let promptRaw = String(currentQ.prompt || '');
 
-    if (currentQ.title) {
+    if (currentQ.category === 'phrases') {
+      kicker = 'Phrase & Collocation';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.category === 'words') {
+      kicker = 'Vocabulary';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.category === 'homework') {
+      kicker = 'Homework';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.category === 'classwork') {
+      kicker = 'Classwork';
+      exerciseTitle = currentQ.title || '';
+    } else if (currentQ.title) {
       if (/^exercise$/i.test(currentQ.title)) {
         kicker = 'Exercise';
       } else {
@@ -31396,11 +32422,52 @@ if(typeof window!=='undefined'){
       return '<strong>' + match + '</strong>';
     });
 
+    let scopeLabel = 'Scope: All';
+    if (focusActiveScope === 'words_phrases') {
+      scopeLabel = 'Scope: Words & Phrases';
+    } else if (focusActiveScope === 'classwork_homework') {
+      scopeLabel = 'Scope: CW & HW';
+    } else if (focusActiveScope === 'single') {
+      if (focusActiveSubCategory === 'words') scopeLabel = 'Scope: Only Words';
+      else if (focusActiveSubCategory === 'phrases') scopeLabel = 'Scope: Only Phrases';
+      else if (focusActiveSubCategory === 'classwork') scopeLabel = 'Scope: Only CW';
+      else if (focusActiveSubCategory === 'homework') scopeLabel = 'Scope: Only HW';
+      else scopeLabel = 'Scope: Single Category';
+    }
+
+    const counts = getFocusScopeCounts(focusAllQuestions.length ? focusAllQuestions : focusQuestions);
+
+    const scopeMenuHtml = focusScopeMenuOpen ? (
+      '<div class="focus-scope-menu" id="focusScopeMenu">' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'words_phrases' ? 'is-active' : '') + '" data-switch-scope="words_phrases"><span>📚 Words &amp; Phrases</span><span>' + counts.words_phrases + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'classwork_homework' ? 'is-active' : '') + '" data-switch-scope="classwork_homework"><span>📝 Classwork &amp; Homework</span><span>' + counts.classwork_homework + '</span></button>' +
+        '<div class="focus-menu-divider"></div>' +
+        '<div class="focus-menu-label">Single Category</div>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'words' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="words"><span>Words</span><span>' + counts.words + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'phrases' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="phrases"><span>Phrases</span><span>' + counts.phrases + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'classwork' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="classwork"><span>Classwork</span><span>' + counts.classwork + '</span></button>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'single' && focusActiveSubCategory === 'homework' ? 'is-active' : '') + '" data-switch-scope="single" data-switch-subcat="homework"><span>Homework</span><span>' + counts.homework + '</span></button>' +
+        '<div class="focus-menu-divider"></div>' +
+        '<button type="button" class="focus-menu-item ' + (focusActiveScope === 'all' ? 'is-active' : '') + '" data-switch-scope="all"><span>⚡ All Together</span><span>' + counts.all + '</span></button>' +
+      '</div>'
+    ) : '';
+
+    const scopeSelectorHtml =
+      '<div class="focus-scope-selector-wrap">' +
+        '<button type="button" class="focus-scope-selector-btn" id="focusHeaderScopeBtn">' +
+          '<span>🎯</span>' +
+          '<span>' + esc(scopeLabel) + '</span>' +
+          '<span>▾</span>' +
+        '</button>' +
+        scopeMenuHtml +
+      '</div>';
+
     overlay.innerHTML =
       '<div class="focus-player-header">' +
         '<div class="focus-q-count">Question ' + (focusIndex + 1) + ' of ' + total + '</div>' +
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
         '<div class="focus-header-tools">' +
+          scopeSelectorHtml +
           '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Next | Esc: Exit</span>' +
           '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
@@ -31524,22 +32591,49 @@ if(typeof window!=='undefined'){
     focusCheckAnswer();
   }
 
-  function openFocusPlayer(customQuestions = null) {
-    focusQuestions = customQuestions || extractFocusQuestionsFromLesson(typeof lmState !== 'undefined' ? lmState : null);
-    if (!focusQuestions || focusQuestions.length === 0) {
+  function openFocusPlayer(customQuestions = null, scope = null, subCat = null) {
+    if (customQuestions && Array.isArray(customQuestions)) {
+      focusAllQuestions = customQuestions.slice();
+      if (scope) {
+        focusActiveScope = scope;
+        focusActiveSubCategory = subCat || 'words';
+        focusQuestions = filterFocusQuestionsByScope(focusAllQuestions, scope, subCat);
+      } else {
+        focusActiveScope = 'all';
+        focusActiveSubCategory = 'words';
+        focusQuestions = customQuestions.slice();
+      }
+      if (!focusQuestions || focusQuestions.length === 0) {
+        alert('No quiz or exercise tasks available to practice in Focus Mode.');
+        return;
+      }
+      focusActive = true;
+      focusIndex = 0;
+      focusSelectedOption = null;
+      focusResults = {};
+      sessionConceptErrors.clear();
+      focusScopeMenuOpen = false;
+      renderFocusPlayer();
+      return;
+    }
+
+    const currentLesson = (typeof lmState !== 'undefined' && lmState) ? lmState : (typeof window !== 'undefined' && window.lmState ? window.lmState : null);
+    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson);
+    if (!focusAllQuestions || focusAllQuestions.length === 0) {
       alert('No quiz or exercise tasks available to practice in Focus Mode.');
       return;
     }
-    focusActive = true;
-    focusIndex = 0;
-    focusSelectedOption = null;
-    focusResults = {};
-    sessionConceptErrors.clear();
-    renderFocusPlayer();
+
+    if (scope) {
+      startFocusSessionWithScope(scope, subCat);
+    } else {
+      openFocusScopeModal();
+    }
   }
 
   function closeFocusPlayer() {
     focusActive = false;
+    focusScopeMenuOpen = false;
     const overlay = document.getElementById('lmFocusPlayerOverlay');
     if (overlay) overlay.style.display = 'none';
   }
@@ -32020,6 +33114,53 @@ if(typeof window!=='undefined'){
 
   if (typeof document !== 'undefined') {
     document.addEventListener('click', (e) => {
+      // Focus Mode Scope Modal triggers
+      if (e.target.closest('#focusScopeCloseBtn') || e.target.closest('#focusScopeCancelBtn')) {
+        e.preventDefault();
+        closeFocusScopeModal();
+        return;
+      }
+      const subPill = e.target.closest('.focus-sub-pill');
+      if (subPill) {
+        e.preventDefault();
+        modalSelectedScope = 'single';
+        modalSelectedSubCat = subPill.dataset.subcat || 'words';
+        renderFocusScopeModal();
+        return;
+      }
+      const scopeCard = e.target.closest('.focus-scope-card');
+      if (scopeCard) {
+        e.preventDefault();
+        modalSelectedScope = scopeCard.dataset.scope || 'all';
+        renderFocusScopeModal();
+        return;
+      }
+      if (e.target.closest('#focusScopeStartBtn')) {
+        e.preventDefault();
+        startFocusSessionWithScope(modalSelectedScope, modalSelectedSubCat);
+        return;
+      }
+
+      // Focus Mode Player triggers
+      if (e.target.closest('#focusHeaderScopeBtn')) {
+        e.preventDefault();
+        focusScopeMenuOpen = !focusScopeMenuOpen;
+        renderFocusPlayer();
+        return;
+      }
+      const menuItem = e.target.closest('[data-switch-scope]');
+      if (menuItem) {
+        e.preventDefault();
+        const newScope = menuItem.dataset.switchScope;
+        const newSubCat = menuItem.dataset.switchSubcat;
+        switchFocusScope(newScope, newSubCat);
+        return;
+      }
+      if (focusScopeMenuOpen && !e.target.closest('#focusScopeMenu') && !e.target.closest('#focusHeaderScopeBtn')) {
+        focusScopeMenuOpen = false;
+        renderFocusPlayer();
+      }
+
       if (e.target.closest('#lmFocusPlayerBtn')) {
         e.preventDefault();
         openFocusPlayer();
@@ -32207,6 +33348,12 @@ if(typeof window!=='undefined'){
   if (typeof window !== 'undefined') {
     window.openFocusPlayer = openFocusPlayer;
     window.closeFocusPlayer = closeFocusPlayer;
+    window.openFocusScopeModal = openFocusScopeModal;
+    window.closeFocusScopeModal = closeFocusScopeModal;
+    window.startFocusSessionWithScope = startFocusSessionWithScope;
+    window.switchFocusScope = switchFocusScope;
+    window.filterFocusQuestionsByScope = filterFocusQuestionsByScope;
+    window.getFocusScopeCounts = getFocusScopeCounts;
     window.focusNextQuestion = focusNextQuestion;
     window.focusPrevQuestion = focusPrevQuestion;
     window.focusSelectOption = focusSelectOption;
@@ -32228,6 +33375,11 @@ if(typeof window!=='undefined'){
     globalThis.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
     globalThis.extractFocusQuestionsFromLesson = extractFocusQuestionsFromLesson;
     globalThis.focusApplyAdaptiveRemediation = focusApplyAdaptiveRemediation;
+    globalThis.filterFocusQuestionsByScope = filterFocusQuestionsByScope;
+    globalThis.getFocusScopeCounts = getFocusScopeCounts;
+    globalThis.openFocusPlayer = openFocusPlayer;
+    globalThis.startFocusSessionWithScope = startFocusSessionWithScope;
+    globalThis.switchFocusScope = switchFocusScope;
   }
 })();
     let groupDirectory = null, groupDirectoryJob = null;
@@ -37301,6 +38453,53 @@ if(typeof window!=='undefined'){
         const prompt = (item) => kind === "Gap" ? (item.shown || "Fill the gap") : (item.parts || "Build the phrase");
         return title + items.map((item, index) => '<div class="lm-q"><b>' + esc(prompt(item)) + "</b>" + (reviewer ? examTextReview(block, item, index, kind) : '<input type="text" data-exam-given="' + block.id + ":" + index + '" value="' + esc(item.given || "") + '"' + lock + " />") + "</div>").join("");
       }
+      if (kind === "TextGaps") {
+        const parseFn = typeof parseGapsFromText === "function" ? parseGapsFromText : (window.parseGapsFromText || (() => []));
+        return title + items.map((item, index) => {
+          const itemIndex = block.assessmentIndex ?? index;
+          const sourceBlock = block.assessmentSource || block;
+          const gaps = (Array.isArray(item.gaps) && item.gaps.length) ? item.gaps : parseFn(item.text || "");
+          let givenMap = {};
+          if (item.given) {
+            try { givenMap = typeof item.given === "object" ? item.given : JSON.parse(item.given); } catch {}
+          }
+          const prompt = item.prompt ? '<p class="gap-task-instructions" style="margin-bottom:8px;">' + esc(item.prompt) + '</p>' : '';
+          let bankHtml = '';
+          if (item.mode === "bank" && !reviewer) {
+            const allWords = gaps.map(g => g.target).concat((item.distractors || "").split(/[\s,]+/).filter(Boolean));
+            const chips = allWords.map(w => '<span class="word-chip">' + esc(w) + '</span>').join("");
+            bankHtml = '<div class="word-bank-box" style="margin-bottom:12px;"><div class="word-bank-label"><span>Available Words</span></div><div class="word-bank-chips">' + chips + '</div></div>';
+          }
+          let passageHtml = esc(item.text || "");
+          let slotOrder = 1;
+          passageHtml = passageHtml.replace(/\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g, () => {
+            const gap = gaps.find(g => g.index === slotOrder) || gaps[slotOrder - 1];
+            const sIdx = gap ? gap.index : slotOrder;
+            slotOrder++;
+            if (!gap) return "";
+            const val = givenMap[sIdx] ?? givenMap[String(sIdx)] ?? "";
+            const targetVal = gap.target || "";
+            const isMatch = val && (val.trim().toLowerCase() === targetVal.trim().toLowerCase() || (Array.isArray(gap.alternatives) && gap.alternatives.some(a => a.trim().toLowerCase() === val.trim().toLowerCase())));
+            const stemBadge = gap.stem ? '<span class="gap-stem-tag">' + esc(gap.stem) + '</span>' : '';
+            if (reviewer) {
+              const mark = isMatch
+                ? '<span class="exam-hit">' + esc(val || targetVal) + '</span>'
+                : '<span class="exam-miss exam-strike">' + esc(val || "—") + '</span> <span class="exam-hit">' + esc(targetVal) + '</span>';
+              return '<span class="gap-slot' + (isMatch ? ' is-correct' : ' is-wrong') + '"><span class="gap-num">' + sIdx + '</span>' + mark + stemBadge + '</span>';
+            }
+            let control = '';
+            if (gap.options?.length > 0 || item.mode === "dropdown") {
+              const opts = gap.options?.length > 0 ? gap.options : [gap.target];
+              const optionsHtml = '<option value="">Choose ▾</option>' + opts.map(opt => '<option value="' + esc(opt) + '"' + (String(val).toLowerCase() === opt.toLowerCase() ? " selected" : "") + '>' + esc(opt) + '</option>').join("");
+              control = '<select class="gap-select" data-exam-gap="' + sourceBlock.id + ':' + itemIndex + ':' + sIdx + '"' + lock + '>' + optionsHtml + '</select>';
+            } else {
+              control = '<input type="text" class="gap-input" data-exam-gap="' + sourceBlock.id + ':' + itemIndex + ':' + sIdx + '" value="' + esc(val) + '" placeholder="(' + sIdx + ')"' + lock + ' />';
+            }
+            return '<span class="gap-slot"><span class="gap-num">' + sIdx + '</span>' + control + stemBadge + '</span>';
+          });
+          return '<div class="lm-q"><b>' + esc(item.title || "Text with Gaps") + '</b>' + prompt + bankHtml + '<div class="gap-passage" style="margin: 12px 0;">' + passageHtml + '</div>' + tail(index) + '</div>';
+        }).join("");
+      }
       return title + items.map((item, index) => {
         const prompt = item.prompt || item.front || item.word || item.text || kind;
         const field = reviewer ? examTextReview(block, item, index, kind) : '<input type="text" data-exam-given="' + block.id + ":" + index + '" value="' + esc(item.given || "") + '"' + lock + " />";
@@ -37319,7 +38518,7 @@ if(typeof window!=='undefined'){
           const reviewer = canTuneStudentLessons(), given = block.response || "";
           panel.innerHTML = "<h3>" + esc(block.title || "Task") + "</h3><p>" + esc(block.text || "") + '</p><label>Your answer<textarea data-exam-response="' + block.id + '"' + (reviewer || lmState.studentSaved ? " disabled" : "") + ">" + esc(given) + "</textarea></label>" + (reviewer ? examFixInput(block, 0) + examPointInput(block, 0) : assessmentFeedback(block,0));
         } else {
-          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, assessmentSource:block, assessmentIndex:index, quizType: item.kind === "write" ? "Type" : "Choice", items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll('data-exam-given="' + block.id + ':0"', 'data-exam-given="' + block.id + ':' + index + '"').replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
+          panel.innerHTML = '<h3>' + esc(block.title || 'Exercise') + '</h3>' + (block.items || []).map((item, index) => examAnswerHtml({ ...block, assessmentSource:block, assessmentIndex:index, quizType: item.kind === "write" ? "Type" : (item.kind === "text_gaps" ? "TextGaps" : "Choice"), items: [{...item,answer:item.kind==='write'?item.write:item.answer}] }).replace(/^<h3>.*?<\/h3>/,'').replaceAll('data-exam-given="' + block.id + ':0"', 'data-exam-given="' + block.id + ':' + index + '"').replaceAll('ex-' + block.id + '-0', 'ex-' + block.id + '-' + index)).join("");
         }
       });
       if (canTuneStudentLessons()) {
@@ -37416,6 +38615,20 @@ if(typeof window!=='undefined'){
         lmState[bucket][partId][index] = points ? source.value : source.value;
         assessmentStatus('Unsaved review');
         examRefreshTaskScores();
+        return;
+      }
+      const gapInput = input.closest("[data-exam-gap]");
+      if (gapInput && !reviewer) {
+        const bits = gapInput.dataset.examGap.split(":");
+        const block = (lmState.blocks || []).find((row) => row.id === domEntityId(bits[0]));
+        const item = block && (block.items || [])[Number(bits[1])];
+        if (item) {
+          let map = {};
+          try { map = typeof item.given === 'object' && item.given ? item.given : JSON.parse(item.given || '{}'); } catch { map = {}; }
+          map[bits[2]] = gapInput.value;
+          item.given = JSON.stringify(map);
+          assessmentAutosave(lmState);
+        }
         return;
       }
       const source = input.closest("[data-exam-given]");

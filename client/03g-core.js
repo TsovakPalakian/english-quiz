@@ -948,7 +948,7 @@
       write: "Write it",
       listen: "Listen",
       play: "Play",
-      fsrs: "Spaced repetition",
+      fsrs: "Anki cards",
       custom: "Custom mix"
     };
     function showDayQuizBoard(on) {
@@ -959,7 +959,7 @@
       if (classic) classic.hidden = dayQuizBoardOn;
     }
     function dayQuizMode() {
-      const on = document.querySelector("#dayQuizModes [data-dq-mode].on");
+      const on = document.querySelector("#dayQuizBoard [data-dq-mode].on");
       return (on && on.dataset.dqMode) || "quick";
     }
     function dayQuizSource() {
@@ -1081,7 +1081,7 @@
       const chips = document.getElementById("dayQuizChips");
       if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
       const mark = document.getElementById("dayQuizMark");
-      const modeBtn = document.querySelector('#dayQuizModes [data-dq-mode].on .dq-ico');
+      const modeBtn = document.querySelector('#dayQuizBoard [data-dq-mode].on .dq-ico');
       if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
       const mins = Math.max(0, Math.round(exercises * 30 / 60));
       const start = document.getElementById("dayQuizStart");
@@ -1567,6 +1567,56 @@
       trackEvent("exam", reason || "score", passed ? "pass" : "fail");
       show("exam");
     }
+    function showAnkiCompletionScreen() {
+      clearDayTimer();
+      if (typeof window.setAnkiNextDue === 'function') {
+        window.setAnkiNextDue({
+          count: 1,
+          stage: 'Due tomorrow',
+          timeDesc: 'tomorrow at 10:00',
+          dueAt: Date.now() + 86400000
+        });
+      }
+      document.documentElement.setAttribute('data-notify-unread', '1');
+
+      const view = document.getElementById("dayView");
+      if (!view) {
+        dayBack();
+        return;
+      }
+      view.innerHTML =
+        '<div class="anki-completion-card" id="ankiCompletionCard">' +
+          '<div class="anki-complete-icon-wrap">' +
+            '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">' +
+              '<path d="M20 6L9 17l-5-5"/>' +
+            '</svg>' +
+          '</div>' +
+          '<h2 class="anki-complete-title">Session Complete!</h2>' +
+          '<p class="anki-complete-sub">All Anki cards reviewed for today.</p>' +
+          '<div class="anki-complete-warning-banner">' +
+            '<div class="anki-complete-warning-title">' +
+              '<span>⚠️</span>' +
+              '<span>Essential review required tomorrow</span>' +
+            '</div>' +
+            '<p class="anki-complete-warning-desc">Daily spaced repetition is essential for long-term retention. Notification and sound alert set in 🔔 notifications.</p>' +
+          '</div>' +
+          '<div class="anki-complete-actions">' +
+            '<button type="button" class="btn" id="ankiBackToBoardBtn">Back to training</button>' +
+            '<button type="button" class="btn primary" id="ankiOpenNotifyBtn">Open notifications</button>' +
+          '</div>' +
+        '</div>';
+
+      const backBtn = document.getElementById("ankiBackToBoardBtn");
+      const notifyBtn = document.getElementById("ankiOpenNotifyBtn");
+      if (backBtn) backBtn.onclick = () => dayBack();
+      if (notifyBtn) {
+        notifyBtn.onclick = () => {
+          if (typeof window.openLessonNotifications === 'function') {
+            window.openLessonNotifications();
+          }
+        };
+      }
+    }
     function paintQuizContrast() {
       const root = document.documentElement;
       const body = getComputedStyle(document.body);
@@ -1987,7 +2037,7 @@
           4: typeof window.formatFsrsInterval === 'function' ? window.formatFsrsInterval(7) : '7d'
         };
         const hintText = custom?.hint || meaningOf(card) || (card.pos ? esc(card.pos) : "");
-        view.innerHTML = '<p class="prompt">FSRS Flashcard · Spaced repetition</p>' +
+        view.innerHTML = '<p class="prompt">Anki cards · Spaced repetition</p>' +
           '<div class="flip-scene fsrs-scene" id="dayFsrsScene" tabindex="0" role="button" aria-label="Flip card">' +
             '<div class="flip-inner fsrs-inner" id="dayFsrsInner">' +
               '<div class="flip-face flip-front fsrs-face fsrs-front">' +
@@ -2053,7 +2103,7 @@
             }
             if (dayAt + 1 >= dayQueue.length) {
               if (examMode) showExamResult(examPassed(), "");
-              else dayBack();
+              else showAnkiCompletionScreen();
             } else {
               dayAt += 1;
               renderDay();

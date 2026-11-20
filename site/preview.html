@@ -757,6 +757,7 @@
                         <button type="button" class="lm-template-pill" data-template="rule">+ Grammar Rule</button>
                         <button type="button" class="lm-template-pill" data-template="vocab">+ Vocabulary List</button>
                         <button type="button" class="lm-template-pill" data-template="dialogue">+ Dialogue / Text</button>
+                        <button type="button" class="lm-template-pill" data-template="gaps">+ Text with Gaps</button>
                       </div>
                     </div>
                     <textarea id="lmScriptInput" class="saas-textarea" style="min-height:140px; width:100%; box-sizing:border-box; font-family:inherit; font-size:13px; line-height:1.5; padding:12px 14px; border:1.5px solid var(--saas-border, #bae6fd); border-radius:8px;" placeholder="Paste a lesson script, notes, a dialogue, or a command.&#10;Add words, phrases, and grammar rules, or describe a topic.&#10;The draft includes meanings, example sentences, and practice tasks.&#10;An open lesson keeps its material and skips duplicates.&#10;You review and edit the list before it is added, then you can undo."></textarea>
@@ -1164,6 +1165,15 @@
           <input class="dq-slider" type="range" min="1" max="1" value="1" data-dq-count aria-label="Cards">
           <b><span data-dq-random-count>1</span> cards</b>
         </div>
+        <p class="dq-label">Review</p>
+        <div class="dq-review-row" id="dayQuizReview">
+          <button class="dq-card" type="button" data-dq-mode="fsrs" aria-pressed="false">
+            <span class="dq-ico" aria-hidden="true">🧠</span>
+            <span class="dq-check" aria-hidden="true">✓</span>
+            <b>Anki cards</b>
+            <small>Spaced repetition · Due today</small>
+          </button>
+        </div>
         <p class="dq-label">Mode</p>
         <div class="dq-modes" id="dayQuizModes">
           <button class="dq-card on" type="button" data-dq-mode="quick" aria-pressed="true">
@@ -1189,12 +1199,6 @@
             <span class="dq-check" aria-hidden="true">✓</span>
             <b>Play</b>
             <small>Memory &amp; Hangman</small>
-          </button>
-          <button class="dq-card" type="button" data-dq-mode="fsrs" aria-pressed="false">
-            <span class="dq-ico" aria-hidden="true">🧠</span>
-            <span class="dq-check" aria-hidden="true">✓</span>
-            <b>Spaced repetition</b>
-            <small>FSRS flashcards</small>
           </button>
           <button class="dq-card" type="button" data-dq-mode="custom" aria-pressed="false">
             <span class="dq-ico" aria-hidden="true">🎛️</span>
@@ -1244,7 +1248,7 @@
           <section class="dq-group" data-dq-group="review">
             <header><div><b>Review</b><span data-dq-picked>0 of 1 selected</span></div></header>
             <div class="dq-types">
-              <button type="button" data-dq-type="FSRS Flashcard"><b>FSRS Flashcard</b><small>Due today</small></button>
+              <button type="button" data-dq-type="FSRS Flashcard"><b>Anki cards</b><small>Due today</small></button>
             </div>
           </section>
         </div>

@@ -335,7 +335,7 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     }
 
     const selectedPool = (typeof window !== 'undefined' && typeof window.lmGetSelectedQuizTypes === 'function' ? window.lmGetSelectedQuizTypes() : []).filter(Boolean);
-    const availableTypes = selectedPool.length > 0 ? selectedPool : ['Choice', 'Gap', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Smart Flashcard'];
+    const availableTypes = selectedPool.length > 0 ? selectedPool : ['Choice', 'Gap', 'Text with Gaps', 'Match', 'Build', 'True / false', 'Type', 'Select all', 'Odd one out', 'Smart Flashcard'];
 
     const items = [];
     for (let i = 0; i < targetCount; i++) {
@@ -347,7 +347,18 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
       const d2 = pool[(i + 2) % pool.length].word;
       const p1 = pool[i % pool.length], p2 = pool[(i + 1) % pool.length], p3 = pool[(i + 2) % pool.length];
 
-      if (t === 'Choice') {
+      if (t === 'Text with Gaps' || t === 'Text gaps') {
+        items.push({
+          stage: 'production',
+          title: (isHw ? 'HW Cloze: ' : 'CW Cloze: ') + title,
+          text: 'Fill in the numbered gaps in the passage:\nDuring our study of ' + title + ', we focused on [1:' + target + '] and practiced [2:' + d1 + ']. It is important to remember [3:' + d2 + '].',
+          kind: 'text_gaps',
+          mode: 'bank',
+          distractors: pool[(i + 3) % pool.length]?.word || 'extra',
+          pages: [1],
+          generated: true
+        });
+      } else if (t === 'Choice') {
         items.push({
           stage: 'comprehension',
           title: (isHw ? 'HW Choice: ' : 'CW Choice: ') + target,
@@ -647,6 +658,22 @@ function lmParseScriptToLessonData(text, defaultTitle = 'New Lesson', targetCwCo
     if (/^(phrases|фразы)\s*[:]?\s*$/i.test(line)) { currentSection = 'phrases'; continue; }
     if (/^(rules|grammar|правила|грамматика)\s*[:]?\s*$/i.test(line)) { currentSection = 'rules'; continue; }
     if (/^(classwork|practice|exercises|quizzes|упражнения|квизы)\s*[:]?\s*$/i.test(line)) { currentSection = 'classwork'; continue; }
+    if (/^(text with gaps|gaps|cloze|пропуски)\s*[:]?\s*$/i.test(line)) { currentSection = 'gaps'; continue; }
+
+    if (currentSection === 'gaps' || /\[(?:(?:\d+):)?[^\]|]+(?:\|[^\]]+)?\]/.test(line)) {
+      if (line.includes('[') && line.includes(']')) {
+        classwork.push({
+          stage: 'comprehension',
+          title: 'Text with Gaps',
+          text: line,
+          kind: 'text_gaps',
+          mode: 'bank',
+          pages: [1],
+          generated: true
+        });
+        continue;
+      }
+    }
 
     const wordPrefix = line.match(/^(?:word|слово)\s*:\s*(.+)$/i);
     const lineToParse = wordPrefix ? wordPrefix[1] : line;

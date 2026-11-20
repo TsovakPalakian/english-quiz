@@ -227,7 +227,18 @@
       const dotId = isMain ? 'pillStatusDot' : 'lmPillStatusDot';
       const popoverDotId = isMain ? 'popoverStatusDot' : 'lmPopoverStatusDot';
 
+      const bellHtml = isMain
+        ? '<button type="button" class="shell-header-bell-btn" id="shellHeaderNotifyBell" aria-label="Reminders and notifications" title="Reminders & Notifications">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+              '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>' +
+              '<path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
+            '</svg>' +
+            '<span class="shell-header-bell-dot"></span>' +
+          '</button>'
+        : '';
+
       host.innerHTML =
+        bellHtml +
         '<div class="user-profile-pill-wrap" id="' + wrapId + '">' +
           '<button type="button" class="user-profile-pill is-circle" id="' + pillId + '" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
             '<div class="pill-avatar-wrap">' +
@@ -314,6 +325,16 @@
           popover.hidden = !willOpen;
           pillBtn.classList.toggle('is-open', willOpen);
           pillBtn.setAttribute('aria-expanded', String(willOpen));
+        };
+      }
+
+      const bellBtn = host.querySelector('#shellHeaderNotifyBell');
+      if (bellBtn) {
+        bellBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (typeof window.openLessonNotifications === 'function') {
+            window.openLessonNotifications();
+          }
         };
       }
 

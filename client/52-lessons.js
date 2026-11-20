@@ -995,16 +995,323 @@
       const upDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const downDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const bottomDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
-      const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);
+      const isShut = isVerifiedSection ? !block.unfolded : Boolean(block.collapsed);
       return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + verifiedBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (isShut ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+    }
+    function parseGapsFromText(text) {
+      if (typeof text !== "string") return [];
+      const re = /\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g;
+      const gaps = [];
+      let m;
+      let autoIdx = 1;
+      while ((m = re.exec(text)) !== null) {
+        const rawIdx = m[1] ? parseInt(m[1], 10) : autoIdx;
+        autoIdx++;
+        const mainPart = m[2].trim();
+        const extraPart = (m[3] || "").trim();
+        let target = mainPart;
+        let mode = "open";
+        let stem = "";
+        let hint = "";
+        let hints = [];
+        let time = "";
+        let options = [];
+        let alternatives = [];
+        if (mainPart.includes("/")) {
+          options = mainPart.split("/").map(s => s.trim()).filter(Boolean);
+          target = options[0] || "";
+        }
+        if (extraPart) {
+          const parts = extraPart.split("|");
+          for (const p of parts) {
+            const colonIdx = p.indexOf(":");
+            const k = (colonIdx > -1 ? p.slice(0, colonIdx) : p).trim();
+            const v = (colonIdx > -1 ? p.slice(colonIdx + 1) : "").trim();
+            if (k === "correct" && v) target = v;
+            else if (k === "stem" && v) { stem = v; mode = "stem"; }
+            else if ((k === "hint" || k === "first") && v) hint = v;
+            else if (k === "time" && v) time = v;
+            else if ((k === "hint1" || k === "hint2" || k === "hint3") && v) hints.push(v);
+            else if (k === "hints" && v) hints.push(...v.split(/[,;/]+/).map(s => s.trim()).filter(Boolean));
+            else if (k === "mode" && v) mode = v;
+            else if (k === "alt" && v) alternatives.push(...v.split(",").map(s => s.trim()));
+          }
+        }
+        if (options.length > 0 && mode === "open") mode = "dropdown";
+        gaps.push({ index: rawIdx, target: target, mode: mode, stem: stem, hint: hint, hints: hints, time: time, options: options, alternatives: alternatives });
+      }
+      return gaps;
+    }
+    window.parseGapsFromText = parseGapsFromText;
+    function lmRenderTextGapsPreview(block, index, question) {
+      const mode = question.mode || "open";
+      const gaps = parseGapsFromText(question.text || "");
+      const given = question.given || {};
+      const marked = Boolean(question.marked);
+      const hintsLevel = question.hintsLevel || {};
+
+      let mediaHtml = "";
+      const hasAudio = Boolean(question.audioUrl || question.audio || gaps.some(g => g.time));
+      const hasVisual = Boolean(question.imageUrl || question.image);
+
+      if (hasAudio || hasVisual) {
+        let audioCard = "";
+        if (hasAudio) {
+          audioCard = '<div class="gap-audio-card">' +
+            '<div class="gap-audio-head"><span>Audio Track: Lesson Listening</span><span class="gap-audio-badge">Audio</span></div>' +
+            '<div class="gap-audio-controls">' +
+              '<button type="button" class="gap-play-btn" data-gap-play="' + block.id + ":" + index + '" title="Play / Pause">▶</button>' +
+              '<div class="gap-audio-track"><div class="gap-progress-bar"><div class="gap-progress-fill" style="width:30%;"></div></div>' +
+              '<div class="gap-audio-time"><span>00:15</span><span>01:10</span></div></div>' +
+              '<div class="gap-audio-tools"><button type="button" class="gap-audio-sub-btn" data-gap-audio-rewind="' + block.id + ":" + index + '" title="Replay 5s">⟲ 5s</button>' +
+              '<button type="button" class="gap-audio-sub-btn" data-gap-audio-speed="' + block.id + ":" + index + '" title="Speed">1.0x</button></div>' +
+            '</div></div>';
+        }
+        let visualCard = "";
+        if (hasVisual) {
+          const imgUrl = question.imageUrl || question.image || "";
+          visualCard = '<div class="gap-visual-card">' +
+            '<button type="button" class="gap-visual-zoom" data-gap-zoom="' + block.id + ":" + index + '" title="Enlarge image">🔍 Zoom</button>' +
+            '<div class="gap-visual-img">' + (imgUrl ? '<img src="' + esc(imgUrl) + '" style="max-width:100%; max-height:90px; object-fit:contain;" />' : '<span>🗺️ Diagram</span>') + '</div>' +
+            '<div class="gap-visual-caption">Figure: Reference diagram</div>' +
+          '</div>';
+        }
+        mediaHtml = '<div class="gap-media-grid">' + audioCard + visualCard + '</div>';
+      }
+
+      let wordBankHtml = "";
+      if (mode === "bank") {
+        const allWords = gaps.map(g => g.target).concat((question.distractors || "").split(/[\s,]+/).filter(Boolean));
+        const usedCounts = {};
+        Object.values(given).forEach(w => {
+          const k = String(w || "").trim().toLowerCase();
+          if (k) usedCounts[k] = (usedCounts[k] || 0) + 1;
+        });
+        const currentSeen = {};
+        const chips = allWords.map((word) => {
+          const k = word.toLowerCase();
+          currentSeen[k] = (currentSeen[k] || 0) + 1;
+          const isUsed = (usedCounts[k] || 0) >= currentSeen[k];
+          return '<span class="word-chip' + (isUsed ? " is-used" : "") + '" draggable="' + (!isUsed) + '" data-gap-word="' + esc(word) + '" data-gap-target="' + block.id + ":" + index + '"><span class="drag-grip-icon">⠿</span>' + esc(word) + "</span>";
+        }).join("");
+        wordBankHtml = '<div class="word-bank-box"><div class="word-bank-label"><span>Available Words</span><span style="font-size:11px; color:var(--mute);">Drag chips or click to place</span></div><div class="word-bank-chips">' + chips + '</div></div>';
+      }
+
+      let passageHtml = esc(question.text || "");
+      let slotOrder = 1;
+      passageHtml = passageHtml.replace(/\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g, () => {
+        const gap = gaps.find(g => g.index === slotOrder) || gaps[slotOrder - 1];
+        const sIdx = gap ? gap.index : slotOrder;
+        slotOrder++;
+        if (!gap) return "";
+        const val = given[sIdx] || "";
+        const targetVal = String(gap.target || "").trim().toLowerCase();
+        const firstChar = String(gap.hint || "").trim().toLowerCase();
+        const sVal = String(val).trim().toLowerCase();
+        const isMatch = sVal === targetVal || (firstChar && (firstChar + sVal) === targetVal) || (Array.isArray(gap.alternatives) && gap.alternatives.some(a => String(a).trim().toLowerCase() === sVal || (firstChar && (firstChar + sVal) === String(a).trim().toLowerCase())));
+        const isCorrect = marked && isMatch;
+        const isWrong = marked && !isMatch;
+        const slotClass = "gap-slot" + (isCorrect ? " is-correct" : (isWrong ? " is-wrong" : ""));
+        const stemBadge = gap.stem ? '<span class="gap-stem-tag">' + esc(gap.stem) + "</span>" : "";
+        const markHint = isCorrect ? '<span class="gap-correct-hint">✓</span>' : (isWrong ? '<span class="gap-wrong-hint">✕ (' + esc(gap.target) + ")</span>" : "");
+        const timeBtn = gap.time ? '<button type="button" class="gap-hint-btn" data-gap-time="' + block.id + ":" + index + ":" + esc(gap.time) + '" title="Play timestamp">▶ ' + esc(gap.time) + "</button>" : "";
+
+        const hLvl = Number(hintsLevel[sIdx] || 0);
+        let hintBtn = "";
+        let hintPopover = "";
+        if (gap.hints && gap.hints.length > 0) {
+          hintBtn = '<button type="button" class="gap-hint-btn" data-gap-hint="' + block.id + ":" + index + ":" + sIdx + '" title="Get hint">💡' + (hLvl > 0 ? " " + hLvl : "") + "</button>";
+          if (hLvl > 0) {
+            const clueText = gap.hints[Math.min(hLvl - 1, gap.hints.length - 1)];
+            hintPopover = '<div class="gap-hint-popover">💡 ' + esc(clueText) + ' <span class="gap-hint-penalty">(-' + (hLvl * 25) + '%)</span></div>';
+          }
+        }
+
+        let control = "";
+        if (gap.hint) {
+          control = '<span class="gap-first-box"><span class="gap-first-char">' + esc(gap.hint) + '</span><input type="text" class="gap-first-input" data-gap-slot="' + block.id + ":" + index + ":" + sIdx + '" value="' + esc(val) + '" placeholder="____" />' + hintPopover + "</span>";
+        } else if (gap.options?.length > 0 || mode === "dropdown") {
+          const opts = gap.options?.length > 0 ? gap.options : [gap.target];
+          const optionsHtml = '<option value="">Select ▾</option>' + opts.map(opt => '<option value="' + esc(opt) + '"' + (String(val).toLowerCase() === opt.toLowerCase() ? " selected" : "") + ">" + esc(opt) + "</option>").join("");
+          control = '<select class="gap-select" data-gap-slot="' + block.id + ":" + index + ":" + sIdx + '">' + optionsHtml + "</select>" + hintPopover;
+        } else if (mode === "bank") {
+          if (val) {
+            control = '<span class="gap-placed-chip" draggable="true" data-gap-chip-move="' + block.id + ":" + index + ":" + sIdx + '"><span class="drag-grip-icon">⠿</span>' + esc(val) + '<span class="gap-placed-clear" data-gap-clear="' + block.id + ":" + index + ":" + sIdx + '" title="Return to bank">✕</span></span>' + hintPopover;
+          } else {
+            control = '<span class="gap-drop-target" data-gap-drop="' + block.id + ":" + index + ":" + sIdx + '"><span class="gap-drop-hint-text">Drop word here</span></span>' + hintPopover;
+          }
+        } else {
+          control = '<input type="text" class="gap-input" data-gap-slot="' + block.id + ":" + index + ":" + sIdx + '" value="' + esc(val) + '" placeholder="..." />' + hintPopover;
+        }
+        return '<span class="' + slotClass + '"><span class="gap-num">' + sIdx + "</span>" + control + stemBadge + timeBtn + hintBtn + markHint + "</span>";
+      });
+
+      const instructions = question.prompt ? '<p class="gap-task-instructions">' + esc(question.prompt) + "</p>" : "";
+      const scoreBadge = marked ? '<div class="gap-score-badge"><span>Results:</span> <span class="gap-score-val">' + esc(question.score || "") + "</span></div>" : "";
+
+      return '<div class="gap-task-card">' +
+        '<div class="gap-task-head">' +
+          '<div class="gap-task-title-group">' +
+            "<h3>" + esc(question.title || (question.prompt ? question.prompt : "Reading with Gaps")) + "</h3>" +
+            instructions +
+          "</div>" +
+          '<div class="gap-mode-pill"><span>' + (mode === "bank" ? "✨ Word Bank Mode" : (mode === "dropdown" ? "▼ Dropdown Mode" : (mode === "stem" ? "🔤 Word Formation" : "✍️ Open Cloze"))) + "</span></div>" +
+        "</div>" +
+        mediaHtml +
+        wordBankHtml +
+        '<div class="gap-passage">' + passageHtml.replace(/\n/g, "<br>") + "</div>" +
+        '<div class="gap-footer">' +
+          scoreBadge +
+          '<div class="gap-task-actions">' +
+            '<button type="button" class="gap-btn gap-btn-check" data-ex-check="' + block.id + '"><span>✓</span> Check Answers</button>' +
+            '<button type="button" class="gap-btn gap-btn-reset" data-gap-reset="' + block.id + '"><span>⟲</span> Reset</button>' +
+          "</div>" +
+        "</div>" +
+      "</div>";
     }
     function lmQuestions(block) {
       return (block.items || []).map((question, index) => {
+        const isGaps = block.type === "exercise" && question.kind === "text_gaps";
         const write = block.type === "exercise" && question.kind === "write";
-        const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (write ? "" : " selected") + '>Choices</option><option value="write"' + (write ? " selected" : "") + ">Type the answer</option></select></label>" : "";
-        const body = write ? '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>' : lmChoiceEditor(block, index);
-        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
+        const kind = block.type === "exercise" ? '<label>Answer type<select data-item-field="kind" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="choice"' + (!write && !isGaps ? " selected" : "") + '>Choices</option><option value="write"' + (write ? " selected" : "") + '>Type the answer</option><option value="text_gaps"' + (isGaps ? " selected" : "") + ">Text with gaps</option></select></label>" : "";
+        let body = "";
+        if (isGaps) {
+          const mode = question.mode || "open";
+          const parsed = parseGapsFromText(question.text || "");
+          const tableRows = parsed.map(g => "<tr><td><b>(" + g.index + ")</b></td><td><span class=\"code-tag\">" + esc(g.target) + "</span>" + (g.hint ? " <small>(1st: " + esc(g.hint) + ")</small>" : "") + "</td><td>" + (g.stem ? "Stem: <span class=\"code-tag\">" + esc(g.stem) + "</span>" : (g.options?.length ? "Options: <span class=\"code-tag\">" + esc(g.options.join(", ")) + "</span>" : (g.hints?.length ? "Hints: " + esc(g.hints.join(" | ")) : "<span style=\"color:var(--mute); font-size:12.5px;\">Standard gap</span>"))) + "</td></tr>").join("");
+          const previewTable = parsed.length ? '<div class="parsed-gaps-box"><div class="parsed-gaps-head"><span class="parsed-title">Parsed Gaps (' + parsed.length + ' detected)</span><span class="parsed-badge">✓ Syntax Valid</span></div><table class="gaps-table"><thead><tr><th>Slot</th><th>Target Answer</th><th>Rule / Options / Cue</th></tr></thead><tbody>' + tableRows + "</tbody></table></div>" : "";
+          body = '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">' +
+              '<span class="parsed-title" style="font-size:12px;">Cloze Configuration</span>' +
+              '<button type="button" class="ai-action-btn-secondary" data-open-gaps-ai="' + block.id + ":" + index + '" style="font-size:12px; padding:4px 12px; display:inline-flex; align-items:center; gap:5px;">✨ Open AI Generator</button>' +
+            '</div>' +
+            '<label>Interaction mode<select data-item-field="mode" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '"><option value="open"' + (mode === "open" ? " selected" : "") + '>Open Cloze (Free Typing)</option><option value="bank"' + (mode === "bank" ? " selected" : "") + '>Word Bank (Automatic Pool)</option><option value="dropdown"' + (mode === "dropdown" ? " selected" : "") + '>Inline Dropdown per Gap</option><option value="stem"' + (mode === "stem" ? " selected" : "") + '>Word Formation (Stem cues)</option></select></label>' +
+            (mode === "bank" ? '<label>Distractor words (space separated)<input type="text" data-item-field="distractors" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.distractors || "") + '" placeholder="e.g. extra1 extra2" /></label>' : "") +
+            '<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;"><label>Audio URL (optional)<input type="text" data-item-field="audioUrl" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.audioUrl || "") + '" placeholder="https://...mp3" /></label><label>Image URL (optional)<input type="text" data-item-field="imageUrl" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.imageUrl || "") + '" placeholder="https://...jpg" /></label></div>' +
+            '<label class="lm-span">Passage text with [1:answer], [1:answer|stem:WORD], [1:answer|hint:first], or [1:answer|hint1:...|hint2:...]<textarea data-item-field="text" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" style="min-height:120px; font-family:monospace;">' + esc(question.text || "") + "</textarea></label>" + previewTable;
+        } else if (write) {
+          body = '<label class="lm-span">Correct answer<input type="text" data-item-field="write" data-item-list="items" data-block="' + block.id + '" data-item="' + index + '" value="' + esc(question.write || "") + '" /></label>';
+        } else {
+          body = lmChoiceEditor(block, index);
+        }
+        return '<div class="lm-card-row"><div class="lm-card-fields">' + lmItemField(block, "items", index, "prompt", isGaps ? "Title / Instructions" : "Question", true) + kind + body + "</div>" + lmItemTools(block.id, "items", index) + "</div>";
       }).join("");
+    }
+    function lmOpenGapsAiModal(blockId, itemIdx) {
+      const old = document.getElementById("aiGapsModal");
+      if (old) old.remove();
+
+      const block = lmBlock(blockId);
+      const question = block && block.items && block.items[itemIdx];
+      if (!question) return;
+
+      const modal = document.createElement("div");
+      modal.id = "aiGapsModal";
+      modal.className = "ai-modal-backdrop";
+
+      const samples = {
+        open: "Mount Everest is the highest mountain in the world. It [1:rises|hint:r] to an elevation of 8,848 meters above sea level. Many climbers attempt to [2:reach|hint:r] its summit every year, but extreme weather [3:conditions] make it very dangerous. Survival requires strict [4:discipline] and adequate oxygen supplies.",
+        bank: "Renewable energy plays an essential role in [1:reducing] carbon emissions. Wind and solar power are now much more [2:affordable] than fossil fuels. Many nations have committed to [3:transitioning] their grids to clean sources, creating new [4:sustainable] jobs worldwide.",
+        stem: "The rapid [1:development|stem:DEVELOP] of renewable energy has transformed the market. Engineers have made significant [2:improvements|stem:IMPROVE] in battery technology. This shift has created an [3:attractive|stem:ATTRACT] environment for new investments.",
+        prepositions: "He is interested [1:in] modern architecture. She succeeded [2:in] passing the exam, and they apologized [3:for] arriving late. We must prepare [4:for] the upcoming challenge.",
+        phrasal: "The team had to [1:call off] the match due to rain. Don't [2:give up] on your dreams, and remember to [3:turn down] the volume.",
+        audio: "Listen to the lecture carefully. The speaker mentions that the company was founded in [1:1998|time:00:15]. Their first major breakthrough occurred when they [2:patented|time:00:42] the new engine."
+      };
+
+      let curMode = question.mode || "open";
+      let sampleText = samples[curMode] || samples.open;
+
+      modal.innerHTML = '<div class="ai-modal-card">' +
+        '<div class="ai-modal-head">' +
+          '<h3 class="ai-modal-title"><span>✨ AI Cloze Generator</span><span class="ai-modal-badge">Smart Assist</span></h3>' +
+          '<button type="button" class="ai-modal-close" data-ai-close title="Close">✕</button>' +
+        '</div>' +
+        '<div class="ai-form-grid">' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">Topic / Context</label>' +
+            '<input type="text" class="ai-form-input" id="aiGapsTopic" value="Renewable Energy & Climate" placeholder="e.g. Science, Travel, Business" />' +
+          '</div>' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">CEFR Target Level</label>' +
+            '<select class="ai-form-select" id="aiGapsCefr">' +
+              '<option value="A2">A2 - Elementary</option>' +
+              '<option value="B1">B1 - Intermediate</option>' +
+              '<option value="B2" selected>B2 - Upper-Intermediate</option>' +
+              '<option value="C1">C1 - Advanced</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">Exercise Variant</label>' +
+            '<select class="ai-form-select" id="aiGapsVariant">' +
+              '<option value="open"' + (curMode === "open" ? " selected" : "") + '>Open Cloze (First letter / context cues)</option>' +
+              '<option value="bank"' + (curMode === "bank" ? " selected" : "") + '>Word Bank (With/without distractors)</option>' +
+              '<option value="stem"' + (curMode === "stem" ? " selected" : "") + '>Word Formation (Stem cues [1:word|stem:STEM])</option>' +
+              '<option value="prepositions">Grammar: Dependent Prepositions</option>' +
+              '<option value="phrasal">Vocabulary: Phrasal Verbs</option>' +
+              '<option value="audio">Listening: Audio Cloze with Timecodes</option>' +
+            '</select>' +
+          '</div>' +
+          '<div class="ai-form-field">' +
+            '<label class="ai-form-label">Gaps Quantity</label>' +
+            '<select class="ai-form-select" id="aiGapsCount">' +
+              '<option value="3">3 Gaps (Micro drill)</option>' +
+              '<option value="4" selected>4 Gaps (Standard)</option>' +
+              '<option value="6">6 Gaps (Exam format)</option>' +
+              '<option value="8">8 Gaps (Long passage)</option>' +
+            '</select>' +
+          '</div>' +
+        '</div>' +
+        '<div class="ai-form-field" style="margin-top:6px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">' +
+            '<label class="ai-form-label" style="margin:0;">Generated Passage Preview</label>' +
+            '<span style="font-size:11px; color:var(--mute);">Ready for insert</span>' +
+          '</div>' +
+          '<div class="ai-preview-box" id="aiGapsPreview">' + esc(sampleText) + '</div>' +
+        '</div>' +
+        '<div class="ai-modal-actions">' +
+          '<button type="button" class="ai-action-btn-secondary" id="aiGapsRegen">⟲ Regenerate Sample</button>' +
+          '<div style="display:flex; gap:10px;">' +
+            '<button type="button" class="ai-action-btn-secondary" data-ai-close>Cancel</button>' +
+            '<button type="button" class="ai-action-btn-primary" id="aiGapsInsert">Insert into Lesson</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+      document.body.appendChild(modal);
+
+      const variantSelect = modal.querySelector("#aiGapsVariant");
+      const previewBox = modal.querySelector("#aiGapsPreview");
+      const updatePreview = () => {
+        const v = variantSelect.value;
+        const txt = samples[v] || samples.open;
+        previewBox.textContent = txt;
+      };
+      variantSelect.addEventListener("change", updatePreview);
+
+      modal.querySelector("#aiGapsRegen").addEventListener("click", updatePreview);
+
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal || e.target.closest("[data-ai-close]")) {
+          modal.remove();
+        }
+      });
+
+      modal.querySelector("#aiGapsInsert").addEventListener("click", () => {
+        const chosenText = previewBox.textContent.trim();
+        const v = variantSelect.value;
+        question.text = chosenText;
+        if (v === "bank") {
+          question.mode = "bank";
+          question.distractors = "reliable traditional";
+        } else if (v === "stem") {
+          question.mode = "stem";
+        } else if (v === "audio") {
+          question.audioUrl = "https://example.com/audio/listening-sample.mp3";
+        }
+        modal.remove();
+        lmRenderEditor();
+        lmRenderPreview();
+        lmSchedule();
+      });
     }
     function lmBody(block) {
       if (block.type === "interactive") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || '') + '"></label><label>Link or embed code<textarea data-interactive-source="' + block.id + '" maxlength="8000">' + esc(block.url || '') + '</textarea></label><p data-interactive-status role="status"></p><div data-interactive-preview>' + lmInteractiveFrame(block) + '</div>';
@@ -1129,7 +1436,7 @@
         const verified = '<label class="lm-teacher-verify-label" style="font-size:12px; font-weight:700; color:#047857; display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:12px;"><input type="checkbox" data-block-teacher-verified="' + block.id + '"' + (block.teacherVerified ? ' checked' : '') + '> Verified by Teacher</label>';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
-        const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);
+        const isShut = isVerifiedSection ? !block.unfolded : Boolean(block.collapsed);
         const head = lmHead(block,label,isFirst,isLast,isVerifiedSection).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
@@ -1276,13 +1583,17 @@
       }
       if (block.type === "exercise") {
         const questions = (block.items || []).map((question, index) => {
+          if (question.kind === "text_gaps") {
+            return lmRenderTextGapsPreview(block, index, question);
+          }
           const body = question.kind === "write" ? '<input type="text" data-write="' + block.id + ":" + index + '" value="' + esc(question.typed || "") + '" placeholder="Your answer" />' : lmPreviewChoices(block, index, question);
           const mark = question.marked ? '<p class="lm-result ' + (question.correct ? "is-ok" : "is-no") + '">' + (question.correct ? "Correct" : "Not quite") + "</p>" : "";
           const explanation=question.marked&&(block.pdfFeedback||(block.pdfImport?.section==='classwork'&&block.pdfTeacherNotes));
           const feedback=explanation?'<p class="lm-pdf-feedback" data-pdf-feedback="'+block.id+'">'+esc(explanation)+'</p>':'';
           return '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + body + mark + feedback + "</div>";
         }).join("");
-        return questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>';
+        const hasGapsOnly = (block.items || []).length > 0 && (block.items || []).every(q => q.kind === "text_gaps");
+        return questions + (hasGapsOnly ? "" : '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>');
       }
       if (block.type === "quiz") {
         const kind = lmQuizType(block);
@@ -2144,6 +2455,7 @@
             if (block.teacherVerified) {
               block.collapsed = true;
             }
+            if (block.teacherVerified) block.unfolded = false;
             lmSyncTeacherVerifySummary();
             lmRenderEditor();
             lmSchedule();
@@ -2156,7 +2468,10 @@
           if (lmState && Array.isArray(lmState.blocks)) {
             lmState.blocks.forEach(b => {
               b.teacherVerified = val;
-              if (val) b.collapsed = true;
+              if (val) {
+                b.collapsed = true;
+                b.unfolded = false;
+              }
             });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
@@ -2241,6 +2556,18 @@
           lmSchedule();
           return;
         }
+        const gapSlot = event.target.closest("[data-gap-slot]");
+        if (gapSlot) {
+          const bits = gapSlot.dataset.gapSlot.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) {
+            question.given = question.given || {};
+            question.given[bits[2]] = gapSlot.value;
+            lmSchedule();
+          }
+          return;
+        }
         const rich = event.target.closest("[data-rich]");
         if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
       });
@@ -2300,6 +2627,17 @@
           }
           lmSchedule();
         }
+        const gapSelect = event.target.closest("[data-gap-slot]");
+        if (gapSelect && gapSelect.tagName === "SELECT") {
+          const bits = gapSelect.dataset.gapSlot.split(":");
+          const block = lmBlock(bits[0]);
+          const question = block && block.items && block.items[Number(bits[1])];
+          if (question) {
+            question.given = question.given || {};
+            question.given[bits[2]] = gapSelect.value;
+            lmSchedule();
+          }
+        }
         const pick = event.target.closest("[data-pick]");
         if (pick) {
           const bits = pick.dataset.pick.split(":");
@@ -2320,7 +2658,10 @@
           if (lmState && Array.isArray(lmState.blocks)) {
             lmState.blocks.forEach(b => {
               b.teacherVerified = val;
-              if (val) b.collapsed = true;
+              if (val) {
+                b.collapsed = true;
+                b.unfolded = false;
+              }
             });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
@@ -2460,6 +2801,7 @@
             lmState.blocks.forEach(b => {
               b.teacherVerified = true;
               b.collapsed = true;
+              b.unfolded = false;
             });
             lmRenderEditor();
             lmSyncTeacherVerifySummary();
@@ -2471,8 +2813,13 @@
         if (fold) {
           const block = lmBlock(fold.dataset.lmFold);
           if (block) {
-            const isCurrentlyShut = block.teacherVerified ? (block.collapsed !== false) : Boolean(block.collapsed);
-            block.collapsed = !isCurrentlyShut;
+            const isCurrentlyShut = block.teacherVerified ? !block.unfolded : Boolean(block.collapsed);
+            if (block.teacherVerified) {
+              block.unfolded = isCurrentlyShut;
+              block.collapsed = !isCurrentlyShut;
+            } else {
+              block.collapsed = !isCurrentlyShut;
+            }
           }
           lmRenderEditor();
           lmSchedule();
@@ -2481,7 +2828,10 @@
         const edit = event.target.closest("[data-lm-edit]");
         if (edit) {
           const block = lmBlock(edit.dataset.lmEdit);
-          if (block) block.collapsed = false;
+          if (block) {
+            block.collapsed = false;
+            block.unfolded = true;
+          }
           lmRenderEditor();
           const made = lmRoot.querySelector('[data-block-id="' + edit.dataset.lmEdit + '"] input, [data-block-id="' + edit.dataset.lmEdit + '"] .lm-rich');
           if (made) made.focus();
@@ -2574,13 +2924,130 @@
         const exCheck = event.target.closest("[data-ex-check]");
         if (exCheck) {
           const block = lmBlock(exCheck.dataset.exCheck);
-          if (block) block.items.forEach((question) => {
+          if (block) (block.items || []).forEach((question) => {
             question.marked = true;
-            question.correct = question.kind === "write" ? String(question.typed || "").trim().toLowerCase() === String(question.write || "").trim().toLowerCase() : Number(question.picked) === Number(question.answer);
+            if (question.kind === "text_gaps") {
+              const gaps = parseGapsFromText(question.text || "");
+              const given = question.given || {};
+              const penalties = question.penalties || {};
+              let correctCount = 0;
+              let earnedScore = 0;
+              for (const g of gaps) {
+                const s = String(given[g.index] || "").trim().toLowerCase();
+                const t = String(g.target || "").trim().toLowerCase();
+                const firstChar = String(g.hint || "").trim().toLowerCase();
+                const isDirectMatch = s === t || (Array.isArray(g.alternatives) && g.alternatives.some(a => String(a).trim().toLowerCase() === s));
+                const isPrefixedMatch = Boolean(firstChar) && ((firstChar + s) === t || (Array.isArray(g.alternatives) && g.alternatives.some(a => (firstChar + s) === String(a).trim().toLowerCase())));
+                if (isDirectMatch || isPrefixedMatch) {
+                  correctCount++;
+                  const pen = Number(penalties[g.index] || 0);
+                  earnedScore += Math.max(0, 1 - pen);
+                }
+              }
+              question.correct = gaps.length > 0 && correctCount === gaps.length;
+              question.score = earnedScore.toFixed(earnedScore % 1 ? 2 : 0) + " / " + gaps.length + " points (" + correctCount + "/" + gaps.length + " correct)";
+            } else {
+              question.correct = question.kind === "write" ? String(question.typed || "").trim().toLowerCase() === String(question.write || "").trim().toLowerCase() : Number(question.picked) === Number(question.answer);
+            }
           });
           lmRenderPreview();
           lmSchedule();
           return;
+        }
+        const gapReset = event.target.closest("[data-gap-reset]");
+        if (gapReset) {
+          const block = lmBlock(gapReset.dataset.gapReset);
+          if (block) (block.items || []).forEach((question) => {
+            if (question.kind === "text_gaps") {
+              question.given = {};
+              question.marked = false;
+              question.hintsLevel = {};
+              question.penalties = {};
+              delete question.score;
+              delete question.correct;
+            }
+          });
+          lmRenderPreview();
+          lmSchedule();
+          return;
+        }
+        const gapHintBtn = event.target.closest("[data-gap-hint]");
+        if (gapHintBtn) {
+          const [blockId, itemIdx, slotIdx] = gapHintBtn.dataset.gapHint.split(":");
+          const block = lmBlock(blockId);
+          const question = block && block.items && block.items[Number(itemIdx)];
+          if (question) {
+            question.hintsLevel = question.hintsLevel || {};
+            question.penalties = question.penalties || {};
+            const gaps = parseGapsFromText(question.text || "");
+            const gap = gaps.find(g => String(g.index) === String(slotIdx));
+            const maxHints = (gap && gap.hints && gap.hints.length) ? gap.hints.length : 1;
+            const cur = Number(question.hintsLevel[slotIdx] || 0);
+            const nextLvl = (cur >= maxHints) ? 0 : cur + 1;
+            question.hintsLevel[slotIdx] = nextLvl;
+            question.penalties[slotIdx] = nextLvl * 0.25;
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const gapPlayBtn = event.target.closest("[data-gap-play]");
+        if (gapPlayBtn) {
+          gapPlayBtn.textContent = gapPlayBtn.textContent.includes("▶") ? "⏸" : "▶";
+          return;
+        }
+        const gapZoomBtn = event.target.closest("[data-gap-zoom]");
+        if (gapZoomBtn) {
+          const card = gapZoomBtn.closest(".gap-visual-card");
+          if (card) card.classList.toggle("is-zoomed");
+          return;
+        }
+        const gapTimeBtn = event.target.closest("[data-gap-time]");
+        if (gapTimeBtn) {
+          const card = gapTimeBtn.closest(".gap-card")?.querySelector(".gap-audio-card");
+          if (card) {
+            const fill = card.querySelector(".gap-progress-fill");
+            if (fill) fill.style.width = "45%";
+            const playBtn = card.querySelector(".gap-play-btn");
+            if (playBtn) playBtn.textContent = "⏸";
+          }
+          return;
+        }
+        const aiOpenBtn = event.target.closest("[data-open-gaps-ai]");
+        if (aiOpenBtn) {
+          const [blockId, itemIdx] = aiOpenBtn.dataset.openGapsAi.split(":");
+          lmOpenGapsAiModal(blockId, Number(itemIdx));
+          return;
+        }
+        const chip = event.target.closest("[data-gap-word]");
+        if (chip && !chip.classList.contains("is-used")) {
+          const [blockId, itemIdx] = chip.dataset.gapTarget.split(":");
+          const block = lmBlock(blockId);
+          const question = block && block.items && block.items[Number(itemIdx)];
+          if (question) {
+            const word = chip.dataset.gapWord;
+            question.given = question.given || {};
+            const gaps = parseGapsFromText(question.text || "");
+            const emptyGap = gaps.find(g => !question.given[g.index]);
+            if (emptyGap) {
+              question.given[emptyGap.index] = word;
+              lmRenderPreview();
+              lmSchedule();
+            }
+          }
+          return;
+        }
+        const gapClear = event.target.closest("[data-gap-clear]");
+        if (gapClear) {
+          const [blockId, itemIdx, slotIdx] = gapClear.dataset.gapClear.split(":");
+          const block = lmBlock(blockId);
+          const question = block && block.items && block.items[Number(itemIdx)];
+          if (question && question.given && question.given[slotIdx]) {
+            delete question.given[slotIdx];
+            lmRenderPreview();
+            lmSchedule();
+            return;
+          }
         }
         const pick = event.target.closest("[data-pick]");
         if (pick) {
@@ -2661,16 +3128,77 @@
         }
       });
       lmRoot.addEventListener("dragstart", (event) => {
+        const chip = event.target.closest("[data-gap-word], [data-gap-chip-move]");
+        if (chip) {
+          const isBankChip = chip.hasAttribute("data-gap-word");
+          const word = isBankChip ? chip.dataset.gapWord : chip.innerText.replace("✕", "").replace("⠿", "").trim();
+          const origin = isBankChip ? ("bank:" + chip.dataset.gapTarget) : ("slot:" + chip.dataset.gapChipMove);
+          event.dataTransfer.setData("application/x-gap-chip", JSON.stringify({ word, origin }));
+          event.dataTransfer.effectAllowed = "move";
+          chip.classList.add("is-dragging");
+          return;
+        }
         const block = event.target.closest(".lm-block");
         if (!block || !block.getAttribute("draggable")) return;
         event.dataTransfer.setData("text/plain", block.dataset.blockId);
       });
       lmRoot.addEventListener("dragover", (event) => {
+        const gapDrop = event.target.closest("[data-gap-drop], [data-gap-chip-move], .word-bank-box");
+        if (gapDrop) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          gapDrop.classList.add("is-drop-active");
+          return;
+        }
         if (event.target.closest(".lm-block") || event.target.closest(".lm-drop")) event.preventDefault();
         const over = event.target.closest(".lm-block");
         lmRoot.querySelectorAll(".lm-block").forEach((item) => item.classList.toggle("is-over", item === over && event.target.closest("[data-grip], .lm-block") && !event.target.closest(".lm-drop")));
       });
+      lmRoot.addEventListener("dragleave", (event) => {
+        const gapDrop = event.target.closest("[data-gap-drop], [data-gap-chip-move], .word-bank-box");
+        if (gapDrop && !gapDrop.contains(event.relatedTarget)) {
+          gapDrop.classList.remove("is-drop-active");
+        }
+      });
       lmRoot.addEventListener("drop", (event) => {
+        const gapRaw = event.dataTransfer.getData("application/x-gap-chip");
+        if (gapRaw) {
+          event.preventDefault();
+          let data;
+          try { data = JSON.parse(gapRaw); } catch { return; }
+          const dropTarget = event.target.closest("[data-gap-drop], [data-gap-chip-move], .word-bank-box");
+          if (dropTarget && data && data.word) {
+            dropTarget.classList.remove("is-drop-active");
+            if (dropTarget.hasAttribute("data-gap-drop") || dropTarget.hasAttribute("data-gap-chip-move")) {
+              const attr = dropTarget.dataset.gapDrop || dropTarget.dataset.gapChipMove;
+              const [blockId, itemIdx, slotIdx] = attr.split(":");
+              const block = lmBlock(blockId);
+              const question = block && block.items && block.items[Number(itemIdx)];
+              if (question) {
+                question.given = question.given || {};
+                if (data.origin && data.origin.startsWith("slot:")) {
+                  const [, oBlockId, oItemIdx, oSlotIdx] = data.origin.split(":");
+                  if (oBlockId === blockId && Number(oItemIdx) === Number(itemIdx)) {
+                    delete question.given[oSlotIdx];
+                  }
+                }
+                question.given[slotIdx] = data.word;
+                lmRenderPreview();
+                lmSchedule();
+              }
+            } else if (dropTarget.closest(".word-bank-box") && data.origin && data.origin.startsWith("slot:")) {
+              const [, oBlockId, oItemIdx, oSlotIdx] = data.origin.split(":");
+              const block = lmBlock(oBlockId);
+              const question = block && block.items && block.items[Number(oItemIdx)];
+              if (question && question.given && question.given[oSlotIdx]) {
+                delete question.given[oSlotIdx];
+                lmRenderPreview();
+                lmSchedule();
+              }
+            }
+          }
+          return;
+        }
         const drop = event.target.closest(".lm-drop");
         if (drop) {
           const file = event.dataTransfer.files && event.dataTransfer.files[0];
@@ -2704,6 +3232,8 @@
         lmSchedule();
       });
       lmRoot.addEventListener("dragend", () => {
+        lmRoot.querySelectorAll(".is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+        lmRoot.querySelectorAll(".is-drop-active").forEach((el) => el.classList.remove("is-drop-active"));
         lmRoot.querySelectorAll(".lm-block").forEach((item) => { item.classList.remove("is-over"); item.removeAttribute("draggable"); });
       });
       lmRoot.addEventListener("pointerdown", (event) => {
@@ -2766,6 +3296,7 @@
       const LM_ALL_QUIZ_TYPES = [
         "Choice",
         "Gap",
+        "Text with Gaps",
         "Type",
         "Definition",
         "Odd one out",
@@ -2888,6 +3419,8 @@
                 snippet = "\nWords: defining clause - определительное придаточное, relative pronoun - относительное местоимение, antecedent - антецедент\n";
               } else if (type === "dialogue") {
                 snippet = "\nDialogue:\nA: Do you know the woman who just arrived?\nB: Yes, that is the engineer whose project won first place.\n";
+              } else if (type === "gaps") {
+                snippet = "\nText with gaps:\nLast summer we [1:went|hint:w] to the coastal town of Brighton and [2:bought|stem:BUY] some souvenirs. The weather was [3:pleasant|hint1:adjective|hint2:agreeable] and everyone felt [4:relaxed|stem:RELAX].\n";
               }
               input.value = (input.value ? input.value.trim() + "\n" : "") + snippet.trim();
               const scriptBtn = document.getElementById("lmGenerateFromScriptBtn");
