@@ -1702,7 +1702,7 @@ function bugWatch(request){
     const path=new URL(request.url).pathname;
     if(/\.(?:php|asp|aspx|jsp|env)(?:$|\/)/i.test(path))return false;
     if(/^\/api\/v\d+\//i.test(path))return false;
-    if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator)(?:\/|$|\.|\-)/i.test(path))return false;
+    if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator|env)(?:\/|$|\.|\-)/i.test(path))return false;
     if(/^\/api\/(?:graphql|gql|swagger|openapi|postman|auth)(?:\/|$|\.)/i.test(path))return false;
     return (path.startsWith('/api/')||path==='/lookup'||path==='/translate')&&!path.startsWith('/api/bugs')&&!path.startsWith('/api/feedback')&&!path.startsWith('/api/auth/')&&!path.startsWith('/api/me/passkeys')&&!isWorkbenchPath(path)&&!path.endsWith('/media');
   }

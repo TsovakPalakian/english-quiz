@@ -176,6 +176,7 @@ test('security scanners and administrative probe paths are completely ignored',a
     ['/api/system/status','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
     ['/api/backup','Mozilla/5.0 (compatible; SecurityResearch/1.0)'],
     ['/api/app.env','Mozilla/5.0'],
+    ['/api/env','Mozilla/5.0'],
     ['/api/auth.json','Mozilla/5.0'],
     ['/api/postman.json','Mozilla/5.0'],
     ['/api/swagger.json','Mozilla/5.0'],

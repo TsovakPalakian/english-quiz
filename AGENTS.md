@@ -27,6 +27,7 @@
 - Communication language with the user is Russian; all application UI, controls, and user-facing copy must be in English unless explicitly requested otherwise.
 - Before editing code, briefly state your understanding in Russian.
 - Always state your understanding as a numbered list, followed by an explicit question asking whether to begin.
+- Mandatory: when stating understanding, problem analysis, or proposed changes, do not mention file names or file paths (e.g. client/...js); retain all technical logic, function names, properties, and parameters, but omit file paths from explanations to the user.
 - Always attach visual screenshots or mockups demonstrating your understanding of any proposed UI changes or feature designs.
 - Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
 - Mandatory: always attach final approved screenshots directly into the task's Markdown (.md) document in docs/ prior to implementation.

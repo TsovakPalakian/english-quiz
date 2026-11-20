@@ -286,8 +286,20 @@ async function lmPdfDraftBlocks(data, hash) {
     block.pdfImport.key=await lmPdfContentKey(block);
   }));
   groups.rules.forEach((block,index)=>{
-    const title=data.rules[index].title,match=lmPdfGrammarMatch(title);
-    if(match){block.pdfRuleSource=block.html;delete block.html;Object.assign(block,match,{type:'rule'});}
+    const r=data.rules[index]||{};
+    const title=r.title||block.name||'';
+    const match=lmPdfGrammarMatch(title);
+    if(match){
+      block.pdfRuleSource=block.html;
+      Object.assign(block,match,{
+        type:'rule',
+        title:title,
+        name:title,
+        explanation:r.explanation||r.ru||'',
+        pattern:r.pattern||'',
+        examples:Array.isArray(r.examples)?r.examples:(r.example?[r.example]:[])
+      });
+    }
     else block.pdfGrammarMissing=title;
   });
   return groups;

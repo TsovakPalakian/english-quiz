@@ -24428,10 +24428,10 @@ const STUDIO_CONSTELLATIONS = [{
       return kit ? '<div class="lm-word-card-wrap">' + content + '<div class="lm-word-kit">' + kit + '</div></div>' : content;
     }
     function lmRuleCardHtml(block, link) {
-      if(block.grammarRule&&window.GrammarDetails?.[block.grammarRule])return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
+      if(block.grammarRule)return '<button type="button" class="g-topic" data-grammar-rule="'+esc(block.grammarRule)+'"><b>'+esc(block.grammarRule)+'</b><span class="form">Grammar</span></button>';
       const topic = block.compare ? null : topicById(block.topic);
       const compare = block.compare ? ((window.GRAMMAR && window.GRAMMAR.comparisons) || []).filter((item) => item.id === block.topic)[0] : null;
-      const name = (topic && topic.name) || (compare && compare.title) || block.name || "Rule";
+      const name = (topic && topic.name) || (compare && compare.title) || block.title || block.name || "Rule";
       const form = (topic && topic.form) || (compare ? "compare" : "open");
       const tone = (topic && topic.tone) || (compare && compare.tone) || "advanced";
       const attr = link ? (block.compare ? ' data-compare="' + esc(block.topic) + '"' : ' data-topic="' + esc(block.topic) + '"') : "";
@@ -24485,6 +24485,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (type === "task") return Object.assign(base, { title: "Task", text: "", response: "" });
       if (type === "divider") return Object.assign(base, { label: "" });
       if (type === "phrase") return Object.assign(base, { items: [{ phrase: "", meaning: "", example: "" }] });
+      if (type === "rule") return Object.assign(base, { title: "New rule", name: "New rule", explanation: "", pattern: "", examples: [] });
       return Object.assign(base, { title: "Vocabulary", items: [{ front: "", back: "", example: "" }], type: "cards" });
     }
     function lmNewItem(kind, quizType) {
@@ -24510,7 +24511,7 @@ const STUDIO_CONSTELLATIONS = [{
       if (block.type === "vocab") return (block.items || []).map((row) => row.word).filter(Boolean).join(" · ") || "Vocabulary";
       if (block.type === "phrase") return (block.items || []).map((row) => row.phrase).filter(Boolean).join(" · ") || "Phrase";
       if (block.type === "wordcard") return block.word || "Word";
-      if (block.type === "rule") return block.name || "Rule";
+      if (block.type === "rule") return block.title || block.name || "Rule";
       if (block.type === "exercise") return (block.items || []).map((row) => row.prompt).filter(Boolean).join(" · ") || "Questions";
       if (block.type === "quiz") {
         const kind = lmQuizType(block);
@@ -24755,7 +24756,7 @@ const STUDIO_CONSTELLATIONS = [{
       const source = [type, id, parent, parentId].filter(value => value !== undefined).join(":");
       return '<button class="' + (className || 'day-edit') + ' content-copy-icon" type="button" data-content-copy="' + esc(source) + '" aria-label="Copy" title="Copy"><span aria-hidden="true">&#10697;</span></button>';
     }
-    function lmHead(block, label, isFirst, isLast) {
+    function lmHead(block, label, isFirst, isLast, isVerifiedSection) {
       const copy = contentCopyButton('material', block.id, lmState.examOwned ? 'exam-block' : 'lesson', lmState.id, 'lm-icon');
       const newBadge = block.id === lmLastAddedBlockId ? '<span class="lm-new-badge">New</span>' : '';
       const verifiedBadge = block.teacherVerified ? '<span class="lm-verified-badge" title="Verified by Teacher">✓ Verified by Teacher</span>' : '';
@@ -24763,7 +24764,8 @@ const STUDIO_CONSTELLATIONS = [{
       const upDisabled = isFirst ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const downDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
       const bottomDisabled = isLast ? ' disabled style="opacity:0.35;cursor:default"' : '';
-      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + verifiedBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (block.collapsed ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
+      const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);
+      return '<div class="lm-block-head"><button class="lm-grip" type="button" data-grip="' + block.id + '" aria-label="Move">≡</button><span class="lm-type">' + label + '</span>' + newBadge + verifiedBadge + '<div class="lm-head-actions"><button class="lm-icon" type="button" data-lm-fold="' + block.id + '" aria-label="Collapse">' + (isShut ? "▸" : "▾") + '</button><button class="lm-icon" type="button" data-lm-top="' + block.id + '" aria-label="Move to top" title="Move to top"' + topDisabled + '>⤒</button><button class="lm-icon" type="button" data-lm-up="' + block.id + '" aria-label="Move up"' + upDisabled + '>↑</button><button class="lm-icon" type="button" data-lm-down="' + block.id + '" aria-label="Move down"' + downDisabled + '>↓</button><button class="lm-icon" type="button" data-lm-bottom="' + block.id + '" aria-label="Move to bottom" title="Move to bottom"' + bottomDisabled + '>⤓</button><button class="lm-icon" type="button" data-lm-menu="' + block.id + '" aria-label="More">⋮</button>' + copy + '<button class="lm-icon danger" type="button" data-lm-del="' + block.id + '" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13"/></svg></button><div class="lm-pop" data-pop="' + block.id + '" hidden><button type="button" data-lm-edit="' + block.id + '">Edit</button><button type="button" data-lm-insert-above="' + block.id + '">Insert above...</button><button type="button" data-lm-insert-below="' + block.id + '">Insert below...</button></div></div></div><p class="lm-summary">' + esc(lmSummary(block)) + "</p>";
     }
     function lmQuestions(block) {
       return (block.items || []).map((question, index) => {
@@ -24809,7 +24811,15 @@ const STUDIO_CONSTELLATIONS = [{
       if (block.type === "dialogue") return '<label>Title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || "") + '" /></label><div class="lm-card-list lm-lines">' + lmItemRows(block, "lines", [["speaker", "Speaker"], ["text", "Line"]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':dialogue">+ Add line</button>';
       if (block.type === "phrase") return '<div class="lm-card-list">' + lmItemRows(block, "items", [["phrase", "Phrase"], ["meaning", "Meaning"], ["example", "Example", true]]) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':phrase">+ Add phrase</button>';
       if (block.type === "wordcard") return '<div class="words">' + lmWordCardHtml(block) + "</div>";
-      if (block.type === "rule") return lmRuleCardHtml(block, false);
+      if (block.type === "rule") {
+        const topicBtn = (block.grammarRule || block.topic) ? ('<div style="margin-bottom:12px;">' + lmRuleCardHtml(block, false) + '</div>') : '';
+        const exText = Array.isArray(block.examples) ? block.examples.map(e => Array.isArray(e) ? (e[0] + (e[1] ? ' — ' + e[1] : '')) : String(e)).join('\n') : (block.examples || '');
+        return topicBtn +
+          '<label>Rule title<input type="text" data-field="title" data-block="' + block.id + '" value="' + esc(block.title || block.name || '') + '" placeholder="Rule title (English)" /></label>' +
+          '<label>English explanation<textarea data-field="explanation" data-block="' + block.id + '" placeholder="English explanation / definition">' + esc(block.explanation || '') + '</textarea></label>' +
+          '<label>Structure / Pattern (EN)<input type="text" data-field="pattern" data-block="' + block.id + '" value="' + esc(block.pattern || '') + '" placeholder="Grammar pattern" /></label>' +
+          '<label>Examples (English — Russian)<textarea data-field="examples" data-block="' + block.id + '" placeholder="Example sentence — Русский перевод">' + esc(exText) + '</textarea></label>';
+      }
       if (block.type === "exercise") {
         return '<div class="lm-card-list">' + lmQuestions(block) + '</div><button class="lm-add-card" type="button" data-item-add="' + block.id + ':exercise">+ Add question</button>';
       }
@@ -24888,7 +24898,8 @@ const STUDIO_CONSTELLATIONS = [{
         const verified = '<label class="lm-teacher-verify-label" style="font-size:12px; font-weight:700; color:#047857; display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:12px;"><input type="checkbox" data-block-teacher-verified="' + block.id + '"' + (block.teacherVerified ? ' checked' : '') + '> Verified by Teacher</label>';
         const derived=lmState.examOwned&&examScoringChildren(lmState.blocks,block).length>0;
         const maximum = grading ? '<label class="lm-max-score">Maximum points<input type="text" inputmode="decimal" data-field="maxPoints" data-block="' + block.id + '"'+(derived?' readonly':'')+' value="' + esc(String(derived?examScoringMax(lmState.blocks,block):block.maxPoints??(block.scoringVersion===2?'':assessmentUnitMax(block)))) + '"></label>' : '';
-        const head = lmHead(block,label,isFirst,isLast).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
+        const isShut = isVerifiedSection ? (block.collapsed !== false) : Boolean(block.collapsed);
+        const head = lmHead(block,label,isFirst,isLast,isVerifiedSection).replace('<div class="lm-head-actions">','<div class="lm-head-actions">' + maximum);
         const source=block.pdfImport ? '<p class="hint">PDF pages: '+esc((block.pdfImport.pages||[]).join(', ')||'overview')+(block.pdfImport.generated?' · Generated practice':'')+'</p>' : '';
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
         const beforeZone = lmInsertZoneHtml(block.id, "before");
@@ -24896,14 +24907,14 @@ const STUDIO_CONSTELLATIONS = [{
           return beforeZone + '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(block.label || '✨ Supplementary Material · Дополнительные материалы') + '</div><div class="lm-supplementary-divider-line"></div></div>' + (isLast ? lmInsertZoneHtml(block.id, "after") : "");
         }
         const isSupplementary = Boolean(block.supplementary);
-        const blockHtml = '<article class="lm-block' + (block.collapsed ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + (isSupplementary ? " is-supplementary" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
+        const blockHtml = '<article class="lm-block' + (isShut ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + (isSupplementary ? " is-supplementary" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
         const afterZone = isLast ? lmInsertZoneHtml(block.id, "after") : "";
         return beforeZone + blockHtml + afterZone;
       }
       let mainHtml = "";
       if (blocks.length === 0) {
         mainHtml = lmTab() === "rules" ? '<p class="hint">Nothing on this page yet. Click a grammar topic above to add it.</p>' : '<p class="hint">Nothing on this page yet.</p>';
-      } else if (lmTab() === "classwork" || lmTab() === "homework") {
+      } else {
         const unverified = blocks.filter(b => !b.teacherVerified);
         const verified = blocks.filter(b => !!b.teacherVerified);
         const unverifiedHtml = unverified.map((b, i) => renderSingleBlock(b, i, unverified.length, false)).join("");
@@ -24912,12 +24923,20 @@ const STUDIO_CONSTELLATIONS = [{
           const isOpen = Boolean(lmState.verifiedAccordionOpen);
           const vCount = verified.length;
           const countText = vCount + (vCount === 1 ? " item" : " items");
+          let tabVerifiedTitle = "Verified materials & quizzes";
+          if (lmTab() === "phrases") {
+            tabVerifiedTitle = "Verified phrases";
+          } else if (lmTab() === "words") {
+            tabVerifiedTitle = "Verified words";
+          } else if (lmTab() === "rules") {
+            tabVerifiedTitle = "Verified rules";
+          }
           const vItemsHtml = verified.map((b, i) => renderSingleBlock(b, i, verified.length, true)).join("");
           verifiedAccordionHtml = '<details class="lm-verified-accordion"' + (isOpen ? ' open' : '') + '>' +
             '<summary class="lm-verified-summary">' +
               '<div class="lm-verified-title-group">' +
                 '<span class="lm-verified-icon">✓</span>' +
-                '<span class="lm-verified-title-text">Verified materials & quizzes</span>' +
+                '<span class="lm-verified-title-text">' + esc(tabVerifiedTitle) + '</span>' +
                 '<span class="lm-verified-count-pill">' + countText + '</span>' +
               '</div>' +
               '<div class="lm-verified-expand-hint">' +
@@ -24929,8 +24948,6 @@ const STUDIO_CONSTELLATIONS = [{
           '</details>';
         }
         mainHtml = unverifiedHtml + verifiedAccordionHtml;
-      } else {
-        mainHtml = blocks.map((b, i) => renderSingleBlock(b, i, blocks.length, false)).join("");
       }
       box.innerHTML = mainHtml;
       box.querySelectorAll('textarea[data-field],input[type=text][data-field],textarea[data-item-field],input[type=text][data-item-field],input[type=text][data-card-field]').forEach(field=>{
@@ -25095,7 +25112,19 @@ const STUDIO_CONSTELLATIONS = [{
         return title + '<p class="lm-note">' + esc(kind) + (kind === "Memory" ? " · " + (block.memorySize || 4) + " pairs" : "") + '</p><div class="lm-read-cards">' + cards + "</div>";
       }
       if (block.type === "wordcard") return '<div class="words">' + lmWordCardHtml(block) + "</div>";
-      if (block.type === "rule") return lmRuleCardHtml(block, true);
+      if (block.type === "rule") {
+        const hasContent = Boolean(block.title || block.name || block.explanation || block.pattern || (Array.isArray(block.examples) && block.examples.length));
+        if (!hasContent && (block.grammarRule || block.topic)) return lmRuleCardHtml(block, true);
+        const topicBtn = (block.grammarRule || block.topic) ? ('<div style="margin-bottom:12px;">' + lmRuleCardHtml(block, true) + '</div>') : '';
+        const title = '<h3 style="margin: 0 0 8px 0; font-size:18px; font-weight:800; color:var(--ink);">' + esc(block.title || block.name || 'Grammar Rule') + '</h3>';
+        const explanation = block.explanation ? '<p style="margin: 0 0 10px 0; font-size:14.5px; line-height:1.55; color:var(--ink);">' + esc(block.explanation).replace(/\n/g, '<br>') + '</p>' : '';
+        const pattern = block.pattern ? '<div style="margin: 0 0 10px 0; padding:8px 12px; background:var(--card); border:1px solid var(--line); border-radius:8px; font-size:13.5px;"><strong style="color:var(--mute);">Pattern:</strong> <code style="font-family:monospace; color:var(--acc); font-weight:700;">' + esc(block.pattern).replace(/\n/g, '<br>') + '</code></div>' : '';
+        const examplesList = Array.isArray(block.examples) ? block.examples : [];
+        const examples = examplesList.length ? '<div style="margin-top:10px;"><strong style="font-size:13.5px; color:var(--mute); display:block; margin-bottom:4px;">Examples:</strong><ul style="margin:0; padding-left:20px; font-size:14px; line-height:1.5;">' + examplesList.map(e => '<li style="margin-bottom:4px; color:var(--ink);">' + esc(Array.isArray(e) ? (e[0] + (e[1] ? ' — ' + e[1] : '')) : String(e)) + '</li>').join('') + '</ul></div>' : '';
+        return '<article class="lm-read-card saas-card" style="padding:18px 20px; margin-bottom:14px; border:1px solid var(--line); border-radius:12px; background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,0.05);">' +
+          topicBtn + title + explanation + pattern + examples +
+        '</article>';
+      }
       const cards = (block.items || []).filter((card) => card.front || card.back || card.example).map((card) => '<article class="lm-read-card"><b>' + esc(card.front || "") + "</b><span>" + esc(card.back || "") + "</span><i>" + esc(card.example || "") + "</i></article>").join("");
       return "<h3>" + esc(block.title || "Vocabulary") + '</h3><div class="lm-read-cards">' + cards + "</div>";
     }
@@ -25912,6 +25941,10 @@ const STUDIO_CONSTELLATIONS = [{
           if (block) {
             if (field.dataset.field === "memorySize") block.memorySize = Math.max(2, Number(field.value) || 4);
             else block[field.dataset.field] = field.type === "checkbox" ? field.checked : field.value;
+            if (block.type === "rule") {
+              if (field.dataset.field === "title") block.name = field.value;
+              if (field.dataset.field === "examples") block.examples = field.value.split('\n').map(l => l.trim()).filter(Boolean);
+            }
             if (['maxPoints','criteria'].includes(field.dataset.field)) {block.gradeMode = 'assignment';if(lmState.examOwned)block.scoringVersion=2;}
             if (field.dataset.field === 'assignmentKey' && field.value) {
               const leader = lesson.blocks.find(part => part.assignmentId === field.value);
@@ -26204,7 +26237,16 @@ const STUDIO_CONSTELLATIONS = [{
           return;
         }
         const fold = event.target.closest("[data-lm-fold]");
-        if (fold) { const block = lmBlock(fold.dataset.lmFold); if (block) block.collapsed = !block.collapsed; lmRenderEditor(); lmSchedule(); return; }
+        if (fold) {
+          const block = lmBlock(fold.dataset.lmFold);
+          if (block) {
+            const isCurrentlyShut = block.teacherVerified ? (block.collapsed !== false) : Boolean(block.collapsed);
+            block.collapsed = !isCurrentlyShut;
+          }
+          lmRenderEditor();
+          lmSchedule();
+          return;
+        }
         const edit = event.target.closest("[data-lm-edit]");
         if (edit) {
           const block = lmBlock(edit.dataset.lmEdit);
@@ -28846,8 +28888,20 @@ async function lmPdfDraftBlocks(data, hash) {
     block.pdfImport.key=await lmPdfContentKey(block);
   }));
   groups.rules.forEach((block,index)=>{
-    const title=data.rules[index].title,match=lmPdfGrammarMatch(title);
-    if(match){block.pdfRuleSource=block.html;delete block.html;Object.assign(block,match,{type:'rule'});}
+    const r=data.rules[index]||{};
+    const title=r.title||block.name||'';
+    const match=lmPdfGrammarMatch(title);
+    if(match){
+      block.pdfRuleSource=block.html;
+      Object.assign(block,match,{
+        type:'rule',
+        title:title,
+        name:title,
+        explanation:r.explanation||r.ru||'',
+        pattern:r.pattern||'',
+        examples:Array.isArray(r.examples)?r.examples:(r.example?[r.example]:[])
+      });
+    }
     else block.pdfGrammarMissing=title;
   });
   return groups;
