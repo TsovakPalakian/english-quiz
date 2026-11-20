@@ -898,7 +898,7 @@
             </div>
             <div class="lm-field-group" style="margin-bottom:16px;">
               <label for="lmTitle" class="lm-heading-label">Title</label>
-              <input id="lmTitle" type="text" data-meta="title" maxlength="80" />
+              <input id="lmTitle" type="text" data-meta="title" maxlength="40" />
             </div>
             <div class="lm-field-group" style="margin-bottom:16px;">
               <div class="lm-field-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -1241,8 +1241,32 @@
           <section class="dq-group" data-dq-group="games">
             <header><div><b>Games</b><span data-dq-picked>0 of 2 selected</span></div><button type="button" data-dq-all>Select all</button></header>
             <div class="dq-types">
-              <button type="button" data-dq-type="Memory"><b>Memory</b><small>Find the pairs</small></button>
+              <button type="button" data-dq-type="Memory" class="dq-type-memory">
+                <b>Memory</b>
+                <small>Find the pairs</small>
+                <span class="dq-mem-stepper" data-dq-mem-stepper>
+                  <span class="dq-mem-stepper-label">Pairs:</span>
+                  <span class="dq-mem-step-btn" role="button" data-dq-mem-sub aria-label="Decrease pairs">−</span>
+                  <span class="dq-mem-step-val" data-dq-mem-val>4</span>
+                  <span class="dq-mem-step-btn" role="button" data-dq-mem-add aria-label="Increase pairs">+</span>
+                  <span class="dq-mem-step-cards" data-dq-mem-cards>(8 cards)</span>
+                </span>
+                <input type="hidden" data-memory-size value="4">
+              </button>
               <button type="button" data-dq-type="Hangman"><b>Hangman</b><small>Guess the letters</small></button>
+            </div>
+            <div class="dq-mem-shortage-alert" id="dqMemShortageAlert" hidden>
+              <div class="dq-mem-shortage-head">
+                <div class="dq-mem-shortage-icon">✨</div>
+                <div>
+                  <b id="dqMemShortageTitle">Only 3 words in this lesson (max 3 pairs)</b>
+                  <span id="dqMemShortageDesc">You requested 8 pairs. Gemini can generate 5 new thematic words with pictures for this quiz.</span>
+                </div>
+              </div>
+              <div class="dq-mem-shortage-actions">
+                <button type="button" class="dq-btn-sub" data-dq-mem-keep>Keep 3 pairs</button>
+                <button type="button" class="btn primary" data-dq-mem-gen style="display:inline-flex; align-items:center; gap:6px;">✨ Generate pairs with Gemini</button>
+              </div>
             </div>
           </section>
           <section class="dq-group" data-dq-group="review">

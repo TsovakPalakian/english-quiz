@@ -6,7 +6,7 @@
 
 Правила соблюдаются строго в каждом запросе, даже если в запросе этого нет.
 
-Код, файлы и настройки не менять, пока описание не готово и каждый шаблон и каждая функция не закрыты отдельно. Правку файлов запускает только сообщение ровно из одного слова `do`, `да` или `еще`, либо ровно фраза `подумай сам`.
+Код, файлы и настройки не менять, пока описание не готово и каждый шаблон и каждая функция не закрыты отдельно. Правку файлов запускает только сообщение ровно из одного слова `do` или `да`, либо ровно фраза `подумай сам`.
 
 До кода в одном сообщении только один пункт и один вопрос. Следующий пункт не показывать.
 
@@ -20,9 +20,9 @@
 
 Если что-то сделать нельзя, сказать об этом и спросить, как идти дальше. Сам обход не выбирать. Фраза `подумай сам` — единственное разрешение самому выбрать путь и продолжить.
 
-Когда каждый пункт закрыт, код пишется только по новому `do`, `да` или `еще` и совпадает с утвержденными кадрами. Обзор для пользователя визуальный и функциональный, без списка файлов. Тексты интерфейса на английском. На https://lumiscia.org/ это попадает сборкой и пушем пользователя через текущий CI. Самому не деплоить и не писать, что сайт уже обновлен, пока сборка или тест красные.
+Когда каждый пункт закрыт, код пишется только по новому `do` или `да` и совпадает с утвержденными кадрами. Обзор для пользователя визуальный и функциональный, без списка файлов. Тексты интерфейса на английском. На https://lumiscia.org/ это попадает сборкой и пушем пользователя через текущий CI. Самому не деплоить и не писать, что сайт уже обновлен, пока сборка или тест красные.
 
-- Mandatory: Никогда не делать ничего без прямого разрешения и ровно одного слова `do`, `да` или `еще`, либо ровно фразы `подумай сам` (Never do anything without direct user permission and a message that is exactly `do`, `да`, `еще`, or `подумай сам`). Шаблон или функция закрываются только сообщением ровно `app` или ровно `одо`.
+- Mandatory: Никогда не делать ничего без прямого разрешения и ровно одного слова `do` или `да`, либо ровно фразы `подумай сам` (Never do anything without direct user permission and a message that is exactly `do`, `да`, or `подумай сам`). Шаблон или функция закрываются только сообщением ровно `app` или ровно `одо`.
 - Mandatory: обязательно перепроверять свои ответы на корректность ровно 2 раза перед отправкой (это строго обязательное правило) / Mandatory: thoroughly double-check all responses and solutions for correctness 2 times before answering (this is a strictly mandatory rule).
 - Communication language with the user is Russian; all application UI, controls, and user-facing copy must be in English unless explicitly requested otherwise.
 - Before editing code, briefly state your understanding in Russian.
@@ -32,10 +32,10 @@
 - Mandatory: every attached screenshot or mockup must be explicitly numbered (e.g. «Скриншот 1», «Скриншот 2») in its heading and caption so that it can be unambiguously referenced by number.
 - Mandatory: always attach final approved screenshots directly into the task's Markdown (.md) document in docs/ prior to implementation.
 - Mandatory: if a screenshot or mockup is approved by the user, the final code implementation must match that approved screenshot exactly and pixel-perfect as shown on the screen.
-- Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; only a message that is exactly `do`, `да`, `еще`, or `подумай сам` approves the scope already explained. `подумай сам` разрешает самому выбрать путь только после сообщения, что сделать это нельзя. An explicit request to save this preference authorizes the preference update itself.
+- Mandatory: before each new implementation or scope change, explain your understanding and affected pages/features in Russian, explicitly ask whether to begin, and wait for the user's confirmation. Do not treat a requested feature or pasted error as approval; only a message that is exactly `do`, `да`, or `подумай сам` approves the scope already explained. `подумай сам` разрешает самому выбрать путь только после сообщения, что сделать это нельзя. An explicit request to save this preference authorizes the preference update itself.
 - Keep replies concise and changes scoped. List additional affected functionality and material limitations.
 - Mandatory: every task in summary or remediation documents must include an explicit warning block forbidding touching or breaking functionality unrelated to the current scoped edit; tasks must strictly touch only their own scoped functionality. If adjacent functionality must be affected or modified (whether accidentally or due to shared operation and mutual coupling), explicitly notify the user in Russian using red text `<span style="color: red; font-weight: bold;">WARNING</span>` detailing the affected areas and wait for confirmation before making changes.
-- After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for a message that is exactly `do`, `да`, or `еще` before starting that next implementation; proposing it is not authorization to proceed. `подумай сам` разрешает выбор только на уже названной развилке. Always include an English past-tense commit message for completed changes.
+- After completing a checklist item, immediately propose the next scoped item and identify the checklist entries it affects. State the intended work and wait for a message that is exactly `do` or `да` before starting that next implementation; proposing it is not authorization to proceed. `подумай сам` разрешает выбор только на уже названной развилке. Always include an English past-tense commit message for completed changes.
 - Mandatory: for every task, bug fix, or feature without exception, always create a Markdown (.md) document in docs/ detailing implementation steps, stages, and checklist prior to implementation. Do not automatically create or update change-history documents unless explicitly requested. Explicit requests to save working preferences authorize editing existing instruction files; always apply preference updates to both global and project instruction files.
 - Use only colored squares for checklist status, without checkmarks, crosses or Markdown checkboxes: `🟩` verified done, `🟨` selected/current work, `⬜` not started, `🟥` checked but needs rework. For rework, record the failed check and required correction; use green only after fixing and reverifying. Mark the selected scope before implementation; do not mark a prototype as a completed production integration. Split mixed tasks when only part is selected.
 - Always provide the user a short commit-message line in English and past tense, such as "Added ..." or "Fixed ...", for completed changes.
@@ -86,5 +86,5 @@
 - Antigravity Native Control Mechanisms:
   1. Artifacts: Plan and hypothesis tracking in Markdown documents prior to code modifications.
   2. Verification Loops: Automated validation via targeted test runs and production asset builder before task completion.
-  3. Human-in-the-Loop Gate: один шаблон или одна функция в сообщении. Закрывает пункт только сообщение ровно `app` или ровно `одо`. Код после закрытия всех пунктов и только по `do`, `да` или `еще`. Блок «Шаблоны и цепочка действий» в начале этого файла обязателен.
+  3. Human-in-the-Loop Gate: один шаблон или одна функция в сообщении. Закрывает пункт только сообщение ровно `app` или ровно `одо`. Код после закрытия всех пунктов и только по `do` или `да`. Блок «Шаблоны и цепочка действий» в начале этого файла обязателен.
 

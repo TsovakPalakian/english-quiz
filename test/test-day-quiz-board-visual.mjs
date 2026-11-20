@@ -162,6 +162,67 @@ test('Visual rendering of day quiz board header, custom mix, and exercise counts
     assert.ok(clickResult.isQuickOn && clickResult.isAnkiOff, 'Quick review must be selected on click');
     assert.ok(clickResult.readyWithQuick.includes('Quick review'), 'Ready label must reflect Quick review');
 
+    // Test start button, sticky floating foot, and two-line ready text
+    const footState = await page.evaluate(() => {
+      const foot = document.querySelector('.dq-foot');
+      const start = document.getElementById('dayQuizStart');
+      const l1 = document.querySelector('.dq-ready-line1');
+      const l2 = document.querySelector('.dq-ready-line2');
+      const chips = document.querySelectorAll('.dq-chip');
+      const memStepper = document.querySelector('.dq-mem-stepper');
+      return {
+        startText: start?.textContent?.trim(),
+        hasL1: !!l1,
+        hasL2: !!l2,
+        isSticky: window.getComputedStyle(foot).position === 'sticky',
+        hasChips: chips.length > 0,
+        hasMemStepper: !!memStepper
+      };
+    });
+    assert.equal(footState.startText, 'Start', 'Start button must only contain text "Start"');
+    assert.equal(footState.hasL1, true, 'First line of ready block must exist');
+    assert.equal(footState.hasL2, true, 'Second line of ready block must exist');
+    assert.equal(footState.isSticky, true, 'Foot panel must be position: sticky');
+    assert.equal(footState.hasChips, true, 'Ready chips must be present');
+    assert.equal(footState.hasMemStepper, true, 'Memory stepper must be present');
+
+    // Test Select all / Deselect all toggle in Recognize group
+    const toggleState = await page.evaluate(() => {
+      const customCard = document.querySelector('[data-dq-mode="custom"]');
+      if (customCard) customCard.click();
+
+      const recGroup = document.querySelector('.dq-group[data-dq-group="recognize"]');
+      const allBtn = recGroup ? recGroup.querySelector('[data-dq-all]') : null;
+
+      // 1. Click Select all (odd click -> all 7 on, button becomes Deselect all)
+      if (allBtn) allBtn.click();
+      const countAfterSelectAll = recGroup.querySelectorAll('[data-dq-type].on').length;
+      const btnTextAfterSelectAll = allBtn ? allBtn.textContent.trim() : '';
+      const slotAfterSelectAll = recGroup.querySelector('[data-dq-picked]')?.textContent.trim();
+
+      // 2. Click Deselect all (even click -> 0 on, button becomes Select all)
+      if (allBtn) allBtn.click();
+      const countAfterDeselectAll = recGroup.querySelectorAll('[data-dq-type].on').length;
+      const btnTextAfterDeselectAll = allBtn ? allBtn.textContent.trim() : '';
+      const slotAfterDeselectAll = recGroup.querySelector('[data-dq-picked]')?.textContent.trim();
+
+      return {
+        countAfterSelectAll,
+        btnTextAfterSelectAll,
+        slotAfterSelectAll,
+        countAfterDeselectAll,
+        btnTextAfterDeselectAll,
+        slotAfterDeselectAll
+      };
+    });
+
+    assert.equal(toggleState.countAfterSelectAll, 7, 'After Select all, all 7 types must be selected');
+    assert.equal(toggleState.btnTextAfterSelectAll, 'Deselect all', 'Button text must become Deselect all');
+    assert.equal(toggleState.slotAfterSelectAll, '7 of 7 selected', 'Slot text must be 7 of 7 selected');
+    assert.equal(toggleState.countAfterDeselectAll, 0, 'After even click, all types must be deselected');
+    assert.equal(toggleState.btnTextAfterDeselectAll, 'Select all', 'Button text must return to Select all');
+    assert.equal(toggleState.slotAfterDeselectAll, '0 of 7 selected', 'Slot text must be 0 of 7 selected');
+
     // Test themes
     for (const theme of ['sky', 'dark', 'sand']) {
       await page.evaluate(t => {

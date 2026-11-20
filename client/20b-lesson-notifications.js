@@ -198,12 +198,57 @@
     return list.filter((item) => !seen.has(item.id)).length;
   }
 
+  let bellAlertTimers = [];
+  function stopBellAlertCycle() {
+    bellAlertTimers.forEach(t => clearTimeout(t));
+    bellAlertTimers = [];
+    document.querySelectorAll('.shell-header-bell-btn').forEach(b => b.classList.remove('is-ringing'));
+  }
+  window.stopBellAlertCycle = stopBellAlertCycle;
+
+  function triggerBellAlertCycle() {
+    stopBellAlertCycle();
+    const schedule = [
+      { start: 0, duration: 1000 },
+      { start: 3000, duration: 1000 },
+      { start: 9000, duration: 1000 }
+    ];
+    schedule.forEach(({ start, duration }) => {
+      const ringTimer = setTimeout(() => {
+        document.querySelectorAll('.shell-header-bell-btn').forEach(b => b.classList.add('is-ringing'));
+        playChimeNotification();
+        const stopTimer = setTimeout(() => {
+          document.querySelectorAll('.shell-header-bell-btn').forEach(b => b.classList.remove('is-ringing'));
+        }, duration);
+        bellAlertTimers.push(stopTimer);
+      }, start);
+      bellAlertTimers.push(ringTimer);
+    });
+  }
+
+  function syncBellAndAvatarVisibility(unread) {
+    const isUnread = unread > 0;
+    document.documentElement.setAttribute('data-notify-unread', isUnread ? '1' : '0');
+    document.querySelectorAll('.shell-header-bell-btn').forEach(b => {
+      b.hidden = !isUnread;
+    });
+    document.querySelectorAll('.user-profile-pill-wrap').forEach(w => {
+      w.hidden = isUnread;
+    });
+    if (isUnread) {
+      triggerBellAlertCycle();
+    } else {
+      stopBellAlertCycle();
+    }
+  }
+  window.syncBellAndAvatarVisibility = syncBellAndAvatarVisibility;
+
   function pillText(unread) {
     return unread > 0 ? (unread + ' active') : 'All read';
   }
 
   function showUnreadDot(unread) {
-    document.documentElement.setAttribute('data-notify-unread', unread > 0 ? '1' : '0');
+    syncBellAndAvatarVisibility(unread);
   }
 
   function markAllNotificationsAsRead(list) {

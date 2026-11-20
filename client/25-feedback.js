@@ -59,6 +59,8 @@
   let currentAttachments = [];
   let currentCategory = 'bug';
   let modalEl = null;
+  let currentPreviewIndex = 0;
+  let lightboxEl = null;
   const MAX_FEEDBACK_BYTES = 25 * 1024 * 1024; // 25 MiB
 
   function formatFileSize(bytes) {
@@ -162,6 +164,8 @@
       localStorage.removeItem('feedback_draft_v1');
     } catch (_) {}
     currentAttachments = [];
+    currentPreviewIndex = 0;
+    closeFeedbackLightbox();
     if (modalEl) {
       const textarea = modalEl.querySelector('#feedbackMessage');
       if (textarea) textarea.value = '';
@@ -172,63 +176,253 @@
   function renderAttachmentsList() {
     const listEl = modalEl?.querySelector('#feedbackFilesList');
     const previewBox = modalEl?.querySelector('#feedbackPreviewBox');
-    const previewImg = modalEl?.querySelector('#feedbackPreviewImg');
-    const firstImage = currentAttachments.find(a => a.mime && a.mime.startsWith('image/'));
-    if (previewBox && previewImg) {
-      if (firstImage && firstImage.dataUrl) {
-        previewImg.src = firstImage.dataUrl;
-        previewBox.hidden = false;
-        previewBox.style.display = 'block';
-      } else {
-        previewImg.src = '';
+
+    if (!currentAttachments.length) {
+      if (previewBox) {
+        previewBox.innerHTML = '';
         previewBox.hidden = true;
         previewBox.style.display = 'none';
       }
-    }
-    if (!listEl) return;
-    if (!currentAttachments.length) {
-      listEl.innerHTML = '';
-      listEl.hidden = true;
+      if (listEl) {
+        listEl.innerHTML = '';
+        listEl.hidden = true;
+      }
+      closeFeedbackLightbox();
       return;
     }
-    listEl.hidden = false;
-    const totalBytes = totalAttachmentsSize();
+
     const sorted = sortAttachments(currentAttachments);
     currentAttachments = sorted;
 
-    const itemsHtml = sorted.map(a => `
-      <div class="feedback-file-chip">
-        <span>${fileTypeIcon(a.mime)}</span>
-        <span class="feedback-file-name" title="${esc(a.name)}">${esc(a.name)}</span>
-        <span class="feedback-file-size">(${formatFileSize(a.size)})</span>
-        <button type="button" class="feedback-file-remove" data-remove-id="${esc(a.id)}" title="Remove this file">✕</button>
-      </div>
-    `).join('');
+    if (currentPreviewIndex >= sorted.length) currentPreviewIndex = sorted.length - 1;
+    if (currentPreviewIndex < 0) currentPreviewIndex = 0;
 
-    listEl.innerHTML = `
-      <div class="feedback-files-summary">
-        <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
-        <button type="button" id="feedbackClearAllFiles">Clear all</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
-    `;
+    const activeItem = sorted[currentPreviewIndex];
+    const isMulti = sorted.length > 1;
+    const isImg = activeItem && activeItem.mime && activeItem.mime.startsWith('image/') && activeItem.dataUrl;
 
-    listEl.querySelectorAll('[data-remove-id]').forEach(btn => {
-      btn.addEventListener('click', e => {
+    if (previewBox) {
+      previewBox.hidden = false;
+      previewBox.style.display = 'flex';
+
+      previewBox.innerHTML = `
+        <div class="feedback-carousel-track">
+          <button type="button" class="feedback-carousel-prev" id="feedbackCarouselPrev" aria-label="Previous file" ${isMulti ? '' : 'style="display:none;"'}>&#8249;</button>
+          
+          <div class="feedback-preview-zoom-wrap" id="feedbackPreviewZoomTrigger" ${isImg ? 'title="Click to view full size"' : ''} style="${isImg ? 'cursor:zoom-in;' : 'cursor:default;'}">
+            ${isImg
+              ? `<img id="feedbackPreviewImg" src="${activeItem.dataUrl}" alt="${esc(activeItem.name)}">`
+              : `<div class="feedback-preview-doc-card">
+                  <span style="font-size:32px;">${fileTypeIcon(activeItem.mime)}</span>
+                  <span style="font-size:13px;font-weight:500;margin-top:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(activeItem.name)}</span>
+                  <small style="opacity:0.7;margin-top:2px;">${formatFileSize(activeItem.size)}</small>
+                </div>`
+            }
+          </div>
+
+          <button type="button" class="feedback-carousel-next" id="feedbackCarouselNext" aria-label="Next file" ${isMulti ? '' : 'style="display:none;"'}>&#8250;</button>
+
+          <button type="button" class="feedback-preview-remove" id="feedbackPreviewRemove" title="Remove this file" data-remove-id="${esc(activeItem.id)}">✕</button>
+        </div>
+
+        <div class="feedback-carousel-meta">
+          <span class="feedback-carousel-name">${fileTypeIcon(activeItem.mime)} ${esc(activeItem.name)}</span>
+          ${isMulti ? `<span class="feedback-carousel-counter">${currentPreviewIndex + 1} / ${sorted.length}</span>` : ''}
+        </div>
+      `;
+
+      previewBox.querySelector('#feedbackCarouselPrev')?.addEventListener('click', e => {
         e.stopPropagation();
-        const id = btn.dataset.removeId;
+        currentPreviewIndex = (currentPreviewIndex - 1 + sorted.length) % sorted.length;
+        renderAttachmentsList();
+        if (lightboxEl && !lightboxEl.hidden && lightboxEl.style.display !== 'none') {
+          renderLightboxContent();
+        }
+      });
+
+      previewBox.querySelector('#feedbackCarouselNext')?.addEventListener('click', e => {
+        e.stopPropagation();
+        currentPreviewIndex = (currentPreviewIndex + 1) % sorted.length;
+        renderAttachmentsList();
+        if (lightboxEl && !lightboxEl.hidden && lightboxEl.style.display !== 'none') {
+          renderLightboxContent();
+        }
+      });
+
+      previewBox.querySelector('#feedbackPreviewZoomTrigger')?.addEventListener('click', e => {
+        if (isImg) {
+          e.stopPropagation();
+          openFeedbackLightbox(currentPreviewIndex);
+        }
+      });
+
+      previewBox.querySelector('#feedbackPreviewRemove')?.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = activeItem.id;
         currentAttachments = currentAttachments.filter(a => a.id !== id);
+        if (currentPreviewIndex >= currentAttachments.length) {
+          currentPreviewIndex = Math.max(0, currentAttachments.length - 1);
+        }
         renderAttachmentsList();
         saveDraft();
       });
+    }
+
+    if (listEl) {
+      listEl.hidden = false;
+      const totalBytes = totalAttachmentsSize();
+
+      const itemsHtml = sorted.map((a, i) => `
+        <div class="feedback-file-chip ${i === currentPreviewIndex ? 'active' : ''}" data-chip-idx="${i}">
+          <span>${fileTypeIcon(a.mime)}</span>
+          <span class="feedback-file-name" title="${esc(a.name)}">${esc(a.name)}</span>
+          <span class="feedback-file-size">(${formatFileSize(a.size)})</span>
+          <button type="button" class="feedback-file-remove" data-remove-id="${esc(a.id)}" title="Remove this file">✕</button>
+        </div>
+      `).join('');
+
+      listEl.innerHTML = `
+        <div class="feedback-files-summary">
+          <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
+          <button type="button" id="feedbackClearAllFiles">Clear all</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
+      `;
+
+      listEl.querySelectorAll('.feedback-file-chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+          if (e.target.closest('.feedback-file-remove')) return;
+          const idx = Number(chip.dataset.chipIdx);
+          if (Number.isFinite(idx)) {
+            currentPreviewIndex = idx;
+            renderAttachmentsList();
+          }
+        });
+      });
+
+      listEl.querySelectorAll('[data-remove-id]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = btn.dataset.removeId;
+          currentAttachments = currentAttachments.filter(a => a.id !== id);
+          if (currentPreviewIndex >= currentAttachments.length) {
+            currentPreviewIndex = Math.max(0, currentAttachments.length - 1);
+          }
+          renderAttachmentsList();
+          saveDraft();
+        });
+      });
+
+      listEl.querySelector('#feedbackClearAllFiles')?.addEventListener('click', e => {
+        e.stopPropagation();
+        currentAttachments = [];
+        currentPreviewIndex = 0;
+        renderAttachmentsList();
+        saveDraft();
+      });
+    }
+  }
+
+  function openFeedbackLightbox(idx) {
+    if (idx < 0 || idx >= currentAttachments.length) return;
+    currentPreviewIndex = idx;
+
+    if (!lightboxEl) {
+      lightboxEl = document.createElement('dialog');
+      lightboxEl.id = 'feedbackLightbox';
+      lightboxEl.className = 'feedback-lightbox';
+      document.body.appendChild(lightboxEl);
+
+      lightboxEl.addEventListener('click', e => {
+        if (e.target === lightboxEl || e.target.closest('#feedbackLightboxClose')) {
+          closeFeedbackLightbox();
+        }
+      });
+
+      lightboxEl.addEventListener('keydown', handleLightboxKeydown);
+      lightboxEl.addEventListener('close', () => {
+        closeFeedbackLightbox();
+      });
+    }
+
+    renderLightboxContent();
+    if (typeof lightboxEl.showModal === 'function') {
+      if (!lightboxEl.open) lightboxEl.showModal();
+    } else {
+      lightboxEl.hidden = false;
+      lightboxEl.style.display = 'flex';
+    }
+  }
+
+  function handleLightboxKeydown(e) {
+    if (!lightboxEl || (!lightboxEl.open && lightboxEl.style.display === 'none')) return;
+    if (e.key === 'Escape') {
+      closeFeedbackLightbox();
+    } else if (e.key === 'ArrowLeft') {
+      if (currentAttachments.length > 1) {
+        currentPreviewIndex = (currentPreviewIndex - 1 + currentAttachments.length) % currentAttachments.length;
+        renderAttachmentsList();
+        renderLightboxContent();
+      }
+    } else if (e.key === 'ArrowRight') {
+      if (currentAttachments.length > 1) {
+        currentPreviewIndex = (currentPreviewIndex + 1) % currentAttachments.length;
+        renderAttachmentsList();
+        renderLightboxContent();
+      }
+    }
+  }
+
+  function renderLightboxContent() {
+    if (!lightboxEl) return;
+    const sorted = sortAttachments(currentAttachments);
+    if (!sorted.length || currentPreviewIndex >= sorted.length) {
+      closeFeedbackLightbox();
+      return;
+    }
+    const item = sorted[currentPreviewIndex];
+    const isImg = item && item.mime && item.mime.startsWith('image/') && item.dataUrl;
+    const isMulti = sorted.length > 1;
+
+    lightboxEl.innerHTML = `
+      <div class="feedback-lightbox-header">
+        ${isMulti ? `<span class="feedback-lightbox-counter">${currentPreviewIndex + 1} / ${sorted.length}</span>` : ''}
+        <button type="button" class="feedback-lightbox-close" id="feedbackLightboxClose" aria-label="Close full size view">✕</button>
+      </div>
+      <div class="feedback-lightbox-body">
+        ${isMulti ? `<button type="button" class="feedback-lightbox-nav prev" id="feedbackLightboxPrev" aria-label="Previous file">&#8249;</button>` : ''}
+        ${isImg
+          ? `<img class="feedback-lightbox-img" src="${item.dataUrl}" alt="${esc(item.name)}">`
+          : `<div class="feedback-lightbox-doc"><span style="font-size:48px;">${fileTypeIcon(item.mime)}</span><span style="font-size:18px;margin-top:12px;">${esc(item.name)}</span></div>`
+        }
+        ${isMulti ? `<button type="button" class="feedback-lightbox-nav next" id="feedbackLightboxNext" aria-label="Next file">&#8250;</button>` : ''}
+      </div>
+      <div class="feedback-lightbox-caption">${esc(item.name)}</div>
+    `;
+
+    lightboxEl.querySelector('#feedbackLightboxPrev')?.addEventListener('click', e => {
+      e.stopPropagation();
+      currentPreviewIndex = (currentPreviewIndex - 1 + sorted.length) % sorted.length;
+      renderAttachmentsList();
+      renderLightboxContent();
     });
 
-    listEl.querySelector('#feedbackClearAllFiles')?.addEventListener('click', e => {
+    lightboxEl.querySelector('#feedbackLightboxNext')?.addEventListener('click', e => {
       e.stopPropagation();
-      currentAttachments = [];
+      currentPreviewIndex = (currentPreviewIndex + 1) % sorted.length;
       renderAttachmentsList();
-      saveDraft();
+      renderLightboxContent();
     });
+  }
+
+  function closeFeedbackLightbox() {
+    if (!lightboxEl) return;
+    if (typeof lightboxEl.close === 'function') {
+      if (lightboxEl.open) lightboxEl.close();
+    } else {
+      lightboxEl.hidden = true;
+      lightboxEl.style.display = 'none';
+    }
   }
 
   function adjustFeedbackTextarea(el) {
@@ -258,10 +452,7 @@
       <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Describe what went wrong or what is missing..." required></textarea>
       
       <div class="feedback-attachments-box" id="feedbackAttachmentsBox" style="margin:8px 0;">
-        <div class="feedback-preview-box" id="feedbackPreviewBox" hidden style="margin-bottom:8px;position:relative;display:none;">
-          <img id="feedbackPreviewImg" alt="Screenshot preview" style="max-height:160px;border-radius:6px;display:block;">
-          <button type="button" class="feedback-preview-remove" id="feedbackPreviewRemove" title="Remove screenshot" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;">✕</button>
-        </div>
+        <div class="feedback-preview-box" id="feedbackPreviewBox" hidden style="margin-bottom:8px;position:relative;display:none;"></div>
         <div class="feedback-files-list" id="feedbackFilesList" hidden></div>
         <div class="feedback-dropzone" id="feedbackDropzone">
           <p>📎 Attach files</p>
@@ -318,16 +509,6 @@
         }
       }
       this.value = '';
-    });
-
-    modalEl.querySelector('#feedbackPreviewRemove')?.addEventListener('click', e => {
-      e.stopPropagation();
-      const firstImageIdx = currentAttachments.findIndex(a => a.mime && a.mime.startsWith('image/'));
-      if (firstImageIdx >= 0) {
-        currentAttachments.splice(firstImageIdx, 1);
-        renderAttachmentsList();
-        saveDraft();
-      }
     });
 
     dropzone.addEventListener('dragover', function(e) {
@@ -486,6 +667,7 @@
 
   function closeFeedbackModal() {
     if (!modalEl) return;
+    closeFeedbackLightbox();
     saveDraft();
     if (typeof modalEl.close === 'function') {
       modalEl.close();

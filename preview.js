@@ -12761,18 +12761,20 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }
       if (deckAllow.indexOf("Memory") >= 0) {
         const matchable = cards.filter((c) => c.en && c.ru);
-        const size = memoryBlockSize(matchable.length);
-        for (let i = 0; i < matchable.length; ) {
-          const n = Math.min(size, matchable.length - i);
-          const chunk = matchable.slice(i, i + n);
-          if (chunk.length >= 2) {
-            const faces = shuffle(chunk.reduce((all, c, j) => all.concat([
-              { id: String(i + j), text: c.en },
-              { id: String(i + j), text: c.ru }
-            ]), []));
-            queue.push({ type: "Memory", faces: faces, open: [], done: {} });
-          }
-          i += n;
+        const reqPairs = memoryBlockSize(50);
+        const extraPairs = (window.dayQuizExtraMemoryPairs || []).map((p, idx) => ({
+          en: p.en,
+          ru: p.ru,
+          image: p.image || null,
+          isNew: true
+        }));
+        const combined = matchable.concat(extraPairs).slice(0, reqPairs);
+        if (combined.length >= 2) {
+          const faces = shuffle(combined.reduce((all, c, j) => all.concat([
+            { id: String(j), text: c.en, image: c.image || null, isNew: Boolean(c.isNew), en: c.en, ru: c.ru },
+            { id: String(j), text: c.ru, isNew: Boolean(c.isNew), en: c.en, ru: c.ru }
+          ]), []));
+          queue.push({ type: "Memory", faces: faces, open: [], done: {}, disappeared: {} });
         }
       }
       return queue;
@@ -13069,25 +13071,52 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const picked = buttons.filter((b) => b.classList.contains("on")).length;
         const slot = group.querySelector("[data-dq-picked]");
         if (slot) slot.textContent = picked + " of " + buttons.length + " selected";
+        const allBtn = group.querySelector("[data-dq-all]");
+        if (allBtn) {
+          allBtn.textContent = (picked === buttons.length && buttons.length > 0) ? "Deselect all" : "Select all";
+        }
       });
       const label = DAY_QUIZ_MODE_LABEL[mode] || "Quick review";
       const selectedCards = limitStudyCards(pool, "daysetup", true);
       const exercises = types.length ? studyExerciseCount(selectedCards, types) : 0;
+      const mins = Math.max(0, Math.round(exercises * 30 / 60));
+      const cardsWord = selectedN === 1 ? " card" : " cards";
+      const typesWord = types.length === 1 ? " type" : " types";
+      const exercisesWord = exercises === 1 ? " exercise" : " exercises";
+
       const ready = document.getElementById("dayQuizReady");
       if (ready) {
-        ready.textContent = label + " · " + types.length + (types.length === 1 ? " type" : " types") + (exercises ? " · " + exercises + (exercises === 1 ? " exercise" : " exercises") : "");
+        ready.innerHTML =
+          '<span class="dq-ready-line1">' + esc(label) + ' · ' + types.length + typesWord + ' · ' + selectedN + cardsWord + '</span>' +
+          '<span class="dq-ready-line2">' + exercises + ' ' + exercisesWord + ' · ' + mins + ' min</span>';
       }
       const chips = document.getElementById("dayQuizChips");
-      if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
+      if (chips) {
+        chips.innerHTML = types.map((type) => '<button type="button" class="dq-chip" data-dq-chip="' + esc(type) + '">' + esc(type) + " ↗</button>").join("");
+      }
       const mark = document.getElementById("dayQuizMark");
       const modeBtn = document.querySelector('#dayQuizBoard [data-dq-mode].on .dq-ico');
       if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
-      const mins = Math.max(0, Math.round(exercises * 30 / 60));
       const start = document.getElementById("dayQuizStart");
       if (start) {
-        const cardsWord = selectedN === 1 ? " card" : " cards";
-        start.textContent = "Start · " + selectedN + cardsWord + " · ~" + mins + " min";
+        start.textContent = "Start";
         start.disabled = !selectedN || !types.length;
+      }
+      const shortageAlert = document.getElementById("dqMemShortageAlert");
+      if (shortageAlert) {
+        const matchable = selectedCards.filter((c) => c.en && c.ru);
+        const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+        const requestedPairs = Math.floor(Number(memInp?.value) || 4);
+        const isMemOn = types.includes("Memory");
+        if (isMemOn && requestedPairs > matchable.length) {
+          shortageAlert.hidden = false;
+          const msg = shortageAlert.querySelector("[data-dq-mem-shortage-msg]");
+          if (msg) msg.textContent = "This lesson has " + matchable.length + " word pairs. You requested " + requestedPairs + " pairs.";
+          const keepBtn = shortageAlert.querySelector("[data-dq-mem-keep]");
+          if (keepBtn) keepBtn.textContent = "Keep " + matchable.length + " pairs";
+        } else {
+          shortageAlert.hidden = true;
+        }
       }
       const note = document.getElementById("dayQuizNote");
       if (note) {
@@ -13120,9 +13149,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return types;
     }
     function memoryBlockSize(total) {
-      const inp = document.querySelector("section.on [data-memory-size]");
+      const inp = document.querySelector("section.on [data-memory-size]") || document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
       let n = Math.floor(Number(inp && inp.value) || 4);
       if (!Number.isFinite(n) || n < 2) n = 2;
+      if (n > 50) n = 50;
       if (total && n > total) n = total;
       return Math.max(1, n);
     }
@@ -13968,10 +13998,45 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       }).join("");
     }
     function paintMemory(item) {
-      document.getElementById("dayqView").innerHTML = '<p class="prompt">Find the pairs</p><div class="pairs">' +
+      if (!item.disappeared) item.disappeared = {};
+      const bookSvg =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;">' +
+          '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>' +
+          '<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' +
+          '<line x1="12" y1="7" x2="12" y2="13"></line>' +
+          '<line x1="9" y1="10" x2="15" y2="10"></line>' +
+        '</svg>';
+      document.getElementById("dayqView").innerHTML = '<p class="prompt">Find the pairs</p><div class="pairs is-memory-grid">' +
         item.faces.map((face, i) => {
-          const up = item.done[face.id] || item.open.indexOf(i) >= 0;
-          return '<button class="pair' + (item.done[face.id] ? " ok" : "") + '" type="button" data-mem="' + i + '">' + (up ? esc(face.text) : "·") + "</button>";
+          const isDone = Boolean(item.done[face.id]);
+          const isOpen = isDone || item.open.indexOf(i) >= 0;
+          const isDisappeared = Boolean(item.disappeared[face.id]);
+          const classes = ["pair", "is-memory-square"];
+          if (isOpen && !isDone) classes.push("pick");
+          if (isDone) classes.push("ok");
+          if (isDisappeared) classes.push("matched-disappeared");
+
+          let inner = "";
+          if (!isOpen) {
+            inner = '<span style="font-size:16px; color:var(--mute);">🂠</span>';
+          } else {
+            if (face.image) {
+              inner += '<div style="width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:2px;">' +
+                (face.image.startsWith("http") || face.image.startsWith("/")
+                  ? '<img src="' + esc(face.image) + '" style="max-width:100%; max-height:100%; border-radius:6px; object-fit:contain;" />'
+                  : '<span style="font-size:18px;">' + esc(face.image) + "</span>") +
+              "</div>";
+            }
+            inner += '<span style="font-size:13px; font-weight:800; color:var(--ink); line-height:1.2; max-width:80px; word-break:break-word;">' + esc(face.text) + "</span>";
+            if (face.isNew) {
+              if (face.isSaved) {
+                inner += '<button type="button" class="dq-card-dict-btn is-saved" title="Added" disabled>✓</button>';
+              } else {
+                inner += '<button type="button" class="dq-card-dict-btn" data-mem-dict-add="' + i + '" title="Add to dictionary" aria-label="Add to dictionary">' + bookSvg + "</button>";
+              }
+            }
+          }
+          return '<button class="' + classes.join(" ") + '" type="button" data-mem="' + i + '">' + inner + "</button>";
         }).join("") + '</div><div id="dayFb"></div>';
     }
     function paintHangman(item) {
@@ -14295,10 +14360,63 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           paintDayQuizBoard();
           return;
         }
+        const chip = e.target.closest("[data-dq-chip]");
+        if (chip) {
+          const type = chip.dataset.dqChip;
+          const customBtn = document.querySelector('#dayQuizBoard [data-dq-mode="custom"]');
+          if (customBtn && !customBtn.classList.contains("on")) customBtn.click();
+          const target = document.querySelector('#dayQuizCustom [data-dq-type="' + type + '"]');
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('dq-target-pulse');
+            setTimeout(() => target.classList.remove('dq-target-pulse'), 1200);
+          }
+          return;
+        }
+        const memSub = e.target.closest("[data-dq-mem-sub]");
+        const memAdd = e.target.closest("[data-dq-mem-add]");
+        if (memSub || memAdd) {
+          e.stopPropagation();
+          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+          let val = Math.floor(Number(memInp?.value) || 4);
+          if (memSub && val > 2) val -= 1;
+          if (memAdd && val < 50) val += 1;
+          if (memInp) memInp.value = String(val);
+          const valEl = document.querySelector('[data-dq-mem-val]');
+          if (valEl) valEl.textContent = String(val);
+          const cardsEl = document.querySelector('[data-dq-mem-cards]');
+          if (cardsEl) cardsEl.textContent = '(' + (val * 2) + ' cards)';
+          paintDayQuizBoard();
+          return;
+        }
+        const keepBtn = e.target.closest("[data-dq-mem-keep]");
+        if (keepBtn) {
+          const pool = quizPool();
+          const selectedCards = limitStudyCards(pool, "daysetup", true);
+          const matchable = selectedCards.filter((c) => c.en && c.ru);
+          const count = Math.max(2, matchable.length);
+          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+          if (memInp) memInp.value = String(count);
+          const valEl = document.querySelector('[data-dq-mem-val]');
+          if (valEl) valEl.textContent = String(count);
+          const cardsEl = document.querySelector('[data-dq-mem-cards]');
+          if (cardsEl) cardsEl.textContent = '(' + (count * 2) + ' cards)';
+          paintDayQuizBoard();
+          return;
+        }
+        const genBtn = e.target.closest("[data-dq-mem-gen]");
+        if (genBtn) {
+          dayQuizGenerateExtraMemoryPairs();
+          return;
+        }
         const all = e.target.closest("[data-dq-all]");
         if (all) {
           const group = all.closest("[data-dq-group]");
-          if (group) group.querySelectorAll("[data-dq-type]").forEach((b) => b.classList.add("on"));
+          if (group) {
+            const buttons = [...group.querySelectorAll("[data-dq-type]")];
+            const allOn = buttons.length > 0 && buttons.every((b) => b.classList.contains("on"));
+            buttons.forEach((b) => b.classList.toggle("on", !allOn));
+          }
           paintDayQuizBoard();
           return;
         }
@@ -14578,6 +14696,23 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (done) markDay(true, item.answer);
         else if (item.misses >= 6) markDay(false, item.answer);
       } else if (item.type === "Memory") {
+        const dictAdd = e.target.closest("[data-mem-dict-add]");
+        if (dictAdd) {
+          e.stopPropagation();
+          const cardIdx = Number(dictAdd.dataset.memDictAdd);
+          const face = item.faces[cardIdx];
+          if (face && face.en && face.ru) {
+            face.isSaved = true;
+            item.faces.forEach((f) => {
+              if (f.id === face.id) f.isSaved = true;
+            });
+            if (typeof saveAdded === "function") {
+              saveAdded(face.en, face.ru);
+            }
+            paintMemory(item);
+          }
+          return;
+        }
         const mem = e.target.closest("[data-mem]");
         const fb = document.getElementById("dayFb");
         if (!mem || item.busy || !fb || fb.innerHTML) return;
@@ -14593,9 +14728,16 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           item.done[first.id] = true;
           item.open = [];
           paintMemory(item);
-          const ids = {};
-          item.faces.forEach((row) => { ids[row.id] = true; });
-          if (Object.keys(ids).every((id) => item.done[id])) markDay(true, "");
+          const isNewPair = Boolean(first.isNew || second.isNew);
+          const disappearDelay = isNewPair ? 2000 : 350;
+          setTimeout(() => {
+            if (!item.disappeared) item.disappeared = {};
+            item.disappeared[first.id] = true;
+            paintMemory(item);
+            const ids = {};
+            item.faces.forEach((row) => { ids[row.id] = true; });
+            if (Object.keys(ids).every((id) => item.done[id])) markDay(true, "");
+          }, disappearDelay);
         } else {
           item.misses = (item.misses || 0) + 1;
           item.busy = true;
@@ -18866,19 +19008,19 @@ const STUDIO_CONSTELLATIONS = [{
       const dotId = isMain ? 'pillStatusDot' : 'lmPillStatusDot';
       const popoverDotId = isMain ? 'popoverStatusDot' : 'lmPopoverStatusDot';
 
-      const bellHtml = isMain
-        ? '<button type="button" class="shell-header-bell-btn" id="shellHeaderNotifyBell" aria-label="Reminders and notifications" title="Reminders & Notifications">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
-              '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>' +
-              '<path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
-            '</svg>' +
-            '<span class="shell-header-bell-dot"></span>' +
-          '</button>'
-        : '';
+      const isUnread = document.documentElement.getAttribute('data-notify-unread') === '1';
+      const bellHtml =
+        '<button type="button" class="shell-header-bell-btn" id="' + (isMain ? 'shellHeaderNotifyBell' : ('lmNotifyBell_' + host.id)) + '" aria-label="Reminders and notifications" title="Reminders & Notifications"' + (isUnread ? '' : ' hidden') + '>' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+            '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>' +
+            '<path d="M13.73 21a2 2 0 0 1-3.46 0"/>' +
+          '</svg>' +
+          '<span class="shell-header-bell-dot"></span>' +
+        '</button>';
 
       host.innerHTML =
         bellHtml +
-        '<div class="user-profile-pill-wrap" id="' + wrapId + '">' +
+        '<div class="user-profile-pill-wrap" id="' + wrapId + '"' + (isUnread ? ' hidden' : '') + '>' +
           '<button type="button" class="user-profile-pill is-circle" id="' + pillId + '" aria-expanded="false" aria-haspopup="true" aria-label="User profile and settings" title="' + esc(name) + '">' +
             '<div class="pill-avatar-wrap">' +
               '<div class="pill-avatar-img chat-avatar' + (effectiveAvatar ? ' has-avatar-photo' : '') + '" data-avatar-subject="' + esc(user.id) + '" data-avatar-name="' + esc(name) + '">' + avatarContent + '</div>' +
@@ -18967,15 +19109,17 @@ const STUDIO_CONSTELLATIONS = [{
         };
       }
 
-      const bellBtn = host.querySelector('#shellHeaderNotifyBell');
-      if (bellBtn) {
+      host.querySelectorAll('.shell-header-bell-btn').forEach(bellBtn => {
         bellBtn.onclick = (e) => {
           e.stopPropagation();
+          if (typeof window.stopBellAlertCycle === 'function') {
+            window.stopBellAlertCycle();
+          }
           if (typeof window.openLessonNotifications === 'function') {
             window.openLessonNotifications();
           }
         };
-      }
+      });
 
       host.querySelectorAll('[data-status-val]').forEach(btn => {
         btn.onclick = (e) => {
@@ -19331,12 +19475,57 @@ const STUDIO_CONSTELLATIONS = [{
     return list.filter((item) => !seen.has(item.id)).length;
   }
 
+  let bellAlertTimers = [];
+  function stopBellAlertCycle() {
+    bellAlertTimers.forEach(t => clearTimeout(t));
+    bellAlertTimers = [];
+    document.querySelectorAll('.shell-header-bell-btn').forEach(b => b.classList.remove('is-ringing'));
+  }
+  window.stopBellAlertCycle = stopBellAlertCycle;
+
+  function triggerBellAlertCycle() {
+    stopBellAlertCycle();
+    const schedule = [
+      { start: 0, duration: 1000 },
+      { start: 3000, duration: 1000 },
+      { start: 9000, duration: 1000 }
+    ];
+    schedule.forEach(({ start, duration }) => {
+      const ringTimer = setTimeout(() => {
+        document.querySelectorAll('.shell-header-bell-btn').forEach(b => b.classList.add('is-ringing'));
+        playChimeNotification();
+        const stopTimer = setTimeout(() => {
+          document.querySelectorAll('.shell-header-bell-btn').forEach(b => b.classList.remove('is-ringing'));
+        }, duration);
+        bellAlertTimers.push(stopTimer);
+      }, start);
+      bellAlertTimers.push(ringTimer);
+    });
+  }
+
+  function syncBellAndAvatarVisibility(unread) {
+    const isUnread = unread > 0;
+    document.documentElement.setAttribute('data-notify-unread', isUnread ? '1' : '0');
+    document.querySelectorAll('.shell-header-bell-btn').forEach(b => {
+      b.hidden = !isUnread;
+    });
+    document.querySelectorAll('.user-profile-pill-wrap').forEach(w => {
+      w.hidden = isUnread;
+    });
+    if (isUnread) {
+      triggerBellAlertCycle();
+    } else {
+      stopBellAlertCycle();
+    }
+  }
+  window.syncBellAndAvatarVisibility = syncBellAndAvatarVisibility;
+
   function pillText(unread) {
     return unread > 0 ? (unread + ' active') : 'All read';
   }
 
   function showUnreadDot(unread) {
-    document.documentElement.setAttribute('data-notify-unread', unread > 0 ? '1' : '0');
+    syncBellAndAvatarVisibility(unread);
   }
 
   function markAllNotificationsAsRead(list) {
@@ -20840,6 +21029,8 @@ const STUDIO_CONSTELLATIONS = [{
   let currentAttachments = [];
   let currentCategory = 'bug';
   let modalEl = null;
+  let currentPreviewIndex = 0;
+  let lightboxEl = null;
   const MAX_FEEDBACK_BYTES = 25 * 1024 * 1024; // 25 MiB
 
   function formatFileSize(bytes) {
@@ -20943,6 +21134,8 @@ const STUDIO_CONSTELLATIONS = [{
       localStorage.removeItem('feedback_draft_v1');
     } catch (_) {}
     currentAttachments = [];
+    currentPreviewIndex = 0;
+    closeFeedbackLightbox();
     if (modalEl) {
       const textarea = modalEl.querySelector('#feedbackMessage');
       if (textarea) textarea.value = '';
@@ -20953,63 +21146,253 @@ const STUDIO_CONSTELLATIONS = [{
   function renderAttachmentsList() {
     const listEl = modalEl?.querySelector('#feedbackFilesList');
     const previewBox = modalEl?.querySelector('#feedbackPreviewBox');
-    const previewImg = modalEl?.querySelector('#feedbackPreviewImg');
-    const firstImage = currentAttachments.find(a => a.mime && a.mime.startsWith('image/'));
-    if (previewBox && previewImg) {
-      if (firstImage && firstImage.dataUrl) {
-        previewImg.src = firstImage.dataUrl;
-        previewBox.hidden = false;
-        previewBox.style.display = 'block';
-      } else {
-        previewImg.src = '';
+
+    if (!currentAttachments.length) {
+      if (previewBox) {
+        previewBox.innerHTML = '';
         previewBox.hidden = true;
         previewBox.style.display = 'none';
       }
-    }
-    if (!listEl) return;
-    if (!currentAttachments.length) {
-      listEl.innerHTML = '';
-      listEl.hidden = true;
+      if (listEl) {
+        listEl.innerHTML = '';
+        listEl.hidden = true;
+      }
+      closeFeedbackLightbox();
       return;
     }
-    listEl.hidden = false;
-    const totalBytes = totalAttachmentsSize();
+
     const sorted = sortAttachments(currentAttachments);
     currentAttachments = sorted;
 
-    const itemsHtml = sorted.map(a => `
-      <div class="feedback-file-chip">
-        <span>${fileTypeIcon(a.mime)}</span>
-        <span class="feedback-file-name" title="${esc(a.name)}">${esc(a.name)}</span>
-        <span class="feedback-file-size">(${formatFileSize(a.size)})</span>
-        <button type="button" class="feedback-file-remove" data-remove-id="${esc(a.id)}" title="Remove this file">✕</button>
-      </div>
-    `).join('');
+    if (currentPreviewIndex >= sorted.length) currentPreviewIndex = sorted.length - 1;
+    if (currentPreviewIndex < 0) currentPreviewIndex = 0;
 
-    listEl.innerHTML = `
-      <div class="feedback-files-summary">
-        <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
-        <button type="button" id="feedbackClearAllFiles">Clear all</button>
-      </div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
-    `;
+    const activeItem = sorted[currentPreviewIndex];
+    const isMulti = sorted.length > 1;
+    const isImg = activeItem && activeItem.mime && activeItem.mime.startsWith('image/') && activeItem.dataUrl;
 
-    listEl.querySelectorAll('[data-remove-id]').forEach(btn => {
-      btn.addEventListener('click', e => {
+    if (previewBox) {
+      previewBox.hidden = false;
+      previewBox.style.display = 'flex';
+
+      previewBox.innerHTML = `
+        <div class="feedback-carousel-track">
+          <button type="button" class="feedback-carousel-prev" id="feedbackCarouselPrev" aria-label="Previous file" ${isMulti ? '' : 'style="display:none;"'}>&#8249;</button>
+          
+          <div class="feedback-preview-zoom-wrap" id="feedbackPreviewZoomTrigger" ${isImg ? 'title="Click to view full size"' : ''} style="${isImg ? 'cursor:zoom-in;' : 'cursor:default;'}">
+            ${isImg
+              ? `<img id="feedbackPreviewImg" src="${activeItem.dataUrl}" alt="${esc(activeItem.name)}">`
+              : `<div class="feedback-preview-doc-card">
+                  <span style="font-size:32px;">${fileTypeIcon(activeItem.mime)}</span>
+                  <span style="font-size:13px;font-weight:500;margin-top:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(activeItem.name)}</span>
+                  <small style="opacity:0.7;margin-top:2px;">${formatFileSize(activeItem.size)}</small>
+                </div>`
+            }
+          </div>
+
+          <button type="button" class="feedback-carousel-next" id="feedbackCarouselNext" aria-label="Next file" ${isMulti ? '' : 'style="display:none;"'}>&#8250;</button>
+
+          <button type="button" class="feedback-preview-remove" id="feedbackPreviewRemove" title="Remove this file" data-remove-id="${esc(activeItem.id)}">✕</button>
+        </div>
+
+        <div class="feedback-carousel-meta">
+          <span class="feedback-carousel-name">${fileTypeIcon(activeItem.mime)} ${esc(activeItem.name)}</span>
+          ${isMulti ? `<span class="feedback-carousel-counter">${currentPreviewIndex + 1} / ${sorted.length}</span>` : ''}
+        </div>
+      `;
+
+      previewBox.querySelector('#feedbackCarouselPrev')?.addEventListener('click', e => {
         e.stopPropagation();
-        const id = btn.dataset.removeId;
+        currentPreviewIndex = (currentPreviewIndex - 1 + sorted.length) % sorted.length;
+        renderAttachmentsList();
+        if (lightboxEl && !lightboxEl.hidden && lightboxEl.style.display !== 'none') {
+          renderLightboxContent();
+        }
+      });
+
+      previewBox.querySelector('#feedbackCarouselNext')?.addEventListener('click', e => {
+        e.stopPropagation();
+        currentPreviewIndex = (currentPreviewIndex + 1) % sorted.length;
+        renderAttachmentsList();
+        if (lightboxEl && !lightboxEl.hidden && lightboxEl.style.display !== 'none') {
+          renderLightboxContent();
+        }
+      });
+
+      previewBox.querySelector('#feedbackPreviewZoomTrigger')?.addEventListener('click', e => {
+        if (isImg) {
+          e.stopPropagation();
+          openFeedbackLightbox(currentPreviewIndex);
+        }
+      });
+
+      previewBox.querySelector('#feedbackPreviewRemove')?.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = activeItem.id;
         currentAttachments = currentAttachments.filter(a => a.id !== id);
+        if (currentPreviewIndex >= currentAttachments.length) {
+          currentPreviewIndex = Math.max(0, currentAttachments.length - 1);
+        }
         renderAttachmentsList();
         saveDraft();
       });
+    }
+
+    if (listEl) {
+      listEl.hidden = false;
+      const totalBytes = totalAttachmentsSize();
+
+      const itemsHtml = sorted.map((a, i) => `
+        <div class="feedback-file-chip ${i === currentPreviewIndex ? 'active' : ''}" data-chip-idx="${i}">
+          <span>${fileTypeIcon(a.mime)}</span>
+          <span class="feedback-file-name" title="${esc(a.name)}">${esc(a.name)}</span>
+          <span class="feedback-file-size">(${formatFileSize(a.size)})</span>
+          <button type="button" class="feedback-file-remove" data-remove-id="${esc(a.id)}" title="Remove this file">✕</button>
+        </div>
+      `).join('');
+
+      listEl.innerHTML = `
+        <div class="feedback-files-summary">
+          <span>Attached files (${sorted.length}) · Total: ${formatFileSize(totalBytes)} / 25 MB</span>
+          <button type="button" id="feedbackClearAllFiles">Clear all</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">${itemsHtml}</div>
+      `;
+
+      listEl.querySelectorAll('.feedback-file-chip').forEach(chip => {
+        chip.addEventListener('click', e => {
+          if (e.target.closest('.feedback-file-remove')) return;
+          const idx = Number(chip.dataset.chipIdx);
+          if (Number.isFinite(idx)) {
+            currentPreviewIndex = idx;
+            renderAttachmentsList();
+          }
+        });
+      });
+
+      listEl.querySelectorAll('[data-remove-id]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = btn.dataset.removeId;
+          currentAttachments = currentAttachments.filter(a => a.id !== id);
+          if (currentPreviewIndex >= currentAttachments.length) {
+            currentPreviewIndex = Math.max(0, currentAttachments.length - 1);
+          }
+          renderAttachmentsList();
+          saveDraft();
+        });
+      });
+
+      listEl.querySelector('#feedbackClearAllFiles')?.addEventListener('click', e => {
+        e.stopPropagation();
+        currentAttachments = [];
+        currentPreviewIndex = 0;
+        renderAttachmentsList();
+        saveDraft();
+      });
+    }
+  }
+
+  function openFeedbackLightbox(idx) {
+    if (idx < 0 || idx >= currentAttachments.length) return;
+    currentPreviewIndex = idx;
+
+    if (!lightboxEl) {
+      lightboxEl = document.createElement('dialog');
+      lightboxEl.id = 'feedbackLightbox';
+      lightboxEl.className = 'feedback-lightbox';
+      document.body.appendChild(lightboxEl);
+
+      lightboxEl.addEventListener('click', e => {
+        if (e.target === lightboxEl || e.target.closest('#feedbackLightboxClose')) {
+          closeFeedbackLightbox();
+        }
+      });
+
+      lightboxEl.addEventListener('keydown', handleLightboxKeydown);
+      lightboxEl.addEventListener('close', () => {
+        closeFeedbackLightbox();
+      });
+    }
+
+    renderLightboxContent();
+    if (typeof lightboxEl.showModal === 'function') {
+      if (!lightboxEl.open) lightboxEl.showModal();
+    } else {
+      lightboxEl.hidden = false;
+      lightboxEl.style.display = 'flex';
+    }
+  }
+
+  function handleLightboxKeydown(e) {
+    if (!lightboxEl || (!lightboxEl.open && lightboxEl.style.display === 'none')) return;
+    if (e.key === 'Escape') {
+      closeFeedbackLightbox();
+    } else if (e.key === 'ArrowLeft') {
+      if (currentAttachments.length > 1) {
+        currentPreviewIndex = (currentPreviewIndex - 1 + currentAttachments.length) % currentAttachments.length;
+        renderAttachmentsList();
+        renderLightboxContent();
+      }
+    } else if (e.key === 'ArrowRight') {
+      if (currentAttachments.length > 1) {
+        currentPreviewIndex = (currentPreviewIndex + 1) % currentAttachments.length;
+        renderAttachmentsList();
+        renderLightboxContent();
+      }
+    }
+  }
+
+  function renderLightboxContent() {
+    if (!lightboxEl) return;
+    const sorted = sortAttachments(currentAttachments);
+    if (!sorted.length || currentPreviewIndex >= sorted.length) {
+      closeFeedbackLightbox();
+      return;
+    }
+    const item = sorted[currentPreviewIndex];
+    const isImg = item && item.mime && item.mime.startsWith('image/') && item.dataUrl;
+    const isMulti = sorted.length > 1;
+
+    lightboxEl.innerHTML = `
+      <div class="feedback-lightbox-header">
+        ${isMulti ? `<span class="feedback-lightbox-counter">${currentPreviewIndex + 1} / ${sorted.length}</span>` : ''}
+        <button type="button" class="feedback-lightbox-close" id="feedbackLightboxClose" aria-label="Close full size view">✕</button>
+      </div>
+      <div class="feedback-lightbox-body">
+        ${isMulti ? `<button type="button" class="feedback-lightbox-nav prev" id="feedbackLightboxPrev" aria-label="Previous file">&#8249;</button>` : ''}
+        ${isImg
+          ? `<img class="feedback-lightbox-img" src="${item.dataUrl}" alt="${esc(item.name)}">`
+          : `<div class="feedback-lightbox-doc"><span style="font-size:48px;">${fileTypeIcon(item.mime)}</span><span style="font-size:18px;margin-top:12px;">${esc(item.name)}</span></div>`
+        }
+        ${isMulti ? `<button type="button" class="feedback-lightbox-nav next" id="feedbackLightboxNext" aria-label="Next file">&#8250;</button>` : ''}
+      </div>
+      <div class="feedback-lightbox-caption">${esc(item.name)}</div>
+    `;
+
+    lightboxEl.querySelector('#feedbackLightboxPrev')?.addEventListener('click', e => {
+      e.stopPropagation();
+      currentPreviewIndex = (currentPreviewIndex - 1 + sorted.length) % sorted.length;
+      renderAttachmentsList();
+      renderLightboxContent();
     });
 
-    listEl.querySelector('#feedbackClearAllFiles')?.addEventListener('click', e => {
+    lightboxEl.querySelector('#feedbackLightboxNext')?.addEventListener('click', e => {
       e.stopPropagation();
-      currentAttachments = [];
+      currentPreviewIndex = (currentPreviewIndex + 1) % sorted.length;
       renderAttachmentsList();
-      saveDraft();
+      renderLightboxContent();
     });
+  }
+
+  function closeFeedbackLightbox() {
+    if (!lightboxEl) return;
+    if (typeof lightboxEl.close === 'function') {
+      if (lightboxEl.open) lightboxEl.close();
+    } else {
+      lightboxEl.hidden = true;
+      lightboxEl.style.display = 'none';
+    }
   }
 
   function adjustFeedbackTextarea(el) {
@@ -21039,10 +21422,7 @@ const STUDIO_CONSTELLATIONS = [{
       <textarea class="feedback-textarea" id="feedbackMessage" placeholder="Describe what went wrong or what is missing..." required></textarea>
       
       <div class="feedback-attachments-box" id="feedbackAttachmentsBox" style="margin:8px 0;">
-        <div class="feedback-preview-box" id="feedbackPreviewBox" hidden style="margin-bottom:8px;position:relative;display:none;">
-          <img id="feedbackPreviewImg" alt="Screenshot preview" style="max-height:160px;border-radius:6px;display:block;">
-          <button type="button" class="feedback-preview-remove" id="feedbackPreviewRemove" title="Remove screenshot" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;cursor:pointer;">✕</button>
-        </div>
+        <div class="feedback-preview-box" id="feedbackPreviewBox" hidden style="margin-bottom:8px;position:relative;display:none;"></div>
         <div class="feedback-files-list" id="feedbackFilesList" hidden></div>
         <div class="feedback-dropzone" id="feedbackDropzone">
           <p>📎 Attach files</p>
@@ -21099,16 +21479,6 @@ const STUDIO_CONSTELLATIONS = [{
         }
       }
       this.value = '';
-    });
-
-    modalEl.querySelector('#feedbackPreviewRemove')?.addEventListener('click', e => {
-      e.stopPropagation();
-      const firstImageIdx = currentAttachments.findIndex(a => a.mime && a.mime.startsWith('image/'));
-      if (firstImageIdx >= 0) {
-        currentAttachments.splice(firstImageIdx, 1);
-        renderAttachmentsList();
-        saveDraft();
-      }
     });
 
     dropzone.addEventListener('dragover', function(e) {
@@ -21267,6 +21637,7 @@ const STUDIO_CONSTELLATIONS = [{
 
   function closeFeedbackModal() {
     if (!modalEl) return;
+    closeFeedbackLightbox();
     saveDraft();
     if (typeof modalEl.close === 'function') {
       modalEl.close();
@@ -32057,8 +32428,107 @@ if(typeof window!=='undefined'){
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function extractFocusQuestionsFromLesson(lesson) {
+  function shuffleArray(arr) {
+    if (!Array.isArray(arr)) return [];
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+    }
+    return a;
+  }
+
+  function shuffleQuestionOptions(q) {
+    if (!q || !Array.isArray(q.options) || q.options.length <= 1) return q;
+    const correctOpt = q.options[typeof q.answer === 'number' ? q.answer : 0];
+    const shuffled = shuffleArray(q.options);
+    const newAnswer = shuffled.indexOf(correctOpt);
+    return Object.assign({}, q, {
+      options: shuffled,
+      answer: newAnswer >= 0 ? newAnswer : 0
+    });
+  }
+
+  function getSemanticDistractors(target, itemDistractors, pool, defaultPool, count = 4) {
+    if (Array.isArray(itemDistractors) && itemDistractors.length >= count) {
+      return itemDistractors.slice(0, count);
+    }
+    const normTarget = String(target || '').trim().toLowerCase();
+    const seen = new Set([normTarget]);
+    const res = [];
+    (pool || []).forEach(val => {
+      const s = String(val || '').trim();
+      const norm = s.toLowerCase();
+      if (s && !seen.has(norm)) {
+        seen.add(norm);
+        res.push(s);
+      }
+    });
+    (defaultPool || []).forEach(val => {
+      const s = String(val || '').trim();
+      const norm = s.toLowerCase();
+      if (s && !seen.has(norm)) {
+        seen.add(norm);
+        res.push(s);
+      }
+    });
+    return res.slice(0, count);
+  }
+
+  function extractFocusQuestionsFromLesson(lesson, options = {}) {
     if (!lesson || !Array.isArray(lesson.blocks)) return [];
+    const bidirectional = options.bidirectional === true;
+    const doShuffle = options.shuffle === true;
+
+    // Collect lesson pools for semantic distractor fallback
+    const allLessonWords = [];
+    const allLessonMeanings = [];
+    lesson.blocks.forEach(b => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && (Array.isArray(b.items) || b.word)) {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{ word: b.word, translation: b.translation || b.meaning || b.ru }];
+        items.forEach(it => {
+          const w = String(it.word || it.en || b.word || '').trim();
+          const m = String(it.translation || it.meaning || it.ru || '').trim();
+          if (w) allLessonWords.push(w);
+          if (m) allLessonMeanings.push(m);
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{
+          phrase: b.title || b.word || '',
+          meaning: b.meaning || b.translation || b.ru || ''
+        }];
+        items.forEach(it => {
+          const p = String(it.phrase || it.word || it.en || b.title || '').trim();
+          const m = String(it.translation || it.meaning || it.ru || '').trim();
+          if (p) allLessonWords.push(p);
+          if (m) allLessonMeanings.push(m);
+        });
+      }
+    });
+
+    const defaultRuDistractors = [
+      'вести внутренний диалог',
+      'рассуждать вслух',
+      'говорить наедине с собой',
+      'бормотать под нос',
+      'высказываться открыто',
+      'думать про себя',
+      'объяснять самому себе',
+      'шептать про себя'
+    ];
+    const defaultEnDistractors = [
+      'speak out loud',
+      'think to yourself',
+      'speak for yourself',
+      'talk through',
+      'say to oneself',
+      'whisper under breath',
+      'reason out loud',
+      'talk in private'
+    ];
+
     const questions = [];
     lesson.blocks.forEach((b, bIdx) => {
       if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && (Array.isArray(b.items) || b.word)) {
@@ -32067,16 +32537,48 @@ if(typeof window!=='undefined'){
           const w = String(it.word || it.en || b.word || 'Vocabulary').trim();
           if (!w) return;
           const meaning = String(it.translation || it.meaning || it.ru || w).trim();
-          questions.push({
-            id: 'word-' + bIdx + '-' + itIdx,
-            category: 'words',
-            title: 'Vocabulary: ' + w,
-            concept: w,
-            prompt: 'Identify the definition of "' + w + '":',
-            options: [meaning, 'Alternative form', 'Unrelated context'],
-            answer: 0,
-            feedback: '"' + w + '" means: ' + meaning
-          });
+          if (bidirectional) {
+            // Direct: EN -> RU (5 options)
+            const ruDist = getSemanticDistractors(meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, 4);
+            const directOpts = [meaning, ...ruDist];
+            const directQ = {
+              id: 'word-' + bIdx + '-' + itIdx + '-direct',
+              category: 'words',
+              title: 'Vocabulary: ' + w,
+              concept: w,
+              prompt: 'Identify the definition of "' + w + '":',
+              options: directOpts,
+              answer: 0,
+              feedback: '"' + w + '" means: ' + meaning
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(directQ) : directQ);
+
+            // Reverse: RU -> EN (5 options)
+            const enDist = getSemanticDistractors(w, it.distractorsEn, allLessonWords, defaultEnDistractors, 4);
+            const revOpts = [w, ...enDist];
+            const reverseQ = {
+              id: 'word-' + bIdx + '-' + itIdx + '-reverse',
+              category: 'words',
+              title: 'Vocabulary: ' + meaning,
+              concept: meaning,
+              prompt: 'Identify the English equivalent for "' + meaning + '":',
+              options: revOpts,
+              answer: 0,
+              feedback: '"' + meaning + '" in English is: ' + w
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(reverseQ) : reverseQ);
+          } else {
+            questions.push({
+              id: 'word-' + bIdx + '-' + itIdx,
+              category: 'words',
+              title: 'Vocabulary: ' + w,
+              concept: w,
+              prompt: 'Identify the definition of "' + w + '":',
+              options: [meaning, 'Alternative form', 'Unrelated context'],
+              answer: 0,
+              feedback: '"' + w + '" means: ' + meaning
+            });
+          }
         });
       } else if (b.type === 'phrase' || b.tab === 'phrases') {
         const items = Array.isArray(b.items) && b.items.length ? b.items : [{
@@ -32090,19 +32592,51 @@ if(typeof window!=='undefined'){
           if (!phraseText) return;
           const meaning = String(it.translation || it.meaning || it.ru || phraseText).trim();
           const example = String(it.example || ('Usage: "' + phraseText + '" in everyday English.')).trim();
-          const distractors = allMeanings.filter(m => m !== meaning);
-          const opt1 = distractors[0] || 'Alternative colloquial usage';
-          const opt2 = distractors[1] || 'Opposite contextual meaning';
-          questions.push({
-            id: 'phrase-' + (b.id || bIdx) + '-' + itIdx,
-            category: 'phrases',
-            title: 'Phrase: ' + phraseText,
-            concept: phraseText,
-            prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
-            options: [meaning, opt1, opt2],
-            answer: 0,
-            feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
-          });
+          if (bidirectional) {
+            // Direct: EN -> RU (5 options)
+            const ruDist = getSemanticDistractors(meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, 4);
+            const directOpts = [meaning, ...ruDist];
+            const directQ = {
+              id: 'phrase-' + (b.id || bIdx) + '-' + itIdx + '-direct',
+              category: 'phrases',
+              title: 'Phrase: ' + phraseText,
+              concept: phraseText,
+              prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
+              options: directOpts,
+              answer: 0,
+              feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(directQ) : directQ);
+
+            // Reverse: RU -> EN (5 options)
+            const enDist = getSemanticDistractors(phraseText, it.distractorsEn, allLessonWords, defaultEnDistractors, 4);
+            const revOpts = [phraseText, ...enDist];
+            const reverseQ = {
+              id: 'phrase-' + (b.id || bIdx) + '-' + itIdx + '-reverse',
+              category: 'phrases',
+              title: 'Phrase: ' + meaning,
+              concept: meaning,
+              prompt: 'Select the correct phrase for "' + meaning + '":',
+              options: revOpts,
+              answer: 0,
+              feedback: '"' + meaning + '" in English is: ' + phraseText + (example ? ' (' + example + ')' : '')
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(reverseQ) : reverseQ);
+          } else {
+            const distractors = allMeanings.filter(m => m !== meaning);
+            const opt1 = distractors[0] || 'Alternative colloquial usage';
+            const opt2 = distractors[1] || 'Opposite contextual meaning';
+            questions.push({
+              id: 'phrase-' + (b.id || bIdx) + '-' + itIdx,
+              category: 'phrases',
+              title: 'Phrase: ' + phraseText,
+              concept: phraseText,
+              prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
+              options: [meaning, opt1, opt2],
+              answer: 0,
+              feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
+            });
+          }
         });
       } else if (b.type === 'quiz') {
         const isHw = b.tab === 'homework' || b.homework === true || b.isHomework === true || /^(?:HW|Homework)\b/i.test(b.title || '');
@@ -32291,7 +32825,8 @@ if(typeof window!=='undefined'){
   function startFocusSessionWithScope(scope, subCat) {
     focusActiveScope = scope || 'all';
     focusActiveSubCategory = subCat || 'words';
-    focusQuestions = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    const filtered = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    focusQuestions = shuffleArray(filtered).map(shuffleQuestionOptions);
     if (!focusQuestions || focusQuestions.length === 0) {
       alert('No questions found for the selected practice scope.');
       return;
@@ -32316,7 +32851,7 @@ if(typeof window!=='undefined'){
       renderFocusPlayer();
       return;
     }
-    focusQuestions = filtered;
+    focusQuestions = shuffleArray(filtered).map(shuffleQuestionOptions);
     focusIndex = 0;
     focusSelectedOption = null;
     focusResults = {};
@@ -32468,7 +33003,7 @@ if(typeof window!=='undefined'){
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
         '<div class="focus-header-tools">' +
           scopeSelectorHtml +
-          '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Next | Esc: Exit</span>' +
+          '<span class="focus-hotkeys">⌨️ 1–5: Select | Enter: Next | Esc: Exit</span>' +
           '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
       '</div>' +
@@ -32618,7 +33153,7 @@ if(typeof window!=='undefined'){
     }
 
     const currentLesson = (typeof lmState !== 'undefined' && lmState) ? lmState : (typeof window !== 'undefined' && window.lmState ? window.lmState : null);
-    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson);
+    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson, { bidirectional: true, shuffle: true });
     if (!focusAllQuestions || focusAllQuestions.length === 0) {
       alert('No quiz or exercise tasks available to practice in Focus Mode.');
       return;
@@ -33315,7 +33850,7 @@ if(typeof window!=='undefined'){
         return;
       }
 
-      if (['1', '2', '3', '4'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5'].includes(e.key)) {
         e.preventDefault();
         focusSelectOption(parseInt(e.key, 10) - 1);
         return;
@@ -33345,6 +33880,60 @@ if(typeof window!=='undefined'){
     });
   }
 
+  async function stageEnrichLessonDistractors(lesson) {
+    if (!lesson || !Array.isArray(lesson.blocks)) return;
+    const itemsToEnrich = [];
+    lesson.blocks.forEach(b => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && Array.isArray(b.items)) {
+        b.items.forEach(it => {
+          if (!it.distractorsRu || !it.distractorsEn) {
+            itemsToEnrich.push({
+              word: it.word || it.en || '',
+              translation: it.translation || it.meaning || it.ru || '',
+              ref: it
+            });
+          }
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) ? b.items : [b];
+        items.forEach(it => {
+          if (!it.distractorsRu || !it.distractorsEn) {
+            itemsToEnrich.push({
+              word: it.phrase || it.word || it.en || b.title || '',
+              translation: it.translation || it.meaning || it.ru || '',
+              ref: it
+            });
+          }
+        });
+      }
+    });
+
+    if (itemsToEnrich.length === 0) return;
+
+    try {
+      const payload = itemsToEnrich.map(x => ({ word: x.word, translation: x.translation }));
+      const res = await fetch('/api/distractors/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: payload })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          data.forEach((resItem, idx) => {
+            const target = itemsToEnrich[idx]?.ref;
+            if (target && Array.isArray(resItem.directDistractors) && Array.isArray(resItem.reverseDistractors)) {
+              target.distractorsRu = resItem.directDistractors;
+              target.distractorsEn = resItem.reverseDistractors;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      // Graceful offline fallback
+    }
+  }
+
   if (typeof window !== 'undefined') {
     window.openFocusPlayer = openFocusPlayer;
     window.closeFocusPlayer = closeFocusPlayer;
@@ -33360,6 +33949,9 @@ if(typeof window!=='undefined'){
     window.focusCheckAnswer = focusCheckAnswer;
     window.focusApplyAdaptiveRemediation = focusApplyAdaptiveRemediation;
     window.extractFocusQuestionsFromLesson = extractFocusQuestionsFromLesson;
+    window.shuffleArray = shuffleArray;
+    window.shuffleQuestionOptions = shuffleQuestionOptions;
+    window.stageEnrichLessonDistractors = stageEnrichLessonDistractors;
     window.calculateMasteryScore = calculateMasteryScore;
     window.evaluateTwoFactorSubmission = evaluateTwoFactorSubmission;
     window.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
@@ -33380,6 +33972,9 @@ if(typeof window!=='undefined'){
     globalThis.openFocusPlayer = openFocusPlayer;
     globalThis.startFocusSessionWithScope = startFocusSessionWithScope;
     globalThis.switchFocusScope = switchFocusScope;
+    globalThis.shuffleArray = shuffleArray;
+    globalThis.shuffleQuestionOptions = shuffleQuestionOptions;
+    globalThis.stageEnrichLessonDistractors = stageEnrichLessonDistractors;
   }
 })();
     let groupDirectory = null, groupDirectoryJob = null;

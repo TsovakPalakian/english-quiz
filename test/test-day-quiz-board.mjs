@@ -45,7 +45,17 @@ test('Day quiz board colors come from theme variables, dq-group is visible, and 
   assert.ok(css.includes('.dq-review-row'));
   assert.ok(css.includes('.dq-group { display: block;'));
   assert.ok(css.includes('.dq-types { grid-template-columns: repeat(2, minmax(0, 1fr)); }'));
-  assert.ok(css.includes('.dq-head { display: flex; align-items: center;'));
+  assert.ok(css.includes('.dq-head { display: flex; align-items: center; gap: 10px; min-height: 48px; padding-right: 56px; }'));
+  assert.ok(css.includes('.dq-ready-line1'));
+  assert.ok(css.includes('.dq-ready-line2'));
+  assert.ok(css.includes('position: sticky;') && css.includes('bottom: 16px;'));
+  assert.ok(css.includes('.pair.is-memory-square'));
+  assert.ok(css.includes('.dq-card-dict-btn'));
+  assert.ok(css.includes('.dq-mem-stepper'));
+  assert.ok(html.includes('id="lmTitle" type="text" data-meta="title" maxlength="40"'));
+  assert.ok(html.includes('data-dq-mem-sub'));
+  assert.ok(html.includes('data-dq-mem-add'));
+  assert.ok(html.includes('id="dqMemShortageAlert"'));
 });
 
 test('Day quiz start uses the board set, mode, default Flip, and budgets by exercises', () => {
@@ -57,5 +67,11 @@ test('Day quiz start uses the board set, mode, default Flip, and budgets by exer
   assert.ok(quiz.includes('studyExerciseCount(selectedCards, types)'));
   assert.ok(quiz.includes('queue.length * 30 * 1000'));
   assert.ok(quiz.includes('No mistakes for these cards yet.'));
+  assert.ok(quiz.includes('allBtn.textContent = (picked === buttons.length && buttons.length > 0) ? "Deselect all" : "Select all";'));
+  assert.ok(quiz.includes('buttons.forEach((b) => b.classList.toggle("on", !allOn));'));
+  assert.ok(quiz.includes('start.textContent = "Start";'));
+  assert.ok(quiz.includes('data-dq-chip'));
+  assert.ok(quiz.includes('saveAdded(face.en, face.ru)'));
+  assert.ok(quiz.includes('disappearDelay'));
   assert.ok(lessons.includes('showDayQuizBoard(true)'));
 });

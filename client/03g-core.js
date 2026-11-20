@@ -762,18 +762,20 @@
       }
       if (deckAllow.indexOf("Memory") >= 0) {
         const matchable = cards.filter((c) => c.en && c.ru);
-        const size = memoryBlockSize(matchable.length);
-        for (let i = 0; i < matchable.length; ) {
-          const n = Math.min(size, matchable.length - i);
-          const chunk = matchable.slice(i, i + n);
-          if (chunk.length >= 2) {
-            const faces = shuffle(chunk.reduce((all, c, j) => all.concat([
-              { id: String(i + j), text: c.en },
-              { id: String(i + j), text: c.ru }
-            ]), []));
-            queue.push({ type: "Memory", faces: faces, open: [], done: {} });
-          }
-          i += n;
+        const reqPairs = memoryBlockSize(50);
+        const extraPairs = (window.dayQuizExtraMemoryPairs || []).map((p, idx) => ({
+          en: p.en,
+          ru: p.ru,
+          image: p.image || null,
+          isNew: true
+        }));
+        const combined = matchable.concat(extraPairs).slice(0, reqPairs);
+        if (combined.length >= 2) {
+          const faces = shuffle(combined.reduce((all, c, j) => all.concat([
+            { id: String(j), text: c.en, image: c.image || null, isNew: Boolean(c.isNew), en: c.en, ru: c.ru },
+            { id: String(j), text: c.ru, isNew: Boolean(c.isNew), en: c.en, ru: c.ru }
+          ]), []));
+          queue.push({ type: "Memory", faces: faces, open: [], done: {}, disappeared: {} });
         }
       }
       return queue;
@@ -1070,25 +1072,52 @@
         const picked = buttons.filter((b) => b.classList.contains("on")).length;
         const slot = group.querySelector("[data-dq-picked]");
         if (slot) slot.textContent = picked + " of " + buttons.length + " selected";
+        const allBtn = group.querySelector("[data-dq-all]");
+        if (allBtn) {
+          allBtn.textContent = (picked === buttons.length && buttons.length > 0) ? "Deselect all" : "Select all";
+        }
       });
       const label = DAY_QUIZ_MODE_LABEL[mode] || "Quick review";
       const selectedCards = limitStudyCards(pool, "daysetup", true);
       const exercises = types.length ? studyExerciseCount(selectedCards, types) : 0;
+      const mins = Math.max(0, Math.round(exercises * 30 / 60));
+      const cardsWord = selectedN === 1 ? " card" : " cards";
+      const typesWord = types.length === 1 ? " type" : " types";
+      const exercisesWord = exercises === 1 ? " exercise" : " exercises";
+
       const ready = document.getElementById("dayQuizReady");
       if (ready) {
-        ready.textContent = label + " · " + types.length + (types.length === 1 ? " type" : " types") + (exercises ? " · " + exercises + (exercises === 1 ? " exercise" : " exercises") : "");
+        ready.innerHTML =
+          '<span class="dq-ready-line1">' + esc(label) + ' · ' + types.length + typesWord + ' · ' + selectedN + cardsWord + '</span>' +
+          '<span class="dq-ready-line2">' + exercises + ' ' + exercisesWord + ' · ' + mins + ' min</span>';
       }
       const chips = document.getElementById("dayQuizChips");
-      if (chips) chips.innerHTML = types.map((type) => '<span class="dq-chip">' + esc(type) + "</span>").join("");
+      if (chips) {
+        chips.innerHTML = types.map((type) => '<button type="button" class="dq-chip" data-dq-chip="' + esc(type) + '">' + esc(type) + " ↗</button>").join("");
+      }
       const mark = document.getElementById("dayQuizMark");
       const modeBtn = document.querySelector('#dayQuizBoard [data-dq-mode].on .dq-ico');
       if (mark) mark.textContent = modeBtn ? modeBtn.textContent : "⚡";
-      const mins = Math.max(0, Math.round(exercises * 30 / 60));
       const start = document.getElementById("dayQuizStart");
       if (start) {
-        const cardsWord = selectedN === 1 ? " card" : " cards";
-        start.textContent = "Start · " + selectedN + cardsWord + " · ~" + mins + " min";
+        start.textContent = "Start";
         start.disabled = !selectedN || !types.length;
+      }
+      const shortageAlert = document.getElementById("dqMemShortageAlert");
+      if (shortageAlert) {
+        const matchable = selectedCards.filter((c) => c.en && c.ru);
+        const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+        const requestedPairs = Math.floor(Number(memInp?.value) || 4);
+        const isMemOn = types.includes("Memory");
+        if (isMemOn && requestedPairs > matchable.length) {
+          shortageAlert.hidden = false;
+          const msg = shortageAlert.querySelector("[data-dq-mem-shortage-msg]");
+          if (msg) msg.textContent = "This lesson has " + matchable.length + " word pairs. You requested " + requestedPairs + " pairs.";
+          const keepBtn = shortageAlert.querySelector("[data-dq-mem-keep]");
+          if (keepBtn) keepBtn.textContent = "Keep " + matchable.length + " pairs";
+        } else {
+          shortageAlert.hidden = true;
+        }
       }
       const note = document.getElementById("dayQuizNote");
       if (note) {
@@ -1121,9 +1150,10 @@
       return types;
     }
     function memoryBlockSize(total) {
-      const inp = document.querySelector("section.on [data-memory-size]");
+      const inp = document.querySelector("section.on [data-memory-size]") || document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
       let n = Math.floor(Number(inp && inp.value) || 4);
       if (!Number.isFinite(n) || n < 2) n = 2;
+      if (n > 50) n = 50;
       if (total && n > total) n = total;
       return Math.max(1, n);
     }
@@ -1969,10 +1999,45 @@
       }).join("");
     }
     function paintMemory(item) {
-      document.getElementById("dayqView").innerHTML = '<p class="prompt">Find the pairs</p><div class="pairs">' +
+      if (!item.disappeared) item.disappeared = {};
+      const bookSvg =
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;">' +
+          '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>' +
+          '<path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>' +
+          '<line x1="12" y1="7" x2="12" y2="13"></line>' +
+          '<line x1="9" y1="10" x2="15" y2="10"></line>' +
+        '</svg>';
+      document.getElementById("dayqView").innerHTML = '<p class="prompt">Find the pairs</p><div class="pairs is-memory-grid">' +
         item.faces.map((face, i) => {
-          const up = item.done[face.id] || item.open.indexOf(i) >= 0;
-          return '<button class="pair' + (item.done[face.id] ? " ok" : "") + '" type="button" data-mem="' + i + '">' + (up ? esc(face.text) : "·") + "</button>";
+          const isDone = Boolean(item.done[face.id]);
+          const isOpen = isDone || item.open.indexOf(i) >= 0;
+          const isDisappeared = Boolean(item.disappeared[face.id]);
+          const classes = ["pair", "is-memory-square"];
+          if (isOpen && !isDone) classes.push("pick");
+          if (isDone) classes.push("ok");
+          if (isDisappeared) classes.push("matched-disappeared");
+
+          let inner = "";
+          if (!isOpen) {
+            inner = '<span style="font-size:16px; color:var(--mute);">🂠</span>';
+          } else {
+            if (face.image) {
+              inner += '<div style="width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:2px;">' +
+                (face.image.startsWith("http") || face.image.startsWith("/")
+                  ? '<img src="' + esc(face.image) + '" style="max-width:100%; max-height:100%; border-radius:6px; object-fit:contain;" />'
+                  : '<span style="font-size:18px;">' + esc(face.image) + "</span>") +
+              "</div>";
+            }
+            inner += '<span style="font-size:13px; font-weight:800; color:var(--ink); line-height:1.2; max-width:80px; word-break:break-word;">' + esc(face.text) + "</span>";
+            if (face.isNew) {
+              if (face.isSaved) {
+                inner += '<button type="button" class="dq-card-dict-btn is-saved" title="Added" disabled>✓</button>';
+              } else {
+                inner += '<button type="button" class="dq-card-dict-btn" data-mem-dict-add="' + i + '" title="Add to dictionary" aria-label="Add to dictionary">' + bookSvg + "</button>";
+              }
+            }
+          }
+          return '<button class="' + classes.join(" ") + '" type="button" data-mem="' + i + '">' + inner + "</button>";
         }).join("") + '</div><div id="dayFb"></div>';
     }
     function paintHangman(item) {
@@ -2296,10 +2361,63 @@
           paintDayQuizBoard();
           return;
         }
+        const chip = e.target.closest("[data-dq-chip]");
+        if (chip) {
+          const type = chip.dataset.dqChip;
+          const customBtn = document.querySelector('#dayQuizBoard [data-dq-mode="custom"]');
+          if (customBtn && !customBtn.classList.contains("on")) customBtn.click();
+          const target = document.querySelector('#dayQuizCustom [data-dq-type="' + type + '"]');
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('dq-target-pulse');
+            setTimeout(() => target.classList.remove('dq-target-pulse'), 1200);
+          }
+          return;
+        }
+        const memSub = e.target.closest("[data-dq-mem-sub]");
+        const memAdd = e.target.closest("[data-dq-mem-add]");
+        if (memSub || memAdd) {
+          e.stopPropagation();
+          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+          let val = Math.floor(Number(memInp?.value) || 4);
+          if (memSub && val > 2) val -= 1;
+          if (memAdd && val < 50) val += 1;
+          if (memInp) memInp.value = String(val);
+          const valEl = document.querySelector('[data-dq-mem-val]');
+          if (valEl) valEl.textContent = String(val);
+          const cardsEl = document.querySelector('[data-dq-mem-cards]');
+          if (cardsEl) cardsEl.textContent = '(' + (val * 2) + ' cards)';
+          paintDayQuizBoard();
+          return;
+        }
+        const keepBtn = e.target.closest("[data-dq-mem-keep]");
+        if (keepBtn) {
+          const pool = quizPool();
+          const selectedCards = limitStudyCards(pool, "daysetup", true);
+          const matchable = selectedCards.filter((c) => c.en && c.ru);
+          const count = Math.max(2, matchable.length);
+          const memInp = document.querySelector('[data-dq-type="Memory"] input[data-memory-size]');
+          if (memInp) memInp.value = String(count);
+          const valEl = document.querySelector('[data-dq-mem-val]');
+          if (valEl) valEl.textContent = String(count);
+          const cardsEl = document.querySelector('[data-dq-mem-cards]');
+          if (cardsEl) cardsEl.textContent = '(' + (count * 2) + ' cards)';
+          paintDayQuizBoard();
+          return;
+        }
+        const genBtn = e.target.closest("[data-dq-mem-gen]");
+        if (genBtn) {
+          dayQuizGenerateExtraMemoryPairs();
+          return;
+        }
         const all = e.target.closest("[data-dq-all]");
         if (all) {
           const group = all.closest("[data-dq-group]");
-          if (group) group.querySelectorAll("[data-dq-type]").forEach((b) => b.classList.add("on"));
+          if (group) {
+            const buttons = [...group.querySelectorAll("[data-dq-type]")];
+            const allOn = buttons.length > 0 && buttons.every((b) => b.classList.contains("on"));
+            buttons.forEach((b) => b.classList.toggle("on", !allOn));
+          }
           paintDayQuizBoard();
           return;
         }
@@ -2579,6 +2697,23 @@
         if (done) markDay(true, item.answer);
         else if (item.misses >= 6) markDay(false, item.answer);
       } else if (item.type === "Memory") {
+        const dictAdd = e.target.closest("[data-mem-dict-add]");
+        if (dictAdd) {
+          e.stopPropagation();
+          const cardIdx = Number(dictAdd.dataset.memDictAdd);
+          const face = item.faces[cardIdx];
+          if (face && face.en && face.ru) {
+            face.isSaved = true;
+            item.faces.forEach((f) => {
+              if (f.id === face.id) f.isSaved = true;
+            });
+            if (typeof saveAdded === "function") {
+              saveAdded(face.en, face.ru);
+            }
+            paintMemory(item);
+          }
+          return;
+        }
         const mem = e.target.closest("[data-mem]");
         const fb = document.getElementById("dayFb");
         if (!mem || item.busy || !fb || fb.innerHTML) return;
@@ -2594,9 +2729,16 @@
           item.done[first.id] = true;
           item.open = [];
           paintMemory(item);
-          const ids = {};
-          item.faces.forEach((row) => { ids[row.id] = true; });
-          if (Object.keys(ids).every((id) => item.done[id])) markDay(true, "");
+          const isNewPair = Boolean(first.isNew || second.isNew);
+          const disappearDelay = isNewPair ? 2000 : 350;
+          setTimeout(() => {
+            if (!item.disappeared) item.disappeared = {};
+            item.disappeared[first.id] = true;
+            paintMemory(item);
+            const ids = {};
+            item.faces.forEach((row) => { ids[row.id] = true; });
+            if (Object.keys(ids).every((id) => item.done[id])) markDay(true, "");
+          }, disappearDelay);
         } else {
           item.misses = (item.misses || 0) + 1;
           item.busy = true;

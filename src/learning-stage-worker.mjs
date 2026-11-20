@@ -16,6 +16,7 @@ import {LessonMediaService} from './learning-lesson-media.mjs';
 import {stageR2Media,boundedMediaBytes} from './learning-r2-media.mjs';
 import {parseLessonPdfMeta,generateLessonFromText,LESSON_PDF_META_MAX_BYTES} from './lesson-pdf-meta.mjs';
 import {enrichGrammarRule} from './grammar-enrichment.mjs';
+import {enrichDistractors} from './distractor-enrichment.mjs';
 import {inlineAssetResponse} from './learning-inline-assets.mjs';
 import {ensureStudyProfile} from './learning-profile.mjs';
 import {projectStudentCatalog} from './learning-legacy-read.mjs';
@@ -151,6 +152,7 @@ export default {async fetch(request,env){
     const voiceReply=path==='/api/lessons/voice-reply'&&method==='POST';
     const lessonAssessPronounce=path==='/api/lessons/assess-pronunciation'&&method==='POST';
     const grammarEnrich=path==='/api/grammar/enrich'&&method==='POST';
+    const distractorEnrich=path==='/api/distractors/enrich'&&method==='POST';
     const grammarCustom=path==='/api/grammar/custom';
     const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||pdfMeta
@@ -158,6 +160,7 @@ export default {async fetch(request,env){
       ||voiceReply
       ||lessonAssessPronounce
       ||grammarEnrich
+      ||distractorEnrich
       ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
@@ -406,6 +409,12 @@ export default {async fetch(request,env){
       const examples=Array.isArray(bodyValue?.examples)?bodyValue.examples:[];
       if(!title)throw new StudyError(400,'Title is required.');
       const enriched=await enrichGrammarRule({title,explanation,examples,env,fetchImpl:globalThis.fetch});
+      return json(enriched);
+    }
+    if(distractorEnrich){
+      const bodyValue=await body(request,64000);
+      const items=Array.isArray(bodyValue?.items)?bodyValue.items:(bodyValue?[bodyValue]:[]);
+      const enriched=await enrichDistractors({items,env,fetchImpl:globalThis.fetch});
       return json(enriched);
     }
     if(binaryWrite){

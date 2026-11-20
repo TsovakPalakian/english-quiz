@@ -17,8 +17,107 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  function extractFocusQuestionsFromLesson(lesson) {
+  function shuffleArray(arr) {
+    if (!Array.isArray(arr)) return [];
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i];
+      a[i] = a[j];
+      a[j] = t;
+    }
+    return a;
+  }
+
+  function shuffleQuestionOptions(q) {
+    if (!q || !Array.isArray(q.options) || q.options.length <= 1) return q;
+    const correctOpt = q.options[typeof q.answer === 'number' ? q.answer : 0];
+    const shuffled = shuffleArray(q.options);
+    const newAnswer = shuffled.indexOf(correctOpt);
+    return Object.assign({}, q, {
+      options: shuffled,
+      answer: newAnswer >= 0 ? newAnswer : 0
+    });
+  }
+
+  function getSemanticDistractors(target, itemDistractors, pool, defaultPool, count = 4) {
+    if (Array.isArray(itemDistractors) && itemDistractors.length >= count) {
+      return itemDistractors.slice(0, count);
+    }
+    const normTarget = String(target || '').trim().toLowerCase();
+    const seen = new Set([normTarget]);
+    const res = [];
+    (pool || []).forEach(val => {
+      const s = String(val || '').trim();
+      const norm = s.toLowerCase();
+      if (s && !seen.has(norm)) {
+        seen.add(norm);
+        res.push(s);
+      }
+    });
+    (defaultPool || []).forEach(val => {
+      const s = String(val || '').trim();
+      const norm = s.toLowerCase();
+      if (s && !seen.has(norm)) {
+        seen.add(norm);
+        res.push(s);
+      }
+    });
+    return res.slice(0, count);
+  }
+
+  function extractFocusQuestionsFromLesson(lesson, options = {}) {
     if (!lesson || !Array.isArray(lesson.blocks)) return [];
+    const bidirectional = options.bidirectional === true;
+    const doShuffle = options.shuffle === true;
+
+    // Collect lesson pools for semantic distractor fallback
+    const allLessonWords = [];
+    const allLessonMeanings = [];
+    lesson.blocks.forEach(b => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && (Array.isArray(b.items) || b.word)) {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{ word: b.word, translation: b.translation || b.meaning || b.ru }];
+        items.forEach(it => {
+          const w = String(it.word || it.en || b.word || '').trim();
+          const m = String(it.translation || it.meaning || it.ru || '').trim();
+          if (w) allLessonWords.push(w);
+          if (m) allLessonMeanings.push(m);
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) && b.items.length ? b.items : [{
+          phrase: b.title || b.word || '',
+          meaning: b.meaning || b.translation || b.ru || ''
+        }];
+        items.forEach(it => {
+          const p = String(it.phrase || it.word || it.en || b.title || '').trim();
+          const m = String(it.translation || it.meaning || it.ru || '').trim();
+          if (p) allLessonWords.push(p);
+          if (m) allLessonMeanings.push(m);
+        });
+      }
+    });
+
+    const defaultRuDistractors = [
+      'вести внутренний диалог',
+      'рассуждать вслух',
+      'говорить наедине с собой',
+      'бормотать под нос',
+      'высказываться открыто',
+      'думать про себя',
+      'объяснять самому себе',
+      'шептать про себя'
+    ];
+    const defaultEnDistractors = [
+      'speak out loud',
+      'think to yourself',
+      'speak for yourself',
+      'talk through',
+      'say to oneself',
+      'whisper under breath',
+      'reason out loud',
+      'talk in private'
+    ];
+
     const questions = [];
     lesson.blocks.forEach((b, bIdx) => {
       if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && (Array.isArray(b.items) || b.word)) {
@@ -27,16 +126,48 @@
           const w = String(it.word || it.en || b.word || 'Vocabulary').trim();
           if (!w) return;
           const meaning = String(it.translation || it.meaning || it.ru || w).trim();
-          questions.push({
-            id: 'word-' + bIdx + '-' + itIdx,
-            category: 'words',
-            title: 'Vocabulary: ' + w,
-            concept: w,
-            prompt: 'Identify the definition of "' + w + '":',
-            options: [meaning, 'Alternative form', 'Unrelated context'],
-            answer: 0,
-            feedback: '"' + w + '" means: ' + meaning
-          });
+          if (bidirectional) {
+            // Direct: EN -> RU (5 options)
+            const ruDist = getSemanticDistractors(meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, 4);
+            const directOpts = [meaning, ...ruDist];
+            const directQ = {
+              id: 'word-' + bIdx + '-' + itIdx + '-direct',
+              category: 'words',
+              title: 'Vocabulary: ' + w,
+              concept: w,
+              prompt: 'Identify the definition of "' + w + '":',
+              options: directOpts,
+              answer: 0,
+              feedback: '"' + w + '" means: ' + meaning
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(directQ) : directQ);
+
+            // Reverse: RU -> EN (5 options)
+            const enDist = getSemanticDistractors(w, it.distractorsEn, allLessonWords, defaultEnDistractors, 4);
+            const revOpts = [w, ...enDist];
+            const reverseQ = {
+              id: 'word-' + bIdx + '-' + itIdx + '-reverse',
+              category: 'words',
+              title: 'Vocabulary: ' + meaning,
+              concept: meaning,
+              prompt: 'Identify the English equivalent for "' + meaning + '":',
+              options: revOpts,
+              answer: 0,
+              feedback: '"' + meaning + '" in English is: ' + w
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(reverseQ) : reverseQ);
+          } else {
+            questions.push({
+              id: 'word-' + bIdx + '-' + itIdx,
+              category: 'words',
+              title: 'Vocabulary: ' + w,
+              concept: w,
+              prompt: 'Identify the definition of "' + w + '":',
+              options: [meaning, 'Alternative form', 'Unrelated context'],
+              answer: 0,
+              feedback: '"' + w + '" means: ' + meaning
+            });
+          }
         });
       } else if (b.type === 'phrase' || b.tab === 'phrases') {
         const items = Array.isArray(b.items) && b.items.length ? b.items : [{
@@ -50,19 +181,51 @@
           if (!phraseText) return;
           const meaning = String(it.translation || it.meaning || it.ru || phraseText).trim();
           const example = String(it.example || ('Usage: "' + phraseText + '" in everyday English.')).trim();
-          const distractors = allMeanings.filter(m => m !== meaning);
-          const opt1 = distractors[0] || 'Alternative colloquial usage';
-          const opt2 = distractors[1] || 'Opposite contextual meaning';
-          questions.push({
-            id: 'phrase-' + (b.id || bIdx) + '-' + itIdx,
-            category: 'phrases',
-            title: 'Phrase: ' + phraseText,
-            concept: phraseText,
-            prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
-            options: [meaning, opt1, opt2],
-            answer: 0,
-            feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
-          });
+          if (bidirectional) {
+            // Direct: EN -> RU (5 options)
+            const ruDist = getSemanticDistractors(meaning, it.distractorsRu, allLessonMeanings, defaultRuDistractors, 4);
+            const directOpts = [meaning, ...ruDist];
+            const directQ = {
+              id: 'phrase-' + (b.id || bIdx) + '-' + itIdx + '-direct',
+              category: 'phrases',
+              title: 'Phrase: ' + phraseText,
+              concept: phraseText,
+              prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
+              options: directOpts,
+              answer: 0,
+              feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(directQ) : directQ);
+
+            // Reverse: RU -> EN (5 options)
+            const enDist = getSemanticDistractors(phraseText, it.distractorsEn, allLessonWords, defaultEnDistractors, 4);
+            const revOpts = [phraseText, ...enDist];
+            const reverseQ = {
+              id: 'phrase-' + (b.id || bIdx) + '-' + itIdx + '-reverse',
+              category: 'phrases',
+              title: 'Phrase: ' + meaning,
+              concept: meaning,
+              prompt: 'Select the correct phrase for "' + meaning + '":',
+              options: revOpts,
+              answer: 0,
+              feedback: '"' + meaning + '" in English is: ' + phraseText + (example ? ' (' + example + ')' : '')
+            };
+            questions.push(doShuffle ? shuffleQuestionOptions(reverseQ) : reverseQ);
+          } else {
+            const distractors = allMeanings.filter(m => m !== meaning);
+            const opt1 = distractors[0] || 'Alternative colloquial usage';
+            const opt2 = distractors[1] || 'Opposite contextual meaning';
+            questions.push({
+              id: 'phrase-' + (b.id || bIdx) + '-' + itIdx,
+              category: 'phrases',
+              title: 'Phrase: ' + phraseText,
+              concept: phraseText,
+              prompt: 'Select the correct meaning for the phrase "' + phraseText + '":',
+              options: [meaning, opt1, opt2],
+              answer: 0,
+              feedback: '"' + phraseText + '": ' + meaning + (example ? ' (' + example + ')' : '')
+            });
+          }
         });
       } else if (b.type === 'quiz') {
         const isHw = b.tab === 'homework' || b.homework === true || b.isHomework === true || /^(?:HW|Homework)\b/i.test(b.title || '');
@@ -251,7 +414,8 @@
   function startFocusSessionWithScope(scope, subCat) {
     focusActiveScope = scope || 'all';
     focusActiveSubCategory = subCat || 'words';
-    focusQuestions = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    const filtered = filterFocusQuestionsByScope(focusAllQuestions, focusActiveScope, focusActiveSubCategory);
+    focusQuestions = shuffleArray(filtered).map(shuffleQuestionOptions);
     if (!focusQuestions || focusQuestions.length === 0) {
       alert('No questions found for the selected practice scope.');
       return;
@@ -276,7 +440,7 @@
       renderFocusPlayer();
       return;
     }
-    focusQuestions = filtered;
+    focusQuestions = shuffleArray(filtered).map(shuffleQuestionOptions);
     focusIndex = 0;
     focusSelectedOption = null;
     focusResults = {};
@@ -428,7 +592,7 @@
         '<div class="focus-progress-bar">' + progressSegments + '</div>' +
         '<div class="focus-header-tools">' +
           scopeSelectorHtml +
-          '<span class="focus-hotkeys">⌨️ 1-4: Select | Enter: Next | Esc: Exit</span>' +
+          '<span class="focus-hotkeys">⌨️ 1–5: Select | Enter: Next | Esc: Exit</span>' +
           '<button type="button" class="focus-close" id="lmFocusCloseBtn">✕</button>' +
         '</div>' +
       '</div>' +
@@ -578,7 +742,7 @@
     }
 
     const currentLesson = (typeof lmState !== 'undefined' && lmState) ? lmState : (typeof window !== 'undefined' && window.lmState ? window.lmState : null);
-    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson);
+    focusAllQuestions = extractFocusQuestionsFromLesson(currentLesson, { bidirectional: true, shuffle: true });
     if (!focusAllQuestions || focusAllQuestions.length === 0) {
       alert('No quiz or exercise tasks available to practice in Focus Mode.');
       return;
@@ -1275,7 +1439,7 @@
         return;
       }
 
-      if (['1', '2', '3', '4'].includes(e.key)) {
+      if (['1', '2', '3', '4', '5'].includes(e.key)) {
         e.preventDefault();
         focusSelectOption(parseInt(e.key, 10) - 1);
         return;
@@ -1305,6 +1469,60 @@
     });
   }
 
+  async function stageEnrichLessonDistractors(lesson) {
+    if (!lesson || !Array.isArray(lesson.blocks)) return;
+    const itemsToEnrich = [];
+    lesson.blocks.forEach(b => {
+      if ((b.tab === 'words' || b.type === 'wordcard' || b.type === 'word') && Array.isArray(b.items)) {
+        b.items.forEach(it => {
+          if (!it.distractorsRu || !it.distractorsEn) {
+            itemsToEnrich.push({
+              word: it.word || it.en || '',
+              translation: it.translation || it.meaning || it.ru || '',
+              ref: it
+            });
+          }
+        });
+      } else if (b.type === 'phrase' || b.tab === 'phrases') {
+        const items = Array.isArray(b.items) ? b.items : [b];
+        items.forEach(it => {
+          if (!it.distractorsRu || !it.distractorsEn) {
+            itemsToEnrich.push({
+              word: it.phrase || it.word || it.en || b.title || '',
+              translation: it.translation || it.meaning || it.ru || '',
+              ref: it
+            });
+          }
+        });
+      }
+    });
+
+    if (itemsToEnrich.length === 0) return;
+
+    try {
+      const payload = itemsToEnrich.map(x => ({ word: x.word, translation: x.translation }));
+      const res = await fetch('/api/distractors/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: payload })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          data.forEach((resItem, idx) => {
+            const target = itemsToEnrich[idx]?.ref;
+            if (target && Array.isArray(resItem.directDistractors) && Array.isArray(resItem.reverseDistractors)) {
+              target.distractorsRu = resItem.directDistractors;
+              target.distractorsEn = resItem.reverseDistractors;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      // Graceful offline fallback
+    }
+  }
+
   if (typeof window !== 'undefined') {
     window.openFocusPlayer = openFocusPlayer;
     window.closeFocusPlayer = closeFocusPlayer;
@@ -1320,6 +1538,9 @@
     window.focusCheckAnswer = focusCheckAnswer;
     window.focusApplyAdaptiveRemediation = focusApplyAdaptiveRemediation;
     window.extractFocusQuestionsFromLesson = extractFocusQuestionsFromLesson;
+    window.shuffleArray = shuffleArray;
+    window.shuffleQuestionOptions = shuffleQuestionOptions;
+    window.stageEnrichLessonDistractors = stageEnrichLessonDistractors;
     window.calculateMasteryScore = calculateMasteryScore;
     window.evaluateTwoFactorSubmission = evaluateTwoFactorSubmission;
     window.renderTwoFactorReviewHtml = renderTwoFactorReviewHtml;
@@ -1340,5 +1561,8 @@
     globalThis.openFocusPlayer = openFocusPlayer;
     globalThis.startFocusSessionWithScope = startFocusSessionWithScope;
     globalThis.switchFocusScope = switchFocusScope;
+    globalThis.shuffleArray = shuffleArray;
+    globalThis.shuffleQuestionOptions = shuffleQuestionOptions;
+    globalThis.stageEnrichLessonDistractors = stageEnrichLessonDistractors;
   }
 })();

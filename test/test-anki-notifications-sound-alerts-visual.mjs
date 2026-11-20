@@ -70,8 +70,9 @@ test('Visual integration test for notification bell, modal, sound timing chips, 
         }
 
         const bell = document.getElementById('shellHeaderNotifyBell');
-        const bellDot = bell ? bell.querySelector('.shell-header-bell-dot') : null;
-        const bellDotDisplay = bellDot ? window.getComputedStyle(bellDot).display : 'none';
+        const popoverNotifyItem = document.querySelector('[data-profile-action="notifications"]');
+        const popoverDot = popoverNotifyItem ? popoverNotifyItem.querySelector('.popover-notify-dot') : null;
+        const popoverDotDisplay = popoverDot ? window.getComputedStyle(popoverDot).display : 'none';
 
         // Set Anki reminder
         if (typeof window.setAnkiNextDue === 'function') {
@@ -88,6 +89,10 @@ test('Visual integration test for notification bell, modal, sound timing chips, 
           window.openLessonNotifications();
         }
 
+        const avatarWrap = document.querySelector('.user-profile-pill-wrap');
+        const bellVisible = bell && !bell.hidden && window.getComputedStyle(bell).display !== 'none';
+        const avatarVisible = avatarWrap && !avatarWrap.hidden && window.getComputedStyle(avatarWrap).display !== 'none';
+
         const modal = document.getElementById('lessonNotificationsModal');
         const modalHidden = modal ? modal.hidden : true;
         const modalDialog = modal ? modal.querySelector('.lesson-notifications-dialog') : null;
@@ -100,8 +105,10 @@ test('Visual integration test for notification bell, modal, sound timing chips, 
         const chipsCount = sched ? sched.querySelectorAll('.lesson-notify-chip').length : 0;
 
         return {
-          hasBell: !!bell,
-          bellDotDisplay,
+          hasBell: bellVisible,
+          avatarHidden: !avatarVisible,
+          hasPopoverNotifyItem: !!popoverNotifyItem,
+          popoverDotDisplay,
           modalHidden,
           dialogWidth,
           hasAnkiCard: !!ankiCard,
@@ -111,8 +118,9 @@ test('Visual integration test for notification bell, modal, sound timing chips, 
         };
       }, theme);
 
-      assert.equal(state.hasBell, true, `[${theme}] Header must have #shellHeaderNotifyBell button`);
-      assert.equal(state.bellDotDisplay, 'block', `[${theme}] Bell dot must be visible when data-notify-unread=1`);
+      assert.equal(state.hasBell, true, `[${theme}] Header bell must replace avatar when unread`);
+      assert.equal(state.avatarHidden, true, `[${theme}] Avatar must be hidden when unread bell is active`);
+      assert.equal(state.hasPopoverNotifyItem, true, `[${theme}] Profile popover must retain notifications entry`);
       assert.equal(state.modalHidden, false, `[${theme}] Modal must be open`);
       assert.equal(state.hasAnkiCard, true, `[${theme}] Modal must contain Anki cards reminder`);
       assert.equal(state.ankiTitle, 'Anki cards · Spaced repetition', `[${theme}] Anki reminder title must match`);
