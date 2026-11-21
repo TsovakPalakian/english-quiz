@@ -10883,6 +10883,39 @@ html[data-notify-unread="1"] .popover-notify-dot {
   background: var(--ok);
 }
 
+.memory-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+.memory-head-row .prompt {
+  margin: 0;
+}
+.memory-counter {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mute);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.memory-counter b {
+  color: var(--ink);
+  font-weight: 800;
+}
+.hangman-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+.hangman-q {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 #dayqView .pairs.is-memory-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

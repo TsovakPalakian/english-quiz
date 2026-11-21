@@ -1783,6 +1783,11 @@
     function paintSessionClock() {
       const timer = document.getElementById("dayqTimer");
       if (!timer) return 0;
+      const item = dayQueue[dayAt];
+      if (item && item.type === "Memory") {
+        timer.hidden = true;
+        return Math.max(0, sessionMs - (Date.now() - examStarted));
+      }
       const left = Math.max(0, sessionMs - (Date.now() - examStarted));
       timer.hidden = false;
       timer.classList.toggle("timer-low", left <= 5 * 60 * 1000);
@@ -2104,7 +2109,19 @@
           '<line x1="12" y1="7" x2="12" y2="13"></line>' +
           '<line x1="9" y1="10" x2="15" y2="10"></line>' +
         '</svg>';
-      document.getElementById("dayqView").innerHTML = '<p class="prompt">Find the pairs</p><div class="pairs is-memory-grid">' +
+      const totalCards = Array.isArray(item.faces) ? item.faces.length : 0;
+      const doneIds = item.done || {};
+      const guessedCards = Object.keys(doneIds).filter((id) => doneIds[id]).length * 2;
+      const remainingCards = Math.max(0, totalCards - guessedCards);
+      const headHtml = '<div class="memory-head-row">' +
+        '<p class="prompt">Find the pairs</p>' +
+        '<div class="memory-counter">' +
+          '<span>Guessed: <b>' + guessedCards + '</b></span>' +
+          '<span>·</span>' +
+          '<span>Remaining: <b>' + remainingCards + '</b></span>' +
+        '</div>' +
+      '</div>';
+      document.getElementById("dayqView").innerHTML = headHtml + '<div class="pairs is-memory-grid">' +
         item.faces.map((face, i) => {
           const isDone = Boolean(item.done[face.id]);
           const isOpen = isDone || item.open.indexOf(i) >= 0;
@@ -2138,16 +2155,21 @@
         }).join("") + '</div><div id="dayFb"></div>';
     }
     function paintHangman(item) {
-      const shown = String(item.answer || "").split("").map((ch) => {
-        if (!/[a-zA-Z]/.test(ch)) return ch;
-        return item.got[ch.toLowerCase()] ? ch : "_";
-      }).join(" ");
+      const words = String(item.answer || "").split(/\s+/);
+      const shown = words.map((word, wIdx) => {
+        const letters = word.split("").map((ch) => {
+          if (!/[a-zA-Z]/.test(ch)) return ch;
+          return item.got[ch.toLowerCase()] ? ch : "_";
+        }).join(" ");
+        const isLast = wIdx === words.length - 1;
+        return '<span class="hangman-word"' + (isLast ? '' : ' style="margin-right:24px;"') + '>' + esc(letters) + '</span>';
+      }).join("");
       const keys = "abcdefghijklmnopqrstuvwxyz".split("").map((letter) => {
         const used = item.got[letter] || item.missed[letter];
         return '<button class="token" type="button" data-hang="' + letter + '"' + (used ? " disabled" : "") + ">" + letter + "</button>";
       }).join("");
       const hint = (item.custom && item.custom.hint) || (item.card && item.card.ru) || "";
-      document.getElementById("dayqView").innerHTML = '<p class="prompt">Hangman' + (hint ? " · " + esc(hint) : "") + '</p><p class="q">' + esc(shown) + '</p><p class="hint">Misses ' + item.misses + " / 6</p><div class=\"row\">" + keys + '</div><div id="dayFb"></div>';
+      document.getElementById("dayqView").innerHTML = '<p class="prompt">Hangman' + (hint ? " · " + esc(hint) : "") + '</p><div class="q hangman-q">' + shown + '</div><p class="hint">Misses ' + item.misses + " / 6</p><div class=\"row\">" + keys + '</div><div id="dayFb"></div>';
     }
     function renderDay() {
       if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -2160,6 +2182,8 @@
       paintExamMistakesLeft();
       const dayqType = document.getElementById("dayqType");
       if (dayqType) dayqType.textContent = item.type;
+      const timer = document.getElementById("dayqTimer");
+      if (timer && item.type === "Memory") timer.hidden = true;
       document.getElementById("dayqBar").style.width = Math.round(((dayAt + 1) / dayQueue.length) * 100) + "%";
       const view = document.getElementById("dayqView");
       const card = item.card || {};
@@ -2761,11 +2785,6 @@
             pair.classList.add("bad");
             item.misses = (item.misses || 0) + 1;
             setTimeout(() => pair.classList.remove("bad"), 400);
-            if (examMode || item.misses >= 3) {
-              item.left = "";
-              document.querySelectorAll("#dayqView .pair.pick").forEach((b) => b.classList.remove("pick"));
-              markDay(false, "Match the pairs");
-            }
           }
         }
       } else if (item.type === "Select all") {
@@ -2850,10 +2869,6 @@
             item.open = [];
             item.busy = false;
             if (!document.getElementById("dayFb") || document.getElementById("dayFb").innerHTML) return;
-            if (examMode || item.misses >= 3) {
-              markDay(false, "Find the pairs");
-              return;
-            }
             paintMemory(item);
           }, 700);
         }
