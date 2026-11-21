@@ -151,8 +151,17 @@ test('TASK-54: Words tab includes visual divider and supplementary badges for ne
 
   // Verify divider insertion in lmEnsureWordsInLesson
   assert.ok(code.includes('isSupplementaryDivider: true'), 'lmEnsureWordsInLesson must insert supplementary divider');
-  assert.ok(code.includes('✨ Supplementary Material · Дополнительные материалы (Generated)'), 'Divider must have clear title');
+  assert.ok(code.includes('✨ Supplementary Material (Generated)'), 'Divider must have clear English title without Russian text or dot');
+  assert.ok(!code.includes('✨ Supplementary Material · Дополнительные материалы'), 'Must not contain old Russian label with dot in default or generator');
   assert.ok(code.includes('supplementary: true'), 'New cards must be tagged with supplementary: true');
+
+  // Verify backward-compatible sanitization of legacy Russian label
+  const legacyGenerated = '✨ Supplementary Material · Дополнительные материалы (Generated)';
+  const legacyDefault = '✨ Supplementary Material · Дополнительные материалы';
+  const cleanGen = legacyGenerated.replace(/\s*·\s*Дополнительные материалы/g, '');
+  const cleanDef = legacyDefault.replace(/\s*·\s*Дополнительные материалы/g, '');
+  assert.equal(cleanGen, '✨ Supplementary Material (Generated)');
+  assert.equal(cleanDef, '✨ Supplementary Material');
 
   // Verify lmWordCardHtml renders tags
   assert.ok(code.includes('lm-supplementary-tag'), 'lmWordCardHtml must render lm-supplementary-tag');
@@ -176,6 +185,10 @@ test('TASK-53: Visual test with Playwright - verifies clean input, progress bar,
       filePath = path.join(rootDir, 'site/preview.html');
     } else if (parsedUrl.pathname.startsWith('/preview.js')) {
       filePath = path.join(rootDir, 'preview.js');
+    } else if (parsedUrl.pathname === '/text-colors.js') {
+      filePath = path.join(rootDir, 'client/shared/text-colors.js');
+    } else if (parsedUrl.pathname === '/main-bridge.js') {
+      filePath = path.join(rootDir, 'client/main/main-bridge.js');
     } else {
       filePath = path.join(rootDir, 'site', '.' + parsedUrl.pathname);
       if (!fs.existsSync(filePath)) {
@@ -287,6 +300,35 @@ test('TASK-53: Visual test with Playwright - verifies clean input, progress bar,
       return isVisible && titleMatches;
     });
     assert.ok(appendModeResult, 'Append mode banner must display title of active unpublished draft lesson');
+
+    // Visual test: verify Supplementary Material divider badge rendering without Russian text or dot
+    const dividerCheckResult = await page.evaluate(() => {
+      window.authUser = { role: 'DEVELOPER', name: 'Teacher', id: 't1' };
+      window.viewAccount = null;
+      window.materialReviewStudent = null;
+      window.lmState = {
+        id: 'test-divider-lesson',
+        title: 'Superstitions and Prepositions',
+        published: false,
+        tab: 'words',
+        blocks: [
+          { id: 'w1', type: 'wordcard', tab: 'words', word: 'superstition', ru: 'суеверие' },
+          { id: 'div1', type: 'divider', tab: 'words', label: '✨ Supplementary Material (Generated)', isSupplementaryDivider: true },
+          { id: 'div2-legacy', type: 'divider', tab: 'words', label: '✨ Supplementary Material · Дополнительные материалы (Generated)' },
+          { id: 'w2', type: 'wordcard', tab: 'words', word: 'touch wood', ru: 'постучать по дереву', supplementary: true }
+        ]
+      };
+      window.show('material');
+      window.lmShow('edit');
+      window.lmSelectTab('words');
+
+      const badges = [...document.querySelectorAll('#lmBlocks .lm-supplementary-divider-badge')].map(el => el.textContent.trim());
+      return badges;
+    });
+    assert.deepEqual(dividerCheckResult, [
+      '✨ Supplementary Material (Generated)',
+      '✨ Supplementary Material (Generated)'
+    ], 'Both new and legacy divider blocks must render clean English label without Russian text or dot');
   } finally {
     await browser.close();
     server.close();

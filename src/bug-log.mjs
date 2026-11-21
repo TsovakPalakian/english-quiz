@@ -214,6 +214,7 @@ export async function recordHttpBug(db,actor,request,response,application={}){
   if(/^\/api\/v\d+\//i.test(url.pathname))return;
   if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator|env)(?:\/|$|\.|\-)/i.test(url.pathname))return;
   if(/^\/api\/(?:graphql|gql|swagger|openapi|postman|auth)(?:\/|$|\.)/i.test(url.pathname))return;
+  if(/(?:^|\/)config\.js(?:\/|$)/i.test(url.pathname))return;
   if(url.pathname==='/lookup'&&response.status===404)return;
   let responseText='';
   try{responseText=await response.text();}catch{responseText='';}

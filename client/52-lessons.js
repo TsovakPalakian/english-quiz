@@ -1442,7 +1442,9 @@
         const teacherNotes=block.pdfTeacherNotes ? '<label>Teacher notes / sample answer<textarea data-field="pdfTeacherNotes" data-block="'+block.id+'">'+esc(block.pdfTeacherNotes)+'</textarea></label>' : '';
         const beforeZone = lmInsertZoneHtml(block.id, "before");
         if (block.type === "divider") {
-          return beforeZone + '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(block.label || '✨ Supplementary Material · Дополнительные материалы') + '</div><div class="lm-supplementary-divider-line"></div></div>' + (isLast ? lmInsertZoneHtml(block.id, "after") : "");
+          const rawLabel = block.label || '✨ Supplementary Material';
+          const cleanLabel = rawLabel.replace(/\s*·\s*Дополнительные материалы/g, '');
+          return beforeZone + '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(cleanLabel) + '</div><div class="lm-supplementary-divider-line"></div></div>' + (isLast ? lmInsertZoneHtml(block.id, "after") : "");
         }
         const isSupplementary = Boolean(block.supplementary);
         const blockHtml = '<article class="lm-block' + (isShut ? " is-shut" : "") + (isNew ? " is-newly-added" : "") + (isSupplementary ? " is-supplementary" : "") + '" data-block-id="' + block.id + '">' + head + '<div class="lm-body">' + source + '<div style="display:flex; align-items:center; flex-wrap:wrap; margin-bottom:8px;">' + assessed + verified + '</div>' + assessmentGroupEditor(block) + lmBody(block) + teacherNotes + (grading ? '<label>Grading criteria<textarea data-field="criteria" data-block="' + block.id + '" placeholder="Content | 3&#10;Grammar | 2">' + esc(block.criteria || '') + '</textarea></label>' : '') + "</div></article>";
@@ -1549,7 +1551,11 @@
       }
       if (block.type === "file") return lmPreviewFile(block, "File", "Open file", "data-file-open");
       if (block.type === "note") return '<aside class="lm-callout' + (block.tone === "tip" ? " is-tip" : "") + '"><b>' + (block.tone === "tip" ? "Tip" : "Note") + "</b>" + esc(block.text || "") + "</aside>";
-      if (block.type === "divider") return '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(block.label || "✨ Supplementary Material · Дополнительные материалы") + '</div><div class="lm-supplementary-divider-line"></div></div>';
+      if (block.type === "divider") {
+        const rawLabel = block.label || "✨ Supplementary Material";
+        const cleanLabel = rawLabel.replace(/\s*·\s*Дополнительные материалы/g, '');
+        return '<div class="lm-supplementary-divider"><div class="lm-supplementary-divider-line"></div><div class="lm-supplementary-divider-badge">' + esc(cleanLabel) + '</div><div class="lm-supplementary-divider-line"></div></div>';
+      }
       if (block.type === "reading") {
         let n = 0;
         const marks = new Set(block.marks || []);
@@ -3749,7 +3755,7 @@
               id: lmId(),
               type: "divider",
               tab: "words",
-              label: "✨ Supplementary Material · Дополнительные материалы (Generated)",
+              label: "✨ Supplementary Material (Generated)",
               isSupplementaryDivider: true
             };
             createdWordBlocks.push(divider);

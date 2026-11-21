@@ -181,6 +181,10 @@ test('security scanners and administrative probe paths are completely ignored',a
     ['/api/postman.json','Mozilla/5.0'],
     ['/api/swagger.json','Mozilla/5.0'],
     ['/api/openapi.json','Mozilla/5.0'],
+    ['/api/bedrock/config.js','Mozilla/5.0 (Windows NT 10.0; Win64; x64)'],
+    ['/api/openai/config.js','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'],
+    ['/api/minimax/config.js','Mozilla/5.0 (Windows NT 10.0; Win64; x64)'],
+    ['/api/openrouter/config.js','Mozilla/5.0 (X11; Linux x86_64)'],
     ['/api/v2/anything','curl/7.68.0']
   ];
   for(const [path,ua] of probes){
