@@ -45,69 +45,817 @@ header{margin-top:22px}.context-picker{margin-bottom:20px;max-width:700px}.conte
 .materials-panel form{display:grid;gap:14px;max-width:560px;margin:20px 0}.materials-panel form button{justify-self:start}.materials-panel select{margin:0}.material-services{display:flex;align-items:end;gap:16px;flex-wrap:wrap}.material-services>button{margin-bottom:20px}.material-result{border-top:1px solid var(--line);padding:16px 0;margin:16px 0;overflow-wrap:anywhere}audio,video{display:block;width:100%;max-width:100%;margin:14px 0}video{aspect-ratio:16/9;background:#111;object-fit:contain}.kit-extra-type{border-top:1px solid var(--line);min-width:0}.kit-extra-type .small{display:block}.kit-extra-type>button{margin:0 0 12px 28px}.materials-panel input[type=file]{min-width:0;max-width:100%}.materials-panel input[type=file]::file-selector-button{max-width:100%;white-space:normal}.materials-panel .kit-queue-row{overflow-wrap:anywhere}
 .report-attachment{margin:12px 0;overflow-wrap:anywhere}.report-attachment img{display:block;max-width:100%;max-height:320px;height:auto;object-fit:contain}
 
-/* Speech Practice Modern Refinements */
-.speech-panel{display:flex;flex-direction:column;gap:16px;min-width:0}
-.speech-provider-banner{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--rad,14px);background:var(--card);border:1px solid var(--line);font-size:13px;color:var(--mute)}
-.speech-provider-banner .badge{display:inline-flex;align-items:center;gap:5px;font-weight:700;color:var(--ink)}
-.speech-empty-card{display:flex;flex-direction:column;align-items:center;text-align:center;padding:36px 20px;border-radius:var(--rad,16px);background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow,0 2px 8px rgba(0,0,0,0.04))}
-.speech-empty-icon{font-size:36px;line-height:1;margin-bottom:12px;opacity:0.85}
-.speech-empty-title{font-size:17px;font-weight:700;color:var(--ink);margin:0 0 6px}
-.speech-empty-desc{font-size:14px;color:var(--mute);max-width:440px;margin:0;line-height:1.5}
-.speech-accordion{border:1px solid var(--line);border-radius:var(--rad,14px);background:var(--card);overflow:hidden;margin:8px 0}
-.speech-accordion summary{padding:14px 18px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;list-style:none}
-.speech-accordion summary::-webkit-details-marker{display:none}
-.speech-accordion summary::after{content:"▾";font-size:14px;color:var(--mute);transition:transform 0.2s ease}
-.speech-accordion[open] summary::after{transform:rotate(180deg)}
-.speech-accordion-content,.speech-accordion .detail{padding:16px 18px 20px;border-top:1px solid var(--line)}
-.speech-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.speech-form-grid .full{grid-column:1 / -1}
-.speech-form-grid label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--ink)}
-.speech-task-header{display:flex;flex-direction:column;gap:8px}
-.speech-task-select-label{font-size:13px;font-weight:600;color:var(--ink);display:flex;flex-direction:column;gap:6px}
-.speech-task-select{padding:9px 14px;border-radius:var(--rad-sm,10px);border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;outline:none;cursor:pointer}
-.speech-task-card{background:var(--card);border:1px solid var(--line);border-radius:var(--rad,16px);padding:24px;display:flex;flex-direction:column;gap:18px;box-shadow:var(--shadow,0 2px 8px rgba(0,0,0,0.04))}
-.speech-task-meta{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;border-bottom:1px solid var(--line);padding-bottom:14px}
-.speech-task-mode-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:var(--bg);border:1px solid var(--line);font-size:12px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:0.5px}
-.speech-task-specs{font-size:13px;color:var(--mute)}
-.speech-task-prompt{font-size:16px;font-weight:600;color:var(--ink);margin:0;line-height:1.5}
-.speech-task-reference{background:var(--bg);border-left:4px solid var(--acc);border-radius:0 var(--rad-sm,10px) var(--rad-sm,10px) 0;padding:16px 20px;margin:0;font-size:18px;line-height:1.6;color:var(--ink);font-weight:500}
-.speech-studio-box{background:var(--bg);border:1px solid var(--line);border-radius:var(--rad,14px);padding:20px;display:flex;flex-direction:column;gap:16px}
-.speech-studio-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.speech-btn-record{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:var(--rad-sm,10px);background:var(--acc);color:var(--bg);font-size:14px;font-weight:700;border:none;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,0.1)}
-.speech-btn-stop{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;border-radius:var(--rad-sm,10px);background:var(--card);color:var(--ink);border:1px solid var(--line);font-size:14px;font-weight:600;cursor:pointer}
-.speech-btn-stop:disabled{cursor:not-allowed;opacity:0.6}
-.speech-btn-discard{display:inline-flex;align-items:center;gap:6px;padding:12px 18px;border-radius:var(--rad-sm,10px);background:transparent;color:var(--mute);border:1px dashed var(--line);font-size:13px;font-weight:600;cursor:pointer}
-.speech-btn-discard:disabled{cursor:not-allowed;opacity:0.6}
-.speech-drop-zone{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border:1px dashed var(--line);border-radius:var(--rad-sm,10px);background:var(--card);font-size:13px;color:var(--mute)}
-.speech-drop-zone input[type="file"]{font-size:12px;color:var(--ink)}
-.speech-consent-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--rad,14px);padding:16px 20px;display:flex;flex-direction:column;gap:14px}
-.speech-consent-label{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink);cursor:pointer;line-height:1.4}
-.speech-btn-analyze,.speech-btn-primary{padding:12px 24px;border-radius:var(--rad-sm,10px);background:var(--acc);color:var(--bg);font-size:14px;font-weight:700;border:none;cursor:pointer;align-self:flex-start}
-.speech-btn-analyze:disabled,.speech-btn-primary:disabled{cursor:not-allowed;opacity:0.5}
-.speech-disclaimer{font-size:12px;color:var(--mute);margin:0;padding:8px 12px;border-radius:var(--rad-sm,8px);background:var(--bg);border:1px solid var(--line)}
-.speech-scores-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.speech-score-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--rad-sm,12px);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
-.speech-score-label{font-size:12px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:0.5px}
-.speech-score-val-row{display:flex;align-items:baseline;justify-content:space-between}
-.speech-score-val{font-size:20px;font-weight:800;color:var(--ink)}
-.speech-score-val span{font-size:12px;font-weight:500;color:var(--mute)}
-.speech-meter-bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;position:relative}
-.speech-meter-fill{height:100%;background:var(--acc);border-radius:3px}
-.speech-transcript-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--rad,14px);padding:18px 20px;display:flex;flex-direction:column;gap:10px}
-.speech-transcript-title{font-size:12px;font-weight:700;color:var(--mute);text-transform:uppercase;letter-spacing:0.5px;margin:0}
-.speech-transcript-text{font-size:17px;line-height:1.7;color:var(--ink);margin:0}
-.speech-word-error{background:rgba(239,68,68,0.15);border-bottom:2px solid #ef4444;border-radius:4px;padding:2px 4px;position:relative;cursor:pointer}
-.speech-inline-phoneme{font-size:11px;font-weight:700;padding:1px 5px;border-radius:6px;background:var(--acc);color:var(--bg);margin-left:4px;vertical-align:middle}
-.speech-articulatory-panel{border:1px solid var(--line);border-radius:var(--rad,14px);padding:18px 20px;background:var(--card);display:flex;flex-direction:column;gap:12px}
-.speech-articulatory-head{font-size:14px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:8px;margin:0}
-.speech-coaching-card{background:var(--bg);border:1px solid var(--line);border-radius:var(--rad-sm,10px);padding:14px 16px;display:flex;flex-direction:column;gap:6px}
-.speech-coaching-badge{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;color:var(--acc)}
-.speech-coaching-tip{font-size:13px;color:var(--mute);line-height:1.5;margin:0}
-.speech-player-wrap{background:var(--bg);border:1px solid var(--line);border-radius:var(--rad-sm,10px);padding:10px 14px;display:flex;align-items:center;gap:12px}
-.speech-player-label{font-size:13px;font-weight:600;color:var(--ink)}
-.speech-attempt-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-top:10px;border-top:1px solid var(--line)}
-.speech-secondary-links{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.speech-btn-ghost{background:none;border:1px solid var(--line);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;padding:8px 14px;border-radius:var(--rad-sm,8px)}
-.speech-btn-ghost:hover{background:var(--bg)}
-.speech-btn-danger{background:none;border:1px solid rgba(239,68,68,0.3);color:#ef4444;font-size:13px;font-weight:600;cursor:pointer;padding:8px 14px;border-radius:var(--rad-sm,8px)}
-.speech-btn-danger:hover{background:rgba(239,68,68,0.1)}
+/* Speech Practice Modern Refinements (Themes: Sky, Dark, Sand) */
+dialog:not([open]) { display: none !important; }
+
+.speech-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+/* 1. Header Banner */
+.speech-panel .speech-provider-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-radius: var(--rad, 16px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--mute);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.speech-panel .speech-provider-banner .banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.speech-panel .speech-provider-banner .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--acc);
+  font-size: 12px;
+  background: color-mix(in srgb, var(--acc) 12%, var(--card));
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--acc) 25%, transparent);
+}
+.speech-panel .speech-provider-banner .banner-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ok, #10b981);
+  font-weight: 600;
+}
+.speech-panel .speech-provider-banner .banner-status::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok, #10b981);
+  display: inline-block;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+/* 2. Empty State Card */
+.speech-panel .speech-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  border-radius: var(--rad, 18px);
+  background: var(--card);
+  border: 1px dashed var(--line);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+  position: relative;
+  overflow: hidden;
+}
+.speech-panel .speech-empty-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, var(--acc), transparent);
+  opacity: 0.6;
+}
+.speech-panel .speech-empty-icon-wrapper, .speech-panel .speech-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--acc) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--acc) 25%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 16px;
+  line-height: 1;
+  opacity: 0.95;
+}
+.speech-panel .speech-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 8px;
+  letter-spacing: -0.2px;
+}
+.speech-panel .speech-empty-desc {
+  font-size: 14px;
+  color: var(--mute);
+  max-width: 480px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 3. SaaS Accordion */
+.speech-panel .speech-accordion {
+  border: 1px solid var(--line);
+  border-radius: var(--rad, 16px);
+  background: var(--card);
+  overflow: hidden;
+  margin: 8px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+}
+.speech-panel .speech-accordion summary {
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  list-style: none;
+  background: var(--card);
+  transition: background 0.15s ease;
+}
+.speech-panel .speech-accordion summary::-webkit-details-marker {
+  display: none;
+}
+.speech-panel .speech-accordion summary::after {
+  content: "▾";
+  font-size: 14px;
+  color: var(--mute);
+  transition: transform 0.2s ease;
+}
+.speech-panel .speech-accordion[open] summary::after {
+  transform: rotate(180deg);
+}
+.speech-panel .speech-accordion summary:hover {
+  background: color-mix(in srgb, var(--acc) 4%, var(--card));
+}
+.speech-panel .speech-accordion-content, .speech-panel .speech-accordion .detail {
+  padding: 18px 20px 24px;
+  border-top: 1px solid var(--line);
+}
+
+/* 4. Numbered Step Sections */
+.speech-panel .saas-section, .speech-panel .speech-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.speech-panel .saas-section-header, .speech-panel .speech-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+.speech-panel .saas-section-title-wrap, .speech-panel .speech-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.speech-panel .saas-section-number, .speech-panel .speech-section-number {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--acc);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.speech-panel .saas-section-title, .speech-panel .speech-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.speech-panel .saas-section-desc, .speech-panel .speech-section-desc {
+  font-size: 12px;
+  color: var(--mute);
+  margin-top: 2px;
+}
+.speech-panel .saas-badge-pill, .speech-panel .speech-badge-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--mute);
+}
+
+/* 5. Form Grid and Input Controls */
+.speech-panel .saas-grid-2, .speech-panel .speech-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.speech-panel .saas-field, .speech-panel .speech-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.speech-panel .saas-field.full, .speech-panel .speech-form-grid .full {
+  grid-column: 1 / -1;
+}
+.speech-panel .saas-label, .speech-panel .speech-form-grid label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.speech-panel .saas-label-hint, .speech-panel .speech-label-hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mute);
+}
+.speech-panel .saas-control,
+.speech-panel .speech-form-grid input:not([type=checkbox]):not([type=radio]),
+.speech-panel .speech-form-grid select,
+.speech-panel .speech-form-grid textarea,
+.speech-panel .speech-task-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.speech-panel .saas-control:focus,
+.speech-panel .speech-form-grid input:focus,
+.speech-panel .speech-form-grid select:focus,
+.speech-panel .speech-form-grid textarea:focus,
+.speech-panel .speech-task-select:focus {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent);
+}
+.speech-panel .speech-task-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.speech-panel .speech-task-select-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 6. Interactive SaaS Toggle Card */
+.speech-panel .saas-toggle-card, .speech-panel .speech-toggle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.speech-panel .saas-toggle-left, .speech-panel .speech-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.speech-panel .saas-toggle-icon, .speech-panel .speech-toggle-icon {
+  font-size: 22px;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.speech-panel .saas-toggle-text, .speech-panel .speech-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.speech-panel .saas-toggle-title, .speech-panel .speech-toggle-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.speech-panel .saas-toggle-desc, .speech-panel .speech-toggle-desc {
+  font-size: 12px;
+  color: var(--mute);
+  line-height: 1.4;
+}
+.speech-panel .saas-toggle-btn, .speech-panel .speech-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border-radius: 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.speech-panel .saas-toggle-track, .speech-panel .speech-toggle-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--acc);
+  position: relative;
+  display: inline-block;
+  transition: background 0.2s ease;
+}
+.speech-panel .saas-toggle-thumb, .speech-panel .speech-toggle-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg);
+  position: absolute;
+  top: 2px;
+  left: 18px;
+  transition: left 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+}
+.speech-panel .saas-toggle-btn.is-unselected .saas-toggle-track,
+.speech-panel .speech-toggle-btn.is-unselected .speech-toggle-track {
+  background: var(--line);
+}
+.speech-panel .saas-toggle-btn.is-unselected .saas-toggle-thumb,
+.speech-panel .speech-toggle-btn.is-unselected .speech-toggle-thumb {
+  left: 2px;
+}
+.speech-panel .saas-toggle-btn.is-unselected .saas-toggle-status-text,
+.speech-panel .speech-toggle-btn.is-unselected .speech-toggle-status-text {
+  color: var(--mute);
+}
+
+/* 7. Action Buttons */
+.speech-panel .saas-actions-footer, .speech-panel .speech-actions-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.speech-panel .saas-btn-primary, .speech-panel .speech-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px;
+  border-radius: 10px;
+  background: var(--acc);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--acc) 30%, transparent);
+  transition: filter 0.15s ease;
+}
+.speech-panel .saas-btn-primary:hover, .speech-panel .speech-btn-primary:hover {
+  filter: brightness(1.08);
+}
+.speech-panel .saas-btn-primary:disabled, .speech-panel .speech-btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.speech-panel .saas-btn-secondary, .speech-panel .speech-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* 8. Template 2: Active Task Card and Recording Studio */
+.speech-panel .speech-task-card, .speech-panel .saas-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--rad, 16px);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+}
+.speech-panel .speech-task-meta, .speech-panel .saas-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+.speech-panel .speech-task-mode-pill, .speech-panel .mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--acc);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.speech-panel .speech-task-specs {
+  font-size: 12px;
+  color: var(--mute);
+}
+.speech-panel .speech-task-prompt, .speech-panel .task-prompt-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.5;
+}
+.speech-panel .speech-task-reference, .speech-panel .task-reference-quote {
+  background: var(--bg);
+  border-left: 4px solid var(--acc);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 18px;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  font-weight: 500;
+}
+.speech-panel .speech-studio-box, .speech-panel .recording-studio-box {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.speech-panel .speech-studio-actions, .speech-panel .studio-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.speech-panel .speech-btn-record, .speech-panel .btn-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 10px;
+  background: var(--acc);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--acc) 30%, transparent);
+}
+.speech-panel .speech-btn-stop, .speech-panel .btn-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.speech-panel .speech-btn-stop:disabled, .speech-panel .btn-stop:disabled,
+.speech-panel .speech-btn-record:disabled, .speech-panel .btn-record:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.speech-panel .speech-btn-discard, .speech-panel .btn-discard {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mute);
+  border: 1px dashed var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.speech-panel .speech-btn-discard:disabled, .speech-panel .btn-discard:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.speech-panel .studio-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mute);
+  padding: 6px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.speech-panel .studio-consent-row, .speech-panel .speech-consent-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.speech-panel .consent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.speech-panel .consent-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.speech-panel .consent-desc {
+  font-size: 12px;
+  color: var(--mute);
+}
+.speech-panel .speech-consent-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.speech-panel .speech-drop-zone, .speech-panel .upload-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  font-size: 13px;
+  color: var(--mute);
+}
+.speech-panel .speech-drop-zone input[type="file"] {
+  font-size: 12px;
+  color: var(--ink);
+}
+.speech-panel .speech-btn-analyze, .speech-panel .btn-analyze {
+  padding: 10px 22px;
+  border-radius: 10px;
+  background: var(--acc);
+  color: var(--bg);
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.speech-panel .speech-btn-analyze:disabled, .speech-panel .btn-analyze:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* 9. Template 3: Attempt Evaluation Results & Diagnostics */
+.speech-panel .score-hero-grid, .speech-panel .speech-score-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(130px, 160px) 1fr;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  align-items: center;
+}
+.speech-panel .score-main-box, .speech-panel .speech-score-hero-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.speech-panel .score-number, .speech-panel .speech-score-hero-number {
+  font-size: 42px;
+  font-weight: 900;
+  color: var(--acc);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.speech-panel .score-total, .speech-panel .speech-score-hero-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 6px;
+}
+.speech-panel .metric-bars-column, .speech-panel .speech-metric-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.speech-panel .metric-bar-item, .speech-panel .speech-metric-bar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.speech-panel .metric-bar-head, .speech-panel .speech-metric-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.speech-panel .metric-bar-track, .speech-panel .speech-metric-bar-track, .speech-panel .speech-meter-bar {
+  height: 8px;
+  background: var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.speech-panel .metric-bar-fill, .speech-panel .speech-metric-bar-fill, .speech-panel .speech-meter-fill {
+  height: 100%;
+  background: var(--acc);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.speech-panel .transcript-eval-panel, .speech-panel .speech-transcript-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.speech-panel .panel-head, .speech-panel .speech-transcript-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--mute);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+.speech-panel .transcript-eval-text, .speech-panel .speech-transcript-text {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin: 0;
+}
+.speech-panel .word-err, .speech-panel .speech-word-error, .speech-panel .speech-highlighted-word {
+  display: inline-block;
+  padding: 1px 4px;
+  margin: 0 1px;
+  background: color-mix(in srgb, var(--bad, #ef4444) 15%, transparent);
+  border-bottom: 2px solid var(--bad, #ef4444);
+  border-radius: 4px;
+  color: inherit;
+  font-weight: 600;
+}
+.speech-panel .phon, .speech-panel .speech-inline-phoneme {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 1px 5px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--bg);
+  background: var(--acc);
+  border-radius: 4px;
+  vertical-align: middle;
+}
+
+.speech-panel .coaching-card, .speech-panel .speech-coaching-card {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--acc);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+}
+.speech-panel .coaching-card-head, .speech-panel .speech-coaching-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.speech-panel .coaching-badge, .speech-panel .speech-phoneme-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--acc);
+  border-radius: 4px;
+  font-family: monospace;
+}
+.speech-panel .coaching-title, .speech-panel .speech-phoneme-title {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 13px;
+}
+.speech-panel .coaching-advice, .speech-panel .speech-articulatory-hint {
+  font-size: 12px;
+  color: var(--mute);
+  line-height: 1.5;
+  margin: 0;
+}
+.speech-panel .player-row, .speech-panel .speech-player-wrap {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.speech-panel .speech-player-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.speech-panel .footer-actions-left, .speech-panel .speech-secondary-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.speech-panel .speech-attempt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.speech-panel .btn-ghost, .speech-panel .speech-btn-ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.speech-panel .btn-ghost:hover, .speech-panel .speech-btn-ghost:hover {
+  background: var(--card);
+}
+.speech-panel .btn-destructive, .speech-panel .speech-btn-danger {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--bad, #ef4444) 30%, transparent);
+  color: var(--bad, #ef4444);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.speech-panel .btn-destructive:hover, .speech-panel .speech-btn-danger:hover {
+  background: color-mix(in srgb, var(--bad, #ef4444) 10%, transparent);
+}
