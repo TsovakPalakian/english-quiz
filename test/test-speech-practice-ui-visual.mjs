@@ -51,6 +51,28 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     assert.strictEqual(await consentInput.isChecked(),false,'Consent checkbox must not be checked initially');
     const consentLabel=consentRow.locator('.speech-consent-label');
     assert.match(await consentLabel.innerText(),/Send this recording to/,'Consent label must contain provider prompt text');
+    const labelFlex=await consentLabel.evaluate(el=>getComputedStyle(el).flexDirection);
+    assert.equal(labelFlex,'row','Consent label must align horizontally with row direction');
+
+    // Verify empty criteria accordion is omitted
+    assert.equal(await page.locator('.speech-criteria-accordion').count(),0,'Empty criteria accordion must not be rendered');
+
+    // Verify SaaS dropzone and hidden file input
+    const dropzone=page.locator('.speech-drop-zone');
+    await dropzone.waitFor();
+    assert.ok(await dropzone.isVisible(),'SaaS dropzone must be visible');
+    const browseBtn=dropzone.locator('.dropzone-browse-btn');
+    assert.ok(await browseBtn.isVisible(),'Browse file button must be visible');
+    assert.equal(await browseBtn.textContent(),'Browse file','Button text must be Browse file');
+    const fileInputOpacity=await page.locator('#speech-file').evaluate(el=>getComputedStyle(el).opacity);
+    assert.equal(fileInputOpacity,'0','Native file input must be visually hidden');
+
+    // Verify Comparable progress accordion content wrapper and summary outline
+    const compProgress=page.locator('details.speech-accordion:has-text("Comparable progress")');
+    await compProgress.waitFor();
+    assert.ok(await compProgress.locator('.speech-accordion-content').isVisible(),'Comparable progress content must be wrapped in speech-accordion-content');
+    const summaryOutline=await compProgress.locator('summary').evaluate(el=>getComputedStyle(el).outlineStyle);
+    assert.equal(summaryOutline,'none','Summary must have outline: none to avoid thick blue rings');
 
     // Visual theme verification across Sky, Dark, Sand
     const panel=page.locator('.speech-panel');

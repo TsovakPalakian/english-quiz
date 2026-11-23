@@ -29,7 +29,7 @@
   function paintSpeech(entry){
     render(entry,tabButtons(entry)+speechUI.render());speechUI.afterRender();
     dialog?.querySelectorAll('.speech-panel button').forEach(node=>node.classList.add('btn'));
-    dialog?.querySelectorAll('.speech-panel input:not([type=checkbox]):not([type=radio]),.speech-panel select,.speech-panel textarea,[data-workbench-group]').forEach(node=>node.classList.add('input'));
+    dialog?.querySelectorAll('.speech-panel input:not([type=checkbox]):not([type=radio]):not([type=file]),.speech-panel select,.speech-panel textarea,[data-workbench-group]').forEach(node=>node.classList.add('input'));
     const group=dialog?.querySelector('[data-workbench-group]');if(group)group.value=String(entry.groupId);
     if(!entry.writable)dialog?.querySelectorAll('.speech-panel form button,.speech-panel form input,.speech-panel form textarea,.speech-panel form select,#speech-file,[data-speech-action]:not([data-speech-action="more"]):not([data-speech-action="training"]):not([data-speech-action="compare"]):not([data-speech-action="end-training"])').forEach(node=>{node.disabled=true;});
   }
