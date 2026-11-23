@@ -905,6 +905,117 @@ dialog:not([open]) { display: none !important; }
   align-items: center;
   gap: 10px;
 }
+
+/* SaaS Dropdown Component */
+.speech-panel .saas-select-wrap {
+  position: relative;
+  width: 100%;
+}
+.speech-panel .saas-select-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.speech-panel .saas-select-btn:hover {
+  border-color: var(--acc);
+}
+.speech-panel .saas-select-btn.open, .speech-panel .saas-select-btn:focus-visible {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--acc) 20%, transparent);
+}
+.speech-panel .saas-select-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mute);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.speech-panel .saas-select-btn.open .saas-select-chevron {
+  transform: rotate(180deg);
+  color: var(--acc);
+}
+.speech-panel .saas-dropdown-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 16px 36px -6px color-mix(in srgb, var(--ink) 14%, transparent), 0 6px 16px -4px color-mix(in srgb, var(--ink) 8%, transparent);
+  z-index: 100;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  backdrop-filter: blur(8px);
+  animation: popoverFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.speech-panel .saas-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+.speech-panel .saas-dropdown-item:hover {
+  background: var(--bg);
+  color: var(--acc);
+}
+.speech-panel .saas-dropdown-item.selected {
+  background: var(--acc-s);
+  color: var(--acc);
+  font-weight: 600;
+}
+.speech-panel .saas-dropdown-item .item-title,
+.speech-panel .saas-select-val .item-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.speech-panel .saas-dropdown-item .item-desc,
+.speech-panel .saas-select-val .item-desc {
+  font-size: 11px;
+  color: var(--mute);
+  font-weight: 400;
+}
+.speech-panel .saas-dropdown-item.selected .item-desc {
+  color: var(--acc);
+  opacity: 0.85;
+}
+.speech-panel .saas-dropdown-item .item-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--acc);
+}
 #lmEditor:has(#lmSpeechPanel) .lm-add-wrap,#lmEditor:has(#lmSpeechPanel) #lmPreviewBtn{display:none}
 .learning-kit-dialog section{display:block;max-width:none;margin:0;padding:0}
 .learning-workbench-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.learning-kit-dialog .option-row{display:grid;grid-template-columns:24px minmax(0,1fr) 36px;align-items:center;gap:8px;margin:8px 0}.learning-kit-dialog .option-row input[type=radio],.learning-kit-dialog .option-row input[type=checkbox]{width:20px;min-height:20px;margin:0}.learning-kit-dialog .option-row button,.learning-kit-dialog .item-tools button{width:36px;height:36px;padding:0;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:6px}.learning-kit-dialog .item-tools{display:flex;justify-content:flex-end}.learning-kit-dialog .editor-item>label input{font-size:16px}
