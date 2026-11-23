@@ -12,7 +12,21 @@ export function createProviderSettingsUI({api,isDeveloper,sessionKey,active,rend
     return [adapter?.model||selection.adapterId,adapter?.provider,adapter?.version,selection.locale,selection.mode].filter(Boolean).join(' · ');
   };
   const patch=()=>Object.fromEntries([...state.touched].filter(task=>!same(state.draft[task],state.data.selections[task])||state.data.unavailable.some(row=>row.task===task)).map(task=>[task,state.draft[task]]));
-  function updateSave(){const form=document.querySelector('#provider-settings-form');if(form)form.querySelector('[type="submit"]').disabled=!writable()||!isDeveloper()||state?.saving||!state?.reason?.trim()||Object.keys(patch()).length===0;}
+  function updateSave(){
+    const form=document.querySelector('#provider-settings-form');
+    if(form){
+      const disabled=!writable()||!isDeveloper()||state?.saving||!state?.reason?.trim()||Object.keys(patch()).length===0;
+      const submitBtn=form.querySelector('[type="submit"]');
+      if(submitBtn)submitBtn.disabled=disabled;
+      const bannerSave=form.querySelector('.ai-btn-save-banner');
+      if(bannerSave)bannerSave.disabled=disabled;
+      const has=state?Object.keys(patch()).length>0:false;
+      const badge=document.querySelector('.ai-unsaved-badge');
+      if(badge)badge.hidden=!has;
+      const banner=document.querySelector('.ai-unsaved-banner');
+      if(banner)banner.hidden=!has;
+    }
+  }
   async function load(){
     if(!isDeveloper())return;
     const entry={epoch:sessionKey(),status:'loading',historyStatus:'idle',history:[],next:null,touched:new Set(),reason:''};state=entry;renderPage();
@@ -48,23 +62,118 @@ export function createProviderSettingsUI({api,isDeveloper,sessionKey,active,rend
     if(!entry||entry.status==='loading')return '<p role="status">Loading provider settings...</p>';
     if(entry.status==='error')return '<p class="local-error" role="alert">'+esc(entry.error)+'</p><button data-provider-action="refresh">Retry loading</button>';
     const data=entry.data;
-    return '<section class="provider-panel"><div class="quota-heading"><h2>Service selections</h2><button class="quota-refresh" data-provider-action="refresh" aria-label="Refresh providers" title="Refresh providers">&#8635;</button></div><dl class="attempt-meta"><dt>Settings revision</dt><dd>'+esc(data.revision)+'</dd><dt>Billing policy</dt><dd>'+esc(data.freeOnly?'Free-only':'Server configured')+'</dd><dt>Worker connection</dt><dd>'+esc(connectionLabel)+'</dd></dl><form id="provider-settings-form">'+Object.keys(labels).map(task=>{
-      const options=choices(data,task),selection=entry.draft[task],unavailable=data.unavailable.some(row=>row.task===task);
-      return '<div class="provider-task"><label for="provider-'+task+'">'+esc(labels[task])+'</label><div><select id="provider-'+task+'" data-provider-task="'+task+'"'+(!options.length&&selection===null?' disabled':'')+'><option value="off"'+(selection===null?' selected':'')+'>Off</option>'+(selection!==null&&(unavailable||!options.some(row=>same(row.selection,selection)))?'<option value="saved" selected disabled>Unavailable · '+esc(selection.adapterId)+'</option>':'')+options.map((row,i)=>'<option value="'+i+'"'+(!unavailable&&same(selection,row.selection)?' selected':'')+'>'+esc(modelText(row.selection,[row.adapter]))+'</option>').join('')+'</select><p class="small muted" data-provider-info="'+task+'">'+esc(selection===null&&!options.length?'No registered adapters':unavailable?'Saved model requires confirmation':modelText(selection,data.adapters))+'</p></div></div>';
-    }).join('')+'<label class="provider-reason">Reason<textarea id="provider-reason" name="reason" maxlength="500" required>'+esc(entry.reason)+'</textarea></label><p id="provider-save-error" class="local-error" role="alert" hidden></p><button type="submit" disabled>Save settings</button></form><details id="provider-history"><summary><strong>Settings history</strong></summary><div id="provider-history-body">'+historyRows()+'</div></details></section>';
+    const hasUnsaved=Object.keys(patch()).length>0;
+
+    return '<section class="provider-panel ai-providers-page">' +
+      '<div class="ai-providers-header">' +
+        '<div class="ai-providers-title-group">' +
+          '<h1>AI Providers</h1>' +
+          '<p class="ai-providers-subtitle">Configure and manage external AI services for speech, text, and analysis</p>' +
+        '</div>' +
+        '<div class="ai-providers-header-badge">' +
+          '<span class="badge-dot-green"></span> Active Configuration' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="ai-providers-card saas-card">' +
+        '<div class="ai-card-header">' +
+          '<div class="ai-card-title-group">' +
+            '<h2>Service selections</h2>' +
+          '</div>' +
+          '<div class="ai-card-actions">' +
+            '<span class="ai-unsaved-badge"' + (hasUnsaved ? '' : ' hidden') + '>UNSAVED CHANGES</span>' +
+            '<button type="button" class="quota-refresh ai-refresh-btn" data-provider-action="refresh" aria-label="Refresh providers" title="Refresh providers">' +
+              '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>' +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<dl class="attempt-meta ai-meta-grid">' +
+          '<dt class="ai-meta-label">Settings revision</dt><dd class="ai-meta-val">' + esc(data.revision) + '</dd>' +
+          '<dt class="ai-meta-label">Billing policy</dt><dd class="ai-meta-val">' + esc(data.freeOnly ? 'Free-only' : 'Server configured') + '</dd>' +
+          '<dt class="ai-meta-label">Worker connection</dt><dd class="ai-meta-val">' + esc(connectionLabel) + '</dd>' +
+        '</dl>' +
+
+        '<form id="provider-settings-form" class="ai-providers-form">' +
+          '<div class="ai-tasks-list">' +
+            Object.keys(labels).map(task => {
+              const options = choices(data, task), selection = entry.draft[task], unavailable = data.unavailable.some(row => row.task === task);
+              const info = selection === null && !options.length ? 'No registered adapters' : unavailable ? 'Saved model requires confirmation' : modelText(selection, data.adapters);
+              return '<div class="ai-task-row">' +
+                '<div class="ai-task-info">' +
+                  '<label class="ai-task-name" for="provider-' + task + '">' + esc(labels[task]) + '</label>' +
+                  '<div class="ai-task-tag-wrap">' +
+                    '<span class="ai-tech-tag" data-provider-info="' + task + '">' + esc(info) + '</span>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="ai-task-select-wrap">' +
+                  '<select id="provider-' + task + '" class="saas-control ai-select" data-provider-task="' + task + '"' + (!options.length && selection === null ? ' disabled' : '') + '>' +
+                    '<option value="off"' + (selection === null ? ' selected' : '') + '>Off</option>' +
+                    (selection !== null && (unavailable || !options.some(row => same(row.selection, selection))) ? '<option value="saved" selected disabled>Unavailable · ' + esc(selection.adapterId) + '</option>' : '') +
+                    options.map((row, i) => '<option value="' + i + '"' + (!unavailable && same(selection, row.selection) ? ' selected' : '') + '>' + esc(modelText(row.selection, [row.adapter])) + '</option>').join('') +
+                  '</select>' +
+                '</div>' +
+              '</div>';
+            }).join('') +
+          '</div>' +
+
+          '<div class="ai-unsaved-banner"' + (hasUnsaved ? '' : ' hidden') + '>' +
+            '<div class="ai-unsaved-text"><span class="warn-dot">●</span> You have unsaved changes to your provider configuration.</div>' +
+            '<div class="ai-unsaved-actions">' +
+              '<button type="button" class="btn ghost ai-btn-discard" data-provider-action="discard-draft">Discard</button>' +
+              '<button type="button" class="btn primary ai-btn-save-banner" data-provider-action="submit-banner" disabled>Save changes</button>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="ai-reason-section">' +
+            '<label class="provider-reason" for="provider-reason">Reason' +
+              '<textarea id="provider-reason" name="reason" class="saas-control" maxlength="500" placeholder="Describe the reason for this configuration change..." required>' + esc(entry.reason) + '</textarea>' +
+            '</label>' +
+          '</div>' +
+
+          '<div class="ai-info-callout">' +
+            '<span class="info-icon" aria-hidden="true">ℹ️</span>' +
+            '<span class="info-text">Provider changes require developer role and take effect immediately across all active sessions upon confirmation.</span>' +
+          '</div>' +
+
+          '<p id="provider-save-error" class="local-error" role="alert" hidden></p>' +
+
+          '<div class="ai-form-actions-footer">' +
+            '<button type="submit" class="btn primary ai-submit-btn" disabled>Save settings</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>' +
+
+      '<details id="provider-history" class="provider-history-accordion saas-card">' +
+        '<summary class="saas-card-header"><strong>Settings history</strong></summary>' +
+        '<div id="provider-history-body">' + historyRows() + '</div>' +
+      '</details>' +
+    '</section>';
   }
   document.addEventListener('change',event=>{
     const task=event.target.dataset?.providerTask;if(!task||!isDeveloper()||!active()||state?.status!=='ready'||state.saving)return;
     const options=choices(state.data,task),value=event.target.value;
     if(value!=='off'&&!options[Number(value)])return;
     state.draft[task]=value==='off'?null:structuredClone(options[Number(value)].selection);state.touched.add(task);
-    document.querySelector('[data-provider-info="'+task+'"]').textContent=modelText(state.draft[task],state.data.adapters);updateSave();
+    const infoNode=document.querySelector('[data-provider-info="'+task+'"]');
+    if(infoNode)infoNode.textContent=modelText(state.draft[task],state.data.adapters);
+    updateSave();
   });
   document.addEventListener('input',event=>{if(event.target.id==='provider-reason'&&isDeveloper()&&active()&&state?.status==='ready'){state.reason=event.target.value;updateSave();}});
   document.addEventListener('submit',event=>{if(event.target.id==='provider-settings-form'){event.preventDefault();save(event.target);}});
   document.addEventListener('click',event=>{
     const button=event.target.closest('[data-provider-action]');if(!button||!isDeveloper()||!active()||state?.saving)return;
-    const action=button.dataset.providerAction;if(action==='refresh')load();else history(action==='history-more'||state.retryMore);
+    const action=button.dataset.providerAction;
+    if(action==='refresh')load();
+    else if(action==='submit-banner'){
+      document.querySelector('#provider-settings-form')?.requestSubmit();
+    }
+    else if(action==='discard-draft'){
+      state.draft=structuredClone(state.data.selections);
+      state.touched.clear();
+      renderPage();
+    }
+    else history(action==='history-more'||state.retryMore);
   });
   document.addEventListener('toggle',event=>{if(event.target.id==='provider-history'&&event.target.isConnected){expanded=event.target.open;if(expanded&&state?.historyStatus==='idle')history();}},true);
   return {load,render,reset(){state=null;expanded=false;},afterRender(){const node=document.querySelector('#provider-history');if(node){node.open=expanded;if(expanded&&state.historyStatus==='idle')history();}if(state?.status==='ready')updateSave();if(!writable())document.querySelectorAll('#provider-settings-form select,#provider-settings-form textarea').forEach(node=>node.disabled=true);}};

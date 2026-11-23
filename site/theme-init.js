@@ -45,8 +45,8 @@
           const parts = String(label).split(/\s+(?:\u2014|\u2013|-)\s+/);
           const title = button.querySelector(".theme-title");
           const sub = button.querySelector(".theme-sub");
-          if (title) title.textContent = parts[0] || label;
-          if (sub) sub.textContent = parts.length > 1 ? parts[1] : "";
+          if (title) title.textContent = "Theme";
+          if (sub) sub.textContent = parts[0] || label;
         }
       } catch (e) {}
     };

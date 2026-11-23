@@ -123,16 +123,13 @@ test('speech task creation visual UI test verifies end-to-end task creation with
     await submitBtn.click();
     await pause(1000);
 
-    // 11. Select created task in the select dropdown and verify card
+    // 11. Verify created task is automatically selected and create accordion is collapsed
     const speechTaskSelect = page.locator('#speech-task');
-    if (await speechTaskSelect.count() > 0) {
-      const options = await speechTaskSelect.locator('option').allTextContents();
-      const match = options.find(opt => opt.includes('Read the word drizzle aloud with clear vowel articulation.'));
-      if (match) {
-        await speechTaskSelect.selectOption({ label: match });
-        await pause(500);
-      }
-    }
+    await speechTaskSelect.waitFor({timeout: 10000});
+    const selectedText = await speechTaskSelect.locator('option:checked').textContent();
+    assert.ok(selectedText.includes('Read the word drizzle aloud with clear vowel articulation.'), 'Newly created task must be automatically selected in #speech-task');
+    const detailsAccordion = page.locator('details.speech-create-accordion');
+    assert.equal(await detailsAccordion.getAttribute('open'), null, 'Create task accordion must be collapsed after task creation');
 
     const taskCard = page.locator('.speech-task-card');
     await taskCard.waitFor({timeout: 10000});

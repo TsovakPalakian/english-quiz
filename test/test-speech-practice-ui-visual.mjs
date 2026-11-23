@@ -35,6 +35,37 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     assert.ok(await recordBtn.isVisible(),'Record button must be visible');
     assert.ok(await recordBtn.isEnabled(),'Record button must be enabled initially');
 
+    // Verify Single Record Toggle Button initial state
+    const singleRecordBtn = page.locator('.speech-btn-record');
+    await singleRecordBtn.waitFor();
+    assert.ok(await singleRecordBtn.isVisible(), 'Single record toggle button must be visible');
+    assert.match(await singleRecordBtn.textContent(), /Record speech/, 'Initial button text must be Record speech');
+    assert.equal(await singleRecordBtn.getAttribute('data-speech-action'), 'record', 'Initial action must be record');
+
+    // Click to start recording
+    await singleRecordBtn.click();
+    await page.waitForFunction(() => document.querySelector('.speech-btn-record')?.textContent.includes('Stop recording'));
+    assert.ok(await singleRecordBtn.evaluate(el => el.classList.contains('is-recording')), 'Button must have is-recording class while recording');
+    assert.equal(await singleRecordBtn.getAttribute('data-speech-action'), 'stop', 'Button action must be stop while recording');
+
+    // Click to stop recording
+    await singleRecordBtn.click();
+    await page.waitForFunction(() => document.querySelector('.speech-btn-record')?.textContent.includes('Recording ready'));
+    assert.ok(await singleRecordBtn.evaluate(el => el.classList.contains('is-ready-green')), 'Button must turn green with is-ready-green class when ready');
+
+    // Verify audio player element is styled with proper height
+    const localAudio = page.locator('audio[data-speech-local]');
+    await localAudio.waitFor();
+    const audioHeight = await localAudio.evaluate(el => el.getBoundingClientRect().height);
+    assert.ok(audioHeight >= 30, 'Local audio player must be rendered with visible height');
+
+    // Verify Discard resets the toggle button back to Record speech
+    const discardBtn = page.locator('[data-speech-action="discard"]');
+    await discardBtn.click();
+    await page.waitForFunction(() => document.querySelector('.speech-btn-record')?.textContent.includes('Record speech'));
+    assert.equal(await singleRecordBtn.getAttribute('data-speech-action'), 'record', 'Button action must reset to record after discard');
+    assert.equal(await page.locator('audio[data-speech-local]').count(), 0, 'Audio element must be removed on discard');
+
     const consentCard=page.locator('.speech-consent-card');
     await consentCard.waitFor();
     assert.ok(await consentCard.isVisible(),'Consent card must be visible');
@@ -185,6 +216,72 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     assert.equal(await localePopover.isVisible(), true, 'Locale popover must be visible again');
     await cancelBtn.click(); // Click outside the select wrap
     assert.equal(await localePopover.isVisible(), false, 'Locale popover must close on click outside');
+
+    // Developer view: AI Providers SaaS page verification
+    await page.selectOption('#account', 'dev');
+    await page.locator('#account:not([disabled])').waitFor();
+
+    // 1. Open AI Providers page
+    await page.locator('[data-view="providers"]').click();
+    const aiPage = page.locator('.ai-providers-page');
+    await aiPage.waitFor();
+    assert.ok(await aiPage.isVisible(), 'AI providers page must be visible');
+
+    // Header & Badge
+    assert.equal(await aiPage.locator('h1').textContent(), 'AI Providers', 'Page title must be AI Providers');
+    assert.ok(await aiPage.locator('.ai-providers-header-badge').isVisible(), 'Active configuration badge must be visible');
+
+    // Card & Metadata
+    const aiCard = aiPage.locator('.ai-providers-card');
+    assert.equal(await aiCard.locator('.ai-card-title-group h2').textContent(), 'Service selections', 'Card header must be Service selections');
+    assert.equal(await aiCard.locator('.attempt-meta dt').count(), 3, 'Metadata grid must display exactly 3 stats');
+
+    // Tasks & Technical Badges
+    const taskRows = aiCard.locator('.ai-task-row');
+    assert.ok((await taskRows.count()) >= 5, 'Must list at least 5 AI task rows');
+    assert.ok(await taskRows.first().locator('.ai-tech-tag').isVisible(), 'Technical badge must be visible');
+
+    // Unsaved changes reactive banner & badge
+    assert.equal(await aiCard.locator('.ai-unsaved-badge:not([hidden])').count(), 0, 'Unsaved badge must be hidden initially');
+    assert.equal(await aiCard.locator('.ai-unsaved-banner:not([hidden])').count(), 0, 'Unsaved banner must be hidden initially');
+
+    await page.selectOption('#provider-generation', '0');
+    assert.equal(await aiCard.locator('.ai-unsaved-badge:not([hidden])').count(), 1, 'Unsaved badge must be visible after change');
+    assert.equal(await aiCard.locator('.ai-unsaved-banner:not([hidden])').count(), 1, 'Unsaved banner must be visible after change');
+
+    // Discard draft button
+    await aiCard.locator('[data-provider-action="discard-draft"]').click();
+    assert.equal(await aiCard.locator('.ai-unsaved-badge:not([hidden])').count(), 0, 'Unsaved badge must be hidden after discard');
+    assert.equal(await aiCard.locator('.ai-unsaved-banner:not([hidden])').count(), 0, 'Unsaved banner must be hidden after discard');
+
+    // Capture visual verification snapshots of AI providers across themes (capturing the pure aiPage component)
+    // 1. Sky theme
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'sky'));
+    await aiPage.screenshot({ path: resolve('docs/task-ai-providers-layout-sky.png') });
+    assert.ok(existsSync('docs/task-ai-providers-layout-sky.png'), 'AI providers Sky screenshot must exist');
+
+    // 2. Dark theme
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await aiPage.screenshot({ path: resolve('docs/task-ai-providers-layout-dark.png') });
+    assert.ok(existsSync('docs/task-ai-providers-layout-dark.png'), 'AI providers Dark screenshot must exist');
+
+    // 3. Sand theme
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'sand'));
+    await aiPage.screenshot({ path: resolve('docs/task-ai-providers-layout-sand.png') });
+    assert.ok(existsSync('docs/task-ai-providers-layout-sand.png'), 'AI providers Sand screenshot must exist');
+
+    // Reset back to Sky
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'sky'));
+
+    // 2. Verify sidebar components in main app preview HTML
+    const previewHtml = readFileSync(resolve('site/preview.html'), 'utf8');
+    assert.ok(previewHtml.includes('lucide-palette'), 'Main preview sidebar must contain Lucide palette icon');
+    assert.ok(previewHtml.includes('Theme'), 'Main preview sidebar must contain Theme label');
+    assert.ok(previewHtml.includes('Sky'), 'Main preview sidebar must contain Sky default subtitle');
+
+    const workbenchSrc = readFileSync(resolve('client/52a-workbench.js'), 'utf8');
+    assert.ok(workbenchSrc.includes('lucide-cpu'), 'Workbench nav must contain Lucide cpu icon for AI providers');
+    assert.ok(workbenchSrc.includes('AI providers'), 'Workbench nav must contain AI providers label');
 
   }finally{
     await browser?.close();
