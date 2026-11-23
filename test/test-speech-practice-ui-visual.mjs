@@ -39,6 +39,19 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     await consentCard.waitFor();
     assert.ok(await consentCard.isVisible(),'Consent card must be visible');
 
+    const consentRow=page.locator('.studio-consent-row');
+    await consentRow.waitFor();
+    assert.ok(await consentRow.isVisible(),'Studio consent row must be visible');
+
+    const consentInfo=page.locator('.consent-info');
+    await consentInfo.waitFor();
+    assert.ok(await consentInfo.isVisible(),'Consent info must be visible');
+
+    const consentInput=consentRow.locator('input[type="checkbox"][name="consent"]');
+    assert.strictEqual(await consentInput.isChecked(),false,'Consent checkbox must not be checked initially');
+    const consentLabel=consentRow.locator('.speech-consent-label');
+    assert.match(await consentLabel.innerText(),/Send this recording to/,'Consent label must contain provider prompt text');
+
     // Visual theme verification across Sky, Dark, Sand
     const panel=page.locator('.speech-panel');
 
@@ -56,6 +69,20 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     await page.evaluate(()=>document.documentElement.setAttribute('data-theme','sand'));
     await panel.screenshot({path:resolve('docs/task-speech-ui-verification-sand.png')});
     assert.ok(existsSync('docs/task-speech-ui-verification-sand.png'),'Sand theme verification screenshot must exist');
+
+    // Teacher view verification: structured SaaS form fields and Cancel button
+    await page.selectOption('#account','teacher');
+    await page.locator('[data-view="speech"]').click();
+    const createSummary=page.locator('.speech-create-summary');
+    await createSummary.waitFor();
+    assert.ok(await createSummary.isVisible(), 'Styled speech create summary must be visible');
+    assert.ok((await createSummary.textContent()).includes('Create a Lesson Speech Task'), 'Summary text must match mockup');
+    await createSummary.click();
+
+    const cancelBtn=page.locator('.speech-btn-secondary');
+    await cancelBtn.waitFor();
+    assert.ok(await cancelBtn.isVisible(), 'Cancel button must be visible in teacher form');
+    assert.ok(await page.locator('.saas-field').count() >= 3, 'Structured SaaS fields must be rendered');
 
   }finally{
     await browser?.close();

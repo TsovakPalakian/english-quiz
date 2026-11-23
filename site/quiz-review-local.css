@@ -859,3 +859,79 @@ dialog:not([open]) { display: none !important; }
 .speech-panel .btn-destructive:hover, .speech-panel .speech-btn-danger:hover {
   background: color-mix(in srgb, var(--bad, #ef4444) 10%, transparent);
 }
+.speech-panel .speech-results-card {
+  margin: 12px 0;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.speech-panel .speech-results-card .saas-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 92%, var(--bg));
+}
+.speech-panel .speech-results-card .title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.speech-panel .speech-results-card .status-chip {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--ok, #10b981) 14%, var(--card));
+  color: var(--ok, #10b981);
+  border: 1px solid color-mix(in srgb, var(--ok, #10b981) 25%, transparent);
+}
+.speech-panel .speech-results-card .attempt-date {
+  font-size: 12px;
+  color: var(--mute);
+  font-weight: 500;
+}
+.speech-panel .speech-results-card .saas-card-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.speech-panel .footer-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.speech-panel .speech-create-accordion {
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  overflow: hidden;
+  margin: 16px 0;
+}
+.speech-panel .speech-create-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--card) 92%, var(--bg));
+  border-bottom: 1px solid var(--line);
+  list-style: none;
+}
+.speech-panel .speech-create-summary::-webkit-details-marker {
+  display: none;
+}
+.speech-panel .speech-create-summary .summary-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
