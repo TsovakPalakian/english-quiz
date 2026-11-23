@@ -450,6 +450,9 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .security-passkeys label{display:grid;gap:6px}
 .user-settings .security-passkeys label input{width:100%}
 .user-settings .security-passkeys .settings-action{margin:0;justify-self:start}
+.user-settings .accordion-btn{width:100%!important;justify-self:stretch!important;justify-content:space-between!important;display:flex!important;align-items:center}
+.user-settings .accordion-arrow{color:var(--mute);font-size:16px;line-height:1}
+.user-settings .security-passkeys [data-passkey-label]::placeholder{color:var(--mute)}
 .user-settings .security-passkey-row{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
 .user-settings .security-passkey-row>div{display:grid;gap:4px;overflow-wrap:anywhere}
 .user-settings .security-passkey-row .settings-action{width:44px;height:44px;padding:10px}
@@ -470,8 +473,16 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .user-settings .settings-file-name{font-size:13px;color:var(--mute);overflow-wrap:anywhere}
 .user-settings .notification-sounds-inline label:has([type=range]){position:relative;padding-block:12px}
 .user-settings .notification-sounds-inline output{position:absolute;right:0;top:12px;font-size:14px;color:var(--mute)}
-.user-settings #ownPasswordForm{display:grid;gap:12px;padding-block:16px}
-.user-settings #ownPasswordForm label{display:grid;gap:6px}
+.user-settings #ownPasswordForm{box-sizing:border-box;display:grid;gap:10px;max-width:360px;margin-top:10px;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.user-settings #ownPasswordForm *{box-sizing:border-box}
+.user-settings #ownPasswordForm label{display:grid;gap:4px;font-size:13px;font-weight:500;color:var(--ink)}
+.user-settings #ownPasswordForm input{height:38px!important;min-height:38px!important;padding:6px 12px!important;border:1px solid var(--line)!important;border-radius:6px!important;background:var(--card)!important;color:var(--ink)!important;font-size:14px!important}
+.user-settings #ownPasswordForm input::placeholder{color:var(--mute)}
+.user-settings #ownPasswordForm input.field-error{border-color:var(--bad)!important}
+.user-settings #ownPasswordForm button[type=submit]{height:38px;padding:0 16px;margin-top:4px;border-radius:6px;font-size:14px;font-weight:600;justify-self:start}
+.user-settings #ownPasswordForm [data-form-status]{font-size:13px;font-weight:500;margin:0}
+.user-settings #ownPasswordForm [data-form-status].bad{color:var(--bad)}
+.user-settings #ownPasswordForm [data-form-status]:not(.bad):not(:empty){color:var(--ok)}
 @media(max-width:700px){.user-settings{width:calc(100vw - 16px)}.user-settings .chat-dialog-body{display:block;min-height:0}.user-settings .chat-settings-menu{width:100%;padding:16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.user-settings .chat-settings-menu h2,.user-settings .chat-settings-profile{grid-column:1/-1}.user-settings .chat-settings-menu>button{font-size:13px!important;padding:8px!important;gap:6px!important;flex-direction:column;justify-content:center;text-align:center}.user-settings .chat-settings-menu>h3{display:none}.user-settings .chat-settings-content{padding:18px;max-height:none}.user-settings .chat-settings-profile{margin:8px 0}.user-settings .chat-dialog-head h2{font-size:21px}}
 @media(prefers-reduced-motion:reduce){.user-settings .settings-switch>span,.user-settings .settings-switch>span:before{transition:none}}
 .chat-dialog.user-settings:not(.in-page){box-sizing:border-box;width:min(1120px,calc(100vw - 32px))!important;height:min(740px,calc(100dvh - 32px));max-height:calc(100dvh - 32px);overflow:hidden;border-radius:8px}

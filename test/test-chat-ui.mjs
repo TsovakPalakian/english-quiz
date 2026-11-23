@@ -574,7 +574,9 @@ try{
   await page.setViewportSize({width:320,height:800});assert.ok(await page.locator('.user-settings').evaluate(node=>node.scrollWidth<=node.clientWidth+1));await Promise.resolve();
     yield "146. setViewportSize";
     await page.setViewportSize({width:1664,height:1000});
-  await page.locator('[data-settings-tab="security"]').click();await page.locator('.security-session').first().waitFor();assert.equal(await page.locator('.security-session').count(),2);
+  await page.locator('[data-settings-tab="security"]').click();
+  await page.locator('[data-sessions-toggle]').click();
+  await page.locator('.security-session').first().waitFor();assert.equal(await page.locator('.security-session').count(),2);
   yield "147. checks";
   assert.deepEqual(await settingsSize(),fixedSettingsSize,'Security keeps the same dimensions');assert.equal(await page.locator('.security-session-current').innerText(),'This session');
   await Promise.resolve();

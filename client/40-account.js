@@ -269,17 +269,24 @@
       if (form.id === "ownPasswordForm") {
         e.preventDefault();
         const status = form.querySelector("[data-form-status]");
+        const repeatInput = form.querySelector('[name="repeat"]');
+        const submitBtn = form.querySelector('button[type="submit"]');
         const data = Object.fromEntries(new FormData(form).entries());
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
+        if (repeatInput) repeatInput.classList.remove("field-error");
         if (data.password !== data.repeat) {
+          if (repeatInput) repeatInput.classList.add("field-error");
           if (status) { status.textContent = "The new passwords do not match."; status.classList.add("bad"); }
           return;
         }
+        if (submitBtn) submitBtn.disabled = true;
         accountFetch("/api/me/password", { method: "POST", body: JSON.stringify({ current: data.current, password: data.password }) }).then(() => {
           form.reset();
           if (status) status.textContent = "Password saved.";
         }).catch((err) => {
           if (status) { status.textContent = err.message; status.classList.add("bad"); }
+        }).finally(() => {
+          if (submitBtn) submitBtn.disabled = false;
         });
         return;
       }

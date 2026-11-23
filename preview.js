@@ -17932,8 +17932,34 @@ const STUDIO_CONSTELLATIONS = [{
       async function mount(host){
         if(!host)return;
         host.classList.add('security-passkeys');
-        host.innerHTML='<h3>Passkeys</h3><div data-passkey-list></div><label>Passkey name<input type="text" data-passkey-label maxlength="80" value="My device"></label><button class="settings-action" type="button" data-passkey-code>Send confirmation code</button><label hidden data-passkey-code-step>Email code<input type="text" data-passkey-code-value inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label><button class="settings-action" type="button" data-passkey-add'+(supported()?'':' disabled')+'><i data-lucide="fingerprint" aria-hidden="true"></i>Add passkey</button><p class="hint" role="status" data-passkey-status></p>';
-        const status=host.querySelector('[data-passkey-status]'),code=host.querySelector('[data-passkey-code-value]');
+        let expanded=false;
+        host.innerHTML=
+          '<button class="settings-action accordion-btn" type="button" data-passkey-toggle style="width:100%; justify-content:space-between;"><span style="display:flex; align-items:center; gap:10px;"><i data-lucide="fingerprint" aria-hidden="true"></i>Set passkeys</span><span class="accordion-arrow">▸</span></button>'+
+          '<div data-passkey-content hidden style="margin-top:10px;">'+
+          '<div data-passkey-list></div>'+
+          '<label style="display:grid; gap:4px; font-size:13px; font-weight:500;">Passkey name<input type="text" data-passkey-label maxlength="80" placeholder="Set device name" required style="height:38px; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-size:14px;"></label>'+
+          '<button class="settings-action" type="button" data-passkey-code style="margin-top:8px;">Send confirmation code</button>'+
+          '<label hidden data-passkey-code-step style="display:grid; gap:4px; font-size:13px; font-weight:500; margin-top:8px;">Email code<input type="text" data-passkey-code-value inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="height:38px; padding:6px 12px; border:1px solid var(--line); border-radius:6px; background:var(--card); color:var(--ink); font-size:14px;"></label>'+
+          '<button class="settings-action" type="button" data-passkey-add hidden disabled style="margin-top:8px;"><i data-lucide="fingerprint" aria-hidden="true"></i>Add passkey</button>'+
+          '<p class="hint" role="status" data-passkey-status style="margin:8px 0 0 0;"></p>'+
+          '</div>';
+
+        const toggleBtn=host.querySelector('[data-passkey-toggle]');
+        const arrow=toggleBtn.querySelector('.accordion-arrow');
+        const content=host.querySelector('[data-passkey-content]');
+        const status=host.querySelector('[data-passkey-status]');
+        const labelInput=host.querySelector('[data-passkey-label]');
+        const codeStep=host.querySelector('[data-passkey-code-step]');
+        const codeInput=host.querySelector('[data-passkey-code-value]');
+        const addBtn=host.querySelector('[data-passkey-add]');
+        const codeBtn=host.querySelector('[data-passkey-code]');
+
+        toggleBtn.onclick=()=>{
+          expanded=!expanded;
+          content.hidden=!expanded;
+          arrow.textContent=expanded?'▾':'▸';
+        };
+
         const draw=()=>window.lucide?.createIcons({root:host});
         const run=async(button,action)=>{
           button.disabled=true;status.textContent='';
@@ -17948,17 +17974,43 @@ const STUDIO_CONSTELLATIONS = [{
             const name=document.createElement('span');name.textContent=key.label;
             const date=document.createElement('small');date.className='hint';date.textContent=key.lastUsedAt?'Last used '+new Date(key.lastUsedAt).toLocaleDateString():'Not used yet';
             const remove=document.createElement('button');remove.type='button';remove.className='settings-action danger';remove.title='Remove passkey';remove.setAttribute('aria-label','Remove '+key.label);remove.innerHTML='<i data-lucide="trash-2" aria-hidden="true"></i>';
-            remove.onclick=()=>run(remove,async()=>{requireCode();await api('/api/me/passkeys/delete',{id:key.id,emailCode:code.value});code.value='';await load();status.textContent='Passkey removed.';});
+            remove.onclick=()=>run(remove,async()=>{
+              requireCode();
+              await api('/api/me/passkeys/delete',{id:key.id,emailCode:codeInput.value});
+              codeInput.value='';
+              validateCode();
+              await load();
+              status.textContent='Passkey removed.';
+            });
             const details=document.createElement('div');details.append(name,date);row.append(details,remove);list.append(row);
           }
           if(!passkeys.length)list.textContent='No passkeys added.';draw();
         }
-        function requireCode(){if(!/^\d{6}$/.test(code.value)){code.focus();throw Error('Send a confirmation code to your account email and enter it here.');}}
-        host.querySelector('[data-passkey-code]').onclick=event=>run(event.currentTarget,async()=>{await api('/api/me/passkeys/code',{});host.querySelector('[data-passkey-code-step]').hidden=false;code.focus();status.textContent='Confirmation code sent to your account email.';});
-        host.querySelector('[data-passkey-add]').onclick=event=>run(event.currentTarget,async()=>{
-          requireCode();const {options}=await api('/api/me/passkeys/options',{emailCode:code.value});code.value='';
+        function validateCode(){
+          const valid=/^\d{6}$/.test(codeInput.value.trim());
+          addBtn.disabled=!valid||!supported();
+        }
+        codeInput.oninput=()=>validateCode();
+        function requireCode(){if(!/^\d{6}$/.test(codeInput.value.trim())){codeInput.focus();throw Error('Send a confirmation code to your account email and enter it here.');}}
+        codeBtn.onclick=event=>run(event.currentTarget,async()=>{
+          if(!labelInput.value.trim()){labelInput.focus();throw Error('Set device name first.');}
+          await api('/api/me/passkeys/code',{});
+          codeStep.hidden=false;
+          addBtn.hidden=false;
+          validateCode();
+          codeInput.focus();
+          status.textContent='Confirmation code sent to your account email.';
+        });
+        addBtn.onclick=event=>run(event.currentTarget,async()=>{
+          if(!labelInput.value.trim()){labelInput.focus();throw Error('Set device name first.');}
+          requireCode();
+          const {options}=await api('/api/me/passkeys/options',{emailCode:codeInput.value.trim()});
+          codeInput.value='';
+          validateCode();
           const response=await window.SimpleWebAuthnBrowser.startRegistration({optionsJSON:options});
-          await api('/api/me/passkeys/verify',{response,label:host.querySelector('[data-passkey-label]').value});await load();status.textContent='Passkey added.';
+          await api('/api/me/passkeys/verify',{response,label:labelInput.value.trim()});
+          await load();
+          status.textContent='Passkey added.';
         });
         if(!supported())status.textContent='This browser does not support adding passkeys.';
         try{await load();}catch(error){status.textContent=message(error);}draw();
@@ -23039,17 +23091,24 @@ const STUDIO_CONSTELLATIONS = [{
       if (form.id === "ownPasswordForm") {
         e.preventDefault();
         const status = form.querySelector("[data-form-status]");
+        const repeatInput = form.querySelector('[name="repeat"]');
+        const submitBtn = form.querySelector('button[type="submit"]');
         const data = Object.fromEntries(new FormData(form).entries());
         if (status) { status.textContent = ""; status.classList.remove("bad"); }
+        if (repeatInput) repeatInput.classList.remove("field-error");
         if (data.password !== data.repeat) {
+          if (repeatInput) repeatInput.classList.add("field-error");
           if (status) { status.textContent = "The new passwords do not match."; status.classList.add("bad"); }
           return;
         }
+        if (submitBtn) submitBtn.disabled = true;
         accountFetch("/api/me/password", { method: "POST", body: JSON.stringify({ current: data.current, password: data.password }) }).then(() => {
           form.reset();
           if (status) status.textContent = "Password saved.";
         }).catch((err) => {
           if (status) { status.textContent = err.message; status.classList.add("bad"); }
+        }).finally(() => {
+          if (submitBtn) submitBtn.disabled = false;
         });
         return;
       }

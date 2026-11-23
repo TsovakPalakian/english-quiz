@@ -228,7 +228,8 @@
       cursor = null,
       version = 0,
       busy = false,
-      error = '';
+      error = '',
+      expanded = false;
     const alive = () => host.isConnected && parent.open && gen === generation && owner === account && !!current();
     const when = (value) => (value ? new Date(value).toLocaleString() : 'Not recorded');
     const reasons = {
@@ -241,7 +242,8 @@
     const field = (name, value) => '<div><dt>' + name + '</dt><dd>' + escape(value || 'Not available') + '</dd></div>';
     function paint() {
       if (!alive()) return;
-      host.innerHTML =
+      const showDetails = ['ADMIN', 'DEVELOPER'].includes(current()?.role?.toUpperCase());
+      const sessionContent =
         '<div class="security-session-tabs" role="tablist" aria-label="Session views">' +
         [
           ['active', 'Active sessions'],
@@ -294,14 +296,18 @@
                   icon('log-out') +
                   'End session</button>'
                 : '') +
-              '</div><details><summary>Connection details</summary><dl>' +
-              field('Network', row.network) +
-              field('ASN', row.asn ? String(row.asn) : '') +
-              field('TLS', row.tls) +
-              field('Latest IP address', row.lastIp) +
-              field('Latest location', [row.lastCity, row.lastCountry].filter(Boolean).join(', ')) +
-              field('User agent', row.userAgent) +
-              '</dl></details></article>',
+              '</div>' +
+              (showDetails
+                ? '<details><summary>Connection details</summary><dl>' +
+                  field('Network', row.network) +
+                  field('ASN', row.asn ? String(row.asn) : '') +
+                  field('TLS', row.tls) +
+                  field('Latest IP address', row.lastIp) +
+                  field('Latest location', [row.lastCity, row.lastCountry].filter(Boolean).join(', ')) +
+                  field('User agent', row.userAgent) +
+                  '</dl></details>'
+                : '') +
+              '</article>',
           )
           .join('') +
         (!rows.length && !busy
@@ -315,6 +321,22 @@
             (busy ? ' disabled' : '') +
             '>Load more</button>'
           : '');
+
+      host.innerHTML =
+        '<button class="settings-action" type="button" data-sessions-toggle style="width:100%; justify-content:space-between;"><span style="display:flex; align-items:center; gap:10px;">' +
+        icon('monitor') +
+        'Show active sessions</span><span class="accordion-arrow">' +
+        (expanded ? '▾' : '▸') +
+        '</span></button><div data-sessions-body' +
+        (expanded ? '' : ' hidden') +
+        ' style="margin-top:10px;">' +
+        sessionContent +
+        '</div>';
+
+      host.querySelector('[data-sessions-toggle]').onclick = () => {
+        expanded = !expanded;
+        paint();
+      };
       host.querySelectorAll('[data-session-view]').forEach(
         (button) =>
           (button.onclick = () => {
@@ -406,9 +428,7 @@
       avatar(profile.name, false, profile.id) +
       '<span><strong>' +
       escape(profile.name || profile.login) +
-      '</strong><br><small>' +
-      escape(profile.role) +
-      '</small></span></div><h3>Common</h3>' +
+      '</strong></span></div><h3>Common</h3>' +
       [
         ['profile', icon('user-round'), 'Profile'],
         ['notifications', icon('bell'), 'Notifications'],
@@ -625,9 +645,9 @@
           '<button class="btn" type="button" data-settings-chat>Open messages</button>';
       if (id === 'security')
         html =
-          '<div data-security-passkeys></div><hr><div data-security-sessions></div><hr><button type="button" class="settings-action" data-settings-password>' +
+          '<div data-security-passkeys></div><hr><div data-security-sessions></div><hr><button type="button" class="settings-action" data-settings-password style="width:100%; justify-content:space-between;"><span style="display:flex; align-items:center; gap:10px;">' +
           icon('key-round') +
-          'Change password</button><div data-settings-password-slot></div><hr><button type="button" class="settings-action danger" data-account="revoke">' +
+          'Change password</span><span class="accordion-arrow">▸</span></button><div data-settings-password-slot></div><hr><button type="button" class="settings-action danger" data-account="revoke">' +
           icon('trash-2') +
           'Delete my data</button>';
       if (id === 'blocked') {
@@ -739,10 +759,18 @@
             }
           }),
       );
-      pane.querySelector('[data-settings-password]')?.addEventListener('click', () => {
+      pane.querySelector('[data-settings-password]')?.addEventListener('click', (e) => {
+        const btn = e.currentTarget;
+        const arrow = btn.querySelector('.accordion-arrow');
         const slot = pane.querySelector('[data-settings-password-slot]');
+        if (slot.innerHTML.trim()) {
+          slot.innerHTML = '';
+          if (arrow) arrow.textContent = '▸';
+          return;
+        }
+        if (arrow) arrow.textContent = '▾';
         slot.innerHTML =
-          '<form id="ownPasswordForm"><label>Current password<input name="current" type="password" autocomplete="current-password" required></label><label>New password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><label>Repeat password<input name="repeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><p data-form-status role="status"></p><button class="btn primary" type="submit">Save password</button></form>';
+          '<form id="ownPasswordForm" class="password-form-compact"><label>Current password<input name="current" type="password" autocomplete="current-password" required placeholder="••••••••"></label><label>New password<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required placeholder="At least 8 characters"></label><label>Repeat password<input name="repeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required placeholder="Repeat new password"></label><p data-form-status role="status"></p><button class="btn primary" type="submit">Save password</button></form>';
       });
       pane.querySelectorAll('[data-pref]').forEach(
         (input) =>
