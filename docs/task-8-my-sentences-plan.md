@@ -89,6 +89,24 @@
 ### Скриншот 18: Экран тренировки предложений «Study sentences» в светлой теме Sand (`data-theme="sand"`)
 ![Скриншот 18: Экран тренировки предложений в теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-18-study-sand.png)
 
+### Скриншот 19: Обновленный экран «My sentences» с чистым вводом без кнопок направления и анализа в теме Sky (`data-theme="sky"`)
+![Скриншот 19: Обновленный экран с чистым вводом в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-19-clean-input-sky.png)
+
+### Скриншот 20: Обновленный экран «My sentences» с чистым вводом в тёмной теме Dark (`data-theme="dark"`)
+![Скриншот 20: Обновленный экран с чистым вводом в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-20-clean-input-dark.png)
+
+### Скриншот 21: Обновленный экран «My sentences» с чистым вводом в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 21: Обновленный экран с чистым вводом в теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-21-clean-input-sand.png)
+
+### Скриншот 22: Результаты анализа предложения по нажатию Enter с выбором перевода в теме Sky (`data-theme="sky"`)
+![Скриншот 22: Результаты анализа предложения по Enter в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-22-choices-sky.png)
+
+### Скриншот 23: Результаты анализа предложения по нажатию Enter в тёмной теме Dark (`data-theme="dark"`)
+![Скриншот 23: Результаты анализа предложения по Enter в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-23-choices-dark.png)
+
+### Скриншот 24: Результаты анализа предложения по нажатию Enter в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 24: Результаты анализа предложения по Enter в теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-24-choices-sand.png)
+
 ---
 
 ## 3. Чеклист этапов реализации
@@ -134,4 +152,21 @@
 - 🟩 **Шаг 9: Автоматическое тестирование и сборка**
   - Сборка клиентских ассетов `npm run build:preview` и локальный билдер ассетов.
   - Целевые модульные и визуальные тесты `test-my-sentences-analysis` и `test-my-sentences-visual`.
+  - Проверено и подтверждено `🟩`.
+
+- 🟩 **Шаг 10: Согласование обновленного шаблона формы ввода предложений (без кнопок направления и кнопки анализа, запуск по Enter)**
+  - Удалены 3 чипа выбора направления: определение направления автоматическое по умолчанию (наличие кириллицы задает `ru-en`, латиницы — `en-ru`).
+  - Удалена отдельная кнопка «✨ Analyze with Gemini».
+  - Анализ предложения запускается по окончании ввода и нажатию клавиши `Enter`.
+  - Отображение 3 вариантов перевода на английском языке при русском вводе (`Natural · Literary`, `Conversational nuance`, `Refined contextual`) и сохранение через вызов метода создания персональной карточки.
+  - Утверждено пользователем (`app` / `одо`).
+
+- 🟩 **Шаг 11: Реализация утвержденного шаблона формы ввода и устранение серверных ошибок**
+  - Обновление разметки формы ввода предложений: удаление чипов направления и кнопки анализа, добавление подсказки по нажатию клавиши `Enter`.
+  - Привязка обработчика клавиши `Enter` для отправки текста на анализ в Gemini API.
+  - Корректировка резервной генерации переводов `fallbackSentenceTranslations`: формирование качественного английского перевода для `ru-en` без эхо-повторения русского текста.
+  - Корректировка обработки запроса аналитики на сервере: исключение маршрута `/api/sentences/analyze` из блокировок записи, установка рабочей модели Gemini.
+  - Перевод сохранения предложений на вызовы `newCard` / `newManagedCard` с привязкой к колоде `sentences`.
+  - Исключение русскоязычного текста из системного перехватчика `unsupported` (`Adding personal cards`).
+  - Прогон тестов и сборка ассетов.
   - Проверено и подтверждено `🟩`.

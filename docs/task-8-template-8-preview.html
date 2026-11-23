@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Sentences - Clean Input Form (Translations Result)</title>
+  <link rel="stylesheet" href="../site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .preview-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .mock-side {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mute);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 900px;
+    }
+    .meta {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      color: var(--mute);
+      padding: 4px 0;
+    }
+    .crumb {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .crumb .btn.ghost.icon {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .crumb .btn.ghost.icon:hover {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .crumb .btn.ghost.icon svg {
+      width: 18px;
+      height: 18px;
+    }
+    .sub {
+      color: var(--mute);
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .study-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .add-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--acc);
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+    }
+    .sentence-form-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .saas-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--ink);
+      font-size: 15px;
+      outline: none;
+    }
+    .saas-input:focus {
+      border-color: var(--acc);
+      box-shadow: 0 0 0 3px var(--acc-s);
+    }
+    .input-hint {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--mute);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .auto-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--acc-s);
+      color: var(--acc);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .sentence-gemini-choices {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+    .choices-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+    }
+    .sentence-choice-tile {
+      display: flex;
+      align-items: flex-start;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .sentence-choice-tile:hover {
+      border-color: var(--acc);
+    }
+    .sentence-choice-tile.selected {
+      border-color: var(--acc);
+      background: var(--acc-s);
+    }
+    .sentence-choice-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--acc);
+      margin-bottom: 4px;
+    }
+    .sentence-choice-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .sentence-note-box {
+      margin: 12px 0;
+      padding: 10px 14px;
+      background: var(--acc-s);
+      border-left: 3px solid var(--acc);
+      border-radius: 4px;
+      font-size: 13px;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .btn-save-sentence {
+      padding: 10px 20px;
+      font-weight: 700;
+      font-size: 14px;
+      border-radius: 8px;
+      background: var(--acc);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    .search-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--ink);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-layout">
+    <aside class="mock-side">
+      <div class="mock-brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span>Lumiscia</span>
+      </div>
+      <button class="mock-nav-item active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <span>Words Studio</span>
+      </button>
+      <button class="mock-nav-item">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat & Texts</span>
+      </button>
+    </aside>
+
+    <main class="mock-main">
+      <div class="meta">
+        <div class="crumb">
+          <button class="btn ghost icon" type="button" aria-label="Home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
+          <button class="btn ghost icon" type="button" aria-label="Back to Words">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+          </button>
+          <h1 id="sentencesTitle" style="font-size: 24px; font-weight: 800; margin: 0; color: var(--ink);">My sentences · 0</h1>
+        </div>
+      </div>
+
+      <p class="sub">0 sentences. Study uses them.</p>
+
+      <div class="study-bar">
+        <button class="btn primary saas-btn saas-btn-primary" type="button" style="padding: 9px 20px; font-weight: 700; border-radius: 8px; background: var(--acc); color: #fff; border: none; cursor: pointer;">Study</button>
+        <button class="add-link" type="button" aria-label="Add a sentence">+</button>
+      </div>
+
+      <!-- Clean Sentence Input Form with Analysis Results -->
+      <div class="sentence-form-card">
+        <input type="text"
+               placeholder="Type or paste a full sentence (press Enter to analyze)"
+               autocomplete="off"
+               class="saas-input"
+               value="Я помнил, как тебя зовут" />
+        <div class="input-hint">
+          <span>Press <strong>Enter ↵</strong> to re-analyze</span>
+          <span class="auto-badge">Auto: RU ➔ EN</span>
+        </div>
+
+        <div class="sentence-gemini-choices">
+          <div class="choices-title">Select best translation:</div>
+          <div class="sentence-choice-tile selected">
+            <div>
+              <span class="sentence-choice-badge">Natural · Literary</span>
+              <div class="sentence-choice-text">I remembered what your name was.</div>
+            </div>
+          </div>
+          <div class="sentence-choice-tile">
+            <div>
+              <span class="sentence-choice-badge">Conversational nuance</span>
+              <div class="sentence-choice-text">I remembered your name.</div>
+            </div>
+          </div>
+          <div class="sentence-choice-tile">
+            <div>
+              <span class="sentence-choice-badge">Refined contextual</span>
+              <div class="sentence-choice-text">I recalled what you were called.</div>
+            </div>
+          </div>
+
+          <div class="sentence-note-box">
+            Past tense clause nuance: &ldquo;what your name was&rdquo; preserves the indirect question sequence of tenses accurately.
+          </div>
+
+          <div style="margin-top: 14px;">
+            <button class="btn-save-sentence" type="button">Add to My sentences</button>
+          </div>
+        </div>
+      </div>
+
+      <input type="search" placeholder="Search sentences" class="search-input" />
+    </main>
+  </div>
+</body>
+</html>

@@ -15455,7 +15455,21 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
 
         const list = loadAdded();
         list.unshift(item);
-        if (typeof saveAdded === "function") saveAdded(list, { op: "put-card", card: item });
+        if (typeof window !== "undefined" && window.LearningMain && typeof window.LearningMain.newCard === "function") {
+          try {
+            const managed = !!(typeof viewAccount !== "undefined" && viewAccount && typeof authUser !== "undefined" && authUser && ['ADMIN','DEVELOPER'].includes(authUser.role));
+            const cardPromise = managed && typeof window.LearningMain.newManagedCard === "function"
+              ? window.LearningMain.newManagedCard(viewAccount.id, item.word, item.ru, "sentences")
+              : window.LearningMain.newCard(item.word, item.ru, "sentences");
+            cardPromise.then(result => {
+              if (result?.revision && typeof stageStampLinks === "function") {
+                stageStampLinks(list, result.revision);
+              }
+            }).catch(() => {});
+          } catch (_err) {}
+        } else if (typeof saveAdded === "function") {
+          try { saveAdded(list, { op: "put-card", card: item }); } catch (_err) {}
+        }
         paintDeckCounts();
         paintSentencesList();
         hideSelpop();
@@ -15575,49 +15589,54 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         });
       }
 
-      if (analyzeBtn && typeof analyzeBtn.addEventListener === 'function' && input && choicesBox && status) {
-        analyzeBtn.addEventListener("click", async () => {
-          const sentence = input.value.trim();
-          if (!sentence) {
-            status.textContent = "Please enter a sentence.";
-            return;
-          }
-          const dirBtn = document.querySelector("[data-sentence-dir].on");
-          const dir = dirBtn?.dataset.sentenceDir || "auto";
-          status.textContent = "✨ Analyzing with Gemini…";
+      async function triggerSentenceAnalyze() {
+        const sentence = input ? input.value.trim() : "";
+        if (!sentence) {
+          if (status) status.textContent = "Please enter a sentence.";
+          return;
+        }
+        const dirBtn = typeof document.querySelector === 'function' ? document.querySelector("[data-sentence-dir].on") : null;
+        const dirSetting = dirBtn?.dataset.sentenceDir || "auto";
+        const isRu = /[\u0400-\u04FF]/.test(sentence);
+        const determinedDir = dirSetting === "auto" ? (isRu ? "ru-en" : "en-ru") : dirSetting;
+
+        if (status) status.textContent = "✨ Analyzing with Gemini…";
+        if (choicesBox) {
           choicesBox.hidden = true;
           choicesBox.innerHTML = "";
-          analyzeBtn.disabled = true;
+        }
+        if (input) input.disabled = true;
+        if (analyzeBtn) analyzeBtn.disabled = true;
 
-          try {
-            const res = await fetch("/api/sentences/analyze", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ sentence, direction: dir === "auto" ? "" : dir })
-            });
-            if (!res.ok) throw new Error("Analysis failed.");
-            const data = await res.json();
-            const translations = Array.isArray(data.translations) ? data.translations : [];
-            if (!translations.length) {
-              status.textContent = "No translations received.";
-              analyzeBtn.disabled = false;
-              return;
-            }
-            status.textContent = "Select best translation:";
-            let html = "";
-            translations.forEach((t, i) => {
-              html += '<div class="sentence-choice-tile' + (i === 0 ? ' selected' : '') + '" data-choice-idx="' + i + '" data-trans="' + esc(t.text) + '">';
-              html += '<div>';
-              html += '<span class="sentence-choice-badge">' + esc(t.label || 'Translation') + '</span>';
-              html += '<div class="sentence-choice-text">' + esc(t.text) + '</div>';
-              html += '</div></div>';
-            });
-            if (data.note) {
-              html += '<div class="sentence-note-box">' + esc(data.note) + '</div>';
-            }
-            html += '<div class="row" style="margin-top:12px;">' +
-              '<button class="btn primary saas-btn saas-btn-primary" type="button" data-sentence-save-chosen>Add to My sentences</button>' +
-            '</div>';
+        try {
+          const res = await fetch("/api/sentences/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sentence, direction: determinedDir })
+          });
+          if (!res.ok) throw new Error("Analysis failed.");
+          const data = await res.json();
+          const translations = Array.isArray(data.translations) ? data.translations : [];
+          if (!translations.length) {
+            if (status) status.textContent = "No translations received.";
+            return;
+          }
+          if (status) status.textContent = "Select best translation:";
+          let html = "";
+          translations.forEach((t, i) => {
+            html += '<div class="sentence-choice-tile' + (i === 0 ? ' selected' : '') + '" data-choice-idx="' + i + '" data-trans="' + esc(t.text) + '">';
+            html += '<div>';
+            html += '<span class="sentence-choice-badge">' + esc(t.label || 'Translation') + '</span>';
+            html += '<div class="sentence-choice-text">' + esc(t.text) + '</div>';
+            html += '</div></div>';
+          });
+          if (data.note) {
+            html += '<div class="sentence-note-box">' + esc(data.note) + '</div>';
+          }
+          html += '<div class="row" style="margin-top:12px;">' +
+            '<button class="btn primary saas-btn saas-btn-primary" type="button" data-sentence-save-chosen>Add to My sentences</button>' +
+          '</div>';
+          if (choicesBox) {
             choicesBox.innerHTML = html;
             choicesBox.hidden = false;
 
@@ -15628,25 +15647,45 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
               });
             });
 
-            const saveBtn = typeof choicesBox.querySelector === 'function' ? choicesBox.querySelector("[data-sentence-save-chosen]") : null;
+            const saveBtn = choicesBox.querySelector("[data-sentence-save-chosen]");
             if (saveBtn && typeof saveBtn.addEventListener === 'function') {
-              saveBtn.addEventListener("click", () => {
-                const selected = (typeof choicesBox.querySelector === 'function' && (choicesBox.querySelector(".sentence-choice-tile.selected") || choicesBox.querySelector(".sentence-choice-tile"))) || null;
+              saveBtn.addEventListener("click", async () => {
+                saveBtn.disabled = true;
+                const selected = choicesBox.querySelector(".sentence-choice-tile.selected") || choicesBox.querySelector(".sentence-choice-tile");
                 const chosenTranslation = selected?.dataset?.trans || sentence;
-                const determinedDir = data.direction || (/[A-Za-z]/.test(sentence) && !/[\u0400-\u04FF]/.test(sentence) ? "en-ru" : "ru-en");
+                const finalDir = data.direction || determinedDir;
+
+                const word = finalDir === "en-ru" ? sentence : chosenTranslation;
+                const ru = finalDir === "en-ru" ? chosenTranslation : sentence;
 
                 const item = {
-                  word: determinedDir === "en-ru" ? sentence : chosenTranslation,
-                  ru: determinedDir === "en-ru" ? chosenTranslation : sentence,
+                  word,
+                  ru,
                   place: "sentences",
-                  direction: determinedDir,
+                  direction: finalDir,
                   note: data.note || "",
                   created: Date.now()
                 };
 
                 const list = loadAdded();
                 list.unshift(item);
-                if (typeof saveAdded === "function") saveAdded(list, { op: "put-card", card: item });
+
+                if (typeof window !== "undefined" && window.LearningMain && typeof window.LearningMain.newCard === "function") {
+                  try {
+                    const managed = !!(typeof viewAccount !== "undefined" && viewAccount && typeof authUser !== "undefined" && authUser && ['ADMIN','DEVELOPER'].includes(authUser.role));
+                    const result = managed && typeof window.LearningMain.newManagedCard === "function"
+                      ? await window.LearningMain.newManagedCard(viewAccount.id, word, ru, "sentences")
+                      : await window.LearningMain.newCard(word, ru, "sentences");
+                    if (result?.revision && typeof stageStampLinks === "function") {
+                      stageStampLinks(list, result.revision);
+                    }
+                  } catch (_cardErr) {
+                    // Preserved locally if network fails
+                  }
+                } else if (typeof saveAdded === "function") {
+                  try { saveAdded(list, { op: "put-card", card: item }); } catch (_err) {}
+                }
+
                 if (input) input.value = "";
                 if (status) status.textContent = "Sentence added successfully!";
                 choicesBox.hidden = true;
@@ -15656,11 +15695,27 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
                 paintSentencesList();
               });
             }
-          } catch (err) {
-            if (status) status.textContent = err.message || "Failed to analyze";
-          } finally {
-            analyzeBtn.disabled = false;
           }
+        } catch (err) {
+          if (status) status.textContent = err.message || "Failed to analyze";
+        } finally {
+          if (input) input.disabled = false;
+          if (analyzeBtn) analyzeBtn.disabled = false;
+        }
+      }
+
+      if (input && typeof input.addEventListener === 'function') {
+        input.addEventListener("keydown", async (e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            await triggerSentenceAnalyze();
+          }
+        });
+      }
+
+      if (analyzeBtn && typeof analyzeBtn.addEventListener === 'function') {
+        analyzeBtn.addEventListener("click", async () => {
+          await triggerSentenceAnalyze();
         });
       }
 

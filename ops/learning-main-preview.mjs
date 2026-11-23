@@ -108,7 +108,7 @@ export function mainPreview(source,hooks){
   insert('    async function readLyrics(existingId) {','      return stageStoreSong(existingId);');
   insert('    async function saveSongMeta() {','      return stageSaveSongMeta();');
   insert('    function paintSongMedia(song, box) {','      stageMountSongAudio(song,box); if(stagePaintLocalAudio(song,box))return;');
-  insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.LearningMain.unsupported("Добавление личных карточек");');
+  insert('    function saveAdded(list, change) {','      if(authSyncLock)return; return window.LearningMain.unsupported("Adding personal cards");');
   insert('    async function saveWord(place, input, status, button, openCard) {','      if(place==="classify")return stageAddLibraryPhrase(input,status,button);return stageSaveWord(place,input,status,button,openCard);');
   insert('    function resumePlace() {','      try{stageRestoreSession();}catch(e){}');
   let upgrades=readFileSync(new URL('../client/main/material-upgrades.js',import.meta.url),'utf8');

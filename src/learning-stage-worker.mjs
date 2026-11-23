@@ -163,7 +163,6 @@ export default {async fetch(request,env){
       ||lessonAssessPronounce
       ||grammarEnrich
       ||distractorEnrich
-      ||sentenceAnalyze
       ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
@@ -176,7 +175,7 @@ export default {async fetch(request,env){
     const publicAsset=publicPaths.includes(path)||path.startsWith('/notification-audio/')||!!pdfAsset(path)||catalogPage||catalogCard||catalogCards;
     const speakoutViewer=['GET','HEAD'].includes(method)&&/^\/speakout\/vendor\/pdfjs\/[A-Za-z0-9._-]+$/.test(path);
     const speakoutWrite=method==='POST'&&['/api/speakout/lesson','/api/speakout/media','/api/speakout/answers','/api/speakout/progress','/api/speakout/speech/record'].includes(path);
-    if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset)&&!speakoutViewer)throw new StudyError(501,'Not migrated. No production fallback.');
+    if(!read&&!write&&!speakoutWrite&&!(method==='GET'&&publicAsset)&&!speakoutViewer&&!sentenceAnalyze)throw new StudyError(501,'Not migrated. No production fallback.');
     const banks={'/grammar.js':['GRAMMAR'],'/lesson-data.js':['LESSON_DATA'],'/irregular.js':['IRREGULAR','VERB_IPA','VERB_IPA_CASE'],'/speakout.js':['SPEAKOUT'],'/tense-bank.json':['TENSE_BANK']};
     // Explicit public assets/catalogs only. Never spend an auth SELECT per asset.
     if(method==='GET'&&publicAsset){

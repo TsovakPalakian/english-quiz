@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
-test('Visual and DOM test: My sentences deck, section, selpop, and themes', async () => {
+test('Visual and DOM test: My sentences deck, clean input form, selpop, and themes', async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1100, height: 750 } });
 
@@ -43,13 +43,19 @@ test('Visual and DOM test: My sentences deck, section, selpop, and themes', asyn
   const addForm = section.locator('[data-sentence-add-form]');
   assert.equal(await addForm.count(), 1, 'Add sentence form must exist');
 
-  // Verify direction chips
-  const autoChip = section.locator('[data-sentence-dir="auto"]');
-  const enRuChip = section.locator('[data-sentence-dir="en-ru"]');
-  const ruEnChip = section.locator('[data-sentence-dir="ru-en"]');
-  assert.equal(await autoChip.count(), 1);
-  assert.equal(await enRuChip.count(), 1);
-  assert.equal(await ruEnChip.count(), 1);
+  // Verify clean input with Enter hint
+  const sentenceInput = section.locator('[data-sentence-input]');
+  assert.equal(await sentenceInput.count(), 1, 'Sentence input field must exist');
+  const placeholder = await sentenceInput.getAttribute('placeholder');
+  assert.match(placeholder, /Enter to analyze/i, 'Placeholder must mention Enter to analyze');
+
+  // Verify direction chips are removed from #sentences
+  const dirChips = section.locator('[data-sentence-dir]');
+  assert.equal(await dirChips.count(), 0, 'Direction chips must be removed from #sentences');
+
+  // Verify auto badge exists
+  const autoBadge = section.locator('.sentence-auto-badge');
+  assert.equal(await autoBadge.count(), 1, 'Auto badge must exist in #sentences');
 
   // 3. Verify #selpop sentence controls
   const selpopAddSentence = page.locator('#selpopAddSentence');
