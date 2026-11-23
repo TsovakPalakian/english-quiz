@@ -44,34 +44,94 @@
 ### Скриншот 3: Плитка «My sentences» в разделе Words в светлой теме Sand (`data-theme="sand"`)
 ![Скриншот 3: Плитка «My sentences» в разделе Words в светлой теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-3-sand.png)
 
+### Скриншот 4: Экран «My sentences» с полем ввода и выбором перевода Gemini в теме Sky (`data-theme="sky"`)
+![Скриншот 4: Экран «My sentences» с вводом и выбором перевода в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-4-add-sentence-sky.png)
+
+### Скриншот 5: Экран «My sentences» с полем ввода и выбором перевода Gemini в теме Dark (`data-theme="dark"`)
+![Скриншот 5: Экран «My sentences» с вводом и выбором перевода в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-5-add-sentence-dark.png)
+
+### Скриншот 6: Экран «My sentences» с полем ввода и выбором перевода Gemini в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 6: Экран «My sentences» с вводом и выбором перевода в светлой теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-6-add-sentence-sand.png)
+
+### Скриншот 7: Всплывающий словарь выделения текста с добавлением предложения и переключателем направления в теме Sky (`data-theme="sky"`)
+![Скриншот 7: Всплывающий словарь с добавлением предложения и направлением в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-7-selpop-sentence-sky.png)
+
+### Скриншот 8: Всплывающий словарь выделения текста в тёмной теме Dark (`data-theme="dark"`)
+![Скриншот 8: Всплывающий словарь с добавлением предложения в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-8-selpop-sentence-dark.png)
+
+### Скриншот 9: Всплывающий словарь выделения текста в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 9: Всплывающий словарь с добавлением предложения в теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-9-selpop-sentence-sand.png)
+
+### Скриншот 10: Индикатор анализа предложения Gemini в теме Sky (`data-theme="sky"`)
+![Скриншот 10: Индикатор анализа предложения Gemini в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-10-gemini-analyzing-sky.png)
+
+### Скриншот 11: Индикатор анализа предложения Gemini в теме Dark (`data-theme="dark"`)
+![Скриншот 11: Индикатор анализа предложения Gemini в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-11-gemini-analyzing-dark.png)
+
+### Скриншот 12: Индикатор анализа предложения Gemini в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 12: Индикатор анализа предложения Gemini в светлой теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-12-gemini-analyzing-sand.png)
+
+### Скриншот 13: Предложение сохранено в список с уведомлением об успехе в теме Sky (`data-theme="sky"`)
+![Скриншот 13: Предложение сохранено в список в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-13-sentence-saved-sky.png)
+
+### Скриншот 14: Предложение сохранено в список в тёмной теме Dark (`data-theme="dark"`)
+![Скриншот 14: Предложение сохранено в список в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-14-sentence-saved-dark.png)
+
+### Скриншот 15: Предложение сохранено в список в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 15: Предложение сохранено в список в теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-15-sentence-saved-sand.png)
+
+### Скриншот 16: Экран тренировки предложений «Study sentences» в теме Sky (`data-theme="sky"`)
+![Скриншот 16: Экран тренировки предложений в теме Sky](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-16-study-sky.png)
+
+### Скриншот 17: Экран тренировки предложений «Study sentences» в тёмной теме Dark (`data-theme="dark"`)
+![Скриншот 17: Экран тренировки предложений в теме Dark](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-17-study-dark.png)
+
+### Скриншот 18: Экран тренировки предложений «Study sentences» в светлой теме Sand (`data-theme="sand"`)
+![Скриншот 18: Экран тренировки предложений в теме Sand](file:///Users/tsovakpalakian/PycharmProjects/english-quiz/docs/task-8-screenshot-18-study-sand.png)
+
 ---
 
 ## 3. Чеклист этапов реализации
 
-- 🟨 **Шаг 1: Согласование Шаблона 1 (Плитка «My sentences» в Words)**
-  - Отображение карточки в блоке колод Words.
-  - Описание поведения кнопки, длительности перехода и отображения в темах Sky, Dark, Sand.
-  - Ожидание подтверждения пользователя (`app` / `одо`).
+- 🟩 **Шаг 1: Согласование Шаблона 1 (Плитка «My sentences» в Words)**
+  - Отображение карточки в блоке колод Words Studio.
+  - Утверждено пользователем (`app` / `одо`).
 
-- ⬜ **Шаг 2: Согласование Шаблона 2 (Экран раздела «My sentences»)**
-  - Разметка экрана, шапка, поле ввода предложения, список карточек.
-  - Ожидание подтверждения пользователя (`app` / `одо`).
+- 🟩 **Шаг 2: Согласование Шаблона 2 (Экран раздела «My sentences»)**
+  - Разметка экрана, системная шапка со стрелкой и домиком, форма добавления, список карточек.
+  - Утверждено пользователем (`app` / `одо`).
 
-- ⬜ **Шаг 3: Согласование Шаблона 3 (Блок выбора вариантов перевода от Gemini)**
-  - Выбор лучшего перевода перед добавлением в коллекцию.
-  - Ожидание подтверждения пользователя (`app` / `одо`).
+- 🟩 **Шаг 3: Согласование Шаблона 3 (Всплывающий словарь выделения текста для предложений)**
+  - Выделение длинного текста до 350 символов, добавление предложений в My sentences, чипы направления.
+  - Утверждено пользователем (`app` / `одо`).
 
-- ⬜ **Шаг 4: Согласование Функций 1–3 (Анализ Gemini, Сохранение, Изучение)**
-  - Полное описание от запуска до результата.
-  - Ожидание подтверждения пользователя (`app` / `одо`).
+- 🟩 **Шаг 4: Согласование Функции 1 (Распознавание и перевод через Gemini API)**
+  - Отправка текста, распознавание направления, генерация вариантов перевода.
+  - Утверждено пользователем (`app` / `одо`).
 
-- ⬜ **Шаг 5: Реализация бэкенда распознавания предложений через Gemini API**
-  - Эндпоинт `/api/sentences/analyze` с генерацией вариантов перевода.
-  - Обработка ошибок и юнит-тесты.
+- 🟩 **Шаг 5: Согласование Функции 2 (Сохранение в коллекцию и счетчики)**
+  - Сохранение выбранного варианта перевода, проверка дубликатов, счетчики и системная шапка.
+  - Утверждено пользователем (`app` / `одо`).
 
-- ⬜ **Шаг 6: Реализация клиентской части и интерфейса**
-  - Подключение карточки, навигации, формы и интерактивного выбора перевода.
+- 🟩 **Шаг 6: Согласование Функции 3 (Тренировка предложений «Study sentences»)**
+  - Двунаправленная тренировка (English ➔ Russian и Russian ➔ English).
+  - Описание поведения, времени отклика, отображения в темах Sky, Dark, Sand.
+  - Утверждено пользователем (`app` / `одо`).
 
-- ⬜ **Шаг 7: Автоматическое тестирование и сборка**
-  - Сборка ассетов `npm run build:preview`.
-  - Целевые визуальные и функциональные тесты.
+- 🟩 **Шаг 7: Реализация бэкенда распознавания предложений через Gemini API**
+  - Эндпоинт анализа предложений `/api/sentences/analyze` с генерацией 3 вариантов перевода.
+  - Обработка ошибок, квот и юнит-тесты (`test-my-sentences-analysis`).
+  - Проверено и подтверждено `🟩`.
+
+- 🟩 **Шаг 8: Реализация клиентской части и интерфейса**
+  - Подключение плитки «My sentences» в Words Studio со счетчиком.
+  - Экран «My sentences» со стандартной системной навигационной шапкой `[Home] [Left] My sentences · N`.
+  - Форма быстрого добавления предложения и выбор перевода Gemini.
+  - Всплывающий словарь текста с порогом до 350 символов и кнопкой добавления предложения.
+  - Двунаправленная тренировка предложений (`openListedStudy` / `Choice`, `Reverse`).
+  - Проверено и подтверждено `🟩`.
+
+- 🟩 **Шаг 9: Автоматическое тестирование и сборка**
+  - Сборка клиентских ассетов `npm run build:preview` и локальный билдер ассетов.
+  - Целевые модульные и визуальные тесты `test-my-sentences-analysis` и `test-my-sentences-visual`.
+  - Проверено и подтверждено `🟩`.

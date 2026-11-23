@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Sentences - Add & Gemini Translation Choice</title>
+  <link rel="stylesheet" href="/site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .preview-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .mock-side {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mute);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 900px;
+    }
+    
+    .meta {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      color: var(--mute);
+      padding: 4px 0;
+    }
+    .crumb {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .crumb .btn.ghost.icon {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .crumb .btn.ghost.icon:hover {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .crumb .btn.ghost.icon svg {
+      width: 18px;
+      height: 18px;
+    }
+    .meta h1 {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-study-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .add-sentence-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.03);
+    }
+    .card-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .gemini-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--acc-s);
+      color: var(--acc);
+      border: 1px solid var(--acc);
+    }
+    .sentence-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      min-height: 80px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: inherit;
+      font-size: 15px;
+      line-height: 1.5;
+      resize: vertical;
+    }
+    .sentence-textarea:focus {
+      outline: none;
+      border-color: var(--acc);
+    }
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+    .char-hint {
+      font-size: 12px;
+      color: var(--mute);
+    }
+    .btn-analyze {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .translation-choice-panel {
+      margin-top: 20px;
+      padding-top: 18px;
+      border-top: 1px dashed var(--line);
+    }
+    .choice-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .translations-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .translation-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .translation-option:hover {
+      border-color: var(--acc);
+    }
+    .translation-option.selected {
+      border-color: var(--acc);
+      background: var(--acc-s);
+    }
+    .radio-circle {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--line);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .translation-option.selected .radio-circle {
+      border-color: var(--acc);
+      background: var(--acc);
+    }
+    .radio-circle-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .option-text-group {
+      flex: 1;
+    }
+    .option-text {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .option-tag {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--mute);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .save-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-save {
+      padding: 8px 20px;
+      border-radius: 6px;
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-cancel {
+      padding: 8px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--mute);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .saved-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 24px 0 12px;
+    }
+    .saved-list-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .sentence-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .sentence-en {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .sentence-ru {
+      font-size: 14px;
+      color: var(--mute);
+      line-height: 1.4;
+    }
+    .sentence-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-layout">
+    <aside class="mock-side">
+      <div class="mock-brand">
+        <span style="color:var(--acc); font-size:20px;">✦</span>
+        <span>Lumiscia</span>
+      </div>
+      <button class="mock-nav-item">Home</button>
+      <button class="mock-nav-item">Lessons</button>
+      <button class="mock-nav-item active">Words</button>
+      <button class="mock-nav-item">Grammar</button>
+      <button class="mock-nav-item">Entertainment</button>
+      <button class="mock-nav-item">Speakout</button>
+    </aside>
+
+    <main class="mock-main">
+      <div class="meta">
+        <span class="crumb">
+          <button class="btn ghost icon" type="button" data-jump="home" aria-label="Home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"></path><path d="M7 10.5V20h10v-9.5"></path><path d="M10 20v-5h4v5"></path></svg>
+          </button>
+          <button class="btn ghost saas-btn icon" type="button" data-nav-back="" data-fallback="wordcollections" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"></path><path d="M12 6 6 12l6 6"></path></svg>
+          </button>
+        </span>
+        <h1 id="mySentencesTitle">My sentences · 1</h1>
+        <button class="btn-study-top" type="button" style="margin-left:auto;">▶ Study sentences</button>
+      </div>
+
+      <!-- Add sentence card with Gemini recognition & choice -->
+      <div class="add-sentence-card">
+        <div class="card-heading">
+          <div class="card-title">
+            <span>Add a new sentence</span>
+            <span class="gemini-badge">✦ Gemini AI</span>
+          </div>
+          <span class="char-hint">Type English sentence</span>
+        </div>
+
+        <textarea class="sentence-textarea">I couldn't help wondering if things might have turned out differently.</textarea>
+
+        <!-- Translation options generated by Gemini -->
+        <div class="translation-choice-panel">
+          <div class="choice-label">
+            <span>Select the best Russian translation:</span>
+          </div>
+
+          <div class="translations-list">
+            <div class="translation-option selected">
+              <div class="radio-circle"><div class="radio-circle-dot"></div></div>
+              <div class="option-text-group">
+                <div class="option-text">Я не мог не задаваться вопросом, могло ли всё сложиться иначе.</div>
+                <div class="option-tag">Natural · Literary</div>
+              </div>
+            </div>
+
+            <div class="translation-option">
+              <div class="radio-circle"></div>
+              <div class="option-text-group">
+                <div class="option-text">Я не мог удержаться от мысли о том, как всё могло бы пойти по-другому.</div>
+                <div class="option-tag">Conversational nuance</div>
+              </div>
+            </div>
+
+            <div class="translation-option">
+              <div class="radio-circle"></div>
+              <div class="option-text-group">
+                <div class="option-text">Мне оставалось только думать о том, был ли возможен иной исход.</div>
+                <div class="option-tag">Refined contextual</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="save-actions">
+            <button class="btn-save" type="button">Save sentence</button>
+            <button class="btn-cancel" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Saved sentences list -->
+      <div class="saved-list-header">
+        <div class="saved-list-title">Saved sentences · 1</div>
+      </div>
+
+      <div class="sentence-card">
+        <div>
+          <div class="sentence-en">Even in the darkest moments, resilience paves the way forward.</div>
+          <div class="sentence-ru">Даже в самые трудные моменты стойкость прокладывает путь вперед.</div>
+        </div>
+        <div class="sentence-actions">
+          <button class="btn-icon" title="Listen pronunciation">🔊</button>
+          <button class="btn-icon" title="Edit sentence">✎</button>
+          <button class="btn-icon" title="Delete">✕</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

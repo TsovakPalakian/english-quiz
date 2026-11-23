@@ -62,7 +62,7 @@ try{
     assert.equal(await page.locator('.shell-progress').isVisible(),false);
     await page.locator('.side nav [data-jump="wordcollections"]').click();
     await page.locator('#wordcollections.on').waitFor();
-    assert.equal(await page.locator('#wordcollections .file-card').count(),5);
+    assert.equal(await page.locator('#wordcollections .file-card').count(),6);
     yield "03. #wordcollections [data-all-group] / checks" + " [" + String(role) + "]";
     assert.equal(await page.locator('#wordcollections [data-all-group]').count(),0,'Sources live inside All words');
     await page.locator('#wordcollections [data-add-open]').click();

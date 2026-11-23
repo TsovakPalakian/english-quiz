@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Selection Popup - Add Sentence & Bidirectional Mode</title>
+  <link rel="stylesheet" href="/site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .preview-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .mock-side {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mute);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 900px;
+      position: relative;
+    }
+    .lesson-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 24px;
+      line-height: 1.7;
+      font-size: 16px;
+      position: relative;
+    }
+    .selected-text {
+      background: var(--acc-s);
+      color: var(--acc);
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .selpop-mock {
+      position: absolute;
+      top: 145px;
+      left: 140px;
+      width: 440px;
+      background: var(--card);
+      border: 1px solid var(--acc);
+      border-radius: 12px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.18);
+      z-index: 50;
+      padding: 18px 20px;
+      box-sizing: border-box;
+    }
+    .selpop-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .selpop-sentence-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--acc);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+    .selpop-original {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.4;
+    }
+    .dir-toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 12px 0 14px;
+    }
+    .dir-chip {
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--mute);
+      cursor: pointer;
+    }
+    .dir-chip.active {
+      border-color: var(--acc);
+      background: var(--acc);
+      color: #fff;
+    }
+    .selpop-choices {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+    .selpop-choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1.35;
+      color: var(--ink);
+    }
+    .selpop-choice:hover {
+      border-color: var(--acc);
+    }
+    .selpop-choice.active {
+      border-color: var(--acc);
+      background: var(--acc-s);
+      font-weight: 600;
+    }
+    .selpop-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .btn-add-sentence {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-dismiss {
+      background: transparent;
+      border: none;
+      color: var(--mute);
+      font-size: 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-layout">
+    <aside class="mock-side">
+      <div class="mock-brand">
+        <span style="color:var(--acc); font-size:20px;">✦</span>
+        <span>Lumiscia</span>
+      </div>
+      <button class="mock-nav-item">Home</button>
+      <button class="mock-nav-item">Lessons</button>
+      <button class="mock-nav-item active">Words</button>
+      <button class="mock-nav-item">Grammar</button>
+      <button class="mock-nav-item">Entertainment</button>
+      <button class="mock-nav-item">Speakout</button>
+    </aside>
+
+    <main class="mock-main">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+        <h1 style="font-size:24px; font-weight:800; margin:0;">Reading & Selection Dictionary</h1>
+      </div>
+
+      <div class="lesson-card">
+        <p>In modern learning environments, passive reading is rarely enough. <span class="selected-text">The true mastery comes when students actively construct sentences and analyze their nuances in context.</span> Without frequent retention drills, acquired structures quickly fade away.</p>
+      </div>
+
+      <!-- Selection popup for whole sentence with Gemini translations & direction toggle -->
+      <div class="selpop-mock">
+        <div class="selpop-header">
+          <div>
+            <div class="selpop-sentence-title">✦ Gemini Sentence Translation</div>
+            <div class="selpop-original">"The true mastery comes when students actively construct sentences and analyze their nuances in context."</div>
+          </div>
+          <button class="btn-dismiss" type="button" style="font-size:16px; font-weight:bold;">✕</button>
+        </div>
+
+        <div class="dir-toggle-row">
+          <span style="font-size:11px; font-weight:700; color:var(--mute); margin-right:4px;">Direction:</span>
+          <button class="dir-chip active" type="button">EN ➔ RU</button>
+          <button class="dir-chip" type="button">RU ➔ EN</button>
+        </div>
+
+        <div class="selpop-choices">
+          <div class="selpop-choice active">
+            <span style="color:var(--acc); font-weight:bold;">●</span>
+            <div>
+              <div>Истинное мастерство приходит, когда студенты активно строят предложения и анализируют их оттенки в контексте.</div>
+              <span style="font-size:10px; color:var(--mute); text-transform:uppercase;">Natural · Literary</span>
+            </div>
+          </div>
+
+          <div class="selpop-choice">
+            <span style="color:var(--mute);">○</span>
+            <div>
+              <div>Настоящее владение языком достигается через самостоятельное составление фраз с разбором смысловых нюансов.</div>
+              <span style="font-size:10px; color:var(--mute); text-transform:uppercase;">Contextual nuance</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="selpop-actions">
+          <span style="font-size:11px; color:var(--mute);">Will be added to <b>My sentences</b></span>
+          <button class="btn-add-sentence" type="button">+ Add to My sentences</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

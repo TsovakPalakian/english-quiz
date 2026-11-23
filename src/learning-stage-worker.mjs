@@ -17,6 +17,7 @@ import {stageR2Media,boundedMediaBytes} from './learning-r2-media.mjs';
 import {parseLessonPdfMeta,generateLessonFromText,LESSON_PDF_META_MAX_BYTES} from './lesson-pdf-meta.mjs';
 import {enrichGrammarRule} from './grammar-enrichment.mjs';
 import {enrichDistractors} from './distractor-enrichment.mjs';
+import {analyzeSentence} from './sentence-enrichment.mjs';
 import {inlineAssetResponse} from './learning-inline-assets.mjs';
 import {ensureStudyProfile} from './learning-profile.mjs';
 import {projectStudentCatalog} from './learning-legacy-read.mjs';
@@ -153,6 +154,7 @@ export default {async fetch(request,env){
     const lessonAssessPronounce=path==='/api/lessons/assess-pronunciation'&&method==='POST';
     const grammarEnrich=path==='/api/grammar/enrich'&&method==='POST';
     const distractorEnrich=path==='/api/distractors/enrich'&&method==='POST';
+    const sentenceAnalyze=path==='/api/sentences/analyze'&&method==='POST';
     const grammarCustom=path==='/api/grammar/custom';
     const write=(method==='POST'&&['/api/content/copy','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/me/cards','/api/me/cards/new','/api/library','/api/archive','/api/stats/event'].includes(path))
       ||pdfMeta
@@ -161,6 +163,7 @@ export default {async fetch(request,env){
       ||lessonAssessPronounce
       ||grammarEnrich
       ||distractorEnrich
+      ||sentenceAnalyze
       ||(grammarCustom&&method==='POST')
       ||(examItem&&method==='DELETE')
       ||(card&&(card[3]?method==='POST'&&card[1]==='cards':['PATCH','DELETE'].includes(method)))
@@ -416,6 +419,14 @@ export default {async fetch(request,env){
       const items=Array.isArray(bodyValue?.items)?bodyValue.items:(bodyValue?[bodyValue]:[]);
       const enriched=await enrichDistractors({items,env,fetchImpl:globalThis.fetch});
       return json(enriched);
+    }
+    if(sentenceAnalyze){
+      const bodyValue=await body(request,64000);
+      const sentence=String(bodyValue?.sentence||bodyValue?.text||'').trim();
+      const direction=String(bodyValue?.direction||'').trim();
+      if(!sentence)throw new StudyError(400,'Sentence is required.');
+      const analyzed=await analyzeSentence({sentence,direction,env,fetchImpl:globalThis.fetch});
+      return json(analyzed);
     }
     if(binaryWrite){
       const allowed=['mutationId','expectedRevision','name',...(lessonUpload?['expectedBlockRevision']:[])];

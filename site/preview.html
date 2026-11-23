@@ -153,6 +153,7 @@
         <button class="file-card" type="button" data-jump="add"><span class="num" id="myWordCount">0</span><b>My words</b><span class="label">one field · both directions</span></button>
         <button class="file-card" type="button" data-jump="phrasal"><span class="num" id="phrasalCount">3</span><b>Phrasal verbs</b><span class="label">cards</span></button>
         <button class="file-card" type="button" data-jump="idioms"><span class="num" id="idiomCount">3</span><b>Idioms</b><span class="label">cards</span></button>
+        <button class="file-card" type="button" data-jump="sentences"><span class="num" id="sentenceCount">0</span><b>My sentences</b><span class="label">cards · bidirectional</span></button>
       </div>
     </section>
     <section id="allwords">
@@ -269,6 +270,32 @@
       <input type="search" placeholder="Search cards" data-card-search autocomplete="off" class="saas-input" />
       <div class="words" id="idiomGrid"></div>
       <div class="words" id="idiomAdded"></div>
+    </section>
+
+    <section id="sentences">
+      <div class="meta"><button class="btn ghost saas-btn" type="button" data-nav-back data-fallback="wordcollections" id="sentencesBack">Back</button><h1 id="sentencesTitle">My sentences · 0</h1></div>
+      <p class="sub" id="sentencesSub">0 sentences. Study uses them.</p>
+      <div class="study-bar">
+        <button class="btn primary saas-btn saas-btn-primary" type="button" data-deck-study="sentences" id="sentencesStudyBtn">Study</button>
+        <div class="here-add" data-place="sentences">
+          <button class="add-link" type="button" data-sentence-add-open aria-label="Add a sentence">+</button>
+          <div data-sentence-add-form hidden>
+            <div class="row" style="margin-bottom:8px">
+              <button class="btn chip on" type="button" data-sentence-dir="auto">Auto (EN ⇄ RU)</button>
+              <button class="btn chip" type="button" data-sentence-dir="en-ru">English ➔ Russian</button>
+              <button class="btn chip" type="button" data-sentence-dir="ru-en">Russian ➔ English</button>
+            </div>
+            <input type="text" placeholder="Type or paste a full sentence" autocomplete="off" data-sentence-input class="saas-input" />
+            <div class="row" style="margin-top:8px">
+              <button class="btn primary saas-btn saas-btn-primary" type="button" data-sentence-analyze>✨ Analyze with Gemini</button>
+            </div>
+            <p class="hint" data-sentence-status></p>
+            <div data-sentence-choices class="sentence-gemini-choices" hidden></div>
+          </div>
+        </div>
+      </div>
+      <input type="search" placeholder="Search sentences" data-sentence-search autocomplete="off" class="saas-input" />
+      <div class="words-vertical" id="sentencesList"></div>
     </section>
 
     <section id="articles">
@@ -2595,8 +2622,14 @@
       <span class="selpop-actions">
         <span class="saas-badge selpop-dict-badge" id="selpopDictBadge" hidden></span>
         <button class="btn primary dict-add selpop-add saas-btn" type="button" id="selpopAdd" hidden>Add word</button>
+        <button class="btn primary dict-add selpop-add saas-btn" type="button" id="selpopAddSentence" hidden>+ Add to My sentences</button>
         <button class="selpop-x saas-btn" type="button" id="selpopClose" aria-label="Close">×</button>
       </span>
+    </div>
+    <div id="selpopDirRow" class="row" style="margin:4px 0 8px;" hidden>
+      <button class="btn chip on" type="button" data-selpop-dir="auto">Auto (EN ⇄ RU)</button>
+      <button class="btn chip" type="button" data-selpop-dir="en-ru">EN ➔ RU</button>
+      <button class="btn chip" type="button" data-selpop-dir="ru-en">RU ➔ EN</button>
     </div>
     <div id="selpopBody"></div>
   </div>

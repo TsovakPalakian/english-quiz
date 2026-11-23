@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Words Studio - My Sentences</title>
+  <link rel="stylesheet" href="/site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .preview-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .mock-side {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mute);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 960px;
+    }
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .meta-bar h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .lib-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 20px 0 16px;
+    }
+    .decks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px;
+    }
+    .deck-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 18px 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-align: left;
+      position: relative;
+    }
+    .deck-tile:hover {
+      border-color: var(--acc);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    .deck-tile.highlight {
+      border: 2px solid var(--acc);
+      background: var(--acc-s);
+    }
+    .deck-num {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--acc);
+      margin-bottom: 6px;
+      font-feature-settings: 'tnum';
+    }
+    .deck-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .deck-label {
+      font-size: 12px;
+      color: var(--mute);
+      line-height: 1.3;
+    }
+    .badge-new {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--acc);
+      color: #fff;
+      letter-spacing: 0.05em;
+    }
+    .quick-add-box {
+      margin: 16px 0 24px;
+      padding: 12px 16px;
+      background: var(--card);
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .quick-add-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--acc);
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .quick-add-label {
+      font-size: 13px;
+      color: var(--mute);
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-layout">
+    <aside class="mock-side">
+      <div class="mock-brand">
+        <span style="color:var(--acc); font-size:20px;">✦</span>
+        <span>Lumiscia</span>
+      </div>
+      <button class="mock-nav-item">Home</button>
+      <button class="mock-nav-item">Lessons</button>
+      <button class="mock-nav-item active">Words</button>
+      <button class="mock-nav-item">Grammar</button>
+      <button class="mock-nav-item">Entertainment</button>
+      <button class="mock-nav-item">Speakout</button>
+    </aside>
+
+    <main class="mock-main">
+      <div class="meta-bar">
+        <span class="crumb"><button class="btn ghost icon" type="button" data-jump="home" aria-label="Home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"></path><path d="M7 10.5V20h10v-9.5"></path><path d="M10 20v-5h4v5"></path></svg></button><button class="btn ghost icon" type="button" data-nav-back="" data-fallback="home" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"></path><path d="M12 6 6 12l6 6"></path></svg></button></span>
+        <h1>Words</h1>
+      </div>
+
+      <div class="quick-add-box">
+        <button class="quick-add-btn" type="button">+</button>
+        <span class="quick-add-label">Quick add a card: word or expression</span>
+      </div>
+
+      <h2 class="lib-title">Collections & Decks</h2>
+      <div class="decks-grid">
+        <button class="deck-tile" type="button">
+          <span class="deck-num">142</span>
+          <span class="deck-name">All words</span>
+          <span class="deck-label">every card, no duplicates</span>
+        </button>
+
+        <button class="deck-tile" type="button">
+          <span class="deck-num">18</span>
+          <span class="deck-name">My words</span>
+          <span class="deck-label">one field · both directions</span>
+        </button>
+
+        <button class="deck-tile highlight" type="button" id="deckMySentences">
+          <span class="badge-new">New</span>
+          <span class="deck-num" id="mySentencesCount">0</span>
+          <span class="deck-name">My sentences</span>
+          <span class="deck-label">whole sentences · translation choices</span>
+        </button>
+
+        <button class="deck-tile" type="button">
+          <span class="deck-num">46</span>
+          <span class="deck-name">Phrasal verbs</span>
+          <span class="deck-label">verb + particle collocations</span>
+        </button>
+
+        <button class="deck-tile" type="button">
+          <span class="deck-num">32</span>
+          <span class="deck-name">Idioms</span>
+          <span class="deck-label">idiomatic expressions & cards</span>
+        </button>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

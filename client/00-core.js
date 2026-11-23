@@ -52,7 +52,7 @@
     }
     const dayScreens = {
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
-      song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", articles: "tenses", speakout: "speakout",
+      song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", sentences: "wordcollections", articles: "tenses", speakout: "speakout",
       choice: "setup", flip: "setup", fsrsquiz: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "wordcollections", cardstat: "home", everyday: "wordcollections", everydaygroup: "wordcollections", everydaytopic: "wordcollections", grammarcategories: "tenses", grammarcategory: "tenses", grammarrule: "tenses",
       account: "account", profile: "settings", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
@@ -77,7 +77,7 @@
       const base = examish ? "exams" : (dayScreens[id] || id);
       const student = !!(authUser && authUser.role === "USER" && !viewAccount);
       const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
-      if (["wordcollections", "allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
+      if (["wordcollections", "allwords", "add", "phrasal", "idioms", "sentences", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
       if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
       if (["speakout", "speakouteditor", "speak", "speaklesson"].includes(id)) return "speakout";
       if(['groupteachers','groupstudents'].includes(id))return 'groupdetail';
@@ -187,12 +187,13 @@
           exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
           library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
           speakout: 'Speakout', admin: 'Accounts', archive: 'Archive', bugs: 'System Logs & Bugs',
-          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
+          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio', sentences: 'Words Studio'
         };
         crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
       }
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
+      if (id === "sentences") paintSentencesList();
       if (id === "add") renderAddedList();
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
@@ -332,7 +333,7 @@
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", texts: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', everyday: "wordcollections", tenses: "home", speakout: "home", archive: "home", themes: authUser ? "settings" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
+      const parents = { music: "library", texts: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', sentences: 'wordcollections', everyday: "wordcollections", tenses: "home", speakout: "home", archive: "home", themes: authUser ? "settings" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";

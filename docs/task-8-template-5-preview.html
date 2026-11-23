@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentence Saved & Updated List View</title>
+  <link rel="stylesheet" href="/site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .preview-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .mock-side {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mute);
+      text-decoration: none;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      text-align: left;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 900px;
+    }
+    
+    .meta {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      color: var(--mute);
+      padding: 4px 0;
+    }
+    .crumb {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .crumb .btn.ghost.icon {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .crumb .btn.ghost.icon:hover {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .crumb .btn.ghost.icon svg {
+      width: 18px;
+      height: 18px;
+    }
+    .meta h1 {
+      display: flex;
+      align-items: center;
+      min-height: 40px;
+      margin: 0;
+      color: var(--ink);
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-study-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .toast-success {
+      background: var(--ok-s, #ecfdf5);
+      border: 1px solid var(--ok, #10b981);
+      color: var(--ok, #059669);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .add-sentence-card-empty {
+      background: var(--card);
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 18px 24px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .add-hint {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--mute);
+      font-size: 14px;
+    }
+    .btn-quick-add {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--acc);
+      background: var(--acc-s);
+      color: var(--acc);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .saved-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 24px 0 14px;
+    }
+    .saved-list-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .sentence-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all 0.15s ease;
+    }
+    .sentence-card.just-added {
+      border-color: var(--ok, #10b981);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.12);
+    }
+    .direction-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--acc-s);
+      color: var(--acc);
+      margin-bottom: 6px;
+    }
+    .sentence-en {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+    .sentence-ru {
+      font-size: 14px;
+      color: var(--mute);
+      line-height: 1.4;
+    }
+    .sentence-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-layout">
+    <aside class="mock-side">
+      <div class="mock-brand">
+        <span style="color:var(--acc); font-size:20px;">✦</span>
+        <span>Lumiscia</span>
+      </div>
+      <button class="mock-nav-item">Home</button>
+      <button class="mock-nav-item">Lessons</button>
+      <button class="mock-nav-item active">Words</button>
+      <button class="mock-nav-item">Grammar</button>
+      <button class="mock-nav-item">Entertainment</button>
+      <button class="mock-nav-item">Speakout</button>
+    </aside>
+
+    <main class="mock-main">
+      <div class="meta">
+        <span class="crumb">
+          <button class="btn ghost icon" type="button" data-jump="home" aria-label="Home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11.5 12 4l8 7.5"></path><path d="M7 10.5V20h10v-9.5"></path><path d="M10 20v-5h4v5"></path></svg>
+          </button>
+          <button class="btn ghost saas-btn icon" type="button" data-nav-back="" data-fallback="wordcollections" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H6"></path><path d="M12 6 6 12l6 6"></path></svg>
+          </button>
+        </span>
+        <h1 id="mySentencesTitle">My sentences · 2</h1>
+        <button class="btn-study-top" type="button" style="margin-left:auto;">▶ Study sentences · 2</button>
+      </div>
+
+      <!-- Success feedback notification -->
+      <div class="toast-success">
+        <span>✓</span>
+        <span>Sentence successfully saved to My sentences</span>
+      </div>
+
+      <!-- Compact quick-add row -->
+      <div class="add-sentence-card-empty">
+        <div class="add-hint">
+          <span style="font-size:18px; color:var(--acc);">+</span>
+          <span>Add another English or Russian sentence…</span>
+        </div>
+        <button class="btn-quick-add" type="button">+ New sentence</button>
+      </div>
+
+      <!-- Saved sentences list with 2 items -->
+      <div class="saved-list-header">
+        <div class="saved-list-title">Saved sentences · 2</div>
+      </div>
+
+      <!-- Newly saved sentence -->
+      <div class="sentence-card just-added">
+        <div>
+          <span class="direction-badge">EN ➔ RU · Natural</span>
+          <div class="sentence-en">The true mastery comes when students actively construct sentences.</div>
+          <div class="sentence-ru">Истинное мастерство приходит, когда студенты активно строят предложения.</div>
+        </div>
+        <div class="sentence-actions">
+          <button class="btn-icon" title="Listen pronunciation">🔊</button>
+          <button class="btn-icon" title="Edit sentence">✎</button>
+          <button class="btn-icon" title="Delete">✕</button>
+        </div>
+      </div>
+
+      <!-- Earlier saved sentence -->
+      <div class="sentence-card">
+        <div>
+          <span class="direction-badge">EN ➔ RU · Literary</span>
+          <div class="sentence-en">Even in the darkest moments, resilience paves the way forward.</div>
+          <div class="sentence-ru">Даже в самые трудные моменты стойкость прокладывает путь вперед.</div>
+        </div>
+        <div class="sentence-actions">
+          <button class="btn-icon" title="Listen pronunciation">🔊</button>
+          <button class="btn-icon" title="Edit sentence">✎</button>
+          <button class="btn-icon" title="Delete">✕</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Sentences Training Screen</title>
+  <link rel="stylesheet" href="/site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .preview-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    .mock-side {
+      width: 220px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px 16px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--mute);
+      cursor: pointer;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+      font-weight: 700;
+    }
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    /* Breadcrumb Header matching system standard */
+    .system-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .crumb {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .crumb-btn {
+      width: 32px;
+      height: 32px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      cursor: pointer;
+      padding: 0;
+    }
+    .crumb-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+    .system-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      margin: 0;
+      color: var(--ink);
+    }
+    /* Drill Bar & Progress */
+    .drill-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .drill-bar h2 {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0;
+      color: var(--ink);
+      white-space: nowrap;
+    }
+    .progress {
+      flex: 1;
+      height: 8px;
+      background: var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress i {
+      display: block;
+      height: 100%;
+      background: var(--acc);
+      border-radius: 99px;
+      width: 25%;
+    }
+    .direction-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--acc-s);
+      color: var(--acc);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    /* Question Card */
+    .quiz-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      margin-bottom: 20px;
+    }
+    .prompt-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--mute);
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .btn-audio {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .question-text {
+      font-size: 24px;
+      font-weight: 800;
+      line-height: 1.3;
+      color: var(--ink);
+      margin: 12px 0 24px;
+    }
+    /* Options */
+    .opts {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .opt-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .opt-btn:hover {
+      border-color: var(--acc);
+    }
+    .opt-btn.correct {
+      border: 2px solid var(--ok, #10b981);
+      background: var(--ok-s, #ecfdf5);
+      color: var(--ok, #059669);
+      font-weight: 700;
+    }
+    .check-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--ok, #10b981);
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 900;
+    }
+    /* Feedback Box */
+    .feedback-box {
+      border-radius: 8px;
+      padding: 14px 18px;
+      background: var(--ok-s, #ecfdf5);
+      border: 1px solid var(--ok, #10b981);
+      color: var(--ok, #059669);
+      margin-bottom: 20px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .feedback-head {
+      font-weight: 800;
+      font-size: 14px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    /* Action Bar */
+    .quiz-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .direction-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--mute);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .btn-next {
+      padding: 10px 24px;
+      border-radius: 8px;
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-layout">
+    <div class="mock-side">
+      <div class="mock-brand">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span>Lumiscia</span>
+      </div>
+      <div class="mock-nav-item">Lessons</div>
+      <div class="mock-nav-item active">Words</div>
+      <div class="mock-nav-item">Exams</div>
+      <div class="mock-nav-item">Grammar</div>
+      <div class="mock-nav-item">Entertainment</div>
+      <div class="mock-nav-item">Settings</div>
+    </div>
+    <div class="mock-main">
+      <div class="system-header">
+        <span class="crumb">
+          <button class="crumb-btn" aria-label="Home">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/><path d="M10 20v-5h4v5"/></svg>
+          </button>
+          <button class="crumb-btn" aria-label="Back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6"/><path d="M12 6 6 12l6 6"/></svg>
+          </button>
+        </span>
+        <h1 class="system-title">My sentences · 1/4</h1>
+      </div>
+
+      <div class="drill-bar">
+        <span class="direction-badge">English ➔ Russian · Choice</span>
+        <div class="progress"><i style="width: 25%;"></i></div>
+        <h2>1 of 4</h2>
+      </div>
+
+      <div class="quiz-card">
+        <div class="prompt-label">
+          <span>Question 1: Select the best translation</span>
+          <button class="btn-audio" type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            <span>Listen</span>
+          </button>
+        </div>
+
+        <div class="question-text">
+          “I am looking forward to hearing from you soon.”
+        </div>
+
+        <div class="opts">
+          <button class="opt-btn correct" type="button">
+            <span>Я с нетерпением жду вашего скорого ответа.</span>
+            <span class="check-icon">✓</span>
+          </button>
+          <button class="opt-btn" type="button">
+            <span>Я с нетерпением жду нашей личной встречи.</span>
+          </button>
+          <button class="opt-btn" type="button">
+            <span>Я скоро напишу вам ответное письмо.</span>
+          </button>
+          <button class="opt-btn" type="button">
+            <span>Мне не терпится услышать последние новости.</span>
+          </button>
+        </div>
+
+        <div class="feedback-box">
+          <div class="feedback-head">
+            <span>✓ Correct! Natural literary translation</span>
+          </div>
+          <div>Идиома «look forward to (doing something)» означает активное ожидание с нетерпением и предвкушением.</div>
+        </div>
+
+        <div class="quiz-actions">
+          <div class="direction-toggle">
+            <span>Study mode: <b>Bidirectional (EN ⇄ RU)</b></span>
+          </div>
+          <button class="btn-next" type="button">Next sentence →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

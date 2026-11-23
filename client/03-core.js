@@ -92,7 +92,7 @@
       const deckStudy = e.target.closest("[data-deck-study]");
       if (deckStudy) {
         const id = deckStudy.dataset.deckStudy;
-        const title = id === "idioms" ? "Idioms" : "Phrasal verbs";
+        const title = id === "idioms" ? "Idioms" : (id === "sentences" ? "My sentences" : "Phrasal verbs");
         openListedStudy(deckStudyCards(id), title, id);
         return;
       }

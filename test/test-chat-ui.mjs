@@ -128,7 +128,7 @@ try{
     yield "07. #learning-main-banner / checks" + " [" + String(theme) + "]";
     assert.equal(await page.locator('#learning-main-banner').isVisible(),false);}
   yield "08. wordcollections";
-  await page.evaluate(()=>window.enquizVisit('wordcollections'));assert.deepEqual(await page.locator('#wordcollections .decks').first().locator('[data-jump]').evaluateAll(nodes=>nodes.map(node=>node.dataset.jump)),['allwords','add','everyday','phrasal','idioms']);await page.locator('[data-jump="everyday"]').click();await page.locator('[data-everyday-group]').first().waitFor();
+  await page.evaluate(()=>window.enquizVisit('wordcollections'));assert.deepEqual(await page.locator('#wordcollections .decks').first().locator('[data-jump]').evaluateAll(nodes=>nodes.map(node=>node.dataset.jump)),['allwords','add','everyday','phrasal','idioms','sentences']);await page.locator('[data-jump="everyday"]').click();await page.locator('[data-everyday-group]').first().waitFor();
     yield "09. [data-everyday-group] / checks";
     assert.equal(await page.locator('[data-everyday-group]').count(),3);assert.equal(await page.locator('#everyday [data-essential-study]').count(),0);
   await page.locator('[data-everyday-group="speech"]').click();assert.equal(await page.locator('[data-everyday-topic]').count(),everydayGroups.find(group=>group.id==='speech').topics.length);

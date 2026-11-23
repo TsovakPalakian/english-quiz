@@ -3048,7 +3048,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     }
     const dayScreens = {
       lesson: "groups", lesson07: "groups", lesson09: "groups", lesson14: "groups", lesson16: "groups", lesson23: "groups", material: "groups", word: "groups", rules: "groups", daywords: "groups", daywork: "groups", daysetup: "groups", dayq: "groups", daychoice: "groups", dayflip: "groups", dayjudge: "groups", days: "groups", pdfview: "groups",
-      song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", articles: "tenses", speakout: "speakout",
+      song: "library", music: "library", lyricadd: "library", musicword: "library", texts: "library", textedit: "library", textread: "library", tenses: "tenses", tense: "tenses", marker: "tenses", library: "library", verbs: "tenses", phrasal: "wordcollections", idioms: "wordcollections", sentences: "wordcollections", articles: "tenses", speakout: "speakout",
       choice: "setup", flip: "setup", fsrsquiz: "setup", type: "setup", gap: "setup", build: "setup", judge: "setup", tap: "setup", multi: "setup", pairs: "setup", exam: "setup", errors: "setup", setup: "setup",
       made: "add", allwords: "wordcollections", cardstat: "home", everyday: "wordcollections", everydaygroup: "wordcollections", everydaytopic: "wordcollections", grammarcategories: "tenses", grammarcategory: "tenses", grammarrule: "tenses",
       account: "account", profile: "settings", admin: "admin", adminuser: "admin", admingrouplevel: "admin", admingroup: "admin", themes: "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home"
@@ -3073,7 +3073,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const base = examish ? "exams" : (dayScreens[id] || id);
       const student = !!(authUser && authUser.role === "USER" && !viewAccount);
       const staff = !!(authUser && ["ADMIN", "DEVELOPER"].includes(authUser.role) && !viewAccount);
-      if (["wordcollections", "allwords", "add", "phrasal", "idioms", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
+      if (["wordcollections", "allwords", "add", "phrasal", "idioms", "sentences", "everyday", "everydaygroup", "everydaytopic"].includes(id)) return "wordcollections";
       if (["tenses", "tense", "marker", "grammarcategories", "grammarcategory", "grammarrule", "articles", "demonstratives", "verbs"].includes(id)) return "tenses";
       if (["speakout", "speakouteditor", "speak", "speaklesson"].includes(id)) return "speakout";
       if(['groupteachers','groupstudents'].includes(id))return 'groupdetail';
@@ -3183,12 +3183,13 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           exams: 'Exams & Testing', wordcollections: 'Words Studio', tenses: 'Grammar Matrix',
           library: 'Music & Karaoke', music: 'Music & Karaoke', song: 'Music & Karaoke',
           speakout: 'Speakout', admin: 'Accounts', archive: 'Archive', bugs: 'System Logs & Bugs',
-          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio'
+          settings: 'Settings & Themes', word: 'Words Studio', add: 'Words Studio', sentences: 'Words Studio'
         };
         crumbCurrent.textContent = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
       }
       if (id === "allwords") paintAllWords();
       if (id === "phrasal" || id === "idioms") paintDeckGrids(id);
+      if (id === "sentences") paintSentencesList();
       if (id === "add") renderAddedList();
       if (id === "verbs") paintVerbs();
       if (id === "lesson" || id === "lesson07" || id === "lesson09" || id === "lesson14" || id === "lesson16" || id === "lesson23") markClassStarted(id);
@@ -3328,7 +3329,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         if (lmState.mode !== "preview" && canEditLessons()) path.push({ id: "material", label: "Edit" });
         return path;
       }
-      const parents = { music: "library", texts: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', everyday: "wordcollections", tenses: "home", speakout: "home", archive: "home", themes: authUser ? "settings" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
+      const parents = { music: "library", texts: "library", add: "wordcollections", allwords: "wordcollections", phrasal:'wordcollections', idioms:'wordcollections', sentences: 'wordcollections', everyday: "wordcollections", tenses: "home", speakout: "home", archive: "home", themes: authUser ? "settings" : "account", settings: "home", workbenchqueue: "home", workbenchmine: "home", workbenchproviders: "home" };
       const fallback = root.querySelector("[data-nav-back]")?.dataset.fallback;
       const parent = Object.hasOwn(parents, id) ? parents[id] : fallback;
       const label = root.querySelector(".meta h1, .song-banner b")?.textContent.trim() || root.querySelector("h1")?.textContent.trim() || "Cards";
@@ -5180,7 +5181,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const deckStudy = e.target.closest("[data-deck-study]");
       if (deckStudy) {
         const id = deckStudy.dataset.deckStudy;
-        const title = id === "idioms" ? "Idioms" : "Phrasal verbs";
+        const title = id === "idioms" ? "Idioms" : (id === "sentences" ? "My sentences" : "Phrasal verbs");
         openListedStudy(deckStudyCards(id), title, id);
         return;
       }
@@ -13122,6 +13123,11 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       return cards;
     }
     function deckStudyCards(place) {
+      if (place === "sentences") {
+        return loadAdded()
+          .filter((item) => (item.place === "sentences" || item.place === "chat-sentences"))
+          .map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word, pos: "sentence", ex: item.note || "" }));
+      }
       const bank = place === "idioms" ? idiomWords : phrasalWords;
       const base = bank.filter(cardVisible).map((w) => withStage({ en: w.en, ru: w.ru, pos: w.pos, uk: w.uk || "", us: w.us || "", ex: w.ex || "", gloss: w.gloss || "" }, w));
       const extra = loadAdded().filter((item) => (item.place === place || item.place==='chat-'+place) && !item.fromText).map((item) => rowToCard({ en: item.word, ru: item.ru, key: item.word }));
@@ -13130,21 +13136,28 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
     function paintDeckCounts() {
       const phrasalN = deckStudyCards("phrasal").length;
       const idiomN = deckStudyCards("idioms").length;
+      const sentenceN = deckStudyCards("sentences").length;
       const phrasalCount = document.getElementById("phrasalCount");
       const idiomCount = document.getElementById("idiomCount");
+      const sentenceCount = document.getElementById("sentenceCount");
       const phrasalSub = document.getElementById("phrasalSub");
       const idiomSub = document.getElementById("idiomSub");
+      const sentencesSub = document.getElementById("sentencesSub");
       const mineN = loadAdded().filter((item) => (item.place || "mine") === "mine" && !item.fromText).length;
       const mineCount = document.getElementById("myWordCount");
       if (phrasalCount) phrasalCount.textContent = String(phrasalN);
       if (idiomCount) idiomCount.textContent = String(idiomN);
+      if (sentenceCount) sentenceCount.textContent = String(sentenceN);
       if (mineCount) mineCount.textContent = String(mineN);
       const phrasalTitle = document.querySelector("#phrasal h1");
       const idiomTitle = document.querySelector("#idioms h1");
+      const sentencesTitle = document.querySelector("#sentences h1");
       if (phrasalTitle) phrasalTitle.textContent = "Phrasal verbs · " + phrasalN;
       if (idiomTitle) idiomTitle.textContent = "Idioms · " + idiomN;
+      if (sentencesTitle) sentencesTitle.textContent = "My sentences · " + sentenceN;
       if (phrasalSub) phrasalSub.textContent = phrasalN + (phrasalN === 1 ? " card" : " cards") + ". Study uses them.";
       if (idiomSub) idiomSub.textContent = idiomN + (idiomN === 1 ? " card" : " cards") + ". Study uses them.";
+      if (sentencesSub) sentencesSub.textContent = sentenceN + (sentenceN === 1 ? " sentence" : " sentences") + ". Study uses them.";
       paintPlace("phrasal", "phrasalAdded");
       paintPlace("idioms", "idiomAdded");
       applyCardSearches();
@@ -13173,6 +13186,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       if (here === "daysetup" || here === "dayq" || here === "exam") return quizPool();
       if (here === "phrasal") return deckStudyCards("phrasal");
       if (here === "idioms") return deckStudyCards("idioms");
+      if (here === "sentences") return deckStudyCards("sentences");
       if (here === "days") return classCards();
       if (here === "allwords") return allSearchRows().map(rowToCard);
       if (here === "add") return addSearchRows().map((row) => rowToCard({ en: row.item.word, ru: row.item.ru, key: row.item.word }));
@@ -14468,7 +14482,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           const wrong = shuffle(quizPool().filter((c) => c.ru && !choiceSame(c.ru, card.ru))).slice(0, 3).map((c) => c.ru);
           const opts = shuffle(wrong.concat([card.ru].filter(Boolean)));
           let used = false;
-          view.innerHTML = '<p class="prompt">' + (card.verb ? "Three forms → Russian" : "English → Russian") + '</p><div class="word-head">' + wordPic(card.base || card.en) + '<p class="q">' + esc(card.en) + '</p></div><div class="opts">' +
+          const isSent = card.pos === "sentence" || (card.en && card.en.length > 30);
+          const headPic = isSent ? "" : wordPic(card.base || card.en);
+          const qStyle = isSent ? ' style="font-size:20px; line-height:1.4;"' : '';
+          view.innerHTML = '<p class="prompt">' + (card.verb ? "Three forms → Russian" : "English → Russian") + '</p><div class="word-head">' + headPic + '<p class="q"' + qStyle + '>' + esc(card.en) + '</p></div><div class="opts">' +
             opts.map((ru) => {
               const ok = !used && choiceSame(ru, card.ru);
               if (ok) used = true;
@@ -15279,13 +15296,14 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || !sel.rangeCount) { hideSelpop(); return; }
       const text = String(sel.toString() || "").replace(/\s+/g, " ").trim();
-      if (!text || text.length > 80 || !/[A-Za-zА-Яа-яЁё]/.test(text)) { hideSelpop(); return; }
-      if (text.split(/\s+/).length > 8) { hideSelpop(); return; }
+      if (!text || text.length > 350 || !/[A-Za-zА-Яа-яЁё]/.test(text)) { hideSelpop(); return; }
+      const wordCount = text.split(/\s+/).length;
+      const isSentence = wordCount > 8 || text.length > 80 || /[.!?]/.test(text);
       const node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
       if (selectionBlocked(node)) { hideSelpop(); return; }
       const pop = document.getElementById("selpop");
       document.getElementById("selpopWord").textContent = text;
-      const singular = typeof detectSingular === "function" ? detectSingular(text) : null;
+      const singular = !isSentence && typeof detectSingular === "function" ? detectSingular(text) : null;
       const variant = document.getElementById("selpopVariant");
       if (variant) {
         if (singular && singular !== text.toLowerCase()) {
@@ -15296,7 +15314,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           variant.hidden = true;
         }
       }
-      const dictName = typeof findWordDictionary === "function" ? (findWordDictionary(text) || (singular ? findWordDictionary(singular) : null)) : null;
+      const dictName = !isSentence && typeof findWordDictionary === "function" ? (findWordDictionary(text) || (singular ? findWordDictionary(singular) : null)) : null;
       const dictBadge = document.getElementById("selpopDictBadge");
       if (dictBadge) {
         if (dictName) {
@@ -15307,14 +15325,29 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         }
       }
       const add = document.getElementById("selpopAdd");
-      if (add) {
-        add.hidden = !!dictName;
-        add.disabled = false;
-        add.dataset.targetWord = singular || text;
+      const addSentence = document.getElementById("selpopAddSentence");
+      const dirRow = document.getElementById("selpopDirRow");
+      if (isSentence) {
+        if (add) add.hidden = true;
+        if (addSentence) { addSentence.hidden = false; addSentence.disabled = false; }
+        if (dirRow) dirRow.hidden = false;
+      } else {
+        if (add) {
+          add.hidden = !!dictName;
+          add.disabled = false;
+          add.dataset.targetWord = singular || text;
+        }
+        if (addSentence) addSentence.hidden = true;
+        if (dirRow) dirRow.hidden = true;
       }
       pop.hidden = false;
       placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
-      loadSelpop(text);
+      if (isSentence) {
+        const activeDir = document.querySelector("#selpopDirRow [data-selpop-dir].on")?.dataset.selpopDir || "auto";
+        loadSelpopSentence(text, activeDir);
+      } else {
+        loadSelpop(text);
+      }
     }
     const clipFrameClose = document.getElementById("clipFrameClose");
     if (clipFrameClose) clipFrameClose.addEventListener("click", closeClipFrame);
@@ -15356,6 +15389,286 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         document.getElementById("selpopBody").textContent=error.message;
       } finally { button.disabled = false; }
     });
+    async function loadSelpopSentence(sentence, direction = "auto") {
+      const token = ++selToken;
+      const body = document.getElementById("selpopBody");
+      if (!body) return;
+      body.innerHTML = '<p class="hint">✨ Analyzing sentence with Gemini…</p>';
+      try {
+        const res = await fetch("/api/sentences/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sentence, direction: direction === "auto" ? "" : direction })
+        });
+        if (!res.ok) throw new Error("Could not analyze sentence.");
+        const data = await res.json();
+        if (token !== selToken) return;
+        const translations = Array.isArray(data.translations) ? data.translations : [];
+        if (!translations.length) {
+          body.innerHTML = '<p class="hint">No translations found for this sentence.</p>';
+          return;
+        }
+        let html = '<div class="sentence-gemini-choices" style="margin-top:6px;">';
+        translations.forEach((t, i) => {
+          html += '<div class="sentence-choice-tile' + (i === 0 ? ' selected' : '') + '" data-selpop-choice="' + i + '" data-translation="' + esc(t.text) + '">';
+          html += '<div>';
+          html += '<span class="sentence-choice-badge">' + esc(t.label || 'Translation') + '</span>';
+          html += '<div class="sentence-choice-text">' + esc(t.text) + '</div>';
+          html += '</div></div>';
+        });
+        html += '</div>';
+        if (data.note) {
+          html += '<div class="sentence-note-box">' + esc(data.note) + '</div>';
+        }
+        body.innerHTML = html;
+        body.querySelectorAll("[data-selpop-choice]").forEach(tile => {
+          tile.addEventListener("click", () => {
+            body.querySelectorAll(".sentence-choice-tile").forEach(t => t.classList.remove("selected"));
+            tile.classList.add("selected");
+          });
+        });
+      } catch (e) {
+        if (token === selToken) body.innerHTML = '<p class="hint">' + esc(e.message || "Failed to analyze") + '</p>';
+      }
+    }
+    const selpopAddSentenceBtn = typeof document !== 'undefined' && typeof document.getElementById === 'function' ? document.getElementById("selpopAddSentence") : null;
+    if (selpopAddSentenceBtn && typeof selpopAddSentenceBtn.addEventListener === 'function') {
+      selpopAddSentenceBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const wordEl = typeof document.getElementById === 'function' ? document.getElementById("selpopWord") : null;
+        const rawText = wordEl ? wordEl.textContent.trim() : "";
+        const selectedTile = (typeof document.querySelector === 'function' && document.querySelector("#selpopBody .sentence-choice-tile.selected")) || (typeof document.querySelector === 'function' && document.querySelector("#selpopBody .sentence-choice-tile"));
+        const translation = selectedTile ? (selectedTile.dataset.translation || selectedTile.querySelector(".sentence-choice-text")?.textContent || "").trim() : "";
+        const dirBtn = typeof document.querySelector === 'function' ? document.querySelector("#selpopDirRow [data-selpop-dir].on") : null;
+        const dirActive = dirBtn?.dataset.selpopDir || "auto";
+        const determinedDir = dirActive === "auto" ? (/[A-Za-z]/.test(rawText) && !/[\u0400-\u04FF]/.test(rawText) ? "en-ru" : "ru-en") : dirActive;
+
+        const item = {
+          word: determinedDir === "en-ru" ? rawText : (translation || rawText),
+          ru: determinedDir === "en-ru" ? (translation || rawText) : rawText,
+          place: "sentences",
+          direction: determinedDir,
+          note: (typeof document.querySelector === 'function' && document.querySelector("#selpopBody .sentence-note-box")?.textContent) || "",
+          created: Date.now()
+        };
+
+        const list = loadAdded();
+        list.unshift(item);
+        if (typeof saveAdded === "function") saveAdded(list, { op: "put-card", card: item });
+        paintDeckCounts();
+        paintSentencesList();
+        hideSelpop();
+      });
+    }
+    if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+      document.querySelectorAll("#selpopDirRow [data-selpop-dir]").forEach(btn => {
+        if (btn && typeof btn.addEventListener === 'function') {
+          btn.addEventListener("click", () => {
+            document.querySelectorAll("#selpopDirRow [data-selpop-dir]").forEach(b => b.classList.remove("on"));
+            btn.classList.add("on");
+            const wordEl = typeof document.getElementById === 'function' ? document.getElementById("selpopWord") : null;
+            const rawText = wordEl ? wordEl.textContent.trim() : "";
+            loadSelpopSentence(rawText, btn.dataset.selpopDir);
+          });
+        }
+      });
+    }
+    function paintSentencesList() {
+      const listEl = document.getElementById("sentencesList");
+      if (!listEl) return;
+      const searchInput = document.querySelector("[data-sentence-search]");
+      const query = String(searchInput?.value || "").toLowerCase().trim();
+      const allAdded = loadAdded();
+      const sentenceItems = allAdded
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.place === "sentences" || item.place === "chat-sentences");
+
+      const filtered = query
+        ? sentenceItems.filter(({ item }) =>
+            String(item.word || "").toLowerCase().includes(query) ||
+            String(item.ru || "").toLowerCase().includes(query)
+          )
+        : sentenceItems;
+
+      const title = document.querySelector("#sentences h1");
+      if (title) title.textContent = "My sentences · " + sentenceItems.length;
+      const sub = document.getElementById("sentencesSub");
+      if (sub) sub.textContent = sentenceItems.length + (sentenceItems.length === 1 ? " sentence" : " sentences") + ". Study uses them.";
+      const countEl = document.getElementById("sentenceCount");
+      if (countEl) countEl.textContent = String(sentenceItems.length);
+
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="card saas-card" style="text-align:center; padding:32px 20px; color:var(--mute);">' +
+          '<p>' + (query ? 'No matching sentences found.' : 'No sentences saved yet. Use the + button above or select text to add sentences.') + '</p>' +
+          '</div>';
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(({ item, index }) => {
+        const dir = item.direction || (/[A-Za-z]/.test(item.word) && !/[\u0400-\u04FF]/.test(item.word) ? "en-ru" : "ru-en");
+        const dirLabel = dir === "ru-en" ? "Russian ➔ English" : "English ➔ Russian";
+        return '<div class="sentence-card-item">' +
+          '<div class="sentence-card-content">' +
+            '<div class="sentence-badge">' + esc(dirLabel) + '</div>' +
+            '<div class="sentence-card-en">' + esc(item.word || "") + '</div>' +
+            '<div class="sentence-card-ru">' + esc(item.ru || "") + '</div>' +
+            (item.note ? '<div class="sentence-note-box">' + esc(item.note) + '</div>' : '') +
+          '</div>' +
+          '<div class="sentence-card-actions">' +
+            '<button class="btn icon saas-btn" type="button" data-sentence-speak="' + esc(item.word || "") + '" title="Listen" aria-label="Listen">' +
+              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>' +
+            '</button>' +
+            '<button class="btn ghost icon saas-btn" type="button" data-sentence-delete="' + index + '" title="Delete" aria-label="Delete">×</button>' +
+          '</div>' +
+        '</div>';
+      }).join("");
+
+      listEl.querySelectorAll("[data-sentence-speak]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const text = btn.dataset.sentenceSpeak;
+          if (text) speakEnglish(text);
+        });
+      });
+
+      listEl.querySelectorAll("[data-sentence-delete]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.sentenceDelete);
+          if (Number.isInteger(idx)) {
+            const list = loadAdded();
+            const removed = list[idx];
+            const updated = list.filter((_, i) => i !== idx);
+            if (typeof saveAdded === "function") {
+              saveAdded(updated, { op: "delete-card", place: removed?.place || "sentences", word: removed?.word });
+            }
+            paintDeckCounts();
+            paintSentencesList();
+          }
+        });
+      });
+    }
+    function initSentencesSection() {
+      if (typeof document === 'undefined' || typeof document.querySelector !== 'function') return;
+      const openBtn = document.querySelector("[data-sentence-add-open]");
+      const form = document.querySelector("[data-sentence-add-form]");
+      const analyzeBtn = document.querySelector("[data-sentence-analyze]");
+      const input = document.querySelector("[data-sentence-input]");
+      const status = document.querySelector("[data-sentence-status]");
+      const choicesBox = document.querySelector("[data-sentence-choices]");
+      const search = document.querySelector("[data-sentence-search]");
+
+      if (openBtn && typeof openBtn.addEventListener === 'function' && form) {
+        openBtn.addEventListener("click", () => {
+          form.hidden = !form.hidden;
+          if (!form.hidden && input) input.focus();
+        });
+      }
+
+      if (typeof document.querySelectorAll === 'function') {
+        document.querySelectorAll("[data-sentence-dir]").forEach(btn => {
+          if (btn && typeof btn.addEventListener === 'function') {
+            btn.addEventListener("click", () => {
+              document.querySelectorAll("[data-sentence-dir]").forEach(b => b.classList.remove("on"));
+              btn.classList.add("on");
+            });
+          }
+        });
+      }
+
+      if (analyzeBtn && typeof analyzeBtn.addEventListener === 'function' && input && choicesBox && status) {
+        analyzeBtn.addEventListener("click", async () => {
+          const sentence = input.value.trim();
+          if (!sentence) {
+            status.textContent = "Please enter a sentence.";
+            return;
+          }
+          const dirBtn = document.querySelector("[data-sentence-dir].on");
+          const dir = dirBtn?.dataset.sentenceDir || "auto";
+          status.textContent = "✨ Analyzing with Gemini…";
+          choicesBox.hidden = true;
+          choicesBox.innerHTML = "";
+          analyzeBtn.disabled = true;
+
+          try {
+            const res = await fetch("/api/sentences/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sentence, direction: dir === "auto" ? "" : dir })
+            });
+            if (!res.ok) throw new Error("Analysis failed.");
+            const data = await res.json();
+            const translations = Array.isArray(data.translations) ? data.translations : [];
+            if (!translations.length) {
+              status.textContent = "No translations received.";
+              analyzeBtn.disabled = false;
+              return;
+            }
+            status.textContent = "Select best translation:";
+            let html = "";
+            translations.forEach((t, i) => {
+              html += '<div class="sentence-choice-tile' + (i === 0 ? ' selected' : '') + '" data-choice-idx="' + i + '" data-trans="' + esc(t.text) + '">';
+              html += '<div>';
+              html += '<span class="sentence-choice-badge">' + esc(t.label || 'Translation') + '</span>';
+              html += '<div class="sentence-choice-text">' + esc(t.text) + '</div>';
+              html += '</div></div>';
+            });
+            if (data.note) {
+              html += '<div class="sentence-note-box">' + esc(data.note) + '</div>';
+            }
+            html += '<div class="row" style="margin-top:12px;">' +
+              '<button class="btn primary saas-btn saas-btn-primary" type="button" data-sentence-save-chosen>Add to My sentences</button>' +
+            '</div>';
+            choicesBox.innerHTML = html;
+            choicesBox.hidden = false;
+
+            choicesBox.querySelectorAll(".sentence-choice-tile").forEach(tile => {
+              tile.addEventListener("click", () => {
+                choicesBox.querySelectorAll(".sentence-choice-tile").forEach(t => t.classList.remove("selected"));
+                tile.classList.add("selected");
+              });
+            });
+
+            const saveBtn = typeof choicesBox.querySelector === 'function' ? choicesBox.querySelector("[data-sentence-save-chosen]") : null;
+            if (saveBtn && typeof saveBtn.addEventListener === 'function') {
+              saveBtn.addEventListener("click", () => {
+                const selected = (typeof choicesBox.querySelector === 'function' && (choicesBox.querySelector(".sentence-choice-tile.selected") || choicesBox.querySelector(".sentence-choice-tile"))) || null;
+                const chosenTranslation = selected?.dataset?.trans || sentence;
+                const determinedDir = data.direction || (/[A-Za-z]/.test(sentence) && !/[\u0400-\u04FF]/.test(sentence) ? "en-ru" : "ru-en");
+
+                const item = {
+                  word: determinedDir === "en-ru" ? sentence : chosenTranslation,
+                  ru: determinedDir === "en-ru" ? chosenTranslation : sentence,
+                  place: "sentences",
+                  direction: determinedDir,
+                  note: data.note || "",
+                  created: Date.now()
+                };
+
+                const list = loadAdded();
+                list.unshift(item);
+                if (typeof saveAdded === "function") saveAdded(list, { op: "put-card", card: item });
+                if (input) input.value = "";
+                if (status) status.textContent = "Sentence added successfully!";
+                choicesBox.hidden = true;
+                choicesBox.innerHTML = "";
+                if (form) form.hidden = true;
+                paintDeckCounts();
+                paintSentencesList();
+              });
+            }
+          } catch (err) {
+            if (status) status.textContent = err.message || "Failed to analyze";
+          } finally {
+            analyzeBtn.disabled = false;
+          }
+        });
+      }
+
+      if (search && typeof search.addEventListener === 'function') {
+        search.addEventListener("input", () => paintSentencesList());
+      }
+    }
+    initSentencesSection();
     document.addEventListener("mousedown", (e) => {
       if (!e.target.closest("#selpop")) hideSelpop();
     });
