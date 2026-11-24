@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Mastery Achievements & Badges Showcase</title>
+  <link rel="stylesheet" href="../site/preview.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .layout-root {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+      position: relative;
+    }
+    /* Aside */
+    .mock-aside {
+      width: 230px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 18px 12px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      gap: 16px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-svg {
+      width: 32px;
+      height: 30px;
+      color: var(--acc);
+    }
+    .mock-brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .mock-brand-sub {
+      font-size: 11px;
+      color: var(--mute);
+    }
+    .mock-nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .mock-nav-head {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--mute);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 10px 4px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--mute);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+      font-weight: 700;
+    }
+
+    /* Main Area */
+    .mock-main {
+      flex: 1;
+      padding: 28px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 1040px;
+      margin: 0 auto;
+      overflow-y: auto;
+    }
+    .card-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: all 0.2s ease;
+    }
+
+    /* Header */
+    .home-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+    }
+    .home-header h1 {
+      margin: 0 0 4px;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .home-header p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--mute);
+    }
+
+    /* Mastery Achievements Banner on Dashboard */
+    .mastery-banner {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+    .mastery-banner-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .mastery-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .mastery-icon-badge {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: var(--acc-s);
+      color: var(--acc);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .mastery-title-group h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .mastery-title-group p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--mute);
+    }
+    .btn-badges-view {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      color: var(--acc);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .btn-badges-view:hover {
+      background: var(--acc-s);
+      border-color: var(--acc);
+    }
+
+    /* 5-Tier Badge Track */
+    .tier-track {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+    }
+    .tier-badge-card {
+      padding: 12px 10px;
+      border-radius: 10px;
+      background: rgba(125, 125, 125, 0.05);
+      border: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 4px;
+      position: relative;
+    }
+    .tier-badge-card.unlocked {
+      background: var(--card);
+      border-color: var(--acc);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    .tier-badge-card.target {
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.08);
+    }
+    .tier-emoji {
+      font-size: 22px;
+      line-height: 1;
+    }
+    .tier-badge-art {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      border-radius: 8px;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14));
+      transition: transform 0.15s ease;
+    }
+    .tier-badge-card:hover .tier-badge-art {
+      transform: scale(1.06);
+    }
+    .tier-badge-card.locked .tier-badge-art {
+      filter: grayscale(0.85) opacity(0.35);
+    }
+    .lesson-badge-art {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+      border-radius: 8px;
+      filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.12));
+    }
+    .tier-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .tier-score {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--mute);
+    }
+    .tier-status-pill {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+    }
+    .pill-unlocked {
+      background: #10b981;
+      color: #fff;
+    }
+    .pill-target {
+      background: #f59e0b;
+      color: #fff;
+    }
+    .pill-locked {
+      background: rgba(125, 125, 125, 0.15);
+      color: var(--mute);
+    }
+
+    /* Student Target Selector Row */
+    .mastery-target-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+      font-size: 12px;
+      color: var(--mute);
+    }
+    .target-chips {
+      display: flex;
+      gap: 6px;
+    }
+    .target-chip {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .target-chip.active {
+      background: var(--acc);
+      color: #fff;
+      border-color: var(--acc);
+    }
+
+    /* Modal Showcase */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-card {
+      width: 100%;
+      max-width: 680px;
+      max-height: 90vh;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .modal-head h3 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-modal-close {
+      background: none;
+      border: none;
+      font-size: 20px;
+      color: var(--mute);
+      cursor: pointer;
+      padding: 4px;
+      line-height: 1;
+    }
+    .modal-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    .modal-stats-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 14px;
+      background: rgba(125, 125, 125, 0.05);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      text-align: center;
+    }
+    .modal-stat-box b {
+      display: block;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--acc);
+    }
+    .modal-stat-box span {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--mute);
+    }
+
+    .lesson-badge-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .lesson-badge-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--card);
+    }
+    .lesson-badge-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .lesson-badge-icon {
+      font-size: 26px;
+    }
+    .lesson-badge-info b {
+      font-size: 14px;
+      color: var(--ink);
+      display: block;
+    }
+    .lesson-badge-info span {
+      font-size: 12px;
+      color: var(--mute);
+    }
+    .lesson-badge-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .badge-score-pill {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .badge-score-pill.diamond {
+      background: #ec4899;
+      color: #fff;
+    }
+    .badge-score-pill.gold {
+      background: #f59e0b;
+      color: #fff;
+    }
+    .badge-score-pill.bronze {
+      background: #84cc16;
+      color: #fff;
+    }
+    .badge-score-pill.progress {
+      background: rgba(125, 125, 125, 0.15);
+      color: var(--mute);
+    }
+    .btn-upgrade-lesson {
+      background: var(--acc-s);
+      border: 1px solid var(--acc);
+      color: var(--acc);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* Cocoa specific adjustments */
+    [data-theme="cocoa"] .card-box {
+      border-color: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+    }
+    [data-theme="cocoa"] .tier-status-pill.pill-locked {
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.7);
+    }
+    [data-theme="cocoa"] .btn-badges-view {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Van Gogh almond blossom background */
+    [data-theme="almond"] body {
+      background: url('../site/almond.jpg') center center / cover fixed no-repeat !important;
+    }
+    [data-theme="almond"] .card-box,
+    [data-theme="almond"] .mock-aside {
+      background: rgba(255, 255, 255, 0.82) !important;
+      backdrop-filter: blur(14px) !important;
+      -webkit-backdrop-filter: blur(14px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    }
+    [data-theme="almond"] .modal-card {
+      background: rgba(255, 255, 255, 0.94) !important;
+      backdrop-filter: blur(16px) !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout-root">
+    <!-- Sidebar -->
+    <aside class="mock-aside">
+      <div class="mock-brand">
+        <svg class="brand-svg" viewBox="0 0 112 104" focusable="false"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="#4acdcc" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg>
+        <div>
+          <div class="mock-brand-title">Lumiscia</div>
+          <div class="mock-brand-sub">Learning studio</div>
+        </div>
+      </div>
+      <div class="mock-nav-group">
+        <span class="mock-nav-head">Overview</span>
+        <button class="mock-nav-item active" type="button">⌂ Home</button>
+        <button class="mock-nav-item" type="button">📅 Lessons</button>
+        <button class="mock-nav-item" type="button">📝 Exam</button>
+        <button class="mock-nav-item" type="button">🏆 Badges & Achievements</button>
+      </div>
+      <div class="mock-nav-group">
+        <span class="mock-nav-head">Curriculum</span>
+        <button class="mock-nav-item" type="button">📖 Words</button>
+        <button class="mock-nav-item" type="button">🔤 Grammar</button>
+        <button class="mock-nav-item" type="button">🎵 Entertainment</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="mock-main">
+      <!-- Header -->
+      <div class="card-box home-header">
+        <div>
+          <h1>Welcome back, Yester! 👋</h1>
+          <p>Target Goal: 80% Solid Pass · 4 of 10 lessons fully mastered</p>
+        </div>
+        <button class="btn-badges-view" type="button" id="openBadgesBtn">🏆 View all badges (4)</button>
+      </div>
+
+      <!-- Mastery Achievements Banner -->
+      <div class="card-box mastery-banner">
+        <div class="mastery-banner-top">
+          <div class="mastery-title-group">
+            <div class="mastery-icon-badge">🎖️</div>
+            <div>
+              <h2>Mastery Milestones & Badges</h2>
+              <p>Achieve solid retention across lessons. Minimum 80% unlocks your next step.</p>
+            </div>
+          </div>
+          <span style="font-size:12px; font-weight:700; color:var(--acc);">Current Tier: 🥉 Solid Ground</span>
+        </div>
+
+        <!-- 5-Tier Badge Track -->
+        <div class="tier-track">
+          <div class="tier-badge-card unlocked">
+            <img class="tier-badge-art" src="badges/badge-1-bronze-spark.png" alt="Bronze Spark">
+            <span class="tier-name">Solid Ground</span>
+            <span class="tier-score">80% LMI</span>
+            <span class="tier-status-pill pill-unlocked">Unlocked</span>
+          </div>
+          <div class="tier-badge-card target">
+            <img class="tier-badge-art" src="badges/badge-2-silver-dawn.png" alt="Silver Dawn">
+            <span class="tier-name">Confident</span>
+            <span class="tier-score">85% LMI</span>
+            <span class="tier-status-pill pill-target">Next Target</span>
+          </div>
+          <div class="tier-badge-card locked">
+            <img class="tier-badge-art" src="badges/badge-3-gold-sun.png" alt="Gold Sun">
+            <span class="tier-name">Gold Master</span>
+            <span class="tier-score">90% LMI</span>
+            <span class="tier-status-pill pill-locked">Locked</span>
+          </div>
+          <div class="tier-badge-card locked">
+            <img class="tier-badge-art" src="badges/badge-4-platinum-prism.png" alt="Platinum Prism">
+            <span class="tier-name">Scholar</span>
+            <span class="tier-score">95% LMI</span>
+            <span class="tier-status-pill pill-locked">Locked</span>
+          </div>
+          <div class="tier-badge-card locked">
+            <img class="tier-badge-art" src="badges/badge-5-diamond-galaxy.png" alt="Diamond Galaxy">
+            <span class="tier-name">Perfection</span>
+            <span class="tier-score">100% LMI</span>
+            <span class="tier-status-pill pill-locked">Locked</span>
+          </div>
+        </div>
+
+        <!-- Target Threshold Selection -->
+        <div class="mastery-target-row">
+          <span>Set your personal mastery target:</span>
+          <div class="target-chips">
+            <button class="target-chip active" type="button">80% (Pass)</button>
+            <button class="target-chip" type="button">85%</button>
+            <button class="target-chip" type="button">90%</button>
+            <button class="target-chip" type="button">95%</button>
+            <button class="target-chip" type="button">100%</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Modal Showcase (Active) -->
+    <div class="modal-backdrop" id="achievementsModal">
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3>🏆 Mastery Badges & Achievements</h3>
+          <button class="btn-modal-close" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- Summary Metrics -->
+          <div class="modal-stats-summary">
+            <div class="modal-stat-box">
+              <b>4 / 10</b>
+              <span>Lessons Mastered</span>
+            </div>
+            <div class="modal-stat-box">
+              <b>89.4%</b>
+              <span>Average Knowledge LMI</span>
+            </div>
+            <div class="modal-stat-box">
+              <b>🥇 Gold</b>
+              <span>Highest Badge Unlocked</span>
+            </div>
+          </div>
+
+          <!-- Lesson Mastery Badges List -->
+          <div>
+            <h4 style="margin:0 0 10px; font-size:14px; font-weight:800; color:var(--ink);">Enrolled Group Lessons Badges</h4>
+            <div class="lesson-badge-list">
+              <div class="lesson-badge-item">
+                <div class="lesson-badge-left">
+                  <img class="lesson-badge-art" src="badges/badge-5-diamond-galaxy.png" alt="Diamond Perfection">
+                  <div class="lesson-badge-info">
+                    <b>Unit 1: Introductions & Greetings</b>
+                    <span>100% LMI · 0 mistakes · Earned 02 Nov</span>
+                  </div>
+                </div>
+                <div class="lesson-badge-right">
+                  <span class="badge-score-pill diamond">100% Perfection</span>
+                </div>
+              </div>
+
+              <div class="lesson-badge-item">
+                <div class="lesson-badge-left">
+                  <img class="lesson-badge-art" src="badges/badge-3-gold-sun.png" alt="Gold Master">
+                  <div class="lesson-badge-info">
+                    <b>Unit 2: Family & Everyday Routines</b>
+                    <span>92% LMI · 1 mistake recovered · Earned 04 Nov</span>
+                  </div>
+                </div>
+                <div class="lesson-badge-right">
+                  <span class="badge-score-pill gold">92% Gold Master</span>
+                  <button class="btn-upgrade-lesson" type="button">Aim for 100% →</button>
+                </div>
+              </div>
+
+              <div class="lesson-badge-item">
+                <div class="lesson-badge-left">
+                  <img class="lesson-badge-art" src="badges/badge-1-bronze-spark.png" alt="Solid Ground">
+                  <div class="lesson-badge-info">
+                    <b>Unit 3: Travel, Directions & Hotel Booking</b>
+                    <span>81% LMI · Homework submitted · Earned 05 Nov</span>
+                  </div>
+                </div>
+                <div class="lesson-badge-right">
+                  <span class="badge-score-pill bronze">81% Solid Pass</span>
+                  <button class="btn-upgrade-lesson" type="button">Aim for Silver →</button>
+                </div>
+              </div>
+
+              <div class="lesson-badge-item">
+                <div class="lesson-badge-left">
+                  <img class="lesson-badge-art" src="badges/badge-2-silver-dawn.png" alt="Silver In Progress" style="opacity:0.35; filter:grayscale(1);">
+                  <div class="lesson-badge-info">
+                    <b>Unit 4: Work, Career & Negotiations</b>
+                    <span>64% LMI · Needs gap review & homework</span>
+                  </div>
+                </div>
+                <div class="lesson-badge-right">
+                  <span class="badge-score-pill progress">64% In Progress</span>
+                  <button class="btn-upgrade-lesson" type="button" style="background:var(--acc); color:#fff;">Practice Gaps →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

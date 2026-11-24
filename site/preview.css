@@ -3926,7 +3926,10 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
   color: #ffffff;
 }
 
-.shell-progress { display: none !important; margin: 18px 4px 0; padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
+.shell-progress { display: block; margin: 18px 4px 0; padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
+.shell-progress[hidden] { display: none !important; }
+body:has(#home.on) .shell-progress,
+.has-home-active .shell-progress { display: none !important; }
 #homeUnreadTile { display: none !important; }
 .shell-progress > div:first-child { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; }
 .shell-progress > div:first-child > span { padding: 3px 8px; border-radius: 3px; background: var(--acc-s); color: var(--acc); font-size: 11px; font-weight: 600; }
@@ -3934,6 +3937,158 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
 .shell-progress-track i { display: block; width: 0; height: 100%; background: var(--warm); }
 .shell-progress p { margin: 0 0 10px; color: var(--mute); font-size: 12px; }
 .shell-progress .btn { width: 100%; min-height: 36px; font-size: 13px; background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+
+/* -------------------------------------------------------------
+   Student Home Dashboard & Mastery Milestone Banner (TASK-13)
+   ------------------------------------------------------------- */
+.home-mastery-banner {
+  background: var(--saas-card);
+  border: 1px solid var(--saas-border);
+  border-radius: var(--saas-radius-lg, 16px);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--saas-shadow-card);
+}
+.home-tier-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.home-tier-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 14px 10px;
+  border-radius: var(--saas-radius-md, 10px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+.home-tier-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.home-tier-card.is-unlocked {
+  border-color: color-mix(in srgb, var(--acc) 50%, var(--line));
+}
+.home-tier-card.is-locked {
+  opacity: 0.55;
+  filter: grayscale(40%);
+}
+.home-tier-art {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.12));
+  transition: transform 0.2s ease;
+}
+.home-tier-card:hover .home-tier-art {
+  transform: scale(1.08);
+}
+.home-tier-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.home-tier-score {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--acc);
+  margin-bottom: 6px;
+}
+.home-tier-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--saas-radius-pill, 9999px);
+  background: var(--acc-s);
+  color: var(--acc);
+}
+
+.home-target-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.home-target-chip {
+  padding: 4px 12px;
+  border-radius: var(--saas-radius-pill, 9999px);
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--mute);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.home-target-chip:hover {
+  border-color: var(--acc);
+  color: var(--ink);
+}
+.home-target-chip.active {
+  background: var(--acc);
+  color: var(--on-acc, #ffffff);
+  border-color: var(--acc);
+}
+
+/* Warmup compact banner */
+.warmup-slim-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--ok, #10b981) 12%, var(--card, #ffffff));
+  border: 1px solid color-mix(in srgb, var(--ok, #10b981) 30%, var(--line, #e2e8f0));
+  border-radius: var(--saas-radius-md, 8px);
+  color: var(--ink);
+  font-size: 13px;
+}
+.warmup-slim-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+.warmup-slim-text strong {
+  color: var(--ok, #047857);
+  margin-right: 6px;
+}
+
+/* Van Gogh (Almond) backdrop blur on cards */
+:root[data-theme="almond"] #home .saas-card,
+:root[data-theme="user"] #home .saas-card {
+  background: color-mix(in srgb, var(--card, #F6FBFA) 86%, transparent) !important;
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-color: color-mix(in srgb, var(--line, #C5DDD9) 75%, transparent);
+}
+
+/* Cocoa and Dark Theme Contrast Boost */
+:root[data-theme="cocoa"] {
+  --saas-text-muted: #D8C2B0;
+}
+:root[data-theme="cocoa"] #home .stat-tile small,
+:root[data-theme="cocoa"] #home .stat-tile span,
+:root[data-theme="cocoa"] #home .sub {
+  color: #D8C2B0 !important;
+}
+:root[data-theme="cocoa"] #home .stat-tile b.bad {
+  color: #FFA49C !important;
+}
+:root[data-theme="cocoa"] #home .stat-tile #homeUnreadCount {
+  color: #7DD3FC !important;
+}
+:root[data-theme="cocoa"] .home-tier-card {
+  background: #3B2A1C;
+  border-color: #553E2D;
+}
+
 .side-foot { margin-top: 18px; padding-top: 0; }
 .shell-account { display: flex; align-items: center; gap: 8px; width: 100%; }
 .shell-settings-open { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; }
@@ -12147,6 +12302,8 @@ html[data-notify-unread="1"] .popover-notify-dot {
 .stellar-btn-close-transp:hover {
   color: var(--ink);
 }
+
+
 
 
 

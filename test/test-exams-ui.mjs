@@ -18,6 +18,7 @@ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await launchChromium(chromium);
 try{
   const page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[],writes=[];
+  await page.addInitScript(()=>{try{localStorage.setItem('cookie_consent','all');}catch{}});
   page.on('pageerror',error=>{errors.push(error.message);console.error(error.message);});
   const user={id:'a'.repeat(32),login:'fixture',name:'Fixture',role:'DEVELOPER'};
   const groups=[{id:41,title:'A1 Group',studentCount:4,lessonIds:[31],examIds:[11]},{id:42,title:'A1 Empty',studentCount:0,lessonIds:[],examIds:[]},{id:43,title:'B1 Group',studentCount:1,lessonIds:[],examIds:[]}];

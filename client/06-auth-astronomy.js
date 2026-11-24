@@ -92,7 +92,7 @@ const StudioSkyAstronomy=(()=>{
       const maxW=(f.right-f.left-20)*fewStarsFactor,maxH=(f.bottom-f.top-20)*fewStarsFactor;
       const size=Math.min(base,maxW*span/c.bounds.width,maxH*span/c.bounds.height);
       if(size<=0)continue;
-      for(const factor of [1,.9,.8,.65,.5,.35,.28,.22,.16]){
+      for(const factor of [1,.9,.8,.65,.5,.35,.28,.22,.16,.13,.11]){
         const s=size*factor,halfX=s*c.bounds.width/span/2,halfY=s*c.bounds.height/span/2;
         const left=f.left+halfX+10,right=f.right-halfX-10,top=f.top+halfY+10,bottom=f.bottom-halfY-10;
         const positions=[[(left+right)/2,(top+bottom)/2],[left,top],[right,bottom],[left,bottom],[right,top]];

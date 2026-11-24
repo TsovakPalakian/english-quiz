@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>All 5 Mastery Levels & Achievement Badges (Light Theme)</title>
+  <link rel="stylesheet" href="../site/preview.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .light-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+      padding: 24px 28px;
+    }
+
+    /* Page Head */
+    .showcase-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 20px;
+    }
+    .showcase-head h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .showcase-head p {
+      margin: 0;
+      font-size: 14px;
+      color: var(--mute);
+    }
+    .theme-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: var(--acc-s);
+      color: var(--acc);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    /* Horizontal Banner Track */
+    .banner-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      margin: 0 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .tiers-track {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+    }
+    .tier-track-item {
+      padding: 18px 14px;
+      border-radius: 14px;
+      border: none;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+    }
+    .tier-track-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    }
+    .tier-track-item.bronze { border-top: none; }
+    .tier-track-item.silver { border-top: none; }
+    .tier-track-item.gold { border-top: none; }
+    .tier-track-item.platinum { border-top: none; }
+    .tier-track-item.diamond { border-top: none; }
+
+    .badge-art-circle {
+      width: 78px;
+      height: 78px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+      border: none;
+      transition: transform 0.2s ease;
+    }
+    .tier-track-item:hover .badge-art-circle {
+      transform: scale(1.08);
+    }
+
+    .tier-title-text {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .tier-pct-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+
+    /* All 5 Levels Detailed Grid */
+    .levels-detailed-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .level-row-card {
+      display: grid;
+      grid-template-columns: 110px 1.4fr 1.6fr 1fr;
+      align-items: center;
+      gap: 20px;
+      padding: 20px 24px;
+      border-radius: 14px;
+      border: none;
+      background: #ffffff;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+      transition: all 0.15s ease;
+    }
+    .level-row-card:hover {
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    }
+    .badge-art-large {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.14));
+      border: none;
+    }
+    .level-meta h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .level-meta p {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--mute);
+    }
+    .level-criteria {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .criteria-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .criteria-desc {
+      font-size: 11.5px;
+      color: var(--mute);
+    }
+    .level-action {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .status-pill-solid {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .pill-green { background: #dcfce7; color: #15803d; }
+    .pill-blue { background: #e0f2fe; color: #0369a1; }
+    .pill-amber { background: #fef3c7; color: #b45309; }
+    .pill-cyan { background: #cffafe; color: #0e7490; }
+    .pill-purple { background: #f3e8ff; color: #7e22ce; }
+
+    .btn-target-set {
+      background: var(--card);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .btn-target-set:hover {
+      background: var(--acc-s);
+      border-color: var(--acc);
+      color: var(--acc);
+    }
+    .btn-target-set.active {
+      background: var(--acc);
+      border-color: var(--acc);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="light-card showcase-head">
+      <div>
+        <h1>🏆 All 5 Mastery Levels & Achievement Badges</h1>
+        <p>Pure Light Sky Theme (no dark overlay) — showcasing all 5 tiers with artwork from Lovable</p>
+      </div>
+      <span class="theme-badge">☀️ Light Sky Theme</span>
+    </div>
+
+    <!-- Section 1: Dashboard Mastery Banner -->
+    <div class="light-card">
+      <div class="banner-title">
+        <span>🎖️ Student Dashboard Banner: Tiered Mastery Track</span>
+      </div>
+      <div class="tiers-track">
+        <!-- Level 1: Bronze -->
+        <div class="tier-track-item bronze">
+          <img class="badge-art-circle" src="badges/badge-1-bronze-spark.png" alt="Bronze Spark">
+          <span class="tier-title-text">Solid Ground</span>
+          <span class="tier-pct-badge">80% LMI</span>
+          <span class="status-pill-solid pill-amber">Level 1 · Bronze</span>
+        </div>
+
+        <!-- Level 2: Silver -->
+        <div class="tier-track-item silver">
+          <img class="badge-art-circle" src="badges/badge-2-silver-dawn.png" alt="Silver Dawn">
+          <span class="tier-title-text">Confident Speaker</span>
+          <span class="tier-pct-badge">85% LMI</span>
+          <span class="status-pill-solid pill-blue">Level 2 · Silver</span>
+        </div>
+
+        <!-- Level 3: Gold -->
+        <div class="tier-track-item gold">
+          <img class="badge-art-circle" src="badges/badge-3-gold-sun.png" alt="Gold Sun">
+          <span class="tier-title-text">Gold Master</span>
+          <span class="tier-pct-badge">90% LMI</span>
+          <span class="status-pill-solid pill-green">Level 3 · Gold</span>
+        </div>
+
+        <!-- Level 4: Platinum -->
+        <div class="tier-track-item platinum">
+          <img class="badge-art-circle" src="badges/badge-4-platinum-prism.png" alt="Platinum Prism">
+          <span class="tier-title-text">Platinum Scholar</span>
+          <span class="tier-pct-badge">95% LMI</span>
+          <span class="status-pill-solid pill-cyan">Level 4 · Platinum</span>
+        </div>
+
+        <!-- Level 5: Diamond -->
+        <div class="tier-track-item diamond">
+          <img class="badge-art-circle" src="badges/badge-5-diamond-galaxy.png" alt="Diamond Galaxy">
+          <span class="tier-title-text">Flawless Perfection</span>
+          <span class="tier-pct-badge">100% LMI</span>
+          <span class="status-pill-solid pill-purple">Level 5 · Diamond</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 2: Detailed Breakdown of All 5 Levels -->
+    <div class="light-card">
+      <div class="banner-title">
+        <span>📖 Detailed Breakdown of All 5 Levels & Criteria</span>
+      </div>
+      <div class="levels-detailed-grid">
+        <!-- Level 1 -->
+        <div class="level-row-card">
+          <img class="badge-art-large" src="badges/badge-1-bronze-spark.png" alt="Bronze Spark">
+          <div class="level-meta">
+            <h3>🥉 Level 1: Bronze</h3>
+            <p><strong>Solid Ground (80% LMI)</strong></p>
+            <p>Базовый зачетный порог. Открывает автоматический переход к следующему уроку группы.</p>
+          </div>
+          <div class="level-criteria">
+            <span class="criteria-tag">✅ Критерии получения:</span>
+            <span class="criteria-desc">• Классная работа сдана</span>
+            <span class="criteria-desc">• Домашнее задание выполнено</span>
+            <span class="criteria-desc">• Твердость лексики $\ge 80\%$ LMI</span>
+          </div>
+          <div class="level-action">
+            <span class="status-pill-solid pill-amber">Solid Pass</span>
+            <button class="btn-target-set active" type="button">Default Target</button>
+          </div>
+        </div>
+
+        <!-- Level 2 -->
+        <div class="level-row-card">
+          <img class="badge-art-large" src="badges/badge-2-silver-dawn.png" alt="Silver Dawn">
+          <div class="level-meta">
+            <h3>🥈 Level 2: Silver</h3>
+            <p><strong>Confident Speaker (85% LMI)</strong></p>
+            <p>Уверенное владение материалом, высокая скорость ответов в квизах без подсказок.</p>
+          </div>
+          <div class="level-criteria">
+            <span class="criteria-tag">✅ Критерии получения:</span>
+            <span class="criteria-desc">• Все критерии Bronze</span>
+            <span class="criteria-desc">• Твердость лексики $\ge 85\%$ LMI</span>
+            <span class="criteria-desc">• Не более 2 опечаток за весь квиз</span>
+          </div>
+          <div class="level-action">
+            <span class="status-pill-solid pill-blue">Confident</span>
+            <button class="btn-target-set" type="button">Set as Target</button>
+          </div>
+        </div>
+
+        <!-- Level 3 -->
+        <div class="level-row-card">
+          <img class="badge-art-large" src="badges/badge-3-gold-sun.png" alt="Gold Sun">
+          <div class="level-meta">
+            <h3>🥇 Level 3: Gold</h3>
+            <p><strong>Gold Master (90% LMI)</strong></p>
+            <p>Золотой стандарт академического владения. Свободное использование в упражнениях.</p>
+          </div>
+          <div class="level-criteria">
+            <span class="criteria-tag">✅ Критерии получения:</span>
+            <span class="criteria-desc">• Все критерии Silver</span>
+            <span class="criteria-desc">• Твердость лексики $\ge 90\%$ LMI</span>
+            <span class="criteria-desc">• Успешный контроль интерливинга 50/25/25</span>
+          </div>
+          <div class="level-action">
+            <span class="status-pill-solid pill-green">Mastery</span>
+            <button class="btn-target-set" type="button">Set as Target</button>
+          </div>
+        </div>
+
+        <!-- Level 4 -->
+        <div class="level-row-card">
+          <img class="badge-art-large" src="badges/badge-4-platinum-prism.png" alt="Platinum Prism">
+          <div class="level-meta">
+            <h3>💎 Level 4: Platinum</h3>
+            <p><strong>Platinum Scholar (95% LMI)</strong></p>
+            <p>Экспертный уровень. Мгновенное распознавание и безошибочное воспроизведение.</p>
+          </div>
+          <div class="level-criteria">
+            <span class="criteria-tag">✅ Критерии получения:</span>
+            <span class="criteria-desc">• Все критерии Gold</span>
+            <span class="criteria-desc">• Твердость лексики $\ge 95\%$ LMI</span>
+            <span class="criteria-desc">• 0 повторных ошибок при интерливинге</span>
+          </div>
+          <div class="level-action">
+            <span class="status-pill-solid pill-cyan">Scholar</span>
+            <button class="btn-target-set" type="button">Set as Target</button>
+          </div>
+        </div>
+
+        <!-- Level 5 -->
+        <div class="level-row-card">
+          <img class="badge-art-large" src="badges/badge-5-diamond-galaxy.png" alt="Diamond Galaxy">
+          <div class="level-meta">
+            <h3>👑 Level 5: Diamond</h3>
+            <p><strong>Flawless Perfection (100% LMI)</strong></p>
+            <p>Абсолютное совершенство. 100% точность без единой помарки во всех заданиях урока.</p>
+          </div>
+          <div class="level-criteria">
+            <span class="criteria-tag">✅ Критерии получения:</span>
+            <span class="criteria-desc">• Все критерии Platinum</span>
+            <span class="criteria-desc">• Твердость лексики ровно 100% LMI</span>
+            <span class="criteria-desc">• Безупречный зачет всех мини-тестов</span>
+          </div>
+          <div class="level-action">
+            <span class="status-pill-solid pill-purple">Perfection</span>
+            <button class="btn-target-set" type="button">Set as Target</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

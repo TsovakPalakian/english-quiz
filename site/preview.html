@@ -55,7 +55,7 @@
     <section id="home" class="on">
       <button class="guest-brand brand" type="button" aria-label="Lumiscia" aria-expanded="false" aria-controls="brandMotto"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 112 104" focusable="false" aria-hidden="true"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="var(--brand-leaf, #4acdcc)" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg></span><span class="brand-copy"><b>Lumiscia</b><small>Learning studio</small></span></button>
       <div id="brandMotto" class="brand-motto" hidden><b lang="la">Lumen ex Scientia</b><span lang="en">Knowledge that brings the world into focus</span></div>
-      <div class="home-heading"><div><h1 class="hello" style="visibility:hidden">Hello!</h1><p class="sub">Classes are organized in groups.</p></div></div>
+      <div class="home-heading"><div><h1 class="hello" id="homeWelcomeHeading" style="visibility:visible">Welcome back, <span id="homeStudentName">Student</span>! 👋</h1><p class="sub" id="homeWelcomeSubtitle">Ready to level up your English? Here is your daily learning overview.</p></div></div>
       <div id="homeAuth" class="row" hidden style="margin-bottom:16px">
         <button class="btn primary" type="button" data-account="show-login">Log in</button>
       </div>
@@ -111,25 +111,93 @@
         </div>
         <div id="homeWarmupContent" class="home-warmup-content" style="padding:18px;"></div>
       </div>
+      <div id="homeMasteryBanner" class="home-mastery-banner saas-card" hidden style="padding:20px 24px; border-radius:var(--saas-radius-lg, 12px); background:var(--saas-card); border:1px solid var(--saas-border); margin-bottom:20px; box-shadow:var(--saas-shadow-card);">
+        <div class="home-mastery-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="font-size:24px;">🎖️</span>
+            <div>
+              <h2 style="font-size:16px; font-weight:800; margin:0 0 2px;">Mastery Milestones &amp; Badges</h2>
+              <p style="font-size:12px; color:var(--saas-text-muted); margin:0;">Achieve solid retention across lessons. Minimum 80% unlocks your next step.</p>
+            </div>
+          </div>
+          <button class="btn saas-btn saas-btn-sm" type="button" id="openBadgesBtn" style="font-size:12px; font-weight:700;">🏆 View all badges</button>
+        </div>
+        <div class="home-tier-track" id="homeTierTrack">
+          <div class="home-tier-card" data-tier="1">
+            <img class="home-tier-art" src="/badges/badge-1-symbol.png" alt="Bronze Spark" />
+            <span class="home-tier-name">Solid Ground</span>
+            <span class="home-tier-score">80% LMI</span>
+            <span class="home-tier-pill">Level 1</span>
+          </div>
+          <div class="home-tier-card" data-tier="2">
+            <img class="home-tier-art" src="/badges/badge-2-symbol.png" alt="Silver Dawn" />
+            <span class="home-tier-name">Confident</span>
+            <span class="home-tier-score">85% LMI</span>
+            <span class="home-tier-pill">Level 2</span>
+          </div>
+          <div class="home-tier-card" data-tier="3">
+            <img class="home-tier-art" src="/badges/badge-3-symbol.png" alt="Gold Sun" />
+            <span class="home-tier-name">Gold Master</span>
+            <span class="home-tier-score">90% LMI</span>
+            <span class="home-tier-pill">Level 3</span>
+          </div>
+          <div class="home-tier-card" data-tier="4">
+            <img class="home-tier-art" src="/badges/badge-4-symbol.png" alt="Platinum Prism" />
+            <span class="home-tier-name">Scholar</span>
+            <span class="home-tier-score">95% LMI</span>
+            <span class="home-tier-pill">Level 4</span>
+          </div>
+          <div class="home-tier-card" data-tier="5">
+            <img class="home-tier-art" src="/badges/badge-5-symbol.png" alt="Diamond Galaxy" />
+            <span class="home-tier-name">Perfection</span>
+            <span class="home-tier-score">100% LMI</span>
+            <span class="home-tier-pill">Level 5</span>
+          </div>
+        </div>
+        <div class="home-mastery-target-row" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid var(--saas-border);">
+          <span style="font-size:12px; color:var(--saas-text-muted);">Set your personal mastery target:</span>
+          <div class="home-target-chips" id="homeTargetChips">
+            <button class="home-target-chip active" type="button" data-target-pct="80">80% (Pass)</button>
+            <button class="home-target-chip" type="button" data-target-pct="85">85%</button>
+            <button class="home-target-chip" type="button" data-target-pct="90">90%</button>
+            <button class="home-target-chip" type="button" data-target-pct="95">95%</button>
+            <button class="home-target-chip" type="button" data-target-pct="100">100%</button>
+          </div>
+        </div>
+      </div>
+
       <div id="homeDashboard" class="home-dashboard" hidden>
         <div class="home-activity saas-card" style="border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card); overflow:hidden;">
           <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
             <h2 style="font-size:15px; font-weight:700; margin:0;">Recent activity</h2>
-            <button class="home-text-link" type="button" data-jump="stats">View all</button>
+            <button class="home-text-link" type="button" id="homeRecentViewAll" data-jump="stats">View all</button>
           </div>
           <div id="homeRecentList" class="home-recent-list"><p class="hint">No recent activity on this device.</p></div>
         </div>
+
         <div class="home-group saas-card" style="border:1px solid var(--saas-border); border-radius:var(--saas-radius-lg); background:var(--saas-card); box-shadow:var(--saas-shadow-card); overflow:hidden;">
           <div class="home-panel-head" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--saas-border);">
-            <h2 style="font-size:15px; font-weight:700; margin:0;">Your group</h2>
+            <h2 style="font-size:15px; font-weight:700; margin:0; display:flex; align-items:center; gap:8px;">👥 <span>Your group</span></h2>
             <button class="home-text-link" type="button" data-jump="groups" data-home-groups>Groups</button>
           </div>
           <div class="home-group-body" style="padding:18px;">
             <p id="homeGroupTitle" style="font-size:15px; font-weight:700; margin:0 0 8px;">No group assigned</p>
             <div id="homeGroupMetrics" class="home-group-meta" style="margin-bottom:14px;"></div>
-            <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="groups" data-home-group-open style="width:100%;">Open group</button>
+            <button class="btn primary saas-btn saas-btn-primary" type="button" data-jump="groups" data-home-group-open style="width:100%; margin-bottom:14px;">Open group</button>
+            <div id="homePriorityRow" class="home-priority-row" style="border-top:1px solid var(--saas-border); padding-top:12px;">
+              <div class="home-next-lesson-card" style="display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; align-items:center; justify-content:space-between;">
+                  <span style="font-size:12px; font-weight:700; color:var(--saas-text-muted);">🗓️ Next lesson</span>
+                  <span id="homeNextLessonSlotBadge" class="saas-badge saas-badge-muted" style="font-size:11px;">Upcoming</span>
+                </div>
+                <b id="homeNextLessonSlotDate" style="font-size:18px; font-weight:800; color:var(--saas-primary);">—</b>
+                <p id="homeNextLessonSlotNote" style="font-size:13px; color:var(--saas-text-muted); margin:0;">No upcoming lessons</p>
+                <button id="homeNextLessonSlotBtn" class="btn secondary saas-btn" type="button" style="width:100%; margin-top:6px; opacity:0.6; cursor:default;" disabled>— Inactive</button>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
       </div>
     </section>
 
@@ -2627,6 +2695,60 @@
     </div>
     <div id="selpopBody"></div>
   </div>
+  <dialog id="homeBadgesDialog" class="home-badges-dialog saas-card" style="max-width:640px; width:92%; padding:24px; border-radius:16px; border:1px solid var(--saas-border); background:var(--saas-card); color:var(--ink);">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; border-bottom:1px solid var(--saas-border); padding-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:24px;">🏆</span>
+        <div>
+          <h2 style="font-size:18px; font-weight:800; margin:0;">Mastery Milestones & Badges</h2>
+          <p style="font-size:12px; color:var(--saas-text-muted); margin:2px 0 0;">Unlock achievements as your long-term memory retention grows.</p>
+        </div>
+      </div>
+      <button class="saas-btn" id="homeBadgesDialogClose" type="button" style="border:none; background:transparent; font-size:22px; cursor:pointer; color:var(--saas-text-muted);" aria-label="Close">×</button>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px;" id="homeBadgesList">
+      <div class="saas-card" style="display:grid; grid-template-columns:64px 1fr auto; align-items:center; gap:16px; padding:12px 16px; border:1px solid var(--saas-border); border-radius:12px; background:var(--card);">
+        <img src="/badges/badge-1-symbol.png" alt="Solid Ground" style="width:54px; height:54px; object-fit:contain;" />
+        <div>
+          <b style="font-size:14px; color:var(--ink);">Solid Ground (Bronze)</b>
+          <p style="font-size:12px; color:var(--saas-text-muted); margin:2px 0 0;">80% LMI — Solid foundation that safely unlocks your next curriculum step.</p>
+        </div>
+        <span class="saas-badge saas-badge-info" style="font-weight:700;">80% Pass</span>
+      </div>
+      <div class="saas-card" style="display:grid; grid-template-columns:64px 1fr auto; align-items:center; gap:16px; padding:12px 16px; border:1px solid var(--saas-border); border-radius:12px; background:var(--card);">
+        <img src="/badges/badge-2-symbol.png" alt="Confident Speaker" style="width:54px; height:54px; object-fit:contain;" />
+        <div>
+          <b style="font-size:14px; color:var(--ink);">Confident Speaker (Silver)</b>
+          <p style="font-size:12px; color:var(--saas-text-muted); margin:2px 0 0;">85% LMI — Confident recall with steady vocabulary activation in speech.</p>
+        </div>
+        <span class="saas-badge saas-badge-info" style="font-weight:700;">85%</span>
+      </div>
+      <div class="saas-card" style="display:grid; grid-template-columns:64px 1fr auto; align-items:center; gap:16px; padding:12px 16px; border:1px solid var(--saas-border); border-radius:12px; background:var(--card);">
+        <img src="/badges/badge-3-symbol.png" alt="Gold Master" style="width:54px; height:54px; object-fit:contain;" />
+        <div>
+          <b style="font-size:14px; color:var(--ink);">Gold Master (Gold)</b>
+          <p style="font-size:12px; color:var(--saas-text-muted); margin:2px 0 0;">90% LMI — Gold standard of deep, durable knowledge across lessons.</p>
+        </div>
+        <span class="saas-badge saas-badge-info" style="font-weight:700;">90%</span>
+      </div>
+      <div class="saas-card" style="display:grid; grid-template-columns:64px 1fr auto; align-items:center; gap:16px; padding:12px 16px; border:1px solid var(--saas-border); border-radius:12px; background:var(--card);">
+        <img src="/badges/badge-4-symbol.png" alt="Platinum Scholar" style="width:54px; height:54px; object-fit:contain;" />
+        <div>
+          <b style="font-size:14px; color:var(--ink);">Platinum Scholar (Platinum)</b>
+          <p style="font-size:12px; color:var(--saas-text-muted); margin:2px 0 0;">95% LMI — Near-native fluency and instant recall under time constraints.</p>
+        </div>
+        <span class="saas-badge saas-badge-info" style="font-weight:700;">95%</span>
+      </div>
+      <div class="saas-card" style="display:grid; grid-template-columns:64px 1fr auto; align-items:center; gap:16px; padding:12px 16px; border:1px solid var(--saas-border); border-radius:12px; background:var(--card);">
+        <img src="/badges/badge-5-symbol.png" alt="Flawless Perfection" style="width:54px; height:54px; object-fit:contain;" />
+        <div>
+          <b style="font-size:14px; color:var(--ink);">Flawless Perfection (Diamond)</b>
+          <p style="font-size:12px; color:var(--saas-text-muted); margin:2px 0 0;">100% LMI — Total mastery with zero flaws, slips, or hesitations.</p>
+        </div>
+        <span class="saas-badge saas-badge-info" style="font-weight:700;">100%</span>
+      </div>
+    </div>
+  </dialog>
   <script src="/main-bridge.js"></script><script src="grammar.js"></script>
   <script src="irregular.js"></script>
   <script src="demonstratives.js"></script>

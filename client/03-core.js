@@ -193,7 +193,27 @@
       }
       const jump = e.target.closest("[data-jump]");
       if (jump) {
-        if(jump.id==='homeStudy'&&jump.dataset.jump!=='setup')jump.dataset.jump=authUser?.role==='USER'&&!viewAccount?'days':'groups';
+        if(jump.id==='homeStudy'||jump.hasAttribute('data-home-continue')){
+          if(jump.dataset.jump!=='setup'){
+            if(authUser?.role==='USER'&&!viewAccount){
+              if(typeof homeOpenNextUnstudiedLesson==='function'&&homeOpenNextUnstudiedLesson()){
+                return;
+              }
+              jump.dataset.jump='days';
+            }else{
+              jump.dataset.jump='groups';
+            }
+          }
+        }
+        if(jump.id==='homeRecentViewAll'||(jump.closest('.home-activity')&&jump.dataset.jump==='stats')){
+          if(typeof statsMode!=='undefined')statsMode='activity';
+          pushHistory();
+          show('stats');
+          return;
+        }
+        if(jump.id==='homeNextLesson'&&(document.getElementById('homeNextLessonLabel')?.textContent==='\u2014'||document.getElementById('homeNextLessonSlotDate')?.textContent==='\u2014')){
+          return;
+        }
         if(jump.closest('.side,#home,.mobile-tools')&&['groups','exams','days'].includes(jump.dataset.jump)){
           pushHistory();
           if(jump.dataset.jump==='groups')groupViewLevel='';

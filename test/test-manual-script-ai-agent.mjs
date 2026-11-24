@@ -179,13 +179,8 @@ test('Visual and UI Integration: Manual Script command approval gate and executi
     assert.ok(isApprovalVisible, 'Approval Gate wrap should be visible');
 
     // Capture verification screenshot
-    const rect = await page.evaluate(() => {
-      const box = document.getElementById('lmFrameImport').getBoundingClientRect();
-      return { x: Math.round(box.x), y: Math.round(box.y), width: Math.round(box.width), height: Math.round(box.height) };
-    });
-    await page.screenshot({
-      path: path.join(rootDir, 'docs/task-manual-script-ai-agent-screenshot-verification.png'),
-      clip: rect
+    await page.locator('#lmFrameImport').screenshot({
+      path: path.join(rootDir, 'docs/task-manual-script-ai-agent-screenshot-verification.png')
     });
 
     // Click Approve & Add to Lesson

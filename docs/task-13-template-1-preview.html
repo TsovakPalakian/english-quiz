@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Home - Proposed Layout</title>
+  <link rel="stylesheet" href="../site/preview.css">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+    }
+    .layout-root {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+    /* Sidebar */
+    .mock-aside {
+      width: 230px;
+      background: var(--card);
+      border-right: 1px solid var(--line);
+      padding: 18px 12px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      gap: 16px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .mock-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 10px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-svg {
+      width: 32px;
+      height: 30px;
+      color: var(--acc);
+    }
+    .mock-brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+    .mock-brand-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .mock-brand-sub {
+      font-size: 11px;
+      color: var(--mute);
+    }
+    .mock-nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .mock-nav-head {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--mute);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 6px 10px 4px;
+    }
+    .mock-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--mute);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+    }
+    .mock-nav-item:hover {
+      background: var(--acc-s);
+      color: var(--acc);
+    }
+    .mock-nav-item.active {
+      background: var(--acc-s);
+      color: var(--acc);
+      font-weight: 700;
+    }
+    /* Hidden sidebar progress on Home notice */
+    .mock-sidebar-notice {
+      margin-top: auto;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(125, 125, 125, 0.06);
+      border: 1px dashed var(--line);
+      font-size: 11px;
+      color: var(--mute);
+      line-height: 1.4;
+    }
+    .mock-theme-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--card);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* Main Container */
+    .mock-main {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1040px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Top Greeting Header */
+    .home-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 24px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .home-header-copy h1 {
+      margin: 0 0 4px;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .home-header-copy p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--mute);
+    }
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 14px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--acc);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .user-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    /* Card base with Backdrop Filter */
+    .card-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      overflow: hidden;
+    }
+
+    /* Top Priority Group & Next Lesson Bar */
+    .top-context-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+    }
+    .group-priority-card {
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .group-info h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .group-badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .group-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 6px;
+      background: rgba(125, 125, 125, 0.1);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .btn-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: var(--acc);
+      color: #fff;
+    }
+    .btn-primary:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: var(--card);
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    /* Hero Progress Card */
+    .hero-progress-card {
+      padding: 22px 26px;
+      display: flex;
+      align-items: center;
+      gap: 26px;
+    }
+    .ring-wrapper {
+      position: relative;
+      width: 82px;
+      height: 82px;
+      flex-shrink: 0;
+    }
+    .ring-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .ring-bg {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 3.5;
+    }
+    .ring-fg {
+      fill: none;
+      stroke: var(--acc);
+      stroke-width: 3.5;
+      stroke-linecap: round;
+    }
+    .ring-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .hero-details {
+      flex: 1;
+    }
+    .hero-details h3 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .hero-details p {
+      margin: 0 0 14px;
+      font-size: 13px;
+      color: var(--mute);
+      line-height: 1.4;
+    }
+
+    /* Overview 4 Tiles */
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    .metric-tile {
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .metric-tile:hover {
+      border-color: var(--acc);
+      transform: translateY(-1px);
+    }
+    .metric-tile.disabled {
+      cursor: default;
+      opacity: 0.85;
+    }
+    .metric-tile.disabled:hover {
+      border-color: var(--line);
+      transform: none;
+    }
+    .metric-head {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--mute);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .metric-val {
+      font-size: 24px;
+      font-weight: 800;
+      font-feature-settings: 'tnum';
+      line-height: 1.2;
+    }
+    .metric-val.blue { color: #0284c7; }
+    .metric-val.red { color: #e11d48; }
+    .metric-val.primary { color: var(--acc); }
+    .metric-sub {
+      font-size: 12px;
+      color: var(--mute);
+    }
+
+    /* Daily Warmup Slim Success Banner */
+    .warmup-slim-banner {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+    .warmup-slim-copy {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .warmup-icon {
+      font-size: 20px;
+    }
+    .warmup-slim-text b {
+      font-size: 14px;
+      color: var(--ink);
+      display: block;
+    }
+    .warmup-slim-text span {
+      font-size: 12px;
+      color: var(--mute);
+    }
+
+    /* Recent Activity Card */
+    .activity-panel {
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .btn-link {
+      background: none;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--acc);
+      cursor: pointer;
+      padding: 0;
+    }
+    .activity-list {
+      display: flex;
+      flex-direction: column;
+    }
+    .activity-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--line);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .activity-row:last-child {
+      border-bottom: none;
+    }
+    .activity-row:hover {
+      background: var(--acc-s);
+    }
+    .activity-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .activity-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: rgba(125, 125, 125, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .activity-desc b {
+      font-size: 13px;
+      color: var(--ink);
+      display: block;
+    }
+    .activity-desc small {
+      font-size: 11px;
+      color: var(--mute);
+    }
+    .activity-date {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--mute);
+    }
+  </style>
+</head>
+<body>
+  <div class="layout-root">
+    <!-- Sidebar -->
+    <aside class="mock-aside">
+      <div class="mock-brand">
+        <svg class="brand-svg" viewBox="0 0 112 104" focusable="false"><path fill="currentColor" d="M8 22C8 11 16 3 27 3h16v76C32 71 20 67 8 69V22Zm0 53c14-2 27 2 35 11h5c14-17 34-24 57-21v12c0 14-9 24-23 24H30C16 101 8 93 8 79v-4Zm42 3c14-23 32-35 55-39v25C84 61 65 67 50 78Z"/><path fill="#4acdcc" d="M49 77C57 37 75 10 98 7v28C77 40 60 54 49 77Z"/></svg>
+        <div class="mock-brand-text">
+          <span class="mock-brand-title">Lumiscia</span>
+          <span class="mock-brand-sub">Learning studio</span>
+        </div>
+      </div>
+
+      <div class="mock-nav-group">
+        <span class="mock-nav-head">Overview</span>
+        <button class="mock-nav-item active" type="button">⌂ Home</button>
+        <button class="mock-nav-item" type="button">📅 Lessons</button>
+        <button class="mock-nav-item" type="button">📝 Exam</button>
+      </div>
+
+      <div class="mock-nav-group">
+        <span class="mock-nav-head">Curriculum</span>
+        <button class="mock-nav-item" type="button">📖 Words</button>
+        <button class="mock-nav-item" type="button">🔤 Grammar</button>
+        <button class="mock-nav-item" type="button">🎵 Entertainment</button>
+        <button class="mock-nav-item" type="button">🎙️ Speakout</button>
+      </div>
+
+      <div class="mock-nav-group">
+        <span class="mock-nav-head">Workspace</span>
+        <button class="mock-nav-item" type="button">💬 Messages</button>
+        <button class="mock-nav-item" type="button">⚙️ Settings</button>
+      </div>
+
+      <div class="mock-sidebar-notice">
+        <b>💡 Sidebar Progress:</b>
+        <span>Hidden while on Home to eliminate duplicate widget clutter.</span>
+      </div>
+
+      <div class="mock-theme-pill">
+        <span>Theme</span>
+        <span id="themeLabel">Sky</span>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="mock-main">
+      <!-- Header -->
+      <div class="home-header">
+        <div class="home-header-copy">
+          <h1 id="welcomeHeading">Welcome back, Yester! 👋</h1>
+          <p id="welcomeSubtitle">Ready to level up your English? Here is your daily learning overview.</p>
+        </div>
+        <div class="user-pill">
+          <div class="user-avatar">YP</div>
+          <span class="user-name">Yester Palakian</span>
+        </div>
+      </div>
+
+      <!-- Priority Row: Group & Next Lesson -->
+      <div class="top-context-grid">
+        <div class="card-box group-priority-card">
+          <div class="group-info">
+            <h2>👥 Your group: B1 Group</h2>
+            <div class="group-badges">
+              <span class="group-badge">4 students</span>
+              <span class="group-badge">10 lessons</span>
+              <span class="group-badge">1 exam</span>
+            </div>
+          </div>
+          <button class="btn-action btn-primary" type="button">Open group →</button>
+        </div>
+
+        <div class="card-box group-priority-card">
+          <div class="group-info">
+            <h2>🗓️ Next lesson</h2>
+            <div class="group-badges">
+              <span class="group-badge" style="color:var(--mute);">No upcoming date scheduled</span>
+            </div>
+          </div>
+          <button class="btn-action btn-secondary" type="button" style="opacity:0.6; cursor:default;" disabled>— Inactive</button>
+        </div>
+      </div>
+
+      <!-- Hero Card: Mastered Vocabulary -->
+      <div class="card-box hero-progress-card">
+        <div class="ring-wrapper">
+          <svg class="ring-svg" viewBox="0 0 36 36">
+            <circle class="ring-bg" cx="18" cy="18" r="15.5"></circle>
+            <circle class="ring-fg" cx="18" cy="18" r="15.5" stroke-dasharray="0 100"></circle>
+          </svg>
+          <span class="ring-text">0%</span>
+        </div>
+        <div class="hero-details">
+          <h3>0 of 174 cards learned</h3>
+          <p>Mastered vocabulary across enrolled units with spaced repetition retention.</p>
+          <button class="btn-action btn-primary" type="button">Start studying →</button>
+        </div>
+      </div>
+
+      <!-- 4 Metric Tiles -->
+      <div class="overview-grid">
+        <div class="card-box metric-tile">
+          <span class="metric-head">Unread messages</span>
+          <span class="metric-val blue">0</span>
+          <span class="metric-sub">in Messages</span>
+        </div>
+        <div class="card-box metric-tile disabled" title="No upcoming lesson scheduled">
+          <span class="metric-head">Next lesson</span>
+          <span class="metric-val primary">—</span>
+          <span class="metric-sub">No upcoming lessons</span>
+        </div>
+        <div class="card-box metric-tile">
+          <span class="metric-head">Weak cards</span>
+          <span class="metric-val red">0</span>
+          <span class="metric-sub">needs review</span>
+        </div>
+        <div class="card-box metric-tile">
+          <span class="metric-head">Still learning</span>
+          <span class="metric-val primary">174</span>
+          <span class="metric-sub">in progress</span>
+        </div>
+      </div>
+
+      <!-- Daily 5-Min Warmup (Slim Success Banner when all caught up) -->
+      <div class="card-box warmup-slim-banner">
+        <div class="warmup-slim-copy">
+          <span class="warmup-icon">🎉</span>
+          <div class="warmup-slim-text">
+            <b>All caught up for today!</b>
+            <span>No mistakes due for review. Take a break or practice new words.</span>
+          </div>
+        </div>
+        <button class="btn-action btn-secondary" type="button">Practice 5 new words</button>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card-box activity-panel">
+        <div class="panel-head">
+          <h2>Recent activity</h2>
+          <button class="btn-link" type="button">View all history →</button>
+        </div>
+        <div class="activity-list">
+          <div class="activity-row">
+            <div class="activity-left">
+              <span class="activity-badge">LE</span>
+              <div class="activity-desc">
+                <b>Lessons</b>
+                <small>Opened on this device</small>
+              </div>
+            </div>
+            <span class="activity-date">05 Nov</span>
+          </div>
+          <div class="activity-row">
+            <div class="activity-left">
+              <span class="activity-badge">GR</span>
+              <div class="activity-desc">
+                <b>Grammar</b>
+                <small>Opened on this device</small>
+              </div>
+            </div>
+            <span class="activity-date">05 Nov</span>
+          </div>
+          <div class="activity-row">
+            <div class="activity-left">
+              <span class="activity-badge">EN</span>
+              <div class="activity-desc">
+                <b>Entertainment</b>
+                <small>Opened on this device</small>
+              </div>
+            </div>
+            <span class="activity-date">04 Nov</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
