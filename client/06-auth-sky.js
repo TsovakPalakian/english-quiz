@@ -438,6 +438,7 @@
       cancelConHide();
       const wasInspected=!!inspectedCon;
       inspectedCon=null;
+      document.querySelectorAll('.auth-sky-title[data-sky-title]').forEach(el=>{el.title=el.dataset.skyTitle;delete el.dataset.skyTitle;});
       conInspector.classList.remove('active');
       conInspector.hidden=true;
       if(wasInspected&&phase==='hold'){
@@ -449,6 +450,10 @@
       cancelConHide();
       pauseReturn();
       inspectedCon=c;
+      if(targetNode){
+        if(targetNode.title)targetNode.dataset.skyTitle=targetNode.title;
+        targetNode.removeAttribute('title');
+      }
       hideInspector();
       conNameEn.textContent=c.name||'';
       const meaning=c.meaning?`"${c.meaning}"`:'';
@@ -459,7 +464,8 @@
       conGen.textContent=gen;
       conNameRu.textContent=ru;
       conSubSep.hidden=!(gen&&ru);
-      conFamily.textContent='Family: '+(c.family||'IAU Constellation');
+      const fam=c.family||'IAU Constellation';
+      conFamily.textContent=fam.includes('Family')?fam:'Family: '+fam;
       conAbbr.textContent=c.abbr||'';
       conQuad.textContent=c.quadrant?c.quadrant+' Quad':'';
       conHemi.textContent=c.hemisphere?('🌐 '+(c.hemisphere.includes('Sky')?c.hemisphere:c.hemisphere+' Sky')):'🌐 Celestial Sphere';
@@ -484,6 +490,11 @@
       const cardW=220,cardH=conInspector.offsetHeight||46,margin=12;
       const r=targetNode.getBoundingClientRect();
       const coreStars=(slots||[]).slice(0,c?.stars?.length||0).filter(s=>s&&Number.isFinite(s.x)&&Number.isFinite(s.y));
+      const starSlotMap=new Map();
+      (c?.stars||[]).forEach((st,idx)=>{
+        const sl=slots[idx];
+        if(sl&&Number.isFinite(sl.x)&&Number.isFinite(sl.y))starSlotMap.set(st.id,sl);
+      });
       const figLeft=coreStars.length?Math.min(...coreStars.map(s=>s.x))-16:r.left;
       const figRight=coreStars.length?Math.max(...coreStars.map(s=>s.x))+16:r.right;
       const figTop=coreStars.length?Math.min(...coreStars.map(s=>s.y))-16:r.top;
@@ -501,10 +512,12 @@
         const hitsStar=coreStars.some(st=>st.x>=box.left-10&&st.x<=box.right+10&&st.y>=box.top-10&&st.y<=box.bottom+10);
         if(hitsStar)s+=500000;
         const hitsLine=(c.connections||[]).some(([i,j])=>{
-          const a=coreStars[i],b=coreStars[j];
+          const a=starSlotMap.get(i)||(typeof i==='number'?coreStars[i]:null);
+          const b=starSlotMap.get(j)||(typeof j==='number'?coreStars[j]:null);
           return a&&b&&astro.segmentHitsBox(a,b,box);
         });
-        if(hitsLine)s+=300000;
+        if(hitsLine)s+=3000000;
+        if(overlaps(box,figureBox))s+=400000;
         if(overlaps(box,r))s+=10000000;
         for(const u of uiRects){
           if(overlaps(box,u)){
@@ -525,12 +538,18 @@
         return s;
       };
       const candidates=[];
+      candidates.push(makeBox(figureBox.right+12,r.top));
+      candidates.push(makeBox(figureBox.left-cardW-12,r.top));
+      candidates.push(makeBox(figureBox.right+12,figureBox.top));
+      candidates.push(makeBox(figureBox.left-cardW-12,figureBox.top));
       candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,r.bottom+8));
       candidates.push(makeBox(r.left,r.bottom+8));
       candidates.push(makeBox(r.right-cardW,r.bottom+8));
       candidates.push(makeBox(r.right+12,r.top));
       candidates.push(makeBox(r.left-cardW-12,r.top));
       candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,r.top-cardH-10));
+      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,figureBox.bottom+10));
+      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,figureBox.top-cardH-10));
       candidates.sort((a,b)=>score(a)-score(b));
       const best=candidates[0]||makeBox(r.left,r.bottom+8);
       conInspector.style.left=Math.round(best.left)+'px';
@@ -977,8 +996,8 @@
           if(link.dataset.caption!==b.star.label){
             const name=document.createElement('span');name.className='auth-sky-name';name.textContent=b.star.label;link.replaceChildren(name);link.dataset.caption=b.star.label;
           }
-          link.title=b.star.label;
-        }else{link.textContent=b.star.label;delete link.dataset.caption;link.title=b.star.label;}
+          if(inspectedCon)link.removeAttribute('title');else link.title=b.star.label;
+        }else{link.textContent=b.star.label;delete link.dataset.caption;if(inspected)link.removeAttribute('title');else link.title=b.star.label;}
         link.href=b.star.caption?'https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(current.name):'https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(b.star.hip?'HIP '+b.star.hip:(b.star.name||b.star.label));
         link.style.left=b.left+'px';link.style.top=b.top+'px';link.style.width=(b.right-b.left)+'px';link.style.height=(b.bottom-b.top)+'px';
         const elapsed=phaseNow-phaseStart;link.style.opacity=motion.matches||frozen?'1':String(ease(Math.min(1,elapsed/1500))*(1-ease(Math.max(0,(elapsed-(durations.hold-1800))/1800))));
