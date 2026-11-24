@@ -481,7 +481,7 @@
       conInspector.classList.add('is-collapsed');
       if(conMore)conMore.textContent='more...';
       conInspector.hidden=false;
-      const cardW=320,cardH=conInspector.offsetHeight||52,margin=14;
+      const cardW=220,cardH=conInspector.offsetHeight||46,margin=12;
       const r=targetNode.getBoundingClientRect();
       const coreStars=(slots||[]).slice(0,c?.stars?.length||0).filter(s=>s&&Number.isFinite(s.x)&&Number.isFinite(s.y));
       const figLeft=coreStars.length?Math.min(...coreStars.map(s=>s.x))-16:r.left;
@@ -499,13 +499,13 @@
       const score=box=>{
         let s=0;
         const hitsStar=coreStars.some(st=>st.x>=box.left-10&&st.x<=box.right+10&&st.y>=box.top-10&&st.y<=box.bottom+10);
-        if(hitsStar)s+=200000;
+        if(hitsStar)s+=500000;
         const hitsLine=(c.connections||[]).some(([i,j])=>{
           const a=coreStars[i],b=coreStars[j];
           return a&&b&&astro.segmentHitsBox(a,b,box);
         });
-        if(hitsLine)s+=100000;
-        if(overlaps(box,r))s+=1000000;
+        if(hitsLine)s+=300000;
+        if(overlaps(box,r))s+=10000000;
         for(const u of uiRects){
           if(overlaps(box,u)){
             const xOv=Math.max(0,Math.min(box.right,u.right)-Math.max(box.left,u.left));
@@ -513,22 +513,26 @@
             s+=xOv*yOv*50;
           }
         }
-        const targetX=(r.left+r.right)/2,targetY=(r.top+r.bottom)/2;
-        const boxX=(box.left+box.right)/2,boxY=(box.top+box.bottom)/2;
-        s+=Math.hypot(boxX-targetX,boxY-targetY)*5;
+        if(box.top>=r.bottom&&box.top<=r.bottom+20){
+          s-=100000;
+        }else if(box.top<r.top){
+          s+=200000;
+        }
+        const targetX=(r.left+r.right)/2;
+        const boxX=(box.left+box.right)/2;
+        s+=Math.abs(boxX-targetX)*10;
+        s+=Math.abs(box.top-(r.bottom+8))*15;
         return s;
       };
       const candidates=[];
-      candidates.push(makeBox(r.right+16,r.top-4));
-      candidates.push(makeBox(r.left-cardW-16,r.top-4));
-      candidates.push(makeBox(r.left,r.bottom+14));
-      candidates.push(makeBox(r.left,r.top-cardH-14));
-      candidates.push(makeBox(figureBox.right+18,(figTop+figBottom)/2-cardH/2));
-      candidates.push(makeBox(figureBox.left-cardW-18,(figTop+figBottom)/2-cardH/2));
-      candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figBottom+16));
-      candidates.push(makeBox((figLeft+figRight)/2-cardW/2,figTop-cardH-16));
+      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,r.bottom+8));
+      candidates.push(makeBox(r.left,r.bottom+8));
+      candidates.push(makeBox(r.right-cardW,r.bottom+8));
+      candidates.push(makeBox(r.right+12,r.top));
+      candidates.push(makeBox(r.left-cardW-12,r.top));
+      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,r.top-cardH-10));
       candidates.sort((a,b)=>score(a)-score(b));
-      const best=candidates[0]||makeBox(r.left,r.bottom+12);
+      const best=candidates[0]||makeBox(r.left,r.bottom+8);
       conInspector.style.left=Math.round(best.left)+'px';
       conInspector.style.top=Math.round(best.top)+'px';
       conInspector.classList.add('active');
@@ -621,14 +625,20 @@
       const speed=Math.hypot(s.vx,s.vy)||1;s.vx=s.vx/speed*s.speed;s.vy=s.vy/speed*s.speed;
       s.x=(s.x+s.vx*delta+w+12)%(w+12);s.y=(s.y+s.vy*delta+h+12)%(h+12);
     }
-    function drawLines(c,alpha){
+    function drawLines(c,alpha,width=1.3,isInspected=false){
       if(!c||alpha<.01)return;
-      ctx.strokeStyle='rgba(197,168,104,'+alpha+')';ctx.lineWidth=.8;
+      ctx.save();
+      ctx.strokeStyle='rgba(229,207,152,'+alpha+')';ctx.lineWidth=width;
+      if(isInspected){
+        ctx.shadowColor='rgba(255,216,133,0.5)';
+        ctx.shadowBlur=6;
+      }
       for(const [a,b] of c.lines){
         const p=slots[a],q=slots[b];
         if(!p||!q)continue;
         ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke();
       }
+      ctx.restore();
     }
     function render(now){
       if(stopped)return;
@@ -935,8 +945,10 @@
         const spikeLen=mag<=3.5?Math.max(5,Math.min(Math.min(28,style.radius*5.5*.75*Math.pow(flux,.15)),spacing*.38)):0;
         dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity*shimmer,style.color,true,brightness.constellation,spacing*.65,spikeLen);
       }
-      if(phase==='morph')drawLines(previous,.18*(1-t));
-      drawLines(current,.18*t);
+      const isInspected=!!(inspectedCon&&inspectedCon.abbr===current.abbr);
+      const lineAlpha=isInspected?.85:.65,lineWidth=isInspected?1.8:1.3;
+      if(phase==='morph')drawLines(previous,lineAlpha*(1-t),lineWidth,false);
+      drawLines(current,lineAlpha*t,lineWidth,isInspected);
       if(inspected&&phase==='hold'&&inspected.slot&&inspected.slot.opacity>.5){
         const is=inspected.slot,pulse=motion.matches?1:(.85+.15*Math.sin(clock*.06)),ringR=13;
         ctx.save();

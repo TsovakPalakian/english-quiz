@@ -1296,6 +1296,15 @@
           20205,
           18724,
           16083
+        ],
+        [
+          16083,
+          18907
+        ],
+        [
+          16083,
+          15900,
+          16852
         ]
       ],
       "page": "https://www.go-astronomy.com/constellations.php?Name=Taurus",
@@ -1303,7 +1312,9 @@
       "imageSha256": "9e80f551abbf873756ca2cd6ae442249489ba609a5da3019202972b419353bd1",
       "designationPaths": [
         "Zet Alp The-2 Gam Del-1 Eps Bet",
-        "Gam Lam Xi"
+        "Gam Lam Xi",
+        "Xi Nu",
+        "Xi Omi 10"
       ]
     },
     "UMa": {
