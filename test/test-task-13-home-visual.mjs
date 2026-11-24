@@ -105,6 +105,8 @@ test('TASK-13 visual test: Student home dashboard hierarchy, theme contrast, and
     // 4. Mastery Milestones Banner & 5 Tiers
     const masteryBanner = page.locator('#homeMasteryBanner');
     assert.ok(await masteryBanner.isVisible(), 'Mastery banner must be visible');
+    const bannerHeadText = await masteryBanner.locator('.home-mastery-head').textContent();
+    assert.ok(!bannerHeadText.includes('🎖️'), 'Mastery banner heading must not contain medal emoji');
 
     const tierCards = page.locator('.home-tier-card');
     assert.equal(await tierCards.count(), 5, 'Must render 5 tier milestone cards');
@@ -115,6 +117,8 @@ test('TASK-13 visual test: Student home dashboard hierarchy, theme contrast, and
       assert.equal(await img.count(), 1, 'Tier ' + i + ' art must exist');
       const src = await img.getAttribute('src');
       assert.ok(src.includes('badge-' + i + '-symbol.png'), 'Tier ' + i + ' src must match symbol');
+      const naturalWidth = await img.evaluate(el => el.naturalWidth);
+      assert.ok(naturalWidth > 0, 'Tier ' + i + ' image must load successfully with positive naturalWidth: ' + naturalWidth);
     }
 
     // 5. Target threshold chips interaction
