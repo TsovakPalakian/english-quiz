@@ -32,7 +32,10 @@ for(const name of ['speakout-editor.js','speakout-editor.css','material-quiz.js'
 mkdirSync(resolve(target,'speakout'),{recursive:true});
 for(const name of ['index.html','app.js','style.css'])copyFileSync(resolve(root,'speakout/web',name),resolve(target,'speakout',name));
 cpSync(resolve(root,'speakout/web/vendor'),resolve(target,'speakout/vendor'),{recursive:true});
-if(existsSync(resolve(accepted,'badges')))cpSync(resolve(accepted,'badges'),resolve(target,'badges'),{recursive:true});
+assert.ok(existsSync(resolve(accepted,'badges')),'site/badges directory must exist');
+const badgeFiles=readdirSync(resolve(accepted,'badges')).filter(f=>f.endsWith('.png'));
+assert.ok(badgeFiles.length>=5,'site/badges must contain at least 5 badge PNG symbols');
+cpSync(resolve(accepted,'badges'),resolve(target,'badges'),{recursive:true});
 copyFileSync(resolve(root,'client/shared/text-colors.js'),resolve(target,'text-colors.js'));
 for(const name of ['heic-to-1.6.6.js','fflate-0.8.2.js','chat-archive-worker.js','heic-to-LICENSE.txt','fflate-LICENSE.txt','chat-media-dependencies.txt'])copyFileSync(resolve(root,'production',name),resolve(target,name));
 const soundCatalog=JSON.parse(readFileSync(resolve(root,'production/notification-catalog.json'),'utf8'));
