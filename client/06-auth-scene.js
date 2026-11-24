@@ -26,27 +26,83 @@
   function navigate(state){
     if(!restoring&&navigation.at(-1)!==state)navigation.push(state);
   }
+  function updateLoginSubmitState(){
+    const form=document.getElementById('loginForm');
+    if(!form)return;
+    const login=form.elements?.login?.value?.trim();
+    const pass=form.elements?.password?.value;
+    const btn=form.querySelector('button[type="submit"]');
+    if(btn)btn.disabled=!login||!pass||form.dataset.busy==='1';
+  }
+  window.updateLoginSubmitState=updateLoginSubmitState;
+
   function backLink(){
     const card=document.querySelector('#accountBody .account-gate>.card');
     if(!card)return;
+    updateLoginSubmitState();
     const cancel=card.querySelector('[data-microsoft-cancel],[data-telegram-cancel]');
     if(cancel){
       card.querySelector('[data-studio-back]')?.remove();
+      card.querySelector('[data-studio-home]')?.remove();
       cancel.className='auth-forgot studio-back';
       if(cancel.textContent!=='Back to log in')cancel.textContent='Back to log in';
       return;
     }
+    const otpForm=document.getElementById('otpLoginForm');
+    const otpActive=!!otpForm&&!otpForm.hidden;
+    const forgot=card.querySelector('[data-password-recovery]');
+    if(forgot&&forgot.hidden!==otpActive)forgot.hidden=otpActive;
+
     let button=card.querySelector('[data-studio-back]');
     if(!button){button=document.createElement('button');button.type='button';button.className='auth-forgot studio-back';button.dataset.studioBack='';card.append(button);}
-    const text='Back to '+names[navigation.at(-2)||'home'];if(button.textContent!==text)button.textContent=text;
+    if(otpActive){
+      if(button.textContent!=='Log in with password')button.textContent='Log in with password';
+      let homeBtn=card.querySelector('[data-studio-home]');
+      if(!homeBtn){
+        homeBtn=document.createElement('button');
+        homeBtn.type='button';
+        homeBtn.className='auth-forgot studio-back';
+        homeBtn.dataset.studioHome='';
+        homeBtn.textContent='Back to home';
+        card.append(homeBtn);
+      }
+    }else{
+      card.querySelector('[data-studio-home]')?.remove();
+      const text='Back to '+names[navigation.at(-2)||'home'];
+      if(button.textContent!==text)button.textContent=text;
+    }
   }
   document.addEventListener('click',event=>{
+    if(event.target.closest('[data-studio-home]')){
+      event.preventDefault();event.stopPropagation();
+      show('home');
+      return;
+    }
     if(event.target.closest('[data-studio-back]')){
       event.preventDefault();event.stopPropagation();
+      const otp=document.getElementById('otpLoginForm');
+      if(otp&&!otp.hidden){
+        otp.hidden=true;
+        const loginForm=document.getElementById('loginForm');
+        if(loginForm)loginForm.hidden=false;
+        const otpEmail=otp.elements?.email?.value?.trim();
+        const authLogin=document.getElementById('authLogin');
+        if(otpEmail&&authLogin&&!authLogin.value)authLogin.value=otpEmail;
+        updateLoginSubmitState();
+        backLink();
+        return;
+      }
       if(navigation.length>1)navigation.pop();const state=navigation.at(-1);restoring=true;
       if(state==='home')show('home');
       else if(state==='recovery')paintRecovery();
-      else{paintAccountForm(state==='register');if(state==='otp')document.querySelector('.auth-providers [data-login-mode="otp"]')?.click();}
+      else{
+        paintAccountForm(state==='register');
+        if(state==='otp'){
+          const lf=document.getElementById('loginForm');
+          const olf=document.getElementById('otpLoginForm');
+          if(lf&&olf){lf.hidden=true;olf.hidden=false;}
+        }
+      }
       restoring=false;backLink();return;
     }
     const account=event.target.closest('[data-account]')?.dataset.account;
@@ -58,10 +114,15 @@
     if(event.target.closest('[data-password-recovery]')){navigate('recovery');paintRecovery();}
     queueMicrotask(backLink);
   },true);
+  window.backLink=backLink;
   const accountBox=document.getElementById('accountBody');
   if(accountBox)new MutationObserver(backLink).observe(accountBox,{childList:true,subtree:true});
   document.addEventListener('input',event=>{
+    if(event.target.closest('#loginForm'))updateLoginSubmitState();
     if(event.target.matches('#registerForm [name="name"]'))event.target.setCustomValidity(event.target.value.trim()?'':'Enter your name.');
+  });
+  document.addEventListener('change',event=>{
+    if(event.target.closest('#loginForm'))updateLoginSubmitState();
   });
   async function recover(form,send){
     const status=form.querySelector('[data-form-status]'),email=form.elements.email;

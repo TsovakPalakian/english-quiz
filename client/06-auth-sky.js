@@ -625,7 +625,7 @@
       const speed=Math.hypot(s.vx,s.vy)||1;s.vx=s.vx/speed*s.speed;s.vy=s.vy/speed*s.speed;
       s.x=(s.x+s.vx*delta+w+12)%(w+12);s.y=(s.y+s.vy*delta+h+12)%(h+12);
     }
-    function drawLines(c,alpha,width=1.3,isInspected=false){
+    function drawLines(c,alpha,width=.8,isInspected=false){
       if(!c||alpha<.01)return;
       ctx.save();
       ctx.strokeStyle='rgba(229,207,152,'+alpha+')';ctx.lineWidth=width;
@@ -946,7 +946,7 @@
         dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity*shimmer,style.color,true,brightness.constellation,spacing*.65,spikeLen);
       }
       const isInspected=!!(inspectedCon&&inspectedCon.abbr===current.abbr);
-      const lineAlpha=isInspected?.85:.65,lineWidth=isInspected?1.8:1.3;
+      const lineAlpha=isInspected?.85:.65,lineWidth=isInspected?1.8:.8;
       if(phase==='morph')drawLines(previous,lineAlpha*(1-t),lineWidth,false);
       drawLines(current,lineAlpha*t,lineWidth,isInspected);
       if(inspected&&phase==='hold'&&inspected.slot&&inspected.slot.opacity>.5){

@@ -106,7 +106,8 @@ const StudioSkyAstronomy=(()=>{
     let fallbackLayout=null;
     for(const frame of candidates){
       const candidate=layout(c,frame.cx,frame.cy,frame.size),core=candidate.stars.slice(0,c.stars.length);
-      if(core.some(p=>p.x<24||p.x>width-36||p.y<20||p.y>height-(height>600?110:60)))continue;
+      const isTau=c.abbr==='Tau';
+      if(core.some(p=>p.x<(isTau?24:18)||p.x>(isTau?width-36:width-18)||p.y<(isTau?20:18)||p.y>height-(isTau?(height>600?110:60):18)))continue;
       const visible=candidate.stars.filter(p=>inViewport(p,width,height));
       if(!clearFigure(c,visible,rects))continue;
       if(visible.some(p=>{const r=appearance(p.mag,p.bv).radius*4;return rects.some(b=>intersects(b,{left:p.x-r,right:p.x+r,top:p.y-r,bottom:p.y+r}));}))continue;

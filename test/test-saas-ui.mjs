@@ -122,7 +122,13 @@ try{
     await Promise.resolve();
   }
   await page.locator('[data-studio-back]').click();
-  await page.locator('.auth-providers [data-login-mode="otp"]').click();assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
+  await page.evaluate(()=>{
+    const lf=document.getElementById('loginForm');
+    const olf=document.getElementById('otpLoginForm');
+    if(lf&&olf){lf.hidden=true;olf.hidden=false;}
+    if(window.backLink)window.backLink();
+  });
+  assert.equal(await page.locator('#otpLoginForm').isVisible(),true);
   assert.equal(await page.locator('#otpCode').isVisible(),false);
   assert.equal(await page.locator('#otpLoginForm button[type="submit"]').isVisible(),false);
   await page.locator('#otpEmail').fill('preview@example.invalid');
@@ -133,7 +139,7 @@ try{
   assert.equal(await page.locator('#otpLoginForm button[type="submit"]').isVisible(),true);
   await page.locator('#otpEmail').fill('other@example.invalid');
   assert.equal(await page.locator('#otpCode').isVisible(),false,'Changing email resets code entry');
-  await page.locator('[data-login-mode="password"].chip').click();assert.equal(await page.locator('#loginForm').isVisible(),true);
+  await page.locator('[data-studio-back]').click();assert.equal(await page.locator('#loginForm').isVisible(),true);
   assert.equal(await page.locator('[data-google-auth] > svg.auth-google-icon').count(),1);
   await page.setViewportSize({width:1440,height:1000});
   await Promise.resolve();

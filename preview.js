@@ -7348,6 +7348,74 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       paintAllWords();
       applyCardSearches();
     }
+    function focusAndHighlightCard(targetWord, place) {
+      if (!targetWord) return null;
+      const norm = String(targetWord).trim().toLowerCase();
+      const placeBoxMap = {
+        "lesson-21": "lessonAdded",
+        "lesson-23": "lesson23Added",
+        "lesson-16": "lesson16Added",
+        "lesson-14": "lesson14Added",
+        "lesson-09": "lesson09Added",
+        "lesson-07": "lesson07Added",
+        music: "musicAdded",
+        tenses: "tenseAdded",
+        phrasal: "phrasalAdded",
+        idioms: "idiomAdded",
+        mine: "addedList"
+      };
+      const boxId = placeBoxMap[place] || "addedList";
+      const box = document.getElementById(boxId) || document.getElementById("addedList") || document;
+      if (box && box.closest && box.closest("section")) {
+        const searchInput = box.closest("section").querySelector("[data-card-search]");
+        if (searchInput && searchInput.value) {
+          searchInput.value = "";
+          if (typeof applyCardSearch === "function") applyCardSearch(box.closest("section"));
+        }
+      }
+      const cards = box.querySelectorAll ? box.querySelectorAll(".wcard") : [];
+      let matched = null;
+      for (const card of cards) {
+        const en = card.querySelector(".en");
+        if (en && en.textContent.trim().toLowerCase() === norm) {
+          matched = card;
+          break;
+        }
+      }
+      if (!matched && document.querySelectorAll) {
+        const allCards = document.querySelectorAll(".wcard");
+        for (const card of allCards) {
+          const en = card.querySelector(".en");
+          if (en && en.textContent.trim().toLowerCase() === norm) {
+            matched = card;
+            break;
+          }
+        }
+      }
+      if (!matched) return null;
+      document.querySelectorAll(".wcard-highlight").forEach((el) => el.classList.remove("wcard-highlight"));
+      matched.classList.add("wcard-highlight");
+      if (typeof matched.scrollIntoView === "function") {
+        matched.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      if (!matched.hasAttribute("tabindex")) matched.setAttribute("tabindex", "-1");
+      if (typeof matched.focus === "function") {
+        try { matched.focus({ preventScroll: true }); } catch (e) { matched.focus(); }
+      }
+      const clearTimer = setTimeout(() => {
+        matched.classList.remove("wcard-highlight");
+      }, 3000);
+      const onInteraction = () => {
+        clearTimeout(clearTimer);
+        matched.classList.remove("wcard-highlight");
+        document.removeEventListener("pointerdown", onInteraction, true);
+        document.removeEventListener("keydown", onInteraction, true);
+      };
+      document.addEventListener("pointerdown", onInteraction, { once: true, capture: true });
+      document.addEventListener("keydown", onInteraction, { once: true, capture: true });
+      return matched;
+    }
+    window.focusAndHighlightCard = focusAndHighlightCard;
     function searchHit(text, q) {
       return String(text || "").toLowerCase().indexOf(q) >= 0;
     }
@@ -9347,6 +9415,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         input.value = "";
         write("", false);
         if (openCard) renderMade(item);
+        else focusAndHighlightCard(item.word, place);
       } catch (err) {
         write("The dictionary lookup is not running. Start it, then try again.", true);
       } finally {
@@ -16322,7 +16391,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       } catch (e) {}
       const flashHtml = flash ? '<p class="hint auth-flash" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
       const tabs='<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
-      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="Password" maxlength="128" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–128 characters</p>':'');
+      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="'+(create?'Password':'••••••••')+'" maxlength="128" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–128 characters</p>':'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
       const authDivider='<div class="auth-divider"><span>OR CONTINUE WITH</span></div>';
       const microsoft='<button class="btn auth-google saas-btn" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
@@ -16354,16 +16423,15 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       let teacherEmailInvite=false;
       try{teacherEmailInvite=!!sessionStorage.getItem('enquiz-invite')&&inviteDetails?.kind==='teacher';}catch{}
       box.innerHTML = '<div class="account-gate"><div class="card saas-card">'+tabs+'<h1 class="auth-title">Log in</h1>' + flashHtml +
-        '<div class="auth-mode-switch saas-segmented"><button class="btn chip saas-btn on" type="button" data-login-mode="password">Password</button><button class="btn chip saas-btn" type="button" data-login-mode="otp">Email code</button></div>' +
-        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Login or email" required /></div>' +
+        '<form id="loginForm" data-login-mode="password"><label for="authLogin">Login or email</label><div class="auth-login-field"><i class="auth-field-icon" data-lucide="mail" aria-hidden="true"></i><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="user@example.com" required /></div>' +
         passwordField(false)+
-        '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">Enter the Studio</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
-        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input class="saas-input" id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
+        '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit" disabled>Log in</button></form><button type="button" class="auth-forgot" data-password-recovery>Forgot your password?</button>' +
+        '<form id="otpLoginForm" data-login-mode="otp" hidden><label for="otpEmail">Email</label><input class="saas-input" id="otpEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="user@example.com" required />' +
         (teacherEmailInvite?'<label for="otpName">Name</label><input class="saas-input" id="otpName" name="name" type="text" maxlength="80" autocomplete="name" required />':'')+
-        '<div class="row" style="margin:8px 0"><button class="btn saas-btn" type="button" data-otp-send>Send code</button></div>' +
+        '<button class="btn auth-code-send primary saas-btn" type="button" data-otp-send>Send code</button>' +
         '<label for="otpCode" data-otp-step hidden>Code</label><input class="saas-input" id="otpCode" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="6-digit code" data-otp-step hidden disabled required />' +
         '<p class="hint" data-form-status></p><button class="btn primary saas-btn" type="submit" data-otp-step hidden disabled>Sign in with code</button></form>' +
-        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google saas-btn" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp" aria-label="Sign in with email code" title="Sign in with email code"><i data-lucide="mail" aria-hidden="true"></i><span>Email code</span></button></div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
+        authDivider+'<div class="auth-providers">'+(window.LumisciaPasskeys?.supported()?'<button class="btn auth-google saas-btn" type="button" data-passkey-login aria-label="Log in with passkey" title="Log in with passkey"><i data-lucide="fingerprint" aria-hidden="true"></i><span>Log in with passkey</span></button>':'')+google+microsoft+telegram+'</div><p class="hint" role="status" data-passkey-status></p><p class="auth-create">New to Lumiscia? <button type="button" data-account="show-register">Create an account</button></p></div></div>';
       decorate();
     }
     function paintProfile() {
@@ -16704,7 +16772,8 @@ const StudioSkyAstronomy=(()=>{
     let fallbackLayout=null;
     for(const frame of candidates){
       const candidate=layout(c,frame.cx,frame.cy,frame.size),core=candidate.stars.slice(0,c.stars.length);
-      if(core.some(p=>p.x<24||p.x>width-36||p.y<20||p.y>height-(height>600?110:60)))continue;
+      const isTau=c.abbr==='Tau';
+      if(core.some(p=>p.x<(isTau?24:18)||p.x>(isTau?width-36:width-18)||p.y<(isTau?20:18)||p.y>height-(isTau?(height>600?110:60):18)))continue;
       const visible=candidate.stars.filter(p=>inViewport(p,width,height));
       if(!clearFigure(c,visible,rects))continue;
       if(visible.some(p=>{const r=appearance(p.mag,p.bv).radius*4;return rects.some(b=>intersects(b,{left:p.x-r,right:p.x+r,top:p.y-r,bottom:p.y+r}));}))continue;
@@ -17181,27 +17250,83 @@ const STUDIO_CONSTELLATIONS = [{
   function navigate(state){
     if(!restoring&&navigation.at(-1)!==state)navigation.push(state);
   }
+  function updateLoginSubmitState(){
+    const form=document.getElementById('loginForm');
+    if(!form)return;
+    const login=form.elements?.login?.value?.trim();
+    const pass=form.elements?.password?.value;
+    const btn=form.querySelector('button[type="submit"]');
+    if(btn)btn.disabled=!login||!pass||form.dataset.busy==='1';
+  }
+  window.updateLoginSubmitState=updateLoginSubmitState;
+
   function backLink(){
     const card=document.querySelector('#accountBody .account-gate>.card');
     if(!card)return;
+    updateLoginSubmitState();
     const cancel=card.querySelector('[data-microsoft-cancel],[data-telegram-cancel]');
     if(cancel){
       card.querySelector('[data-studio-back]')?.remove();
+      card.querySelector('[data-studio-home]')?.remove();
       cancel.className='auth-forgot studio-back';
       if(cancel.textContent!=='Back to log in')cancel.textContent='Back to log in';
       return;
     }
+    const otpForm=document.getElementById('otpLoginForm');
+    const otpActive=!!otpForm&&!otpForm.hidden;
+    const forgot=card.querySelector('[data-password-recovery]');
+    if(forgot&&forgot.hidden!==otpActive)forgot.hidden=otpActive;
+
     let button=card.querySelector('[data-studio-back]');
     if(!button){button=document.createElement('button');button.type='button';button.className='auth-forgot studio-back';button.dataset.studioBack='';card.append(button);}
-    const text='Back to '+names[navigation.at(-2)||'home'];if(button.textContent!==text)button.textContent=text;
+    if(otpActive){
+      if(button.textContent!=='Log in with password')button.textContent='Log in with password';
+      let homeBtn=card.querySelector('[data-studio-home]');
+      if(!homeBtn){
+        homeBtn=document.createElement('button');
+        homeBtn.type='button';
+        homeBtn.className='auth-forgot studio-back';
+        homeBtn.dataset.studioHome='';
+        homeBtn.textContent='Back to home';
+        card.append(homeBtn);
+      }
+    }else{
+      card.querySelector('[data-studio-home]')?.remove();
+      const text='Back to '+names[navigation.at(-2)||'home'];
+      if(button.textContent!==text)button.textContent=text;
+    }
   }
   document.addEventListener('click',event=>{
+    if(event.target.closest('[data-studio-home]')){
+      event.preventDefault();event.stopPropagation();
+      show('home');
+      return;
+    }
     if(event.target.closest('[data-studio-back]')){
       event.preventDefault();event.stopPropagation();
+      const otp=document.getElementById('otpLoginForm');
+      if(otp&&!otp.hidden){
+        otp.hidden=true;
+        const loginForm=document.getElementById('loginForm');
+        if(loginForm)loginForm.hidden=false;
+        const otpEmail=otp.elements?.email?.value?.trim();
+        const authLogin=document.getElementById('authLogin');
+        if(otpEmail&&authLogin&&!authLogin.value)authLogin.value=otpEmail;
+        updateLoginSubmitState();
+        backLink();
+        return;
+      }
       if(navigation.length>1)navigation.pop();const state=navigation.at(-1);restoring=true;
       if(state==='home')show('home');
       else if(state==='recovery')paintRecovery();
-      else{paintAccountForm(state==='register');if(state==='otp')document.querySelector('.auth-providers [data-login-mode="otp"]')?.click();}
+      else{
+        paintAccountForm(state==='register');
+        if(state==='otp'){
+          const lf=document.getElementById('loginForm');
+          const olf=document.getElementById('otpLoginForm');
+          if(lf&&olf){lf.hidden=true;olf.hidden=false;}
+        }
+      }
       restoring=false;backLink();return;
     }
     const account=event.target.closest('[data-account]')?.dataset.account;
@@ -17213,10 +17338,15 @@ const STUDIO_CONSTELLATIONS = [{
     if(event.target.closest('[data-password-recovery]')){navigate('recovery');paintRecovery();}
     queueMicrotask(backLink);
   },true);
+  window.backLink=backLink;
   const accountBox=document.getElementById('accountBody');
   if(accountBox)new MutationObserver(backLink).observe(accountBox,{childList:true,subtree:true});
   document.addEventListener('input',event=>{
+    if(event.target.closest('#loginForm'))updateLoginSubmitState();
     if(event.target.matches('#registerForm [name="name"]'))event.target.setCustomValidity(event.target.value.trim()?'':'Enter your name.');
+  });
+  document.addEventListener('change',event=>{
+    if(event.target.closest('#loginForm'))updateLoginSubmitState();
   });
   async function recover(form,send){
     const status=form.querySelector('[data-form-status]'),email=form.elements.email;
@@ -17873,7 +18003,7 @@ const STUDIO_CONSTELLATIONS = [{
       const speed=Math.hypot(s.vx,s.vy)||1;s.vx=s.vx/speed*s.speed;s.vy=s.vy/speed*s.speed;
       s.x=(s.x+s.vx*delta+w+12)%(w+12);s.y=(s.y+s.vy*delta+h+12)%(h+12);
     }
-    function drawLines(c,alpha,width=1.3,isInspected=false){
+    function drawLines(c,alpha,width=.8,isInspected=false){
       if(!c||alpha<.01)return;
       ctx.save();
       ctx.strokeStyle='rgba(229,207,152,'+alpha+')';ctx.lineWidth=width;
@@ -18194,7 +18324,7 @@ const STUDIO_CONSTELLATIONS = [{
         dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity*shimmer,style.color,true,brightness.constellation,spacing*.65,spikeLen);
       }
       const isInspected=!!(inspectedCon&&inspectedCon.abbr===current.abbr);
-      const lineAlpha=isInspected?.85:.65,lineWidth=isInspected?1.8:1.3;
+      const lineAlpha=isInspected?.85:.65,lineWidth=isInspected?1.8:.8;
       if(phase==='morph')drawLines(previous,lineAlpha*(1-t),lineWidth,false);
       drawLines(current,lineAlpha*t,lineWidth,isInspected);
       if(inspected&&phase==='hold'&&inspected.slot&&inspected.slot.opacity>.5){
@@ -23652,6 +23782,15 @@ const STUDIO_CONSTELLATIONS = [{
       if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
       if (form.dataset.busy === "1") return;
+      if (form.id === "loginForm") {
+        const login = String(form.elements.login?.value || "").trim();
+        const pass = String(form.elements.password?.value || "");
+        if (!login || !pass) {
+          const btn = form.querySelector('button[type="submit"]');
+          if (btn) btn.disabled = true;
+          return;
+        }
+      }
       if(form.id==='otpLoginForm'&&form.querySelector('[name="code"]').disabled){form.querySelector('[data-otp-send]').click();return;}
       if(form.id==='registerForm'&&form.querySelector('[name="emailCode"]')?.disabled){form.querySelector('[data-invite-email-send]').click();return;}
       const status = form.querySelector("[data-form-status]");
@@ -23667,7 +23806,15 @@ const STUDIO_CONSTELLATIONS = [{
       if (submitBtn) submitBtn.disabled = true;
       const unlock = () => {
         delete form.dataset.busy;
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn) {
+          if (form.id === "loginForm") {
+            const hasLogin = !!form.elements.login?.value?.trim();
+            const hasPass = !!form.elements.password?.value;
+            submitBtn.disabled = !hasLogin || !hasPass;
+          } else {
+            submitBtn.disabled = false;
+          }
+        }
       };
       if (form.id === "otpLoginForm") {
         let invite = "";

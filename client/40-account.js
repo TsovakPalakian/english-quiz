@@ -303,6 +303,15 @@
       if (form.id !== "loginForm" && form.id !== "registerForm" && form.id !== "otpLoginForm") return;
       e.preventDefault();
       if (form.dataset.busy === "1") return;
+      if (form.id === "loginForm") {
+        const login = String(form.elements.login?.value || "").trim();
+        const pass = String(form.elements.password?.value || "");
+        if (!login || !pass) {
+          const btn = form.querySelector('button[type="submit"]');
+          if (btn) btn.disabled = true;
+          return;
+        }
+      }
       if(form.id==='otpLoginForm'&&form.querySelector('[name="code"]').disabled){form.querySelector('[data-otp-send]').click();return;}
       if(form.id==='registerForm'&&form.querySelector('[name="emailCode"]')?.disabled){form.querySelector('[data-invite-email-send]').click();return;}
       const status = form.querySelector("[data-form-status]");
@@ -318,7 +327,15 @@
       if (submitBtn) submitBtn.disabled = true;
       const unlock = () => {
         delete form.dataset.busy;
-        if (submitBtn) submitBtn.disabled = false;
+        if (submitBtn) {
+          if (form.id === "loginForm") {
+            const hasLogin = !!form.elements.login?.value?.trim();
+            const hasPass = !!form.elements.password?.value;
+            submitBtn.disabled = !hasLogin || !hasPass;
+          } else {
+            submitBtn.disabled = false;
+          }
+        }
       };
       if (form.id === "otpLoginForm") {
         let invite = "";
