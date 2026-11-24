@@ -1733,6 +1733,75 @@
       paintAllWords();
       applyCardSearches();
     }
+    function focusAndHighlightCard(targetWord, place) {
+      if (!targetWord) return null;
+      const norm = String(targetWord).trim().toLowerCase();
+      const placeBoxMap = {
+        "lesson-21": "lessonAdded",
+        "lesson-23": "lesson23Added",
+        "lesson-16": "lesson16Added",
+        "lesson-14": "lesson14Added",
+        "lesson-09": "lesson09Added",
+        "lesson-07": "lesson07Added",
+        music: "musicAdded",
+        tenses: "tenseAdded",
+        phrasal: "phrasalAdded",
+        idioms: "idiomAdded",
+        mine: "addedList"
+      };
+      const boxId = placeBoxMap[place] || "addedList";
+      const box = document.getElementById(boxId) || document.getElementById("addedList") || document;
+      if (box && box.closest && box.closest("section")) {
+        const searchInput = box.closest("section").querySelector("[data-card-search]");
+        if (searchInput && searchInput.value) {
+          searchInput.value = "";
+          if (boxId === "addedList" && typeof renderAddedList === "function") renderAddedList();
+          else if (typeof applyCardSearch === "function") applyCardSearch(box.closest("section"));
+        }
+      }
+      const cards = box.querySelectorAll ? box.querySelectorAll(".wcard") : [];
+      let matched = null;
+      for (const card of cards) {
+        const en = card.querySelector(".en");
+        if (en && en.textContent.trim().toLowerCase() === norm) {
+          matched = card;
+          break;
+        }
+      }
+      if (!matched && document.querySelectorAll) {
+        const allCards = document.querySelectorAll(".wcard");
+        for (const card of allCards) {
+          const en = card.querySelector(".en");
+          if (en && en.textContent.trim().toLowerCase() === norm) {
+            matched = card;
+            break;
+          }
+        }
+      }
+      if (!matched) return null;
+      document.querySelectorAll(".wcard-highlight").forEach((el) => el.classList.remove("wcard-highlight"));
+      matched.classList.add("wcard-highlight");
+      if (typeof matched.scrollIntoView === "function") {
+        matched.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      if (!matched.hasAttribute("tabindex")) matched.setAttribute("tabindex", "-1");
+      if (typeof matched.focus === "function") {
+        try { matched.focus({ preventScroll: true }); } catch (e) { matched.focus(); }
+      }
+      const clearTimer = setTimeout(() => {
+        matched.classList.remove("wcard-highlight");
+      }, 3000);
+      const onInteraction = () => {
+        clearTimeout(clearTimer);
+        matched.classList.remove("wcard-highlight");
+        document.removeEventListener("pointerdown", onInteraction, true);
+        document.removeEventListener("keydown", onInteraction, true);
+      };
+      document.addEventListener("pointerdown", onInteraction, { once: true, capture: true });
+      document.addEventListener("keydown", onInteraction, { once: true, capture: true });
+      return matched;
+    }
+    window.focusAndHighlightCard = focusAndHighlightCard;
     function searchHit(text, q) {
       return String(text || "").toLowerCase().indexOf(q) >= 0;
     }

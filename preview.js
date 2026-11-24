@@ -7370,7 +7370,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const searchInput = box.closest("section").querySelector("[data-card-search]");
         if (searchInput && searchInput.value) {
           searchInput.value = "";
-          if (typeof applyCardSearch === "function") applyCardSearch(box.closest("section"));
+          if (boxId === "addedList" && typeof renderAddedList === "function") renderAddedList();
+          else if (typeof applyCardSearch === "function") applyCardSearch(box.closest("section"));
         }
       }
       const cards = box.querySelectorAll ? box.querySelectorAll(".wcard") : [];

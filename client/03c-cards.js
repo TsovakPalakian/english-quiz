@@ -1091,6 +1091,7 @@
         input.value = "";
         write("", false);
         if (openCard) renderMade(item);
+        else focusAndHighlightCard(item.word, place);
       } catch (err) {
         write("The dictionary lookup is not running. Start it, then try again.", true);
       } finally {

@@ -474,7 +474,7 @@ function stageSaveWord(place,input,status,button,openCard){
     }
     if(generation!==(typeof viewGen==='number'?viewGen:0)||accountId!==(viewAccount?.id||''))return;
     const list=loadAdded();list.unshift(result.card);stageStampLinks(list,result.revision);if(!managed)trackEvent('card',place,'add');
-    input.value='';if(openCard)renderMade(result.card);
+    input.value='';if(openCard)renderMade(result.card);else if(typeof focusAndHighlightCard==='function')focusAndHighlightCard(result.card.word||result.card.en,place);
   },status).finally(()=>{if(duplicate&&popupDuplicate){status.textContent='';status.classList.remove('bad');window.LearningMain.notice('Эта карточка уже добавлена на страницу.',true);}});
 }
 let stageTextDraft=null,stageSongDraft=null;
