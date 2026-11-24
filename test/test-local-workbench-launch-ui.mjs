@@ -20,7 +20,7 @@ test('full local shell exposes one isolated workbench across roles without produ
     await page.locator('[data-group-level="A1"]').click().catch(async error=>{throw Error(error.message+'\n'+await page.locator('#learning-main-status').textContent()+'\n'+failed.join('; '));});await page.locator('[data-group-open="1"]').click();
     await page.locator('[data-detail-lessons]').click();
     await page.locator('[data-lm-open="1"]').click();
-    assert.equal(await page.locator('[data-workbench-lesson-speech]:visible').count(),0);
+    assert.equal(await page.locator('[data-workbench-lesson-speech]:visible').count(),1);
     await page.locator('[data-lm-tab="words"]:visible').first().click();
     await page.locator('[data-workbench-lesson]').click();await page.getByRole('heading',{name:'1 / 17 types ready'}).waitFor();
     assert.equal(await page.locator('[data-workbench-new]').count(),1);

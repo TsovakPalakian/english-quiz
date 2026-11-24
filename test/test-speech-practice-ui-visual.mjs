@@ -59,12 +59,31 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     const audioHeight = await localAudio.evaluate(el => el.getBoundingClientRect().height);
     assert.ok(audioHeight >= 30, 'Local audio player must be rendered with visible height');
 
-    // Verify Discard resets the toggle button back to Record speech
-    const discardBtn = page.locator('[data-speech-action="discard"]');
-    await discardBtn.click();
-    await page.waitForFunction(() => document.querySelector('.speech-btn-record')?.textContent.includes('Record speech'));
-    assert.equal(await singleRecordBtn.getAttribute('data-speech-action'), 'record', 'Button action must reset to record after discard');
-    assert.equal(await page.locator('audio[data-speech-local]').count(), 0, 'Audio element must be removed on discard');
+    // Verify Discard button is removed per user specification
+    assert.equal(await page.locator('[data-speech-action="discard"]').count(), 0, 'Discard button must be removed');
+
+    // Verify source tabs pixel-perfect height
+    const sourceTabs = page.locator('.speech-source-tabs');
+    await sourceTabs.waitFor();
+    assert.ok(await sourceTabs.isVisible(), 'Source tabs container must be visible');
+    const tabsBox = await sourceTabs.boundingBox();
+    assert.equal(tabsBox.height, 32, 'Tabs container must be exactly 32px high');
+
+    const recordTab = page.locator('.speech-source-tab[data-source="record"]');
+    const recordTabBox = await recordTab.boundingBox();
+    assert.equal(recordTabBox.height, 24, 'Record tab must be exactly 24px high');
+
+    // Verify Server recordings section and 4-column aligned grid
+    const serverSection = page.locator('.saved-recordings-section');
+    await serverSection.waitFor();
+    assert.ok(await serverSection.isVisible(), 'Server recordings section must be visible');
+    const recordRows = page.locator('.server-record-row');
+    assert.ok(await recordRows.count() > 0, 'At least one server recording row must be present');
+    assert.ok(await recordRows.first().locator('button:has-text("Active")').isVisible(), 'Latest recording must be Active by default');
+    assert.ok(await recordRows.first().locator('[data-speech-action="delete-record"]').isVisible(), 'Delete button must be present');
+
+    // Verify delete button removes the recording
+    await recordRows.first().locator('[data-speech-action="delete-record"]').click();
 
     const consentCard=page.locator('.speech-consent-card');
     await consentCard.waitFor();
@@ -78,20 +97,31 @@ test('speech practice UI visual test verifies refined templates and themes', asy
     await consentInfo.waitFor();
     assert.ok(await consentInfo.isVisible(),'Consent info must be visible');
 
-    const consentInput=consentRow.locator('input[type="checkbox"][name="consent"]');
-    assert.strictEqual(await consentInput.isChecked(),false,'Consent checkbox must not be checked initially');
-    const consentLabel=consentRow.locator('.speech-consent-label');
-    assert.match(await consentLabel.innerText(),/Send this recording to/,'Consent label must contain provider prompt text');
-    const labelFlex=await consentLabel.evaluate(el=>getComputedStyle(el).flexDirection);
-    assert.equal(labelFlex,'row','Consent label must align horizontally with row direction');
+    // Verify AI Speech Evaluation toggle button
+    const consentToggle = page.locator('.speech-consent-toggle-btn');
+    await consentToggle.waitFor();
+    assert.ok(await consentToggle.isVisible(), 'Consent toggle button must be visible');
+    assert.match(await consentToggle.textContent(), /Disabled/, 'Consent toggle must be Disabled initially');
+    await consentToggle.click();
+    assert.match(await consentToggle.textContent(), /Enabled/, 'Consent toggle must switch to Enabled');
+    await consentToggle.click();
+    assert.match(await consentToggle.textContent(), /Disabled/, 'Consent toggle must switch back to Disabled');
 
     // Verify empty criteria accordion is omitted
     assert.equal(await page.locator('.speech-criteria-accordion').count(),0,'Empty criteria accordion must not be rendered');
 
-    // Verify SaaS dropzone and hidden file input
-    const dropzone=page.locator('.speech-drop-zone');
+    // Verify SaaS dropzone is hidden in Record mode and visible in Upload mode
+    assert.ok(await page.locator('.upload-dropzone.is-hidden').count() > 0, 'Dropzone must be hidden in Record mode');
+    assert.equal(await page.locator('.upload-dropzone:visible').count(), 0, 'Dropzone must not be visible in Record mode');
+
+    // Switch to Upload mode
+    const uploadTab = page.locator('.speech-source-tab[data-source="upload"]');
+    await uploadTab.click();
+    await page.waitForFunction(() => !document.querySelector('.upload-dropzone')?.classList.contains('is-hidden'));
+    const dropzone=page.locator('.speech-drop-zone.upload-dropzone');
     await dropzone.waitFor();
-    assert.ok(await dropzone.isVisible(),'SaaS dropzone must be visible');
+    assert.ok(await dropzone.isVisible(),'SaaS dropzone must be visible in Upload mode');
+    assert.equal(await page.locator('.speech-btn-record:visible').count(), 0, 'Record button must be hidden in Upload mode');
     const browseBtn=dropzone.locator('.dropzone-browse-btn');
     assert.ok(await browseBtn.isVisible(),'Browse file button must be visible');
     assert.equal(await browseBtn.textContent(),'Browse file','Button text must be Browse file');

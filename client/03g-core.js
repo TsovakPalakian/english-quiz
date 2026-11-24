@@ -3185,6 +3185,9 @@
 
         const list = loadAdded();
         list.unshift(item);
+        if (typeof rememberAdded === "function") {
+          rememberAdded(list);
+        }
         if (typeof window !== "undefined" && window.LearningMain && typeof window.LearningMain.newCard === "function") {
           try {
             const managed = !!(typeof viewAccount !== "undefined" && viewAccount && typeof authUser !== "undefined" && authUser && ['ADMIN','DEVELOPER'].includes(authUser.role));
@@ -3192,8 +3195,13 @@
               ? window.LearningMain.newManagedCard(viewAccount.id, item.word, item.ru, "sentences")
               : window.LearningMain.newCard(item.word, item.ru, "sentences");
             cardPromise.then(result => {
-              if (result?.revision && typeof stageStampLinks === "function") {
-                stageStampLinks(list, result.revision);
+              if (result?.card) {
+                Object.assign(item, result.card);
+                if (typeof rememberAdded === "function") rememberAdded(list);
+              }
+              if (result?.revision) {
+                if (typeof stageStampLinks === "function") stageStampLinks(list, result.revision);
+                else if (typeof window.stageStampLinks === "function") window.stageStampLinks(list, result.revision);
               }
             }).catch(() => {});
           } catch (_err) {}
@@ -3319,10 +3327,14 @@
         });
       }
 
-      async function triggerSentenceAnalyze() {
-        const sentence = input ? input.value.trim() : "";
+      async function triggerSentenceAnalyze(inputEl) {
+        const inp = inputEl || document.querySelector("[data-sentence-input]");
+        const stat = document.querySelector("[data-sentence-status]");
+        const choices = document.querySelector("[data-sentence-choices]");
+        const formEl = document.querySelector("[data-sentence-add-form]");
+        const sentence = inp ? inp.value.trim() : "";
         if (!sentence) {
-          if (status) status.textContent = "Please enter a sentence.";
+          if (stat) stat.textContent = "Please enter a sentence.";
           return;
         }
         const dirBtn = typeof document.querySelector === 'function' ? document.querySelector("[data-sentence-dir].on") : null;
@@ -3330,12 +3342,12 @@
         const isRu = /[\u0400-\u04FF]/.test(sentence);
         const determinedDir = dirSetting === "auto" ? (isRu ? "ru-en" : "en-ru") : dirSetting;
 
-        if (status) status.textContent = "✨ Analyzing with Gemini…";
-        if (choicesBox) {
-          choicesBox.hidden = true;
-          choicesBox.innerHTML = "";
+        if (stat) stat.textContent = "✨ Analyzing with Gemini…";
+        if (choices) {
+          choices.hidden = true;
+          choices.innerHTML = "";
         }
-        if (input) input.disabled = true;
+        if (inp) inp.disabled = true;
         if (analyzeBtn) analyzeBtn.disabled = true;
 
         try {
@@ -3348,10 +3360,10 @@
           const data = await res.json();
           const translations = Array.isArray(data.translations) ? data.translations : [];
           if (!translations.length) {
-            if (status) status.textContent = "No translations received.";
+            if (stat) stat.textContent = "No translations received.";
             return;
           }
-          if (status) status.textContent = "Select best translation:";
+          if (stat) stat.textContent = "Select best translation:";
           let html = "";
           translations.forEach((t, i) => {
             html += '<div class="sentence-choice-tile' + (i === 0 ? ' selected' : '') + '" data-choice-idx="' + i + '" data-trans="' + esc(t.text) + '">';
@@ -3366,22 +3378,22 @@
           html += '<div class="row" style="margin-top:12px;">' +
             '<button class="btn primary saas-btn saas-btn-primary" type="button" data-sentence-save-chosen>Add to My sentences</button>' +
           '</div>';
-          if (choicesBox) {
-            choicesBox.innerHTML = html;
-            choicesBox.hidden = false;
+          if (choices) {
+            choices.innerHTML = html;
+            choices.hidden = false;
 
-            choicesBox.querySelectorAll(".sentence-choice-tile").forEach(tile => {
+            choices.querySelectorAll(".sentence-choice-tile").forEach(tile => {
               tile.addEventListener("click", () => {
-                choicesBox.querySelectorAll(".sentence-choice-tile").forEach(t => t.classList.remove("selected"));
+                choices.querySelectorAll(".sentence-choice-tile").forEach(t => t.classList.remove("selected"));
                 tile.classList.add("selected");
               });
             });
 
-            const saveBtn = choicesBox.querySelector("[data-sentence-save-chosen]");
+            const saveBtn = choices.querySelector("[data-sentence-save-chosen]");
             if (saveBtn && typeof saveBtn.addEventListener === 'function') {
               saveBtn.addEventListener("click", async () => {
                 saveBtn.disabled = true;
-                const selected = choicesBox.querySelector(".sentence-choice-tile.selected") || choicesBox.querySelector(".sentence-choice-tile");
+                const selected = choices.querySelector(".sentence-choice-tile.selected") || choices.querySelector(".sentence-choice-tile");
                 const chosenTranslation = selected?.dataset?.trans || sentence;
                 const finalDir = data.direction || determinedDir;
 
@@ -3399,6 +3411,9 @@
 
                 const list = loadAdded();
                 list.unshift(item);
+                if (typeof rememberAdded === "function") {
+                  rememberAdded(list);
+                }
 
                 if (typeof window !== "undefined" && window.LearningMain && typeof window.LearningMain.newCard === "function") {
                   try {
@@ -3406,39 +3421,54 @@
                     const result = managed && typeof window.LearningMain.newManagedCard === "function"
                       ? await window.LearningMain.newManagedCard(viewAccount.id, word, ru, "sentences")
                       : await window.LearningMain.newCard(word, ru, "sentences");
-                    if (result?.revision && typeof stageStampLinks === "function") {
-                      stageStampLinks(list, result.revision);
+                    if (result?.card) {
+                      Object.assign(item, result.card);
+                      if (typeof rememberAdded === "function") rememberAdded(list);
+                    }
+                    if (result?.revision) {
+                      if (typeof stageStampLinks === "function") stageStampLinks(list, result.revision);
+                      else if (typeof window.stageStampLinks === "function") window.stageStampLinks(list, result.revision);
                     }
                   } catch (_cardErr) {
-                    // Preserved locally if network fails
+                    // Local state remains saved via rememberAdded
                   }
                 } else if (typeof saveAdded === "function") {
                   try { saveAdded(list, { op: "put-card", card: item }); } catch (_err) {}
                 }
 
-                if (input) input.value = "";
-                if (status) status.textContent = "Sentence added successfully!";
-                choicesBox.hidden = true;
-                choicesBox.innerHTML = "";
-                if (form) form.hidden = true;
+                if (inp) inp.value = "";
+                if (stat) stat.textContent = "Sentence added successfully!";
+                choices.hidden = true;
+                choices.innerHTML = "";
+                if (formEl) formEl.hidden = true;
                 paintDeckCounts();
                 paintSentencesList();
               });
             }
           }
         } catch (err) {
-          if (status) status.textContent = err.message || "Failed to analyze";
+          if (stat) stat.textContent = err.message || "Failed to analyze";
         } finally {
-          if (input) input.disabled = false;
+          if (inp) inp.disabled = false;
           if (analyzeBtn) analyzeBtn.disabled = false;
         }
+      }
+
+      if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        document.addEventListener("keydown", async (e) => {
+          if (e.key !== "Enter") return;
+          const targetInput = e.target && typeof e.target.closest === "function" ? e.target.closest("[data-sentence-input]") : null;
+          if (!targetInput) return;
+          e.preventDefault();
+          await triggerSentenceAnalyze(targetInput);
+        });
       }
 
       if (input && typeof input.addEventListener === 'function') {
         input.addEventListener("keydown", async (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            await triggerSentenceAnalyze();
+            await triggerSentenceAnalyze(input);
           }
         });
       }

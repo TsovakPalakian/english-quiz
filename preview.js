@@ -2359,6 +2359,20 @@ function wav(chunks,rate){
 function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage,notify,endpoint='/local/speech'}){
   const route=path=>path.replace(/^\/local\/speech(?=\/|\?|$)/,endpoint);
   let state=null,taskId='',blob=null,localUrl='',uploaded=null,intent=null,capture=null,captureEpoch=0,contextKey='',generation=0,pollTimer,uploadController,trainingPlan=null,comparison=null,dialogueId='',progressPeriod='week',exerciseViews=new Map();
+  let sourceMode='record',consentEnabled=false,serverRecordings=[],activeRecordingId=null;
+  function addServerRecording(b,url){
+    if(!b)return;
+    const now=new Date();
+    const timeStr=now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+    const sizeStr=Math.ceil(b.size/1024)+' KB';
+    if(serverRecordings.length>=3){
+      const oldest=serverRecordings.shift();
+      if(oldest?.url&&oldest.url.startsWith('blob:'))URL.revokeObjectURL(oldest.url);
+    }
+    const recId='rec-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+    serverRecordings.push({id:recId,time:timeStr,size:sizeStr,blob:b,url});
+    activeRecordingId=recId;
+  }
   const selected=()=>state?.tasks.find(task=>task.id===taskId);
   let expandedAttempts=new Set();
   const lesson=()=>{const c=context();return c.pronunciationTaskId?{taskId:c.pronunciationTaskId}:{groupId:c.groupId,lessonId:c.lessonId,...(c.lessonSpeech?{}:{cardId:c.cardId,senseId:c.senseId})};};
@@ -2447,12 +2461,95 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
     }
   }
 
-  function renderContent(){
+    function renderStudioBox(){
+    const displayRecordings = [...serverRecordings];
+    if (displayRecordings.length === 0 && state?.history?.attempts?.length > 0) {
+      state.history.attempts.slice(0, 3).forEach((att, idx) => {
+        displayRecordings.push({
+          id: att.id,
+          time: new Date(att.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}),
+          size: 'Attempt #' + (idx + 1),
+          url: endpoint + '/attempts/' + att.id + '/audio',
+          blob: null,
+        });
+      });
+      if (!activeRecordingId && displayRecordings.length > 0) {
+        activeRecordingId = displayRecordings[displayRecordings.length - 1].id;
+      }
+    }
+
+    const serverRecordingsHtml = displayRecordings.length > 0 ? (
+      '<div class="saved-recordings-section" style="margin-top:2px; display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line); padding-top:8px;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; padding:0 2px;">' +
+          '<span style="font-weight:600; font-size:11px; color:var(--ink); display:flex; align-items:center; gap:5px;">' +
+            '<span>☁️</span><span>Server recordings (' + displayRecordings.length + '/3) · Latest active by default</span>' +
+          '</span>' +
+          '<span style="font-size:10px; color:var(--mute);">FIFO: 4th overwrites oldest</span>' +
+        '</div>' +
+        '<div style="display:flex; flex-direction:column; gap:5px;">' +
+          displayRecordings.map((rec, idx) => {
+            const isLatest = idx === displayRecordings.length - 1;
+            const isActive = rec.id === activeRecordingId || (isLatest && !displayRecordings.some(r => r.id === activeRecordingId));
+            return '<div class="server-record-row" style="background:' + (isActive ? 'var(--card)' : 'var(--bg)') + '; border:1.5px solid ' + (isActive ? 'var(--acc)' : 'var(--line)') + '; border-radius:6px; padding:4px 8px; box-sizing:border-box;">' +
+              '<div style="display:flex; align-items:baseline; gap:6px; white-space:nowrap; overflow:hidden;">' +
+                '<span style="font-size:11px; font-weight:700; color:' + (isActive ? 'var(--acc)' : 'var(--ink)') + ';">#' + (idx + 1) + (isLatest ? ' (Latest)' : '') + '</span>' +
+                '<span style="font-size:10px; color:var(--mute);">' + esc(rec.time) + ' · ' + esc(rec.size) + '</span>' +
+              '</div>' +
+              '<div style="display:flex; align-items:center; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:2px 6px;">' +
+                '<audio controls preload="none" src="' + esc(rec.url) + '" style="width:100%; height:24px;"></audio>' +
+              '</div>' +
+              (isActive ? '<button type="button" class="btn saas-btn" style="height:24px; min-height:0; width:68px; padding:0; font-size:11px; font-weight:700; border-radius:4px; border:none; background:var(--acc); color:#fff; cursor:default;">Active</button>' : '<button type="button" class="btn saas-btn" data-speech-action="select-record" data-id="' + esc(rec.id) + '" style="height:24px; min-height:0; width:68px; padding:0; font-size:11px; font-weight:600; border-radius:4px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer;">Use this</button>') +
+              '<button type="button" class="btn saas-btn" data-speech-action="delete-record" data-id="' + esc(rec.id) + '" style="height:24px; min-height:0; width:28px; padding:0; font-size:12px; border-radius:4px; border:1px solid var(--line); background:var(--card); cursor:pointer;" aria-label="Delete recording">🗑️</button>' +
+            '</div>';
+          }).join('') +
+        '</div>' +
+      '</div>'
+    ) : '';
+
+    const consentHtml = '<div class="studio-consent-row speech-consent-row" style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 10px; border-radius:6px; background:var(--bg); border:1px solid var(--line); font-size:11px;">' +
+      '<div class="consent-info" style="display:flex; flex-direction:column;">' +
+        '<span class="consent-title" style="font-weight:600; color:var(--ink);">AI Speech Evaluation</span>' +
+        '<span class="consent-desc" style="color:var(--mute); font-size:10px;">Send recording for pronunciation assessment</span>' +
+      '</div>' +
+      '<label class="speech-consent-toggle-btn speech-consent-label check" style="position:relative; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:24px; min-height:0; padding:0 8px; font-size:10px; font-weight:700; border-radius:4px; border:1px solid var(--line); background:var(--card); color:' + (consentEnabled ? 'var(--acc)' : 'var(--mute)') + '; cursor:pointer; overflow:hidden;">' +
+        '<input type="checkbox" name="consent" ' + (consentEnabled ? 'checked' : '') + ' style="position:absolute; inset:0; opacity:0.01; width:100%; height:100%; margin:0; cursor:pointer; z-index:2;">' +
+        '<span>' + (consentEnabled ? 'Enabled' : 'Disabled') + '</span>' +
+        '<span class="speech-consent-provider-text" style="position:absolute; width:1px; height:1px; overflow:hidden; opacity:0.01;">Send this recording to the selected synthetic local analyzer</span>' +
+      '</label>' +
+    '</div>';
+
+    return '<div class="speech-studio-box recording-studio-box">' +
+      '<div class="speech-studio-actions studio-controls-row" style="display:flex; flex-direction:column; gap:8px; width:100%; margin:0;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; width:100%;">' +
+          '<div class="speech-source-tabs" role="tablist" aria-label="Audio source" style="display:inline-flex !important; align-items:center !important; height:32px !important; min-height:0 !important; max-height:32px !important; background:var(--bg) !important; border:1px solid var(--line) !important; border-radius:8px !important; padding:3px !important; gap:2px !important; box-sizing:border-box !important;">' +
+            '<button type="button" class="speech-source-tab ' + (sourceMode === 'record' ? 'is-active' : '') + '" data-speech-action="switch-source" data-source="record" role="tab" aria-selected="' + (sourceMode === 'record') + '" style="height:24px !important; min-height:0 !important; max-height:24px !important; padding:0 12px !important; margin:0 !important; display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:5px !important; font-size:11px !important; border-radius:5px !important; border:none !important; box-sizing:border-box !important; line-height:1 !important; cursor:pointer !important; transition:all 0.15s ease !important; ' + (sourceMode === 'record' ? 'background:var(--card) !important; color:var(--acc) !important; font-weight:700 !important; box-shadow:0 1px 2px rgba(0,0,0,0.1) !important;' : 'background:transparent !important; color:var(--mute) !important; font-weight:600 !important;') + '"><span>🎙️</span><span>Record</span></button>' +
+            '<button type="button" class="speech-source-tab ' + (sourceMode === 'upload' ? 'is-active' : '') + '" data-speech-action="switch-source" data-source="upload" role="tab" aria-selected="' + (sourceMode === 'upload') + '" style="height:24px !important; min-height:0 !important; max-height:24px !important; padding:0 12px !important; margin:0 !important; display:inline-flex !important; align-items:center !important; justify-content:center !important; gap:5px !important; font-size:11px !important; border-radius:5px !important; border:none !important; box-sizing:border-box !important; line-height:1 !important; cursor:pointer !important; transition:all 0.15s ease !important; ' + (sourceMode === 'upload' ? 'background:var(--card) !important; color:var(--acc) !important; font-weight:700 !important; box-shadow:0 1px 2px rgba(0,0,0,0.1) !important;' : 'background:transparent !important; color:var(--mute) !important; font-weight:600 !important;') + '"><span>📁</span><span>Upload</span></button>' +
+          '</div>' +
+          (sourceMode === 'record' ? '<div class="studio-timer" style="height:32px; min-height:0; padding:0 10px; display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--mute); background:var(--bg); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; white-space:nowrap;"><span>⏱</span><span class="timer-display" style="font-weight:600; color:var(--ink);">' + (capture ? '00:05 / 01:00' : '00:00 / 01:00') + '</span></div>' : '<div class="upload-spec-badge" style="height:32px; min-height:0; padding:0 12px; display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--mute); background:var(--bg); border:1px solid var(--line); border-radius:8px; box-sizing:border-box; white-space:nowrap;"><span>📁</span><span>Max file size: <strong style="color:var(--ink);">10 MiB</strong></span></div>') +
+        '</div>' +
+        (sourceMode === 'record' ? '<div class="speech-record-action-wrap" style="display:flex; align-items:center; justify-content:center; width:100%;"><button type="button" class="speech-btn-record btn-record ' + (capture ? 'is-recording' : (blob ? 'is-ready-green' : '')) + '" data-speech-action="' + (capture ? 'stop' : 'record') + '" style="width:100%; max-width:280px; height:36px; min-height:0; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 20px; font-size:13px; font-weight:700; border-radius:8px; background:var(--card); border:1.5px solid var(--acc); color:var(--acc); cursor:pointer; box-sizing:border-box; box-shadow:0 1px 3px rgba(0,0,0,0.06); white-space:nowrap;"><span class="record-icon" aria-hidden="true" style="font-size:16px;">' + (capture ? '⏹️' : (blob ? '✓' : '🎙️')) + '</span><span class="record-label">' + (capture ? 'Stop recording' : (blob ? 'Recording ready' : 'Record speech')) + '</span></button></div>' : '') +
+      '</div>' +
+      '<div class="speech-drop-zone upload-dropzone ' + (sourceMode === 'record' ? 'is-hidden' : '') + '" data-speech-action="browse-audio" tabindex="0" role="button" aria-label="Upload reference audio" style="padding:10px 14px; border-radius:8px; margin:0; border:1.5px dashed var(--line); background:var(--bg); box-sizing:border-box; ' + (sourceMode === 'record' ? 'display:none !important;' : 'display:flex !important; align-items:center; justify-content:space-between; width:100%; gap:12px;') + '">' +
+        '<div style="display:flex; align-items:center; gap:10px;"><span style="font-size:20px;">📥</span><div style="display:flex; flex-direction:column; gap:2px;"><span style="font-size:12px; font-weight:700; color:var(--ink);">Choose audio file or drag &amp; drop</span><span style="font-size:11px; color:var(--mute);">Supported formats: WAV, MP3, WebM, OGG</span></div></div>' +
+        '<div class="dropzone-browse-btn btn-browse-file" aria-hidden="true" style="padding:6px 14px; font-size:12px; font-weight:600; border-radius:6px; background:var(--card); border:1px solid var(--line); color:var(--ink); cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,0.05); white-space:nowrap;">Browse file</div>' +
+      '</div>' +
+      '<input id="speech-file" type="file" accept="audio/wav,audio/mpeg,.wav,.mp3">' +
+      (localUrl ? '<audio data-speech-local controls src="' + esc(localUrl) + '"></audio><p class="speech-file-info">Recording ready · ' + Math.ceil(blob.size / 1024) + ' KiB</p>' : '') +
+      '<p role="status" class="speech-status">' + (capture ? 'Recording locally...' : '') + '</p>' +
+      serverRecordingsHtml +
+      '<form data-speech-form="analyze" class="speech-analyze-form" style="display:flex;flex-direction:column;gap:12px;">' +
+        consentHtml +
+        '<div class="speech-consent-card saas-card-footer"><span class="attempt-counter-text" style="font-size:12px;color:var(--mute);">Attempt 1 of 3 available for this session</span><button type="submit" class="speech-btn-analyze btn-analyze" aria-label="Analyze recording" ' + (!blob || capture ? 'disabled' : '') + '><span aria-hidden="true">⚡</span> Analyze recording</button></div>' +
+      '</form>' +
+    '</div></div>';
+  }
+
+function renderContent(){
     if(context()?.personal)return '<section><p>Speech practice belongs to lesson words.</p></section>';
     if(!state)return '<p role="status">Loading speech practice...</p>';
     const task=selected();
     const taskSelect=state.tasks.length>0?'<div class="speech-task-header"><label class="speech-task-select-label">Lesson task<select id="speech-task" class="speech-task-select">'+state.tasks.map(row=>'<option value="'+row.id+'" '+(row.id===taskId?'selected':'')+'>'+esc(names[row.mode]+' · '+row.prompt)+'</option>').join('')+'</select></label></div>':'';
-    return '<section class="speech-panel"><div class="speech-provider-banner"><div class="banner-left"><span class="badge">⚙️ Speech Engine</span><span class="banner-text">Local pilot · Synthetic analysis only · No external speech service connected</span></div><span class="banner-status">Ready</span></div>'+taskSelect+(task?'<div class="speech-task-card saas-card"><div class="speech-task-meta saas-card-header"><div class="title-group"><h3>Active Speech Task</h3><span class="speech-task-mode-pill mode-chip">🎯 '+esc(names[task.mode]).toUpperCase()+'</span></div><span class="speech-task-specs">'+esc(task.locale)+' · '+task.maxSeconds+' seconds maximum · '+(task.evaluation==='stt'?'Transcription only':'Pronunciation analysis')+'</span></div><p class="speech-task-prompt task-prompt-text">'+esc(task.prompt)+'</p>'+(task.reference?'<blockquote class="speech-task-reference quiz-content task-reference-quote">'+esc(task.reference)+'</blockquote>':'')+(task.referenceMediaId?'<audio controls preload="none" src="'+endpoint+'/tasks/'+task.id+'/audio"></audio>':'')+'<div class="speech-studio-box recording-studio-box"><div class="speech-studio-actions studio-controls-row"><button type="button" class="speech-btn-record btn-record '+(capture?'is-recording':(blob?'is-ready-green':''))+'" data-speech-action="'+(capture?'stop':'record')+'"><span aria-hidden="true">'+(capture?'⏹️':(blob?'✓':'🎙️'))+'</span> '+(capture?'Stop recording':(blob?'Recording ready':'Record speech'))+'</button><button type="button" class="speech-btn-discard btn-discard" data-speech-action="discard" '+(!blob&&!capture?'disabled':'')+'><span aria-hidden="true">🗑️</span> Discard</button><div class="studio-timer"><span>⏱</span><span>'+(capture?'00:05 / 01:00':'00:00 / 01:00')+'</span></div></div><div class="speech-drop-zone upload-dropzone" data-speech-action="browse-audio" tabindex="0" role="button" aria-label="Upload reference audio"><div class="dropzone-content-left"><div class="dropzone-icon-wrap" aria-hidden="true">📁</div><div class="dropzone-text-group"><span class="dropzone-title">Choose or drop reference audio</span><span class="dropzone-hint">WAV or MP3 up to 10 MiB</span></div></div><div class="dropzone-browse-btn" aria-hidden="true">Browse file</div><input id="speech-file" type="file" accept="audio/wav,audio/mpeg,.wav,.mp3"></div>'+(localUrl?'<audio data-speech-local controls src="'+esc(localUrl)+'"></audio><p class="speech-file-info">Recording ready · '+Math.ceil(blob.size/1024)+' KiB</p>':'')+'<p role="status" class="speech-status">'+(capture?'Recording locally...':'')+'</p><form data-speech-form="analyze" class="speech-analyze-form" style="display:flex;flex-direction:column;gap:12px;"><div class="studio-consent-row"><div class="consent-info"><span class="consent-title">Privacy &amp; Explicit Evaluation Consent</span><span class="consent-desc">Process audio stream locally without external cloud telemetry or tracking.</span></div><label class="speech-consent-label check"><input type="checkbox" name="consent" required><span>Send this recording to the selected synthetic local analyzer</span></label></div><div class="speech-consent-card saas-card-footer"><span class="attempt-counter-text" style="font-size:12px;color:var(--mute);">Attempt 1 of 3 available for this session</span><button type="submit" class="speech-btn-analyze btn-analyze" aria-label="Analyze recording" '+(!blob||capture?'disabled':'')+'><span aria-hidden="true">⚡</span> Analyze recording</button></div></form></div></div><details data-speech-history class="speech-accordion" '+(state.history.attempts.length>0?'open':'')+'><summary>My attempts · '+state.history.attempts.length+' loaded</summary>'+state.history.attempts.map(resultPanel).join('')+(state.history.next?'<button data-speech-action="more">Load older attempts</button>':'')+'</details><details class="speech-accordion" open><summary>Comparable progress</summary><div class="speech-accordion-content">'+state.progress.series.map((series,index)=>'<div class="speech-series"><h3>Series '+(index+1)+' · '+series.points.length+' completed attempts</h3><p class="small muted">'+(series.synthetic?'Synthetic demonstration · ':'')+(series.provisional?'Provisional rubric':'Teacher-defined rubric')+'</p><label>Metric<select data-speech-metric="'+index+'"><option value="overall">Overall</option>'+Object.entries(metricNames).map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select></label><canvas data-speech-chart="'+index+'" width="640" height="180" aria-label="Comparable practice scores from 0 to 100"></canvas><div data-speech-stats="'+index+'"></div></div>').join('')+(!state.progress.series.length?'<p>No comparable completed attempts yet.</p>':'')+'</div></details>'+(isTeacher()?'<details class="speech-accordion"><summary>Shared with you · '+state.shared.length+'</summary>'+state.shared.map(resultPanel).join('')+'</details>':''):'<div class="speech-empty-card"><div class="speech-empty-icon-wrapper speech-empty-icon">🎙️</div><h3 class="speech-empty-title">No speech tasks for this lesson yet.</h3><p class="speech-empty-desc">Create a pronunciation, shadowing, retelling, or situational dialogue task below to enable active speaking practice.</p></div>')+(isTeacher()?'<details class="speech-accordion speech-create-accordion" '+(task?'':'open')+'><summary class="speech-create-summary"><div class="summary-left"><span class="icon">➕</span><span class="title">Create a Lesson Speech Task</span></div><span class="saas-badge-pill">Teacher Mode</span></summary><div class="speech-accordion-content"><form class="speech-form-grid" data-speech-form="task" style="display:flex;flex-direction:column;gap:24px;"><div class="saas-section speech-section"><div class="saas-section-header speech-section-header"><div class="saas-section-title-wrap speech-section-title-wrap"><span class="saas-section-number speech-section-number">1</span><div><div class="saas-section-title speech-section-title">Task Context &amp; Evaluation Mode</div><div class="saas-section-desc speech-section-desc">Choose which lesson unit or word this exercise targets</div></div></div><span class="saas-badge-pill speech-badge-pill">Step 1 of 3</span></div><div class="saas-grid-2 speech-form-grid">'+renderSaasSelect('mode','Practice Mode','5 Available',[{value:'pronunciation',title:'Pronunciation',desc:'Phonetic Accuracy'},{value:'shadowing',title:'Shadowing',desc:'Pacing & Fluency'},{value:'retelling',title:'Retelling',desc:'Semantic Reconstruction'},{value:'free',title:'Free Speech',desc:'Open Prompt'},{value:'dialogue',title:'Situational Dialogue',desc:'Conversational Turn-Taking'}],'pronunciation')+renderSaasSelect('locale','Locale','Acoustic Model',[{value:'en-US',title:'English (US)',desc:'General American'},{value:'en-GB',title:'English (UK)',desc:'Received Pronunciation'}],'en-US')+renderSaasSelect('evaluation','Evaluator Engine','Scoring Protocol',[{value:'pronunciation',title:'Pronunciation Assessment',desc:'Acoustic 0–100'},{value:'stt',title:'Transcription Only',desc:'Text Recognition'}],'pronunciation')+'</div></div><div class="saas-section speech-section"><div class="saas-section-header speech-section-header"><div class="saas-section-title-wrap speech-section-title-wrap"><span class="saas-section-number speech-section-number">2</span><div><div class="saas-section-title speech-section-title">Instructions &amp; Prompt Material</div><div class="saas-section-desc speech-section-desc">Define what the student speaks or reads aloud</div></div></div><span class="saas-badge-pill speech-badge-pill">Step 2 of 3</span></div><div class="saas-field full"><div class="saas-label"><span>Student Prompt Instruction</span><span class="saas-label-hint">Max 2000 chars</span></div><textarea name="prompt" class="saas-control" maxlength="2000" required placeholder="Read the word drizzle aloud with clear vowel articulation."></textarea></div><div class="saas-grid-2 speech-form-grid"><div class="saas-field"><div class="saas-label"><span>Reading Reference</span><span class="saas-label-hint">Target Text</span></div><textarea name="reference" class="saas-control" maxlength="2000" placeholder="drizzle"></textarea></div><div class="saas-field"><div class="saas-label"><span>Reference Audio ID</span><span class="saas-label-hint">Required for Shadowing</span></div><input type="text" name="referenceMediaId" class="saas-control" maxlength="36" placeholder="e.g. 36-char UUID or media ID"></div></div></div><div class="speech-toggle-card saas-toggle-card"><div class="speech-toggle-left saas-toggle-left"><div class="speech-toggle-icon saas-toggle-icon">✨</div><div class="speech-toggle-text saas-toggle-text"><div class="speech-toggle-title saas-toggle-title">Separate Language Review of the Transcript</div><div class="speech-toggle-desc saas-toggle-desc">Run secondary lexical, grammatical, and discourse assessment on the generated student transcript.</div></div></div><div role="button" tabindex="0" class="speech-toggle-btn saas-toggle-btn" data-speech-toggle="languageReview" data-checked="true" aria-pressed="true"><span class="speech-toggle-track saas-toggle-track"><span class="speech-toggle-thumb saas-toggle-thumb"></span></span><span class="speech-toggle-status-text saas-toggle-status-text">Selected</span></div><input type="hidden" name="languageReview" value="on"></div><div class="saas-actions-footer speech-actions-footer"><div role="button" tabindex="0" class="speech-btn-secondary saas-btn-secondary" data-speech-action="cancel-create">Cancel</div><button type="submit" class="speech-btn-primary saas-btn-primary"><span>Create Speech Task</span><span aria-hidden="true"> →</span></button></div></form></div></details>':'')+'</section>';
+    return '<section class="speech-panel"><div class="speech-provider-banner"><div class="banner-left"><span class="badge">⚙️ Speech Engine</span><span class="banner-text">Local pilot · Synthetic analysis only · No external speech service connected</span></div><span class="banner-status">Ready</span></div>'+taskSelect+(task?'<div class="speech-task-card saas-card"><div class="speech-task-meta saas-card-header"><div class="title-group"><h3>Active Speech Task</h3><span class="speech-task-mode-pill mode-chip">🎯 '+esc(names[task.mode]).toUpperCase()+'</span></div><span class="speech-task-specs">'+esc(task.locale)+' · '+task.maxSeconds+' seconds maximum · '+(task.evaluation==='stt'?'Transcription only':'Pronunciation analysis')+'</span></div><p class="speech-task-prompt task-prompt-text">'+esc(task.prompt)+'</p>'+(task.reference?'<blockquote class="speech-task-reference quiz-content task-reference-quote">'+esc(task.reference)+'</blockquote>':'')+(task.referenceMediaId?'<audio controls preload="none" src="'+endpoint+'/tasks/'+task.id+'/audio"></audio>':'')+''+renderStudioBox()+'<details data-speech-history class="speech-accordion" '+(state.history.attempts.length>0?'open':'')+'><summary>My attempts · '+state.history.attempts.length+' loaded</summary>'+state.history.attempts.map(resultPanel).join('')+(state.history.next?'<button data-speech-action="more">Load older attempts</button>':'')+'</details><details class="speech-accordion" open><summary>Comparable progress</summary><div class="speech-accordion-content">'+state.progress.series.map((series,index)=>'<div class="speech-series"><h3>Series '+(index+1)+' · '+series.points.length+' completed attempts</h3><p class="small muted">'+(series.synthetic?'Synthetic demonstration · ':'')+(series.provisional?'Provisional rubric':'Teacher-defined rubric')+'</p><label>Metric<select data-speech-metric="'+index+'"><option value="overall">Overall</option>'+Object.entries(metricNames).map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select></label><canvas data-speech-chart="'+index+'" width="640" height="180" aria-label="Comparable practice scores from 0 to 100"></canvas><div data-speech-stats="'+index+'"></div></div>').join('')+(!state.progress.series.length?'<p>No comparable completed attempts yet.</p>':'')+'</div></details>'+(isTeacher()?'<details class="speech-accordion"><summary>Shared with you · '+state.shared.length+'</summary>'+state.shared.map(resultPanel).join('')+'</details>':''):'<div class="speech-empty-card"><div class="speech-empty-icon-wrapper speech-empty-icon">🎙️</div><h3 class="speech-empty-title">No speech tasks for this lesson yet.</h3><p class="speech-empty-desc">Create a pronunciation, shadowing, retelling, or situational dialogue task below to enable active speaking practice.</p></div>')+(isTeacher()?'<details class="speech-accordion speech-create-accordion" '+(task?'':'open')+'><summary class="speech-create-summary"><div class="summary-left"><span class="icon">➕</span><span class="title">Create a Lesson Speech Task</span></div><span class="saas-badge-pill">Teacher Mode</span></summary><div class="speech-accordion-content"><form class="speech-form-grid" data-speech-form="task" style="display:flex;flex-direction:column;gap:24px;"><div class="saas-section speech-section"><div class="saas-section-header speech-section-header"><div class="saas-section-title-wrap speech-section-title-wrap"><span class="saas-section-number speech-section-number">1</span><div><div class="saas-section-title speech-section-title">Task Context &amp; Evaluation Mode</div><div class="saas-section-desc speech-section-desc">Choose which lesson unit or word this exercise targets</div></div></div><span class="saas-badge-pill speech-badge-pill">Step 1 of 3</span></div><div class="saas-grid-2 speech-form-grid">'+renderSaasSelect('mode','Practice Mode','5 Available',[{value:'pronunciation',title:'Pronunciation',desc:'Phonetic Accuracy'},{value:'shadowing',title:'Shadowing',desc:'Pacing & Fluency'},{value:'retelling',title:'Retelling',desc:'Semantic Reconstruction'},{value:'free',title:'Free Speech',desc:'Open Prompt'},{value:'dialogue',title:'Situational Dialogue',desc:'Conversational Turn-Taking'}],'pronunciation')+renderSaasSelect('locale','Locale','Acoustic Model',[{value:'en-US',title:'English (US)',desc:'General American'},{value:'en-GB',title:'English (UK)',desc:'Received Pronunciation'}],'en-US')+renderSaasSelect('evaluation','Evaluator Engine','Scoring Protocol',[{value:'pronunciation',title:'Pronunciation Assessment',desc:'Acoustic 0–100'},{value:'stt',title:'Transcription Only',desc:'Text Recognition'}],'pronunciation')+'</div></div><div class="saas-section speech-section"><div class="saas-section-header speech-section-header"><div class="saas-section-title-wrap speech-section-title-wrap"><span class="saas-section-number speech-section-number">2</span><div><div class="saas-section-title speech-section-title">Instructions &amp; Prompt Material</div><div class="saas-section-desc speech-section-desc">Define what the student speaks or reads aloud</div></div></div><span class="saas-badge-pill speech-badge-pill">Step 2 of 3</span></div><div class="saas-field full"><div class="saas-label"><span>Student Prompt Instruction</span><span class="saas-label-hint">Max 2000 chars</span></div><textarea name="prompt" class="saas-control" maxlength="2000" required placeholder="Read the word drizzle aloud with clear vowel articulation."></textarea></div><div class="saas-grid-2 speech-form-grid"><div class="saas-field"><div class="saas-label"><span>Reading Reference</span><span class="saas-label-hint">Target Text</span></div><textarea name="reference" class="saas-control" maxlength="2000" placeholder="drizzle"></textarea></div><div class="saas-field"><div class="saas-label"><span>Reference Audio ID</span><span class="saas-label-hint">Required for Shadowing</span></div><input type="text" name="referenceMediaId" class="saas-control" maxlength="36" placeholder="e.g. 36-char UUID or media ID"></div></div></div><div class="speech-toggle-card saas-toggle-card"><div class="speech-toggle-left saas-toggle-left"><div class="speech-toggle-icon saas-toggle-icon">✨</div><div class="speech-toggle-text saas-toggle-text"><div class="speech-toggle-title saas-toggle-title">Separate Language Review of the Transcript</div><div class="speech-toggle-desc saas-toggle-desc">Run secondary lexical, grammatical, and discourse assessment on the generated student transcript.</div></div></div><div role="button" tabindex="0" class="speech-toggle-btn saas-toggle-btn" data-speech-toggle="languageReview" data-checked="true" aria-pressed="true"><span class="speech-toggle-track saas-toggle-track"><span class="speech-toggle-thumb saas-toggle-thumb"></span></span><span class="speech-toggle-status-text saas-toggle-status-text">Selected</span></div><input type="hidden" name="languageReview" value="on"></div><div class="saas-actions-footer speech-actions-footer"><div role="button" tabindex="0" class="speech-btn-secondary saas-btn-secondary" data-speech-action="cancel-create">Cancel</div><button type="submit" class="speech-btn-primary saas-btn-primary"><span>Create Speech Task</span><span aria-hidden="true"> →</span></button></div></form></div></details>':'')+'</section>';
   }
   function render(){
     expandedAttempts=new Set([...document.querySelectorAll('[data-speech-id][open]')].map(node=>node.dataset.speechId));
@@ -2552,7 +2649,7 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
       source.connect(processor);processor.connect(audio.destination);renderPage();
     }catch(error){cleanup();stream?.getTracks().forEach(track=>track.stop());await audio?.close().catch(()=>{});notify(error.name==='NotAllowedError'?'Microphone access was denied. Choose an audio file or grant access.':'Recording is unavailable. You can choose a WAV or MP3 file.');}
   }
-  function stop(){if(!capture)return;const {chunks,rate}=capture;cleanup();blob=wav(chunks,rate);localUrl=URL.createObjectURL(blob);renderPage();}
+  function stop(){if(!capture)return;const {chunks,rate}=capture;cleanup();blob=wav(chunks,rate);localUrl=URL.createObjectURL(blob);addServerRecording(blob,localUrl);renderPage();}
   document.addEventListener('change',event=>{
     if(event.target.matches('.saas-select-wrap select')){syncSaasSelect(event.target);}
     if(event.target.matches('[data-speech-period]')){progressPeriod=event.target.value;run(async()=>{await load();renderPage();});}
@@ -2564,7 +2661,8 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
       if(evalSelect){evalSelect.value=open?'stt':'pronunciation';syncSaasSelect(evalSelect);}
     }
     if(event.target.id==='speech-task'){run(async()=>{discard();trainingPlan=null;comparison=null;taskId=event.target.value;await load();renderPage();});}
-    if(event.target.id==='speech-file'){const file=event.target.files[0];if(file){discard();if(file.size>10*1024*1024){notify('Maximum recording size is 10 MiB.');return;}blob=file;localUrl=URL.createObjectURL(file);renderPage();}}
+    if(event.target.id==='speech-file'){const file=event.target.files[0];if(file){discard();if(file.size>10*1024*1024){notify('Maximum recording size is 10 MiB.');return;}blob=file;localUrl=URL.createObjectURL(file);sourceMode='upload';addServerRecording(blob,localUrl);renderPage();}}
+    if(event.target.name==='consent'&&event.target.closest('[data-speech-form="analyze"]')){consentEnabled=event.target.checked;renderPage();}
     if(event.target.dataset.speechMetric!==undefined)chart(Number(event.target.dataset.speechMetric),event.target.value);
     if(event.target.id==='theme'&&document.querySelector('.speech-panel'))queueMicrotask(afterRender);
   });
@@ -2635,6 +2733,24 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
       }
     }
     const button=event.target.closest('[data-speech-action]');if(!button)return;const {speechAction:action,id,teacher}=button.dataset;
+    if(action==='switch-source'){sourceMode=button.dataset.source||'record';renderPage();return;}
+    if(action==='toggle-consent'){consentEnabled=!consentEnabled;renderPage();return;}
+    if(action==='select-record'){
+      const chosen=serverRecordings.find(r=>r.id===id);
+      if(chosen){activeRecordingId=chosen.id;blob=chosen.blob||blob;localUrl=chosen.url||localUrl;renderPage();}
+      return;
+    }
+    if(action==='delete-record'){
+      serverRecordings=serverRecordings.filter(r=>r.id!==id);
+      if(activeRecordingId===id){
+        const latest=serverRecordings[serverRecordings.length-1];
+        activeRecordingId=latest?latest.id:null;
+        blob=latest?latest.blob:null;
+        localUrl=latest?latest.url:'';
+      }
+      renderPage();
+      return;
+    }
     if(action==='browse-audio'){document.getElementById('speech-file')?.click();return;}
     if(action==='cancel-create'){const details=button.closest('details.speech-accordion');if(details&&state?.tasks.length>0)details.open=false;return;}
     if(action==='remove')exerciseViews.delete(id);
@@ -2680,7 +2796,8 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
     run(async()=>{
       if(epoch!==sessionKey())return;
       if(kind==='analyze'){
-        if(!blob||capture||data.get('consent')!=='on')throw Error('Choose a recording and explicitly allow analysis.');
+        const consentVal = data.get('consent');
+        if(!blob||capture||(!consentEnabled && consentVal!=='on'))throw Error('Choose a recording and explicitly allow analysis.');
         if(!uploaded){
           const mime=blob.type.split(';')[0]||(/\.mp3$/i.test(blob.name||'')?'audio/mpeg':'audio/wav');intent??={mutationId:crypto.randomUUID(),mime,name:'speech.'+(mime==='audio/mpeg'?'mp3':'wav')};
           uploadController=new AbortController();const response=await fetch(route('/local/speech/tasks/'+taskId+'/upload'),{method:'POST',headers:{'Content-Type':mime,'X-Upload-Metadata':encodeURIComponent(JSON.stringify(intent))},body:blob,signal:uploadController.signal}),result=await response.json();if(epoch!==sessionKey())return;if(!response.ok)throw Error(result.error);uploaded=result;
@@ -2704,7 +2821,7 @@ function createSpeechPracticeUI({api,run,context,isTeacher,sessionKey,renderPage
       await load();renderPage();
     });
   });
-  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();}
+  function reset(){generation++;clearTimeout(pollTimer);discard();state=null;taskId='';contextKey='';trainingPlan=null;comparison=null;dialogueId='';exerciseViews.clear();expandedAttempts.clear();sourceMode='record';consentEnabled=false;serverRecordings=[];activeRecordingId=null;}
   window.addEventListener('pagehide',reset);
   return {load,render,afterRender,reset,deactivate(){generation++;clearTimeout(pollTimer);document.querySelectorAll('.speech-panel audio').forEach(audio=>audio.pause());if(capture)cleanup();}};
 }
@@ -15455,6 +15572,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
 
         const list = loadAdded();
         list.unshift(item);
+        if (typeof rememberAdded === "function") {
+          rememberAdded(list);
+        }
         if (typeof window !== "undefined" && window.LearningMain && typeof window.LearningMain.newCard === "function") {
           try {
             const managed = !!(typeof viewAccount !== "undefined" && viewAccount && typeof authUser !== "undefined" && authUser && ['ADMIN','DEVELOPER'].includes(authUser.role));
@@ -15462,8 +15582,13 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
               ? window.LearningMain.newManagedCard(viewAccount.id, item.word, item.ru, "sentences")
               : window.LearningMain.newCard(item.word, item.ru, "sentences");
             cardPromise.then(result => {
-              if (result?.revision && typeof stageStampLinks === "function") {
-                stageStampLinks(list, result.revision);
+              if (result?.card) {
+                Object.assign(item, result.card);
+                if (typeof rememberAdded === "function") rememberAdded(list);
+              }
+              if (result?.revision) {
+                if (typeof stageStampLinks === "function") stageStampLinks(list, result.revision);
+                else if (typeof window.stageStampLinks === "function") window.stageStampLinks(list, result.revision);
               }
             }).catch(() => {});
           } catch (_err) {}
@@ -15589,10 +15714,14 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         });
       }
 
-      async function triggerSentenceAnalyze() {
-        const sentence = input ? input.value.trim() : "";
+      async function triggerSentenceAnalyze(inputEl) {
+        const inp = inputEl || document.querySelector("[data-sentence-input]");
+        const stat = document.querySelector("[data-sentence-status]");
+        const choices = document.querySelector("[data-sentence-choices]");
+        const formEl = document.querySelector("[data-sentence-add-form]");
+        const sentence = inp ? inp.value.trim() : "";
         if (!sentence) {
-          if (status) status.textContent = "Please enter a sentence.";
+          if (stat) stat.textContent = "Please enter a sentence.";
           return;
         }
         const dirBtn = typeof document.querySelector === 'function' ? document.querySelector("[data-sentence-dir].on") : null;
@@ -15600,12 +15729,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         const isRu = /[\u0400-\u04FF]/.test(sentence);
         const determinedDir = dirSetting === "auto" ? (isRu ? "ru-en" : "en-ru") : dirSetting;
 
-        if (status) status.textContent = "✨ Analyzing with Gemini…";
-        if (choicesBox) {
-          choicesBox.hidden = true;
-          choicesBox.innerHTML = "";
+        if (stat) stat.textContent = "✨ Analyzing with Gemini…";
+        if (choices) {
+          choices.hidden = true;
+          choices.innerHTML = "";
         }
-        if (input) input.disabled = true;
+        if (inp) inp.disabled = true;
         if (analyzeBtn) analyzeBtn.disabled = true;
 
         try {
@@ -15618,10 +15747,10 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           const data = await res.json();
           const translations = Array.isArray(data.translations) ? data.translations : [];
           if (!translations.length) {
-            if (status) status.textContent = "No translations received.";
+            if (stat) stat.textContent = "No translations received.";
             return;
           }
-          if (status) status.textContent = "Select best translation:";
+          if (stat) stat.textContent = "Select best translation:";
           let html = "";
           translations.forEach((t, i) => {
             html += '<div class="sentence-choice-tile' + (i === 0 ? ' selected' : '') + '" data-choice-idx="' + i + '" data-trans="' + esc(t.text) + '">';
@@ -15636,22 +15765,22 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           html += '<div class="row" style="margin-top:12px;">' +
             '<button class="btn primary saas-btn saas-btn-primary" type="button" data-sentence-save-chosen>Add to My sentences</button>' +
           '</div>';
-          if (choicesBox) {
-            choicesBox.innerHTML = html;
-            choicesBox.hidden = false;
+          if (choices) {
+            choices.innerHTML = html;
+            choices.hidden = false;
 
-            choicesBox.querySelectorAll(".sentence-choice-tile").forEach(tile => {
+            choices.querySelectorAll(".sentence-choice-tile").forEach(tile => {
               tile.addEventListener("click", () => {
-                choicesBox.querySelectorAll(".sentence-choice-tile").forEach(t => t.classList.remove("selected"));
+                choices.querySelectorAll(".sentence-choice-tile").forEach(t => t.classList.remove("selected"));
                 tile.classList.add("selected");
               });
             });
 
-            const saveBtn = choicesBox.querySelector("[data-sentence-save-chosen]");
+            const saveBtn = choices.querySelector("[data-sentence-save-chosen]");
             if (saveBtn && typeof saveBtn.addEventListener === 'function') {
               saveBtn.addEventListener("click", async () => {
                 saveBtn.disabled = true;
-                const selected = choicesBox.querySelector(".sentence-choice-tile.selected") || choicesBox.querySelector(".sentence-choice-tile");
+                const selected = choices.querySelector(".sentence-choice-tile.selected") || choices.querySelector(".sentence-choice-tile");
                 const chosenTranslation = selected?.dataset?.trans || sentence;
                 const finalDir = data.direction || determinedDir;
 
@@ -15669,6 +15798,9 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
 
                 const list = loadAdded();
                 list.unshift(item);
+                if (typeof rememberAdded === "function") {
+                  rememberAdded(list);
+                }
 
                 if (typeof window !== "undefined" && window.LearningMain && typeof window.LearningMain.newCard === "function") {
                   try {
@@ -15676,39 +15808,54 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
                     const result = managed && typeof window.LearningMain.newManagedCard === "function"
                       ? await window.LearningMain.newManagedCard(viewAccount.id, word, ru, "sentences")
                       : await window.LearningMain.newCard(word, ru, "sentences");
-                    if (result?.revision && typeof stageStampLinks === "function") {
-                      stageStampLinks(list, result.revision);
+                    if (result?.card) {
+                      Object.assign(item, result.card);
+                      if (typeof rememberAdded === "function") rememberAdded(list);
+                    }
+                    if (result?.revision) {
+                      if (typeof stageStampLinks === "function") stageStampLinks(list, result.revision);
+                      else if (typeof window.stageStampLinks === "function") window.stageStampLinks(list, result.revision);
                     }
                   } catch (_cardErr) {
-                    // Preserved locally if network fails
+                    // Local state remains saved via rememberAdded
                   }
                 } else if (typeof saveAdded === "function") {
                   try { saveAdded(list, { op: "put-card", card: item }); } catch (_err) {}
                 }
 
-                if (input) input.value = "";
-                if (status) status.textContent = "Sentence added successfully!";
-                choicesBox.hidden = true;
-                choicesBox.innerHTML = "";
-                if (form) form.hidden = true;
+                if (inp) inp.value = "";
+                if (stat) stat.textContent = "Sentence added successfully!";
+                choices.hidden = true;
+                choices.innerHTML = "";
+                if (formEl) formEl.hidden = true;
                 paintDeckCounts();
                 paintSentencesList();
               });
             }
           }
         } catch (err) {
-          if (status) status.textContent = err.message || "Failed to analyze";
+          if (stat) stat.textContent = err.message || "Failed to analyze";
         } finally {
-          if (input) input.disabled = false;
+          if (inp) inp.disabled = false;
           if (analyzeBtn) analyzeBtn.disabled = false;
         }
+      }
+
+      if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+        document.addEventListener("keydown", async (e) => {
+          if (e.key !== "Enter") return;
+          const targetInput = e.target && typeof e.target.closest === "function" ? e.target.closest("[data-sentence-input]") : null;
+          if (!targetInput) return;
+          e.preventDefault();
+          await triggerSentenceAnalyze(targetInput);
+        });
       }
 
       if (input && typeof input.addEventListener === 'function') {
         input.addEventListener("keydown", async (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
-            await triggerSentenceAnalyze();
+            await triggerSentenceAnalyze(input);
           }
         });
       }
@@ -25828,8 +25975,7 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmTab() {
       const id = lmState && lmState.tab;
-      const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
-      if(id==='speech'&&!lmState.examOwned&&isDev&&window.LearningWorkbench?.lessonSpeechButton())return id;
+      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
       return "overview";
     }
@@ -26951,17 +27097,21 @@ const STUDIO_CONSTELLATIONS = [{
       const tabs = [["overview", "Overview"], ["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
       const tools = [["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
       const tabBtns = tabs.map(pair => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? 'on' : '') + '" role="tab" aria-selected="' + (pair[0] === tab ? 'true' : 'false') + '">' + pair[1] + '</button>').join('');
+      const speechBtn = window.LearningWorkbench?.lessonSpeechButton() || '';
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
-          return '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
+          const btn = '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
+          if (pair[0] === "homework" && speechBtn) {
+            return btn + speechBtn;
+          }
+          return btn;
         }
         return '<button type="button" data-lm-tool="' + pair[0] + '">' + pair[1] + "</button>";
       }).join("");
-      const isDev = typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER';
       const modesBtns = '<button type="button" data-lm-tool="quiz">Day quiz</button>' +
         '<button type="button" id="lmFocusPlayerBtn">Focus Mode</button>' +
         '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>';
-      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (isDev ? (window.LearningWorkbench?.lessonSpeechButton() || '') : '') + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
+      return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
     }
     function lmQuizCards() {
       if (!lmState) return [];

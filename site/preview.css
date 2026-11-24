@@ -11885,6 +11885,61 @@ html[data-notify-unread="1"] .popover-notify-dot {
   gap: 8px;
   flex-shrink: 0;
 }
+.speech-panel .speech-source-tabs {
+  display: inline-flex !important;
+  align-items: center !important;
+  height: 32px !important;
+  min-height: 0 !important;
+  max-height: 32px !important;
+  background: var(--bg) !important;
+  border: 1px solid var(--line) !important;
+  border-radius: 8px !important;
+  padding: 3px !important;
+  gap: 2px !important;
+  box-sizing: border-box !important;
+}
+.speech-panel .speech-source-tab {
+  height: 24px !important;
+  min-height: 0 !important;
+  max-height: 24px !important;
+  padding: 0 12px !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 5px !important;
+  font-size: 11px !important;
+  border-radius: 5px !important;
+  border: none !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+.speech-panel .speech-source-tab.is-active {
+  background: var(--card) !important;
+  color: var(--acc) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+.speech-panel .speech-source-tab:not(.is-active) {
+  background: transparent !important;
+  color: var(--mute) !important;
+  font-weight: 600 !important;
+}
+.speech-panel .speech-drop-zone.is-hidden,
+.speech-panel .upload-dropzone.is-hidden {
+  display: none !important;
+}
+.speech-panel .server-record-row {
+  display: grid !important;
+  grid-template-columns: 140px 1fr 68px 28px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+}
 
 
 

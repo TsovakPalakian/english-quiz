@@ -217,7 +217,10 @@ test('A new personal card keeps an idiom or phrasal destination',async()=>{
   assert.equal(f.sqlite.prepare('SELECT place FROM profile_cards WHERE card_id=?').get(idiom.card.stageId).place,'idioms');
   const verb=await service.createOwnCard(f.own,{mutationId:mutation(),expectedRevision:1,card:{en:'give up',ru:'сдаваться',place:'phrasal'}});
   assert.equal(verb.card.place,'phrasal');
-  await assert.rejects(service.createOwnCard(f.own,{mutationId:mutation(),expectedRevision:2,card:{en:'nope',ru:'нет',place:'library'}}),error=>error.status===400);
+  const sentence=await service.createOwnCard(f.own,{mutationId:mutation(),expectedRevision:2,card:{en:'I remembered what your name was.',ru:'Я помнил, как тебя зовут',place:'sentences'}});
+  assert.equal(sentence.card.place,'sentences');
+  assert.equal(f.sqlite.prepare('SELECT place FROM profile_cards WHERE card_id=?').get(sentence.card.stageId).place,'sentences');
+  await assert.rejects(service.createOwnCard(f.own,{mutationId:mutation(),expectedRevision:3,card:{en:'nope',ru:'нет',place:'library'}}),error=>error.status===400);
   f.sqlite.close();
 });
 test('Own text/song: point edit, saved IDs and revisions, replay/stale/foreign denial, metadata/media preserved and soft delete',async()=>{
