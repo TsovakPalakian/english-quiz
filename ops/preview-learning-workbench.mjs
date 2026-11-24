@@ -131,7 +131,7 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
         response=json({ok:true,id:Date.now()});
       }else if(path.startsWith('/api/')){
         if(method!=='GET')throw Object.assign(Error('This legacy action is not connected in the isolated preview. Workbench edits use its own API.'),{status:409});
-        const empty={cards:[],groups:[],songs:[],texts:[],quizzes:[],progress:[],documents:{},next:null};
+        const empty={cards:[],groups:[],songs:[],texts:[],quizzes:[],progress:[],documents:{},next:null,feedback:[],items:[],counts:{open:0,resolved:0,all:0}};
         if(path==='/api/database-context')response=json({provider:'d1',revision:1,scope:'site'});
         else if(path==='/api/me'||path==='/api/me/account')response=json({user:actor,locked:false,migrationCapabilities:capabilities});
         else if(path==='/api/me/state')response=json({bootstrap:true,stats:{},added:[],songs:[],settings:{},counts:{lessons:lessonIds.size},stageActivity:{}});
@@ -150,7 +150,7 @@ export async function createLearningWorkbenchPreview({port=0,inspect,gemini=null
         else if(path==='/api/exams/essay-copilot')response=json({status:'draft_ready',provider:'preview-copilot',revision:0,rubricPoints:[22,20,21,20],totalPoints:83,maxPoints:100,analysis:{wordCount:120,taskAchievement:{score:22,percent:88,minWords:80},coherence:{score:20,percent:80},lexical:{score:21,percent:84},grammatical:{score:20,percent:80}},feedback:{summary:'Good structure and vocabulary.',strengths:['Clear thesis statement','Good use of transitions'],areasForGrowth:['Increase variety of complex structures'],formattedFeedback:'AI Review Assist (Draft Suggestion):\nScore: 83 / 100 (83%)\nStrengths:\n• Clear thesis statement\n• Good use of transitions\nKey areas for revision:\n• Increase variety of complex structures'}});
         else if(path==='/api/bugs'&&actor.role==='DEVELOPER')response=json({bugs:[],total:0});
         else if(path==='/api/auth/providers')response=json({google:false,microsoft:false,telegram:false});
-        else if(path.startsWith('/api/error-bank')||path.startsWith('/api/speech-scenarios')||path.includes('catalogs')||['/api/texts','/api/songs','/api/quizzes','/api/me/cards','/api/me/quizzes','/api/me/songs','/api/me/texts','/api/me/progress','/api/me/hidden-lessons','/api/lessons/visibility','/api/messages','/api/admin/registrations','/api/admin/changes','/api/admin/members'].includes(path))response=json({...empty,users:[],members:members.filter(row=>staff||row.accountId===actor.id),registrations:[],changes:[],rooms:[],contacts:[],total:0,work:[],lessons:[],queue:[],scenarios:[],stats:{dueToday:0}});
+        else if(path.startsWith('/api/error-bank')||path.startsWith('/api/speech-scenarios')||path.startsWith('/api/feedback')||path.startsWith('/api/messages')||path.includes('catalogs')||['/api/texts','/api/songs','/api/quizzes','/api/me/cards','/api/me/quizzes','/api/me/songs','/api/me/texts','/api/me/progress','/api/me/hidden-lessons','/api/lessons/visibility','/api/admin/registrations','/api/admin/changes','/api/admin/members'].includes(path))response=json({...empty,users:[],members:members.filter(row=>staff||row.accountId===actor.id),registrations:[],changes:[],rooms:[],contacts:[],total:0,work:[],lessons:[],queue:[],scenarios:[],stats:{dueToday:0}});
         else response=json({error:'Not connected in this local preview.'},404);
       }else if(['GET','HEAD'].includes(method)){
         const file=resolve(root,'.'+decodeURIComponent(path==='/'?'/index.html':path));
