@@ -23,6 +23,7 @@ import {ensureStudyProfile} from './learning-profile.mjs';
 import {projectStudentCatalog} from './learning-legacy-read.mjs';
 import {pdfAsset} from './learning-pdf-assets.mjs';
 import {stageContentPolicy} from './learning-embed.mjs';
+import {cookieConsentHeader,parseCookies} from './cookie-manager.mjs';
 import {ContentCopyService} from './learning-content-copy.mjs';
 import {JSON_BODY_LIMIT,LIBRARY_BODY_LIMIT} from './learning-request-limits.mjs';
 import {assessPronunciation,featuresFromWav,isPronunciationFeatures} from './pronunciation-match.mjs';
@@ -139,6 +140,12 @@ export default {async fetch(request,env){
       return json({user:result.user},200,{'Set-Cookie':result.cookie});
     }
     if(path==='/api/logout'&&method==='POST')return json({ok:true},200,{'Set-Cookie':await auth.logout(request)});
+    if(path==='/api/cookie-consent'&&method==='POST'){
+      const payload=await body(request,1024);
+      const choice=['all','essential','declined'].includes(payload?.consent)?payload.consent:'essential';
+      const secure=url.protocol==='https:';
+      return json({ok:true,consent:choice},200,{'Set-Cookie':cookieConsentHeader(choice,secure)});
+    }
     if(path==='/api/me'&&method==='GET')return json({user:await auth.current(request)});
     const allowedRead=['/api/me/account','/api/me/state','/api/me/themes','/api/me/cards','/api/me/quizzes','/api/me/progress','/api/me/songs','/api/lessons','/api/groups','/api/exams','/api/exams/work','/api/texts','/api/cards','/api/library','/api/archive','/api/stats','/api/song-file','/api/lesson-file','/api/theme-photo'];
     const dictionary=path.match(/^\/api\/cards\/([1-9]\d{0,15})\/dictionary$/);

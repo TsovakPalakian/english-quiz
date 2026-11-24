@@ -19959,6 +19959,7 @@ const STUDIO_CONSTELLATIONS = [{
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
       const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
       if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
+      window.LearningWorkbench?.paintEntry();
     }
 (function initUserProfilePill() {
   // User Profile Pill Badge & Settings Popover (Variant 1)
@@ -20940,6 +20941,108 @@ const STUDIO_CONSTELLATIONS = [{
   window.saveSoundAlertTimings = saveSoundAlertTimings;
   window.formatAlertTiming = formatAlertTiming;
   window.setAnkiNextDue = setAnkiNextDue;
+})();
+(function initCookieConsent() {
+  function getCookie(name) {
+    try {
+      const match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&') + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function readSavedChoice() {
+    try {
+      const fromStorage = localStorage.getItem('cookie_consent');
+      if (fromStorage && ['all', 'essential', 'declined'].includes(fromStorage)) return fromStorage;
+    } catch {}
+    const fromCookie = getCookie('cookie_consent');
+    if (fromCookie && ['all', 'essential', 'declined'].includes(fromCookie)) return fromCookie;
+    try {
+      if (sessionStorage.getItem('cookie_dismissed') === 'true') return 'dismissed';
+    } catch {}
+    return null;
+  }
+
+  function handleCookieChoice(choice, banner) {
+    try {
+      if (choice === 'dismissed') {
+        sessionStorage.setItem('cookie_dismissed', 'true');
+      } else {
+        localStorage.setItem('cookie_consent', choice);
+        const secureFlag = location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = 'cookie_consent=' + encodeURIComponent(choice) + '; Path=/; SameSite=Lax; Max-Age=31536000' + secureFlag;
+        if (choice === 'declined' || choice === 'essential') {
+          window.__lumisciaTelemetryDisabled = true;
+        } else {
+          window.__lumisciaTelemetryDisabled = false;
+        }
+        try {
+          fetch('/api/cookie-consent', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({consent: choice})
+          }).catch(() => {});
+        } catch {}
+      }
+    } catch {}
+
+    if (banner) {
+      banner.style.opacity = '0';
+      banner.style.transform = 'translate(-50%, 16px)';
+      setTimeout(() => {
+        try { banner.remove(); } catch {}
+      }, 250);
+    }
+  }
+
+  function mountBanner() {
+    if (document.getElementById('cookieConsentBanner')) return;
+    if (readSavedChoice()) return;
+
+    const banner = document.createElement('div');
+    banner.id = 'cookieConsentBanner';
+    banner.className = 'stellar-cookie-banner-refined';
+    banner.setAttribute('role', 'region');
+    banner.setAttribute('aria-label', 'Cookie consent');
+
+    banner.innerHTML = [
+      '<div class="stellar-banner-sparkle" aria-hidden="true">✦</div>',
+      '<div class="stellar-banner-text-compact">Cookies illuminate your study journey. Choose your mode.</div>',
+      '<div class="stellar-actions-transparent">',
+      '  <button type="button" id="cookieDeclineBtn" class="stellar-btn-decline-transp">Decline</button>',
+      '  <button type="button" id="cookiePartialBtn" class="stellar-btn-essential-transp">Essential</button>',
+      '  <button type="button" id="cookieAcceptBtn" class="stellar-btn-accept-framed">Accept all</button>',
+      '  <button type="button" id="cookieDismissBtn" class="stellar-btn-close-transp" aria-label="Close">✕</button>',
+      '</div>'
+    ].join('\n');
+
+    const declineBtn = banner.querySelector('#cookieDeclineBtn');
+    const partialBtn = banner.querySelector('#cookiePartialBtn');
+    const acceptBtn = banner.querySelector('#cookieAcceptBtn');
+    const dismissBtn = banner.querySelector('#cookieDismissBtn');
+
+    if (declineBtn) declineBtn.addEventListener('click', () => handleCookieChoice('declined', banner));
+    if (partialBtn) partialBtn.addEventListener('click', () => handleCookieChoice('essential', banner));
+    if (acceptBtn) acceptBtn.addEventListener('click', () => handleCookieChoice('all', banner));
+    if (dismissBtn) dismissBtn.addEventListener('click', () => handleCookieChoice('dismissed', banner));
+
+    document.body.appendChild(banner);
+  }
+
+  function scheduleMount() {
+    if (readSavedChoice()) return;
+    setTimeout(() => {
+      try { mountBanner(); } catch {}
+    }, 400);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleMount);
+  } else {
+    scheduleMount();
+  }
 })();
     function archiveLabel(type) {
       return { account:'Accounts',lesson: "Lessons", group: "Groups", exam: "Exams", "exam-block": "Examination blocks", card: "Cards", song: "Songs", text: "Texts" }[type] || "Other";
@@ -30479,7 +30582,7 @@ const STUDIO_CONSTELLATIONS = [{
   let speechUI=null,providerUI=null;
   const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice','FSRS Flashcard'];
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
-  const enabled=()=>!!authUser&&accountReady&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
+  const enabled=()=>!!authUser&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
   const speechHost=()=>document.querySelector('#lmEditor:not([hidden]) #lmSpeechPanel,#lmPreview:not([hidden]) #lmSpeechPanel')||document.getElementById('material');
   const current=entry=>job===entry&&enabled()&&(!entry.lessonSpeech||dialog?.isConnected&&dialog.parentElement===speechHost())&&(!entry.queue||staff())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
@@ -30596,10 +30699,10 @@ const STUDIO_CONSTELLATIONS = [{
       if(!button&&enabled()&&staff()){
         button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
       }
-      if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff())button.dataset.jump='workbenchqueue';}
+      if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff()){button.dataset.jump='workbenchqueue';if(!button.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:button});}}
       let mineButton=nav.querySelector('[data-workbench-mine]');
       if(!mineButton&&enabled()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
-      if(mineButton){mineButton.hidden=!enabled();if(enabled())mineButton.dataset.jump='workbenchmine';}
+      if(mineButton){mineButton.hidden=!enabled();if(enabled()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
       let providerButton=nav.querySelector('[data-workbench-providers]');
       if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.dataset.jump='workbenchproviders';providerButton.className='sidebar-nav-ai-btn';providerButton.innerHTML='<svg class="lucide lucide-cpu" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M7 20v2"/><path d="M17 20v2"/><path d="M7 2v2"/><path d="M17 2v2"/><path d="M2 7h2"/><path d="M2 17h2"/><path d="M20 7h2"/><path d="M20 17h2"/></svg>AI providers';nav.append(providerButton);}
       if(providerButton){providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';if(enabled()&&authUser?.role==='DEVELOPER')providerButton.dataset.jump='workbenchproviders';}

@@ -12036,6 +12036,119 @@ html[data-notify-unread="1"] .popover-notify-dot {
   box-sizing: border-box !important;
 }
 
+/* TASK-9: Stellar Cookie Consent Banner */
+.stellar-cookie-banner-refined {
+  position: fixed;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  width: calc(100% - 32px);
+  max-width: 610px;
+  border-radius: 999px;
+  padding: 8px 14px 8px 16px;
+  box-sizing: border-box;
+  font-family: inherit;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: var(--acc-s, rgba(124, 123, 255, 0.05));
+  border: 1px solid var(--line);
+  color: var(--ink);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.stellar-banner-sparkle {
+  font-size: 15px;
+  color: var(--acc);
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 4px var(--acc));
+}
+
+.stellar-banner-text-compact {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ink);
+}
+
+.stellar-actions-transparent {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.stellar-btn-decline-transp {
+  background: transparent;
+  color: var(--mute);
+  border: none;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stellar-btn-decline-transp:hover {
+  color: var(--ink);
+}
+
+.stellar-btn-essential-transp {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stellar-btn-essential-transp:hover {
+  border-color: var(--acc);
+  color: var(--acc);
+}
+
+.stellar-btn-accept-framed {
+  background: transparent;
+  color: var(--acc);
+  border: 1px solid var(--acc);
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stellar-btn-accept-framed:hover {
+  background: var(--acc-s);
+}
+
+.stellar-btn-close-transp {
+  background: transparent;
+  border: none;
+  color: var(--mute);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+  border-radius: 50%;
+}
+
+.stellar-btn-close-transp:hover {
+  color: var(--ink);
+}
+
+
 
 
 
