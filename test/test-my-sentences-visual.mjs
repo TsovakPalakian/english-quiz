@@ -64,7 +64,11 @@ test('Visual and DOM test: My sentences deck, clean input form, selpop, and them
   assert.equal(await selpopAddSentence.textContent(), '+ Add to My sentences');
 
   const selpopDirRow = page.locator('#selpopDirRow');
-  assert.equal(await selpopDirRow.count(), 1, '#selpopDirRow must exist in #selpop');
+  assert.equal(await selpopDirRow.count(), 0, '#selpopDirRow must be removed from #selpop');
+
+  // Verify direction badge is removed from card items
+  const cardBadge = page.locator('#sentencesList .sentence-badge');
+  assert.equal(await cardBadge.count(), 0, 'sentence-badge must not exist in sentence cards');
 
   // 4. Test theme rendering across Sky, Dark, Sand
   for (const theme of ['sky', 'dark', 'sand']) {

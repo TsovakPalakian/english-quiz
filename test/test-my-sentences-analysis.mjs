@@ -17,6 +17,17 @@ test('fallbackSentenceTranslations provides 3 distinct translation styles withou
   assert.equal(enRes.translations[0].style, 'natural');
   assert.equal(enRes.translations[1].style, 'conversational');
   assert.equal(enRes.translations[2].style, 'contextual');
+  // Ensure English text is translated to Russian and NOT echoed as English
+  assert.notEqual(enRes.translations[0].text, 'I am looking forward to hearing from you.');
+  assert.match(enRes.translations[0].text, /[\u0400-\u04FF]/);
+  assert.match(enRes.translations[1].text, /[\u0400-\u04FF]/);
+  assert.match(enRes.translations[2].text, /[\u0400-\u04FF]/);
+
+  const editsRes = fallbackSentenceTranslations('It seems your edits are not working.', 'en-ru');
+  assert.equal(editsRes.direction, 'en-ru');
+  assert.notEqual(editsRes.translations[0].text, 'It seems your edits are not working.');
+  assert.match(editsRes.translations[0].text, /[\u0400-\u04FF]/);
+  assert.match(editsRes.translations[1].text, /[\u0400-\u04FF]/);
 
   const ruRes = fallbackSentenceTranslations('Я помнил, как тебя зовут', 'ru-en');
   assert.equal(ruRes.direction, 'ru-en');

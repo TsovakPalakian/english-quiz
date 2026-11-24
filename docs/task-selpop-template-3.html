@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="sky">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Sentences - Card Shifted to Top (No Blank Space)</title>
+  <link rel="stylesheet" href="/site/preview.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      box-sizing: border-box;
+    }
+    .page-container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }
+    .header-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--ink);
+      margin: 0;
+    }
+    .header-sub {
+      font-size: 13px;
+      color: var(--mute);
+      margin-top: 4px;
+    }
+    .deck-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: var(--card);
+      color: var(--mute);
+      border: 1px solid var(--line);
+    }
+    .demo-label {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--mute);
+      margin-bottom: 12px;
+    }
+    .saved-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px 20px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.05);
+      margin-bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-left: 4px solid var(--acc);
+    }
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .sentence-en {
+      font-size: 16.5px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.35;
+      flex: 1;
+    }
+    .timestamp {
+      font-size: 12px;
+      color: var(--mute);
+      white-space: nowrap;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+    .sentence-ru {
+      font-size: 15px;
+      color: var(--ink);
+      line-height: 1.4;
+      opacity: 0.85;
+      margin-top: 2px;
+    }
+    .card-note {
+      font-size: 12.5px;
+      color: var(--mute);
+      font-style: italic;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--line);
+    }
+  </style>
+</head>
+<body>
+  <div class="page-container">
+    <div class="header-bar">
+      <div>
+        <h1 class="header-title">My sentences · 1</h1>
+        <div class="header-sub">1 sentence saved. Study uses them in bidirectional practice.</div>
+      </div>
+      <div>
+        <span class="deck-badge">Deck: Sentences</span>
+      </div>
+    </div>
+
+    <!-- Variant A: Text shifted to the very top (takes place of deleted badge) -->
+    <div class="demo-label">Variant A: Text shifted to the top (filling the blank space left by deleted badge)</div>
+    <div class="saved-card">
+      <div class="card-head">
+        <div class="sentence-en">It seems your edits are not working.</div>
+        <span class="timestamp">Just now</span>
+      </div>
+      <div class="sentence-ru">Похоже, ваши изменения не работают.</div>
+      <div class="card-note">Key nuance: «edits» contextually translated as «изменения» / «правки».</div>
+    </div>
+
+    <!-- Variant B: Translation indented / shifted right -->
+    <div class="demo-label">Variant B: Translation text shifted / indented with icon marker</div>
+    <div class="saved-card">
+      <div class="card-head">
+        <div class="sentence-en">It seems your edits are not working.</div>
+        <span class="timestamp">Just now</span>
+      </div>
+      <div class="sentence-ru" style="padding-left: 14px; border-left: 2px solid var(--line); margin-left: 2px;">
+        Похоже, ваши изменения не работают.
+      </div>
+      <div class="card-note">Key nuance: «edits» contextually translated as «изменения» / «правки».</div>
+    </div>
+  </div>
+</body>
+</html>

@@ -3045,9 +3045,21 @@
         }
       }
       const dictName = !isSentence && typeof findWordDictionary === "function" ? (findWordDictionary(text) || (singular ? findWordDictionary(singular) : null)) : null;
+      const cleanSentence = text.trim().toLowerCase();
+      const sentenceAlreadySaved = isSentence && typeof loadAdded === "function" && loadAdded().some(item =>
+        (item.place === "sentences" || item.place === "chat-sentences") &&
+        (String(item.word || item.en || "").trim().toLowerCase() === cleanSentence || String(item.ru || "").trim().toLowerCase() === cleanSentence)
+      );
       const dictBadge = document.getElementById("selpopDictBadge");
       if (dictBadge) {
-        if (dictName) {
+        if (isSentence) {
+          if (sentenceAlreadySaved) {
+            dictBadge.textContent = "My sentences";
+            dictBadge.hidden = false;
+          } else {
+            dictBadge.hidden = true;
+          }
+        } else if (dictName) {
           dictBadge.textContent = dictName;
           dictBadge.hidden = false;
         } else {
@@ -3059,8 +3071,11 @@
       const dirRow = document.getElementById("selpopDirRow");
       if (isSentence) {
         if (add) add.hidden = true;
-        if (addSentence) { addSentence.hidden = false; addSentence.disabled = false; }
-        if (dirRow) dirRow.hidden = false;
+        if (addSentence) {
+          addSentence.hidden = sentenceAlreadySaved;
+          addSentence.disabled = false;
+        }
+        if (dirRow) dirRow.hidden = true;
       } else {
         if (add) {
           add.hidden = !!dictName;
@@ -3073,8 +3088,7 @@
       pop.hidden = false;
       placeSelpop(sel.getRangeAt(0).getBoundingClientRect());
       if (isSentence) {
-        const activeDir = document.querySelector("#selpopDirRow [data-selpop-dir].on")?.dataset.selpopDir || "auto";
-        loadSelpopSentence(text, activeDir);
+        loadSelpopSentence(text, "auto");
       } else {
         loadSelpop(text);
       }
@@ -3172,7 +3186,8 @@
         const translation = selectedTile ? (selectedTile.dataset.translation || selectedTile.querySelector(".sentence-choice-text")?.textContent || "").trim() : "";
         const dirBtn = typeof document.querySelector === 'function' ? document.querySelector("#selpopDirRow [data-selpop-dir].on") : null;
         const dirActive = dirBtn?.dataset.selpopDir || "auto";
-        const determinedDir = dirActive === "auto" ? (/[A-Za-z]/.test(rawText) && !/[\u0400-\u04FF]/.test(rawText) ? "en-ru" : "ru-en") : dirActive;
+        const isRu = /[\u0400-\u04FF]/.test(rawText);
+        const determinedDir = dirActive === "auto" ? (isRu ? "ru-en" : "en-ru") : dirActive;
 
         const item = {
           word: determinedDir === "en-ru" ? rawText : (translation || rawText),
@@ -3258,11 +3273,8 @@
       }
 
       listEl.innerHTML = filtered.map(({ item, index }) => {
-        const dir = item.direction || (/[A-Za-z]/.test(item.word) && !/[\u0400-\u04FF]/.test(item.word) ? "en-ru" : "ru-en");
-        const dirLabel = dir === "ru-en" ? "Russian ➔ English" : "English ➔ Russian";
         return '<div class="sentence-card-item">' +
           '<div class="sentence-card-content">' +
-            '<div class="sentence-badge">' + esc(dirLabel) + '</div>' +
             '<div class="sentence-card-en">' + esc(item.word || "") + '</div>' +
             '<div class="sentence-card-ru">' + esc(item.ru || "") + '</div>' +
             (item.note ? '<div class="sentence-note-box">' + esc(item.note) + '</div>' : '') +
