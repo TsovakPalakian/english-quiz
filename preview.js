@@ -16390,14 +16390,25 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         flash = sessionStorage.getItem("enquiz-auth-flash") || "";
         if (flash) sessionStorage.removeItem("enquiz-auth-flash");
       } catch (e) {}
-      const flashHtml = flash ? '<p class="hint auth-flash" style="margin-bottom:10px">' + esc(flash) + "</p>" : "";
+      const flashAlert = (text) => {
+        if (!text) return "";
+        if (/^registration successful/i.test(text.trim())) {
+          const lines = text.split("\n");
+          const title = "Registration successful";
+          const sub = lines.length > 1 ? lines.slice(1).join(" ") : "Waiting for teacher approval before you can sign in.";
+          return '<div class="auth-alert" role="status"><span class="auth-alert-icon-wrap" aria-hidden="true">✦</span><div class="auth-alert-content"><span class="auth-alert-title">' + esc(title) + '</span><span class="auth-alert-text">' + esc(sub) + '</span></div></div>';
+        }
+        return '<p class="hint auth-flash" style="margin-bottom:10px">' + esc(text) + "</p>";
+      };
+      const flashHtml = flashAlert(flash);
       const tabs='<div class="auth-tabs saas-segmented" role="tablist" aria-label="Account access"><button class="saas-btn" type="button" role="tab" aria-selected="'+!register+'" data-account="show-login">Log in</button><button class="saas-btn" type="button" role="tab" aria-selected="'+!!register+'" data-account="show-register">Create account</button></div>';
-      const passwordField=(create)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="'+(create?'Password':'••••••••')+'" maxlength="128" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–128 characters</p>':'');
+      const passwordField=(create, hasInvite)=>'<label for="authPassword">Password</label><div class="auth-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPassword" name="password" type="password" placeholder="'+(create?'Password':'••••••••')+'" maxlength="128" '+(create?'minlength="8" aria-describedby="authPasswordHint" autocomplete="new-password"':'autocomplete="current-password"')+' required /><button type="button" data-auth-password aria-controls="authPassword" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>'+(create?'<p class="hint auth-password-hint" id="authPasswordHint">8–128 characters</p>'+(!hasInvite?'<label for="authPasswordConfirm">Confirm password</label><div class="auth-password auth-confirm-password"><i class="auth-field-icon" data-lucide="lock-keyhole" aria-hidden="true"></i><input class="saas-input" id="authPasswordConfirm" name="passwordConfirm" type="password" placeholder="Confirm password" maxlength="128" minlength="8" autocomplete="new-password" required /><button type="button" data-auth-confirm-password aria-controls="authPasswordConfirm" aria-label="Show password" title="Show password" aria-pressed="false">Show</button></div>':''):'');
       const decorate=()=>{void window.MicrosoftSignIn?.decorate(box);void window.TelegramSignIn?.decorate(box);const draw=()=>window.lucide?.createIcons({root:box});if(window.ensureChatIcons)window.ensureChatIcons().then(draw).catch(()=>{});else draw();};
       const authDivider='<div class="auth-divider"><span>OR CONTINUE WITH</span></div>';
       const microsoft='<button class="btn auth-google saas-btn" type="button" data-microsoft-auth hidden><svg class="auth-google-icon" viewBox="0 0 21 21" aria-hidden="true"><path fill="#f25022" d="M1 1h9v9H1z"/><path fill="#7fba00" d="M11 1h9v9h-9z"/><path fill="#00a4ef" d="M1 11h9v9H1z"/><path fill="#ffb900" d="M11 11h9v9h-9z"/></svg><span>Sign in with Microsoft</span></button>';
       const telegram='<button class="btn auth-google saas-btn" type="button" data-telegram-auth hidden><svg class="auth-google-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="#26a5e4" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24Z"/><path fill="#fff" d="m5.5 11.7 11.6-4.5c.5-.2.9.1.7.9l-2 9.2c-.1.7-.5.8-1 .5l-3-2.2-1.4 1.4c-.2.2-.3.3-.6.3l.2-3.1 5.6-5.1c.2-.2 0-.3-.3-.1l-6.9 4.3-3-.9c-.7-.2-.7-.5.1-.7Z"/></svg><span>Sign in with Telegram</span></button>';
       const google='<button class="btn auth-google saas-btn" type="button" data-google-auth><svg class="auth-google-icon" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24.8v7.42h10.55a9.03 9.03 0 0 1-3.91 5.93v4.93h6.34c3.71-3.42 5.83-8.46 5.83-14.36Z"/><path fill="#34A853" d="M24.8 43.6c5.29 0 9.72-1.75 12.96-4.78l-6.34-4.93c-1.76 1.18-4.01 1.9-6.62 1.9-5.1 0-9.43-3.44-10.98-8.08H7.28v5.08A19.59 19.59 0 0 0 24.8 43.6Z"/><path fill="#FBBC05" d="M13.82 27.71a11.76 11.76 0 0 1 0-7.42v-5.08H7.28a19.59 19.59 0 0 0 0 17.58l6.54-5.08Z"/><path fill="#EA4335" d="M24.8 12.21c2.89 0 5.46 1 7.51 2.95l5.63-5.63A18.85 18.85 0 0 0 24.8 4.4 19.59 19.59 0 0 0 7.28 15.21l6.54 5.08c1.55-4.64 5.88-8.08 10.98-8.08Z"/></svg><span>Continue with Google</span></button>';
+      const legalConsent='<label class="auth-legal-consent" for="authLegalConsent"><input type="checkbox" id="authLegalConsent" name="legalConsent" required /><span class="star-checkbox-control" aria-hidden="true"><svg class="star-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.5 L14.5 9.5 L22.5 12 L14.5 14.5 L12 22.5 L9.5 14.5 L1.5 12 L9.5 9.5 Z"/></svg></span><span class="auth-legal-text">I agree to the <button type="button" class="auth-legal-btn" data-legal="terms">Terms of Use</button> and <button type="button" class="auth-legal-btn" data-legal="privacy">Privacy Policy</button></span></label>';
       if (register) {
         let invite = "";
         try { invite = sessionStorage.getItem("enquiz-invite") || ""; } catch (e) {}
@@ -16412,11 +16423,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
           : '<p class="hint auth-approval">Your account needs teacher approval before you can sign in.</p>';
         box.innerHTML = '<div class="account-gate"><div class="card saas-card"><h1 class="auth-title">Create account</h1>' + flashHtml +
           (invite?inviteHint:'') +
-          '<form id="registerForm"><label for="authLogin">Login</label><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
+          '<form id="registerForm" novalidate><label for="authLogin">Login</label><input class="saas-input" id="authLogin" name="login" type="text" autocomplete="username" placeholder="Your login" minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" title="3 to 32 Latin letters, digits or underscores; no spaces" required />' +
           '<label for="authEmail">Email</label><input class="saas-input" id="authEmail" name="email" type="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required />' +
-          '<label for="authName">Name</label><input class="saas-input" id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="80" required />' +
-          passwordField(true)+
+          '<label for="authName">Name</label><input class="saas-input" id="authName" name="name" type="text" autocomplete="name" placeholder="Your name" maxlength="50" required />' +
+          passwordField(true, !!invite)+
           (invite?'<button class="btn auth-code-send saas-btn" type="button" data-invite-email-send>Send verification code</button><label data-otp-step hidden for="inviteEmailCode">6-digit email code</label><input class="saas-input" data-otp-step hidden disabled id="inviteEmailCode" name="emailCode" inputmode="numeric" placeholder="123456" maxlength="6" autocomplete="one-time-code" required />':'')+
+          (invite?'':legalConsent)+
           '<p class="hint" role="status" data-form-status></p><button class="btn primary saas-btn" type="submit">'+(invite?'Create account & Join group':'Create account')+'</button></form>' +'<div data-registration-providers'+(invite?'':' hidden')+'>'+authDivider+'<div class="auth-providers">'+google+microsoft+telegram+(teacherInvite?'<button class="btn auth-google saas-btn" type="button" data-login-mode="otp"><i data-lucide="mail" aria-hidden="true"></i><span>Continue with email code</span></button>':'')+'</div></div></div></div>';
         decorate();
         return;
@@ -17297,7 +17309,31 @@ const STUDIO_CONSTELLATIONS = [{
       if(button.textContent!==text)button.textContent=text;
     }
   }
+  function showLegalModal(kind) {
+    const isTerms = kind === 'terms';
+    const title = isTerms ? 'Terms of Use' : 'Privacy Policy';
+    const dialog = document.createElement('dialog');
+    dialog.id = 'authLegalModal';
+    dialog.className = 'auth-legal-modal-dialog saas-card';
+    dialog.setAttribute('aria-labelledby', 'authLegalModalTitle');
+    const termsBody = '<p style="margin:0 0 12px;">Welcome to <b>Lumiscia Learning Studio</b>. By creating an account, you agree to these Terms:</p><ul style="margin:0 0 14px;padding-left:18px;"><li style="margin-bottom:6px;"><b>Educational Purpose:</b> Lumiscia provides an interactive environment for English vocabulary acquisition, pronunciation training, and classroom study.</li><li style="margin-bottom:6px;"><b>Account Responsibility:</b> You are responsible for maintaining the confidentiality of your login credentials and password.</li><li style="margin-bottom:6px;"><b>Acceptable Conduct:</b> You agree not to distribute malicious scripts, attempt unauthorized data extraction, or disrupt service operations.</li><li style="margin-bottom:6px;"><b>Study Progress:</b> Your vocabulary sets, exercise history, and learning metrics remain linked to your account profile.</li></ul><p style="margin:0;font-size:12px;color:var(--mute);">Revision: November 2026 · Lumiscia Studio</p>';
+    const privacyBody = '<p style="margin:0 0 12px;">Your privacy is protected under the following principles:</p><ul style="margin:0 0 14px;padding-left:18px;"><li style="margin-bottom:6px;"><b>Data Collection:</b> We collect only the data required for authentication and study progress (login, email, display name, and exercise statistics).</li><li style="margin-bottom:6px;"><b>Zero Commercial Tracking:</b> We do not sell your personal information or share learning profiles with advertising networks.</li><li style="margin-bottom:6px;"><b>Local Storage & Cookies:</b> Technical session identifiers and theme preferences are stored securely in your browser to maintain active login states.</li><li style="margin-bottom:6px;"><b>Data Control:</b> You retain the right to clear or permanently delete your account data directly from profile settings.</li></ul><p style="margin:0;font-size:12px;color:var(--mute);">Revision: November 2026 · Lumiscia Studio</p>';
+    dialog.innerHTML = '<div class="auth-legal-modal-header"><h3 id="authLegalModalTitle" class="auth-legal-modal-title"><span class="auth-legal-star" aria-hidden="true">✦</span> '+title+'</h3><button type="button" class="auth-legal-modal-close" data-legal-close aria-label="Close dialog">✕</button></div><div class="auth-legal-modal-body">'+(isTerms?termsBody:privacyBody)+'</div><div class="auth-legal-modal-footer"><button type="button" class="btn primary saas-btn" data-legal-close>Got it</button></div>';
+    dialog.addEventListener('click', ev => {
+      if (ev.target === dialog || ev.target.closest('[data-legal-close]')) dialog.close();
+    });
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.appendChild(dialog);
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+  }
   document.addEventListener('click',event=>{
+    const legalBtn = event.target.closest('[data-legal]');
+    if (legalBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      showLegalModal(legalBtn.dataset.legal);
+      return;
+    }
     if(event.target.closest('[data-studio-home]')){
       event.preventDefault();event.stopPropagation();
       show('home');
@@ -17344,7 +17380,6 @@ const STUDIO_CONSTELLATIONS = [{
   if(accountBox)new MutationObserver(backLink).observe(accountBox,{childList:true,subtree:true});
   document.addEventListener('input',event=>{
     if(event.target.closest('#loginForm'))updateLoginSubmitState();
-    if(event.target.matches('#registerForm [name="name"]'))event.target.setCustomValidity(event.target.value.trim()?'':'Enter your name.');
   });
   document.addEventListener('change',event=>{
     if(event.target.closest('#loginForm'))updateLoginSubmitState();
@@ -18826,16 +18861,63 @@ const STUDIO_CONSTELLATIONS = [{
       paintAdminAccounts();
     });
     function validateSignupInput(input) {
-      if(!input?.closest('#registerForm')||!['login','email'].includes(input.name))return;
-      const valid=input.name==='login'?/^[A-Za-z0-9_]{3,32}$/.test(input.value):/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)&&input.value.length<=120&&!input.validity.typeMismatch;
-      const message=input.name==='login'?'Use 3 to 32 Latin letters, digits or underscores. No spaces.':'Enter a valid email, e.g. name@example.com.';
-      const id='signup-'+input.name+'-error';let error=document.getElementById(id);
-      if(!error){error=document.createElement('small');error.id=id;error.className='signup-field-error';error.setAttribute('role','status');input.after(error);input.setAttribute('aria-describedby',id);}
+      if(!input?.closest('#registerForm'))return;
+      const name = input.name;
+      if(!['login','email','name','password','passwordConfirm','legalConsent'].includes(name))return;
+      let valid = true;
+      let message = '';
+      if(name==='login'){
+        valid = /^[A-Za-z0-9_]{3,32}$/.test(input.value);
+        message = 'Use 3 to 32 Latin letters, digits or underscores. No spaces.';
+      }else if(name==='email'){
+        valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)&&input.value.length<=120&&!input.validity.typeMismatch;
+        message = 'Enter a valid email, e.g. name@example.com.';
+      }else if(name==='name'){
+        const val = input.value.trim();
+        const hasBadChars = /[<>{}/\\;]/.test(input.value);
+        if(!val){valid=false;message='Enter your name.';}
+        else if(input.value.length>50){valid=false;message='Name cannot exceed 50 characters.';}
+        else if(hasBadChars){valid=false;message='Name cannot contain code characters (< > { } / \\ ;).';}
+      }else if(name==='password'){
+        const len = input.value.length;
+        if(len<8){valid=false;message='Password must be at least 8 characters long.';}
+        else if(len>128){valid=false;message='Password must not exceed 128 characters.';}
+      }else if(name==='passwordConfirm'){
+        const form = input.closest('form');
+        const pwd = form?.elements?.password?.value || '';
+        if(input.value!==pwd){valid=false;message='Passwords do not match.';}
+        else if(input.value.length<8){valid=false;message='Password must be at least 8 characters long.';}
+      }else if(name==='legalConsent'){
+        valid = !!input.checked;
+        message = 'You must agree to the Terms of Use and Privacy Policy.';
+      }
+      const id='signup-'+name+'-error';let error=document.getElementById(id);
+      if(!error){
+        error=document.createElement('small');error.id=id;error.className='signup-field-error';error.setAttribute('role','status');
+        let insertAfter = input;
+        if(name==='password'){
+          const hint = document.getElementById('authPasswordHint');
+          insertAfter = hint || input.closest('.auth-password') || input;
+        }else if(name==='passwordConfirm'){
+          insertAfter = input.closest('.auth-confirm-password') || input.closest('.auth-password') || input;
+        }else if(name==='legalConsent'){
+          insertAfter = input.closest('.auth-legal-consent') || input;
+        }
+        insertAfter.after(error);
+        input.setAttribute('aria-describedby',id);
+      }
       error.hidden=valid;error.textContent=valid?'':message;
       input.setAttribute('aria-invalid',String(!valid));input.setCustomValidity(valid?'':message);
+      if(name==='password'){
+        const form = input.closest('form');
+        const confirmInput = form?.elements?.passwordConfirm;
+        if(confirmInput&&confirmInput.value)validateSignupInput(confirmInput);
+      }
     }
+    window.validateSignupInput=validateSignupInput;
     document.addEventListener('input',event=>validateSignupInput(event.target));
     document.addEventListener('focusout',event=>validateSignupInput(event.target));
+    document.addEventListener('change',event=>validateSignupInput(event.target));
     function adminGroupOptions(selected) {
       return '<option value="">Unassigned</option>' + adminGroups.map(group => '<option value="' + group.id + '"' + (group.id === selected ? ' selected' : '') + '>' + esc(group.title) + '</option>').join('');
     }
@@ -23798,8 +23880,43 @@ const STUDIO_CONSTELLATIONS = [{
       const data = Object.fromEntries(new FormData(form).entries());
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
       if(form.id==='registerForm'){
-        data.name=String(data.name||'').trim();
+        const hasConfirm = !!form.elements.passwordConfirm;
+        const hasLegal = !!form.elements.legalConsent;
+        if (typeof window.validateSignupInput === 'function') {
+          const fields = ['login', 'email', 'name', 'password'];
+          if (hasConfirm) fields.push('passwordConfirm');
+          if (hasLegal) fields.push('legalConsent');
+          let firstInvalid = null;
+          for (const fname of fields) {
+            const el = form.elements[fname];
+            if (el) {
+              window.validateSignupInput(el);
+              if (el.getAttribute('aria-invalid') === 'true' && !firstInvalid) {
+                firstInvalid = el;
+              }
+            }
+          }
+          if (firstInvalid) {
+            firstInvalid.focus();
+            return;
+          }
+        }
+        data.name = String(data.name || '').trim();
         if(!data.name){if(status){status.textContent='Enter your name.';status.classList.add('bad');}form.elements.name.focus();return;}
+        if(data.name.length > 50 || /[<>{}/\\;]/.test(data.name)){
+          if(status){status.textContent='Invalid name format.';status.classList.add('bad');}form.elements.name.focus();return;
+        }
+        if(!data.password || data.password.length < 8){
+          if(status){status.textContent='Password must be at least 8 characters long.';status.classList.add('bad');}form.elements.password.focus();return;
+        }
+        if(hasConfirm && data.password !== data.passwordConfirm){
+          if(status){status.textContent='Passwords do not match.';status.classList.add('bad');}form.elements.passwordConfirm.focus();return;
+        }
+        if(hasLegal && !form.elements.legalConsent?.checked){
+          if(status){status.textContent='You must agree to the Terms of Use and Privacy Policy.';status.classList.add('bad');}form.elements.legalConsent.focus();return;
+        }
+        delete data.passwordConfirm;
+        delete data.legalConsent;
         delete data.role;
       }
       const submitBtn = form.querySelector('button[type="submit"]');
@@ -23858,9 +23975,16 @@ const STUDIO_CONSTELLATIONS = [{
           if(path==='/api/register'&&hasInvite){
             try { sessionStorage.removeItem('enquiz-invite'); } catch {}
           }
+          if(!hasInvite){
+            try {
+              sessionStorage.setItem("enquiz-auth-flash", "Registration successful.\nWaiting for teacher approval before you can sign in.");
+            } catch {}
+          }
           paintAccountForm(false);
-          const loginStatus = document.querySelector("#loginForm [data-form-status]");
-          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted':"Waiting for approval.\nYou can sign in after the teacher accepts this account";
+          if(hasInvite){
+            const loginStatus = document.querySelector("#loginForm [data-form-status]");
+            if (loginStatus) loginStatus.textContent = 'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted';
+          }
           return;
         }
         if (result.inviteWarning) console.warn(result.inviteWarning);
@@ -23914,7 +24038,7 @@ const STUDIO_CONSTELLATIONS = [{
 
     document.body.addEventListener("click", (e) => {
       const googleAuth = e.target.closest("[data-google-auth]");
-      const passwordToggle=e.target.closest('[data-auth-password]');
+      const passwordToggle=e.target.closest('[data-auth-password],[data-auth-confirm-password]');
       if(passwordToggle){
         const field=document.getElementById(passwordToggle.getAttribute('aria-controls')),reveal=field.type==='password';
         field.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));

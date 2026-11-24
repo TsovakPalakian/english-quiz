@@ -318,8 +318,43 @@
       const data = Object.fromEntries(new FormData(form).entries());
       if (status) { status.textContent = ""; status.classList.remove("bad"); }
       if(form.id==='registerForm'){
-        data.name=String(data.name||'').trim();
+        const hasConfirm = !!form.elements.passwordConfirm;
+        const hasLegal = !!form.elements.legalConsent;
+        if (typeof window.validateSignupInput === 'function') {
+          const fields = ['login', 'email', 'name', 'password'];
+          if (hasConfirm) fields.push('passwordConfirm');
+          if (hasLegal) fields.push('legalConsent');
+          let firstInvalid = null;
+          for (const fname of fields) {
+            const el = form.elements[fname];
+            if (el) {
+              window.validateSignupInput(el);
+              if (el.getAttribute('aria-invalid') === 'true' && !firstInvalid) {
+                firstInvalid = el;
+              }
+            }
+          }
+          if (firstInvalid) {
+            firstInvalid.focus();
+            return;
+          }
+        }
+        data.name = String(data.name || '').trim();
         if(!data.name){if(status){status.textContent='Enter your name.';status.classList.add('bad');}form.elements.name.focus();return;}
+        if(data.name.length > 50 || /[<>{}/\\;]/.test(data.name)){
+          if(status){status.textContent='Invalid name format.';status.classList.add('bad');}form.elements.name.focus();return;
+        }
+        if(!data.password || data.password.length < 8){
+          if(status){status.textContent='Password must be at least 8 characters long.';status.classList.add('bad');}form.elements.password.focus();return;
+        }
+        if(hasConfirm && data.password !== data.passwordConfirm){
+          if(status){status.textContent='Passwords do not match.';status.classList.add('bad');}form.elements.passwordConfirm.focus();return;
+        }
+        if(hasLegal && !form.elements.legalConsent?.checked){
+          if(status){status.textContent='You must agree to the Terms of Use and Privacy Policy.';status.classList.add('bad');}form.elements.legalConsent.focus();return;
+        }
+        delete data.passwordConfirm;
+        delete data.legalConsent;
         delete data.role;
       }
       const submitBtn = form.querySelector('button[type="submit"]');
@@ -378,9 +413,16 @@
           if(path==='/api/register'&&hasInvite){
             try { sessionStorage.removeItem('enquiz-invite'); } catch {}
           }
+          if(!hasInvite){
+            try {
+              sessionStorage.setItem("enquiz-auth-flash", "Registration successful.\nWaiting for teacher approval before you can sign in.");
+            } catch {}
+          }
           paintAccountForm(false);
-          const loginStatus = document.querySelector("#loginForm [data-form-status]");
-          if (loginStatus) loginStatus.textContent = hasInvite?'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted':"Waiting for approval.\nYou can sign in after the teacher accepts this account";
+          if(hasInvite){
+            const loginStatus = document.querySelector("#loginForm [data-form-status]");
+            if (loginStatus) loginStatus.textContent = 'Waiting for approval by the inviting teacher.\nYour group invitation has been accepted';
+          }
           return;
         }
         if (result.inviteWarning) console.warn(result.inviteWarning);
@@ -434,7 +476,7 @@
 
     document.body.addEventListener("click", (e) => {
       const googleAuth = e.target.closest("[data-google-auth]");
-      const passwordToggle=e.target.closest('[data-auth-password]');
+      const passwordToggle=e.target.closest('[data-auth-password],[data-auth-confirm-password]');
       if(passwordToggle){
         const field=document.getElementById(passwordToggle.getAttribute('aria-controls')),reveal=field.type==='password';
         field.type=reveal?'text':'password';passwordToggle.setAttribute('aria-pressed',String(reveal));

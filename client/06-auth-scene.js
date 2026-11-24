@@ -72,7 +72,31 @@
       if(button.textContent!==text)button.textContent=text;
     }
   }
+  function showLegalModal(kind) {
+    const isTerms = kind === 'terms';
+    const title = isTerms ? 'Terms of Use' : 'Privacy Policy';
+    const dialog = document.createElement('dialog');
+    dialog.id = 'authLegalModal';
+    dialog.className = 'auth-legal-modal-dialog saas-card';
+    dialog.setAttribute('aria-labelledby', 'authLegalModalTitle');
+    const termsBody = '<p style="margin:0 0 12px;">Welcome to <b>Lumiscia Learning Studio</b>. By creating an account, you agree to these Terms:</p><ul style="margin:0 0 14px;padding-left:18px;"><li style="margin-bottom:6px;"><b>Educational Purpose:</b> Lumiscia provides an interactive environment for English vocabulary acquisition, pronunciation training, and classroom study.</li><li style="margin-bottom:6px;"><b>Account Responsibility:</b> You are responsible for maintaining the confidentiality of your login credentials and password.</li><li style="margin-bottom:6px;"><b>Acceptable Conduct:</b> You agree not to distribute malicious scripts, attempt unauthorized data extraction, or disrupt service operations.</li><li style="margin-bottom:6px;"><b>Study Progress:</b> Your vocabulary sets, exercise history, and learning metrics remain linked to your account profile.</li></ul><p style="margin:0;font-size:12px;color:var(--mute);">Revision: November 2026 · Lumiscia Studio</p>';
+    const privacyBody = '<p style="margin:0 0 12px;">Your privacy is protected under the following principles:</p><ul style="margin:0 0 14px;padding-left:18px;"><li style="margin-bottom:6px;"><b>Data Collection:</b> We collect only the data required for authentication and study progress (login, email, display name, and exercise statistics).</li><li style="margin-bottom:6px;"><b>Zero Commercial Tracking:</b> We do not sell your personal information or share learning profiles with advertising networks.</li><li style="margin-bottom:6px;"><b>Local Storage & Cookies:</b> Technical session identifiers and theme preferences are stored securely in your browser to maintain active login states.</li><li style="margin-bottom:6px;"><b>Data Control:</b> You retain the right to clear or permanently delete your account data directly from profile settings.</li></ul><p style="margin:0;font-size:12px;color:var(--mute);">Revision: November 2026 · Lumiscia Studio</p>';
+    dialog.innerHTML = '<div class="auth-legal-modal-header"><h3 id="authLegalModalTitle" class="auth-legal-modal-title"><span class="auth-legal-star" aria-hidden="true">✦</span> '+title+'</h3><button type="button" class="auth-legal-modal-close" data-legal-close aria-label="Close dialog">✕</button></div><div class="auth-legal-modal-body">'+(isTerms?termsBody:privacyBody)+'</div><div class="auth-legal-modal-footer"><button type="button" class="btn primary saas-btn" data-legal-close>Got it</button></div>';
+    dialog.addEventListener('click', ev => {
+      if (ev.target === dialog || ev.target.closest('[data-legal-close]')) dialog.close();
+    });
+    dialog.addEventListener('close', () => dialog.remove());
+    document.body.appendChild(dialog);
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+  }
   document.addEventListener('click',event=>{
+    const legalBtn = event.target.closest('[data-legal]');
+    if (legalBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      showLegalModal(legalBtn.dataset.legal);
+      return;
+    }
     if(event.target.closest('[data-studio-home]')){
       event.preventDefault();event.stopPropagation();
       show('home');
@@ -119,7 +143,6 @@
   if(accountBox)new MutationObserver(backLink).observe(accountBox,{childList:true,subtree:true});
   document.addEventListener('input',event=>{
     if(event.target.closest('#loginForm'))updateLoginSubmitState();
-    if(event.target.matches('#registerForm [name="name"]'))event.target.setCustomValidity(event.target.value.trim()?'':'Enter your name.');
   });
   document.addEventListener('change',event=>{
     if(event.target.closest('#loginForm'))updateLoginSubmitState();

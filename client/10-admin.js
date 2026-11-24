@@ -87,16 +87,63 @@
       paintAdminAccounts();
     });
     function validateSignupInput(input) {
-      if(!input?.closest('#registerForm')||!['login','email'].includes(input.name))return;
-      const valid=input.name==='login'?/^[A-Za-z0-9_]{3,32}$/.test(input.value):/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)&&input.value.length<=120&&!input.validity.typeMismatch;
-      const message=input.name==='login'?'Use 3 to 32 Latin letters, digits or underscores. No spaces.':'Enter a valid email, e.g. name@example.com.';
-      const id='signup-'+input.name+'-error';let error=document.getElementById(id);
-      if(!error){error=document.createElement('small');error.id=id;error.className='signup-field-error';error.setAttribute('role','status');input.after(error);input.setAttribute('aria-describedby',id);}
+      if(!input?.closest('#registerForm'))return;
+      const name = input.name;
+      if(!['login','email','name','password','passwordConfirm','legalConsent'].includes(name))return;
+      let valid = true;
+      let message = '';
+      if(name==='login'){
+        valid = /^[A-Za-z0-9_]{3,32}$/.test(input.value);
+        message = 'Use 3 to 32 Latin letters, digits or underscores. No spaces.';
+      }else if(name==='email'){
+        valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(input.value)&&input.value.length<=120&&!input.validity.typeMismatch;
+        message = 'Enter a valid email, e.g. name@example.com.';
+      }else if(name==='name'){
+        const val = input.value.trim();
+        const hasBadChars = /[<>{}/\\;]/.test(input.value);
+        if(!val){valid=false;message='Enter your name.';}
+        else if(input.value.length>50){valid=false;message='Name cannot exceed 50 characters.';}
+        else if(hasBadChars){valid=false;message='Name cannot contain code characters (< > { } / \\ ;).';}
+      }else if(name==='password'){
+        const len = input.value.length;
+        if(len<8){valid=false;message='Password must be at least 8 characters long.';}
+        else if(len>128){valid=false;message='Password must not exceed 128 characters.';}
+      }else if(name==='passwordConfirm'){
+        const form = input.closest('form');
+        const pwd = form?.elements?.password?.value || '';
+        if(input.value!==pwd){valid=false;message='Passwords do not match.';}
+        else if(input.value.length<8){valid=false;message='Password must be at least 8 characters long.';}
+      }else if(name==='legalConsent'){
+        valid = !!input.checked;
+        message = 'You must agree to the Terms of Use and Privacy Policy.';
+      }
+      const id='signup-'+name+'-error';let error=document.getElementById(id);
+      if(!error){
+        error=document.createElement('small');error.id=id;error.className='signup-field-error';error.setAttribute('role','status');
+        let insertAfter = input;
+        if(name==='password'){
+          const hint = document.getElementById('authPasswordHint');
+          insertAfter = hint || input.closest('.auth-password') || input;
+        }else if(name==='passwordConfirm'){
+          insertAfter = input.closest('.auth-confirm-password') || input.closest('.auth-password') || input;
+        }else if(name==='legalConsent'){
+          insertAfter = input.closest('.auth-legal-consent') || input;
+        }
+        insertAfter.after(error);
+        input.setAttribute('aria-describedby',id);
+      }
       error.hidden=valid;error.textContent=valid?'':message;
       input.setAttribute('aria-invalid',String(!valid));input.setCustomValidity(valid?'':message);
+      if(name==='password'){
+        const form = input.closest('form');
+        const confirmInput = form?.elements?.passwordConfirm;
+        if(confirmInput&&confirmInput.value)validateSignupInput(confirmInput);
+      }
     }
+    window.validateSignupInput=validateSignupInput;
     document.addEventListener('input',event=>validateSignupInput(event.target));
     document.addEventListener('focusout',event=>validateSignupInput(event.target));
+    document.addEventListener('change',event=>validateSignupInput(event.target));
     function adminGroupOptions(selected) {
       return '<option value="">Unassigned</option>' + adminGroups.map(group => '<option value="' + group.id + '"' + (group.id === selected ? ' selected' : '') + '>' + esc(group.title) + '</option>').join('');
     }
