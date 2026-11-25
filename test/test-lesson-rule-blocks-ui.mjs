@@ -50,20 +50,35 @@ test('visual rendering and interactivity of rule blocks across themes in editor 
   try {
     const context = await browser.newContext({ viewport: { width: 1200, height: 950 } });
     const page = await context.newPage();
+
+    await page.route('**/api/me', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ user: { id: 'dev', role: 'DEVELOPER', name: 'Teacher Alex' } })
+    }));
+    await page.route('**/api/me/state*', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ bootstrap: true, stats: {}, added: [], songs: [], settings: {}, counts: { lessons: 1 }, stageActivity: {} })
+    }));
+    await page.route('**/api/me/themes', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ theme: 'light', themes: [], revision: 0, customRevision: 0 })
+    }));
+
     await page.goto(targetUrl);
     await page.waitForLoadState('domcontentloaded');
 
     await page.evaluate(() => {
-      window.authUser = { id: 'dev', role: 'DEVELOPER', name: 'Teacher Alex' };
-      localStorage.setItem('enquiz_auth_token', 'dev-token');
-      
-      window.lmState = {
+      const lesson = {
         id: 'test-rules-ui',
         title: 'Advanced Grammar Structures',
         description: 'Test lesson for rule blocks.',
         className: 'B2',
-        published: true,
+        published: false,
         tab: 'rules',
+        mode: 'edit',
         blocks: [
           {
             id: 'rb_1',
@@ -81,12 +96,22 @@ test('visual rendering and interactivity of rule blocks across themes in editor 
         ]
       };
 
+      window.authUser = { id: 'dev', role: 'DEVELOPER', name: 'Teacher Alex' };
+      window.accountReady = true;
+      localStorage.setItem('enquiz_auth_token', 'dev-token');
+      localStorage.setItem('enquiz-user', JSON.stringify(window.authUser));
+      localStorage.setItem('enquiz_learning_materials', JSON.stringify({ materials: [lesson], activeId: lesson.id }));
+      sessionStorage.setItem('enquiz-place', JSON.stringify({ id: 'material', materialId: lesson.id }));
+
+      window.lmLibrary = { materials: [lesson], activeId: lesson.id };
+      window.lmState = lesson;
+
       if (typeof window.show === 'function') window.show('material');
       if (typeof window.lmSelectTab === 'function') window.lmSelectTab('rules');
       if (typeof window.lmRenderEditor === 'function') window.lmRenderEditor();
     });
 
-    await page.waitForTimeout(300);
+    await page.locator('#material.on').waitFor({ state: 'visible' });
 
     // Verify editor rendering in Sky theme
     await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'sky'));
@@ -114,7 +139,9 @@ test('visual rendering and interactivity of rule blocks across themes in editor 
     assert.equal(sandInputCount, 1);
 
     // Verify interactivity: change rule title
-    await page.fill('input[data-field="title"][data-block="rb_1"]', 'Updated Relative Clauses');
+    const titleInput = page.locator('input[data-field="title"][data-block="rb_1"]');
+    await titleInput.waitFor({ state: 'visible' });
+    await titleInput.fill('Updated Relative Clauses');
     const stateTitle = await page.evaluate(() => window.lmState.blocks[0].title);
     assert.equal(stateTitle, 'Updated Relative Clauses');
 
