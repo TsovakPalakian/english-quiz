@@ -1,6 +1,274 @@
 {
   "materials": [
     {
+      "id": "lm-b1-eval-practice",
+      "title": "B1 Practice: Travel & Daily Life",
+      "description": "Interactive B1 practice lesson with vocabulary tracking and auto-graded homework tasks.",
+      "className": "English B1",
+      "unit": "Travel & Life",
+      "lesson": "Past Experiences",
+      "date": "2026-11-25",
+      "published": true,
+      "mode": "preview",
+      "blocks": [
+        {
+          "id": "lm-b1-h1",
+          "type": "heading",
+          "collapsed": false,
+          "level": "h2",
+          "text": "What you will learn"
+        },
+        {
+          "id": "lm-b1-t1",
+          "type": "text",
+          "collapsed": false,
+          "html": "<p>In this lesson you will practice discussing past travel experiences and daily journeys using the <b>Present Perfect</b> and <b>Past Simple</b>.</p><ul><li>Key vocabulary: destination, journey, explore, experience</li><li>Grammar in context: Present Perfect vs Past Simple</li><li>Classwork guided exercises</li><li>Auto-graded homework assignments with immediate score feedback</li></ul>"
+        },
+        {
+          "id": "lm-b1-w1",
+          "type": "wordcard",
+          "tab": "words",
+          "collapsed": false,
+          "word": "destination",
+          "ru": "пункт назначения, место назначения",
+          "pos": "noun",
+          "uk": "ˌdes.tɪˈneɪ.ʃən",
+          "us": "ˌdes.təˈneɪ.ʃən",
+          "data": {
+            "found": true,
+            "word": "destination",
+            "ru": "пункт назначения, место назначения",
+            "usages": [
+              {
+                "en": "holiday destination",
+                "ru": "место отдыха",
+                "kind": "simple"
+              },
+              {
+                "en": "popular tourist destination",
+                "ru": "популярное туристическое направление",
+                "kind": "simple"
+              },
+              {
+                "en": "We arrived at our destination after a ten-hour drive.",
+                "ru": "Мы прибыли в пункт назначения после десяти часов езды.",
+                "kind": "complex"
+              }
+            ]
+          }
+        },
+        {
+          "id": "lm-b1-w2",
+          "type": "wordcard",
+          "tab": "words",
+          "collapsed": false,
+          "word": "journey",
+          "ru": "путешествие, поездка, путь",
+          "pos": "noun",
+          "uk": "ˈdʒɜː.ni",
+          "us": "ˈdʒɝː.ni",
+          "data": {
+            "found": true,
+            "word": "journey",
+            "ru": "путешествие, поездка, путь",
+            "usages": [
+              {
+                "en": "safe journey",
+                "ru": "счастливого пути, безопасной поездки",
+                "kind": "simple"
+              },
+              {
+                "en": "long journey",
+                "ru": "долгое путешествие",
+                "kind": "simple"
+              },
+              {
+                "en": "Did you have a good journey?",
+                "ru": "Как прошла ваша поездка?",
+                "kind": "complex"
+              }
+            ]
+          }
+        },
+        {
+          "id": "lm-b1-w3",
+          "type": "wordcard",
+          "tab": "words",
+          "collapsed": false,
+          "word": "explore",
+          "ru": "исследовать, изучать, знакомиться с местностью",
+          "pos": "verb",
+          "uk": "ɪkˈsplɔːr",
+          "us": "ɪkˈsplɔːr",
+          "data": {
+            "found": true,
+            "word": "explore",
+            "ru": "исследовать, изучать, знакомиться с местностью",
+            "usages": [
+              {
+                "en": "explore the city",
+                "ru": "исследовать город, осмотреть город",
+                "kind": "simple"
+              },
+              {
+                "en": "explore new options",
+                "ru": "изучить новые варианты",
+                "kind": "simple"
+              },
+              {
+                "en": "We spent the afternoon exploring the old town.",
+                "ru": "Мы провели день, исследуя старый город.",
+                "kind": "complex"
+              }
+            ]
+          }
+        },
+        {
+          "id": "lm-b1-w4",
+          "type": "wordcard",
+          "tab": "words",
+          "collapsed": false,
+          "word": "experience",
+          "ru": "опыт, впечатление, переживание",
+          "pos": "noun",
+          "uk": "ɪkˈspɪə.ri.əns",
+          "us": "ɪkˈspɪr.i.əns",
+          "data": {
+            "found": true,
+            "word": "experience",
+            "ru": "опыт, впечатление, переживание",
+            "usages": [
+              {
+                "en": "unforgettable experience",
+                "ru": "незабываемый опыт / впечатление",
+                "kind": "simple"
+              },
+              {
+                "en": "personal experience",
+                "ru": "личный опыт",
+                "kind": "simple"
+              },
+              {
+                "en": "It was the most exciting experience of my life.",
+                "ru": "Это был самый захватывающий опыт в моей жизни.",
+                "kind": "complex"
+              }
+            ]
+          }
+        },
+        {
+          "id": "lm-b1-r1",
+          "type": "rule",
+          "tab": "rules",
+          "collapsed": false,
+          "title": "Present Perfect vs Past Simple",
+          "explanation": "Use the Present Perfect for life experiences when the exact time is not stated. Use the Past Simple when referring to a specific completed time in the past.",
+          "pattern": "Present Perfect: have/has + V3 (I have visited Spain.)\nPast Simple: V2 / did (I visited Spain in 2024.)",
+          "examples": [
+            [
+              "Have you ever explored an ancient castle?",
+              "Yes, I have. I explored one in Edinburgh last summer."
+            ],
+            [
+              "She has traveled to five different countries.",
+              "She went to Japan two years ago."
+            ]
+          ]
+        },
+        {
+          "id": "lm-b1-cw1",
+          "type": "exercise",
+          "tab": "classwork",
+          "collapsed": false,
+          "title": "Classwork: Dialogue Practice",
+          "items": [
+            {
+              "prompt": "Choose the correct verb form: 'I _____ (never be) to Italy before, but I want to go.'",
+              "kind": "choice",
+              "options": [
+                "have never been",
+                "was never",
+                "am never being"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "Choose the correct past form: 'Last year we _____ (decide) to explore the mountains.'",
+              "kind": "choice",
+              "options": [
+                "have decided",
+                "decided",
+                "deciding"
+              ],
+              "answer": 1
+            }
+          ]
+        },
+        {
+          "id": "lm-b1-hw1",
+          "type": "quiz",
+          "tab": "homework",
+          "collapsed": false,
+          "title": "Task 1 · Grammar Check (Choice Quiz)",
+          "quizType": "Choice",
+          "items": [
+            {
+              "prompt": "She _____ to Spain three times this year.",
+              "options": [
+                "has been",
+                "went",
+                "was going"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "We _____ our final destination late last night.",
+              "options": [
+                "reached",
+                "have reached",
+                "reach"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "Have you ever _____ an unfamiliar city without a map?",
+              "options": [
+                "explored",
+                "explore",
+                "exploring"
+              ],
+              "answer": 0
+            }
+          ]
+        },
+        {
+          "id": "lm-b1-hw2",
+          "type": "exercise",
+          "tab": "homework",
+          "collapsed": false,
+          "title": "Task 2 · Gap Fill Exercise (Prepositions & Vocabulary)",
+          "items": [
+            {
+              "prompt": "Fill in the missing words in brackets:",
+              "kind": "text_gaps",
+              "text": "1. I am really keen [on] photography during my travels.\n2. We arrived [at] the train station just in time for our journey.\n3. Traveling alone was an unforgettable [experience] for him."
+            }
+          ]
+        },
+        {
+          "id": "lm-b1-hw3",
+          "type": "task",
+          "tab": "homework",
+          "collapsed": false,
+          "title": "Task 3 · Written Assignment (Open Task)",
+          "text": "Write 2–3 sentences describing your favorite travel destination or memorable journey. Use at least two words from this lesson (destination, journey, explore, experience).",
+          "criteria": "Content and relevance | 3\nGrammar and vocabulary usage | 2",
+          "maxPoints": 5,
+          "teacherAnswer": "My favorite travel destination is Rome. Last spring, I had an incredible journey there and spent four days exploring the ancient architecture. It was truly an unforgettable experience."
+        }
+      ]
+    },
+    {
       "id": "lm-muq8h90gk12c",
       "title": "Unknown",
       "description": "-",
@@ -7127,6 +7395,48 @@
           "size": "868 KB",
           "caption": "",
           "sample": false
+        },
+        {
+          "id": "lm-first-hw-quiz",
+          "type": "quiz",
+          "tab": "homework",
+          "collapsed": false,
+          "title": "Homework Task 1 · Vocabulary & Questions Quiz",
+          "quizType": "Choice",
+          "items": [
+            {
+              "prompt": "Choose the correct word: We booked a room in a quiet _____ near the city centre.",
+              "options": [
+                "hotel",
+                "competition",
+                "forever"
+              ],
+              "answer": 0
+            },
+            {
+              "prompt": "Complete the sentence: She entered a photography _____ and won first prize.",
+              "options": [
+                "competition",
+                "home",
+                "hotel"
+              ],
+              "answer": 0
+            }
+          ]
+        },
+        {
+          "id": "lm-first-hw-gaps",
+          "type": "exercise",
+          "tab": "homework",
+          "collapsed": false,
+          "title": "Homework Task 2 · Expression Gaps",
+          "items": [
+            {
+              "prompt": "Fill in the blanks with target expressions:",
+              "kind": "text_gaps",
+              "text": "1. Are you keen [on] learning new languages?\n2. They promised to stay friends [forever]."
+            }
+          ]
         }
       ],
       "tab": "overview",

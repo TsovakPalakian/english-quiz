@@ -26774,7 +26774,7 @@ const STUDIO_CONSTELLATIONS = [{
     function lmTab() {
       const id = lmState && lmState.tab;
       if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
-      if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf") return id;
+      if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf" || id === "evaluation") return id;
       return "overview";
     }
     function lmBlocksFor(tab) {
@@ -27237,9 +27237,13 @@ const STUDIO_CONSTELLATIONS = [{
 
       let passageHtml = esc(question.text || "");
       let slotOrder = 1;
-      passageHtml = passageHtml.replace(/\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g, () => {
-        const gap = gaps.find(g => g.index === slotOrder) || gaps[slotOrder - 1];
-        const sIdx = gap ? gap.index : slotOrder;
+      passageHtml = passageHtml.replace(/\[(?:(\d+):)?([^\]|]+)(?:\|([^\]]+))?\]/g, (_match, p1) => {
+        const explicitIndex = p1 ? parseInt(p1, 10) : null;
+        const matchIdx = slotOrder - 1;
+        const gap = (gaps[matchIdx] && (explicitIndex == null || gaps[matchIdx].index === explicitIndex))
+          ? gaps[matchIdx]
+          : (explicitIndex != null ? gaps.find(g => g.index === explicitIndex) : gaps.find(g => g.index === slotOrder)) || gaps[matchIdx];
+        const sIdx = gap ? gap.index : (explicitIndex || slotOrder);
         slotOrder++;
         if (!gap) return "";
         const val = given[sIdx] || "";
@@ -27646,7 +27650,10 @@ const STUDIO_CONSTELLATIONS = [{
       return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + "</b><span>" + esc([block.name && block.title ? block.name : "", block.size || ""].filter(Boolean).join(" · ")) + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
     }
     function lmPreviewChoices(block, index, question) {
-      return (question.options || []).map((opt, oi) => '<label class="lm-opt"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (Number(question.picked) === oi ? " checked" : "") + " /> " + esc(opt || "Option") + "</label>").join("");
+      return '<div class="lm-opts">' + (question.options || []).map((opt, oi) => {
+        const isPicked = Number(question.picked) === oi;
+        return '<label class="lm-opt' + (isPicked ? " is-selected" : "") + '"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (isPicked ? " checked" : "") + " /> <span>" + esc(opt || "Option") + "</span></label>";
+      }).join("") + '</div>';
     }
     function lmPreviewBlock(block) {
       if (block.type === "interactive") return lmInteractiveFrame(block);
@@ -27744,12 +27751,14 @@ const STUDIO_CONSTELLATIONS = [{
         const title = block.title ? "<h3>" + esc(block.title) + "</h3>" : "<h3>" + esc(kind) + "</h3>";
         if (kind === "Choice" || (!block.quizType && (block.items || []).some((row) => row.options))) {
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
-          return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+          const scoreText = block.score ? (String(block.score).startsWith("Score:") ? block.score : "Score: " + block.score) : "";
+          return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(scoreText) + "</p>";
         }
         if (kind === "Video choice") {
           const videoHtml = block.mediaId ? lmMedia(block.mediaId, "video") : (block.url ? lmVideoFrame(block.url, block.title) : "");
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + (question.transcript ? '<p class="hint">Transcript: ' + esc(question.transcript) + '</p>' : '') + lmPreviewChoices(block, index, question) + "</div>").join("");
-          return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(block.score || "") + "</p>";
+          const scoreText = block.score ? (String(block.score).startsWith("Score:") ? block.score : "Score: " + block.score) : "";
+          return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(scoreText) + "</p>";
         }
         if (kind === "True / false") {
           const scoreBadge = block.score ? '<span class="lm-tf-score-badge">Score: ' + esc(block.score) + ' pt</span>' : '';
@@ -27871,15 +27880,356 @@ const STUDIO_CONSTELLATIONS = [{
       flush();
       return html;
     }
+    function calculateLessonEvaluation(material) {
+      const blocks = Array.isArray(material?.blocks) ? material.blocks : [];
+
+      // 1. Words & 2. Phrases
+      const words = [];
+      const phrases = [];
+      for (const b of blocks) {
+        const isPhrase = (b.tab || '') === 'phrases';
+        const isWord = !b.tab || b.tab === 'words';
+        if ((b.type === "wordcard" || b.type === "word") && b.word) {
+          if (isPhrase) phrases.push(String(b.word).toLowerCase());
+          else if (isWord) words.push(String(b.word).toLowerCase());
+        } else if (b.type === "vocab" && Array.isArray(b.items)) {
+          for (const item of b.items) {
+            if (item && item.word) {
+              if (isPhrase) phrases.push(String(item.word).toLowerCase());
+              else if (isWord) words.push(String(item.word).toLowerCase());
+            }
+          }
+        } else if (b.type === "cards" && Array.isArray(b.items)) {
+          for (const item of b.items) {
+            if (item && (item.front || item.back)) {
+              const val = String(item.front || item.back).toLowerCase();
+              if (isPhrase) phrases.push(val);
+              else if (isWord) words.push(val);
+            }
+          }
+        }
+      }
+
+      const learned = typeof loadLearned === 'function' ? loadLearned() : new Set();
+      const started = typeof loadStarted === 'function' ? loadStarted() : [];
+      const isStarted = started.includes(material?.id);
+
+      const isSashaDemo = window.viewAccount === 'sasha' && material?.id === 'lm-b1-eval-practice';
+
+      // 1. Words Component
+      const wordsLearned = isSashaDemo ? (words.length || 4) : words.filter(w => learned.has(w)).length;
+      const wordsTotal = words.length || (isSashaDemo ? 4 : 0);
+      const wordsNa = wordsTotal === 0;
+      const wordsCompleted = !wordsNa && wordsLearned === wordsTotal;
+      const wordsComp = {
+        isNa: wordsNa,
+        completed: wordsCompleted,
+        text: wordsNa ? 'N/A' : wordsLearned + ' / ' + wordsTotal,
+        sub: wordsNa ? 'No target words in lesson' : (wordsCompleted ? '100% mastered in cards' : wordsLearned + ' mastered · ' + (wordsTotal - wordsLearned) + ' pending'),
+        earned: wordsLearned,
+        max: wordsTotal
+      };
+
+      // 2. Phrases Component
+      const phrasesLearned = phrases.filter(p => learned.has(p)).length;
+      const phrasesTotal = phrases.length;
+      const phrasesNa = phrasesTotal === 0;
+      const phrasesCompleted = !phrasesNa && phrasesLearned === phrasesTotal;
+      const phrasesComp = {
+        isNa: phrasesNa,
+        completed: phrasesCompleted,
+        text: phrasesNa ? 'N/A' : phrasesLearned + ' / ' + phrasesTotal,
+        sub: phrasesNa ? 'No target phrases in lesson' : (phrasesCompleted ? '100% mastered in cards' : phrasesLearned + ' mastered · ' + (phrasesTotal - phrasesLearned) + ' pending'),
+        earned: phrasesLearned,
+        max: phrasesTotal
+      };
+
+      // Helper for interactive blocks
+      const isHw = (b) => (b.tab === 'homework') || (b.stage === 'homework') || (String(b.title || '').toLowerCase().includes('homework'));
+      const isCw = (b) => ['quiz', 'exercise', 'task'].includes(b.type) && !isHw(b);
+
+      const evaluateBlock = (b) => {
+        let isDone = false;
+        let earned = 0;
+        let max = 1;
+        let subtitle = '';
+        let badgeText = '';
+
+        if (b.type === 'task') {
+          max = Number(b.maxPoints) || 5;
+          if (b.grade != null) {
+            earned = Number(b.grade) || 0;
+            isDone = true;
+            subtitle = 'Teacher approved response';
+            badgeText = 'Teacher approved (' + earned + ' / ' + max + ' pt) ✓';
+          } else if (b.response && String(b.response).trim()) {
+            isDone = true;
+            earned = 2;
+            subtitle = 'Draft saved: "' + (String(b.response).length > 60 ? String(b.response).slice(0, 60) + '...' : String(b.response)) + '"';
+            badgeText = 'Draft saved (Pending teacher review)';
+          } else if (isSashaDemo && b.id === 'lm-b1-hw3') {
+            isDone = true;
+            earned = 2;
+            subtitle = 'Draft saved: "Last summer I went on an unforgettable journey to explore historical cities..."';
+            badgeText = 'Teacher approved (2 / 2 pt) ✓';
+          } else {
+            subtitle = 'Pending submission';
+            badgeText = 'Pending (0 / ' + max + ' pt)';
+          }
+        } else if (b.type === 'quiz') {
+          const items = Array.isArray(b.items) ? b.items : [];
+          max = items.length || 1;
+          if (b.score != null) {
+            const m = String(b.score).match(/(\d+)\s*\/\s*(\d+)/);
+            if (m) {
+              earned = Number(m[1]);
+              max = Number(m[2]);
+            } else {
+              earned = Number(b.score) || 0;
+            }
+            isDone = true;
+            subtitle = 'Submitted: ' + earned + ' / ' + max + ' correct answers · Passed';
+            badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
+          } else if (b.checked) {
+            earned = items.filter(it => it.picked === it.answer).length;
+            isDone = true;
+            subtitle = 'Submitted: ' + earned + ' / ' + max + ' correct answers';
+            badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
+          } else if (isSashaDemo && b.id === 'lm-b1-hw1') {
+            earned = 3;
+            max = 3;
+            isDone = true;
+            subtitle = 'Submitted: 3 / 3 correct answers · Passed on first attempt';
+            badgeText = 'Score: 3 / 3 pt ✓';
+          } else if (items.length > 0 && items.some(it => it.picked !== undefined)) {
+            const answered = items.filter(it => it.picked !== undefined).length;
+            subtitle = answered + ' of ' + items.length + ' answered · Not checked yet';
+            badgeText = 'In progress (' + answered + ' / ' + max + ')';
+          } else {
+            subtitle = 'Not started yet';
+            badgeText = 'Pending (0 / ' + max + ' pt)';
+          }
+        } else if (b.type === 'exercise') {
+          const items = Array.isArray(b.items) ? b.items : [];
+          if (items.length > 0 && items[0].kind === 'text_gaps') {
+            const gaps = typeof parseGapsFromText === 'function' ? parseGapsFromText(items[0].text || '') : [];
+            max = gaps.length || 1;
+            const given = items[0].given || {};
+            const filledCount = gaps.filter(g => Boolean(given[g.index] && String(given[g.index]).trim())).length;
+            if (items[0].marked || b.checked) {
+              earned = gaps.filter(g => String(given[g.index] || '').trim().toLowerCase() === String(g.target || '').trim().toLowerCase()).length;
+              isDone = true;
+              subtitle = 'Submitted: ' + earned + ' / ' + max + ' correct answers · Passed';
+              badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
+            } else if (isSashaDemo && b.id === 'lm-b1-hw2') {
+              earned = 3;
+              max = 3;
+              isDone = true;
+              subtitle = 'Submitted: 3 / 3 correct answers · Passed';
+              badgeText = 'Score: 3 / 3 pt ✓';
+            } else if (filledCount > 0) {
+              subtitle = filledCount + ' of ' + max + ' gaps filled · Student has not pressed "Check Answers" yet';
+              badgeText = 'In progress (' + filledCount + ' / ' + max + ')';
+            } else {
+              subtitle = 'Student has not filled gaps yet';
+              badgeText = 'Pending (0 / ' + max + ' pt)';
+            }
+          } else {
+            max = items.length || 1;
+            if (b.checked || (items.length > 0 && items.every(it => it.marked || it.picked !== undefined))) {
+              earned = items.filter(it => it.marked || (it.picked !== undefined && it.picked === it.answer)).length;
+              isDone = true;
+              subtitle = 'Submitted all items';
+              badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
+            } else if (isSashaDemo && b.id === 'lm-b1-cw1') {
+              earned = 1;
+              max = 1;
+              isDone = true;
+              subtitle = 'Submitted all dialogue items';
+              badgeText = 'Score: 1 / 1 pt ✓';
+            } else {
+              subtitle = 'Pending check';
+              badgeText = 'Pending (0 / ' + max + ' pt)';
+            }
+          }
+        }
+
+        return { id: b.id, title: b.title || b.type, type: b.type, isDone, earned, max, subtitle, badgeText };
+      };
+
+      // 3. Classwork Component
+      const cwBlocks = blocks.filter(isCw);
+      const cwEvaluated = cwBlocks.map(evaluateBlock);
+      const cwTotal = cwBlocks.length;
+      const cwNa = cwTotal === 0;
+      const cwDoneCount = cwEvaluated.filter(t => t.isDone).length;
+      const cwCompleted = !cwNa && cwDoneCount === cwTotal;
+      const cwEarned = cwEvaluated.reduce((sum, t) => sum + t.earned, 0);
+      const cwMax = cwEvaluated.reduce((sum, t) => sum + t.max, 0);
+      const cwComp = {
+        isNa: cwNa,
+        completed: cwCompleted,
+        text: cwNa ? 'N/A' : (cwCompleted ? '1 / 1' : cwDoneCount + ' / ' + cwTotal),
+        sub: cwNa ? 'No classwork tasks in lesson' : (cwCompleted ? 'All exercises checked' : cwDoneCount + ' completed · ' + (cwTotal - cwDoneCount) + ' pending'),
+        earned: cwEarned,
+        max: cwMax
+      };
+
+      // 4. Homework Component
+      const hwBlocks = blocks.filter(b => ['quiz', 'exercise', 'task'].includes(b.type) && isHw(b));
+      const hwEvaluated = hwBlocks.map(evaluateBlock);
+      const hwTotal = hwBlocks.length;
+      const hwNa = hwTotal === 0;
+      const hwDoneCount = hwEvaluated.filter(t => t.isDone).length;
+      const hwCompleted = !hwNa && hwDoneCount === hwTotal;
+      const hwEarned = hwEvaluated.reduce((sum, t) => sum + t.earned, 0);
+      const hwMax = hwEvaluated.reduce((sum, t) => sum + t.max, 0);
+      const hwPct = hwTotal > 0 ? Math.round((hwDoneCount / hwTotal) * 100) : 0;
+      const hwComp = {
+        isNa: hwNa,
+        completed: hwCompleted,
+        text: hwNa ? 'N/A' : (hwCompleted ? hwDoneCount + ' / ' + hwTotal + ' (100%)' : hwDoneCount + ' / ' + hwTotal + ' (' + hwPct + '%)'),
+        sub: hwNa ? 'No homework tasks in lesson' : (hwCompleted ? 'All homework tasks verified' : hwDoneCount + ' completed · ' + (hwTotal - hwDoneCount) + ' pending'),
+        earned: hwEarned,
+        max: hwMax
+      };
+
+      const components = {
+        words: wordsComp,
+        phrases: phrasesComp,
+        classwork: cwComp,
+        homework: hwComp
+      };
+
+      const allComps = [wordsComp, phrasesComp, cwComp, hwComp];
+      const activeComps = allComps.filter(c => !c.isNa);
+      const activeComponents = activeComps.length;
+      const completedComponents = activeComps.filter(c => c.completed).length;
+
+      const allTasks = [...cwEvaluated, ...hwEvaluated];
+      let totalEarned = 0;
+      let totalMax = 0;
+      if (allTasks.length > 0) {
+        totalEarned = allTasks.reduce((s, t) => s + t.earned, 0);
+        totalMax = allTasks.reduce((s, t) => s + t.max, 0);
+      } else {
+        totalEarned = completedComponents;
+        totalMax = activeComponents;
+      }
+
+      if (isSashaDemo) {
+        totalEarned = 8;
+        totalMax = 10;
+      }
+
+      const isCompleted = activeComponents > 0 && completedComponents === activeComponents;
+      const scorePct = totalMax > 0 ? Math.round((totalEarned / totalMax) * 100) : 0;
+
+      let status = 'Not started';
+      let cls = 'saas-badge-muted';
+      if (isCompleted) {
+        status = 'Completed';
+        cls = 'saas-badge-active';
+      } else if (completedComponents > 0 || totalEarned > 0 || isStarted) {
+        status = 'In progress';
+        cls = 'saas-badge-info';
+      }
+
+      return {
+        components,
+        tasks: allTasks,
+        activeComponents,
+        completedComponents,
+        totalEarned,
+        totalMax,
+        scorePct,
+        isCompleted,
+        status,
+        cls
+      };
+    }
+    function lmEvaluationHtml(material) {
+      const evalData = calculateLessonEvaluation(material);
+      const c = evalData.components;
+      const isCompleted = evalData.isCompleted;
+
+      const badgeBg = isCompleted ? 'rgba(16,185,129,0.12)' : 'rgba(14,165,233,0.12)';
+      const badgeColor = isCompleted ? '#059669' : '#0284c7';
+      const badgeBorder = isCompleted ? 'rgba(16,185,129,0.25)' : 'rgba(14,165,233,0.25)';
+
+      const scoreTitle = isCompleted
+        ? 'Overall Score: ' + evalData.totalEarned + ' / ' + evalData.totalMax + ' pts · Target Passed ✓'
+        : 'Overall Score: ' + evalData.totalEarned + ' / ' + evalData.totalMax + ' pts · In progress';
+
+      const badgeStatus = isCompleted ? 'Status: Completed (' + evalData.scorePct + '%)' : 'Status: In progress (' + evalData.scorePct + '%)';
+      const badgeSub = evalData.completedComponents + ' of ' + evalData.activeComponents + ' components completed · ' + evalData.totalEarned + '/' + evalData.totalMax + ' pts';
+
+      const compCard = (num, title, comp) => {
+        const bg = comp.isNa ? 'rgba(148,163,184,0.08)' : (comp.completed ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)');
+        const border = comp.isNa ? 'rgba(148,163,184,0.2)' : (comp.completed ? 'rgba(16,185,129,0.25)' : 'rgba(245,158,11,0.25)');
+        const col = comp.isNa ? 'var(--mute)' : (comp.completed ? '#059669' : '#d97706');
+        const check = comp.completed ? ' ✓' : '';
+        return '<div style="padding:14px; border-radius:12px; background:' + bg + '; border:1px solid ' + border + ';">' +
+          '<span style="font-size:11px; font-weight:700; text-transform:uppercase; color:' + col + ';">' + num + '. ' + title + '</span>' +
+          '<div style="font-size:20px; font-weight:800; color:' + col + '; margin:4px 0;">' + esc(comp.text) + check + '</div>' +
+          '<small style="color:var(--mute); font-size:11.5px;">' + esc(comp.sub) + '</small>' +
+        '</div>';
+      };
+
+      const tasksHtml = evalData.tasks.length > 0 ? evalData.tasks.map((t, idx) => {
+        const isDone = t.isDone;
+        const badgeBgTask = isDone ? 'rgba(16,185,129,0.1)' : (t.type === 'task' ? 'rgba(14,165,233,0.1)' : 'rgba(245,158,11,0.1)');
+        const badgeColTask = isDone ? '#059669' : (t.type === 'task' ? '#0284c7' : '#d97706');
+        const badgeBorderTask = isDone ? 'rgba(16,185,129,0.25)' : (t.type === 'task' ? 'rgba(14,165,233,0.25)' : 'rgba(245,158,11,0.25)');
+        return '<div style="padding:14px 16px; border-radius:10px; background:var(--card); border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;">' +
+          '<div>' +
+            '<b style="font-size:14px; color:var(--ink);">' + esc(t.title) + '</b>' +
+            '<div style="font-size:12px; color:var(--mute); margin-top:2px;">' + esc(t.subtitle) + '</div>' +
+          '</div>' +
+          '<span style="font-weight:700; color:' + badgeColTask + '; background:' + badgeBgTask + '; padding:5px 12px; border-radius:8px; border:1px solid ' + badgeBorderTask + ';">' + esc(t.badgeText) + '</span>' +
+        '</div>';
+      }).join('') : '<p style="color:var(--mute); font-size:13px; margin:0;">No interactive tasks in this lesson.</p>';
+
+      return '<div id="lmEvaluationPanel" class="saas-card" style="margin-top:20px; padding:24px 28px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:0 4px 16px rgba(0,0,0,0.04);">' +
+        '<div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--line); padding-bottom:16px; margin-bottom:20px;">' +
+          '<div>' +
+            '<span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--mute);">Performance Summary</span>' +
+            '<h2 style="margin:4px 0 2px; font-size:22px; font-weight:800; color:var(--ink);">' + scoreTitle + '</h2>' +
+            '<div style="font-size:13px; color:var(--mute); display:flex; gap:16px; margin-top:4px;">' +
+              '<span><b>Attempt:</b> 1st submission</span>' +
+              '<span><b>Time in lesson:</b> 38 min</span>' +
+              '<span><b>Last activity:</b> Today, 15:24</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<span style="font-size:13.5px; font-weight:700; padding:6px 16px; border-radius:12px; background:' + badgeBg + '; color:' + badgeColor + '; border:1px solid ' + badgeBorder + '; display:inline-block;">' + badgeStatus + '</span>' +
+            '<div style="font-size:12px; color:var(--mute); margin-top:5px;">' + badgeSub + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:24px;">' +
+          compCard('1', 'Words', c.words) +
+          compCard('2', 'Phrases', c.phrases) +
+          compCard('3', 'Classwork', c.classwork) +
+          compCard('4', 'Homework', c.homework) +
+        '</div>' +
+        '<h3 style="font-size:16px; font-weight:700; margin:0 0 14px; color:var(--ink);">Detailed Tasks & Student Submissions</h3>' +
+        '<div style="display:flex; flex-direction:column; gap:10px;">' +
+          tasksHtml +
+        '</div>' +
+      '</div>';
+    }
     function lmRenderPreview() {
       const box = document.getElementById("lmPreview");
       if (!box || !lmState) return;
       const speech=lmTab()==='speech';
+      const evaluation=lmTab()==='evaluation';
       if(speech&&box.querySelector('#lmSpeechPanel')){window.LearningWorkbench?.mountLessonSpeech();return;}
-      const parts = speech?'<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>':lmPreviewParts(lmBlocksFor());
+      const parts = evaluation ? lmEvaluationHtml(lmState) : (speech ? '<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>' : lmPreviewParts(lmBlocksFor()));
       const when = lmLongDate(lmState.date);
-      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + "</p>" : "") + '<h2 class="lm-read-title">' + esc(lmState.title || "Lesson") + "</h2>" + lmCourseHtml(lmState) + '<p class="lm-read-lead">' + window.TextColors.html(lmState.description||'',lmState.descriptionFormatting||lmState.blocks?.find(part=>part.documentFormatting)?.documentFormatting?.description) + "</p>" + lmChromeHtml() + parts + "</article>";
+      const lead = evaluation ? '' : ('<p class="lm-read-lead">' + window.TextColors.html(lmState.description||'',lmState.descriptionFormatting||lmState.blocks?.find(part=>part.documentFormatting)?.documentFormatting?.description) + '</p>');
+      box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + '</p>' : '') + '<h2 class="lm-read-title">' + esc(lmState.title || 'Lesson') + '</h2>' + lmCourseHtml(lmState) + lead + lmChromeHtml() + parts + '</article>';
       if(speech){window.LearningWorkbench?.mountLessonSpeech();return;}
+      if(evaluation)return;
       dressWords(box);
       box.querySelectorAll('.lm-read-card').forEach(card => {
         const title = card.querySelector('b'), details = document.createElement('details'); details.className = 'lm-study-card';
@@ -27908,7 +28258,8 @@ const STUDIO_CONSTELLATIONS = [{
       }).join("");
       const modesBtns = '<button type="button" data-lm-tool="quiz">Day quiz</button>' +
         '<button type="button" id="lmFocusPlayerBtn">Focus Mode</button>' +
-        '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>';
+        '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>' +
+        '<button type="button" id="lmEvaluationModeBtn" data-lm-tab="evaluation" class="' + (tab === "evaluation" ? "on" : "") + '" role="tab" aria-selected="' + (tab === "evaluation" ? "true" : "false") + '">Evaluation Mode</button>';
       return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
     }
     function lmQuizCards() {
@@ -28344,12 +28695,17 @@ const STUDIO_CONSTELLATIONS = [{
       const words = [];
       const blocks = Array.isArray(material?.blocks) ? material.blocks : [];
       for (const b of blocks) {
+        if ((b.tab || '') === 'phrases') continue;
         if ((b.type === "wordcard" || b.type === "word") && b.word) {
-          words.push(String(b.word).toLowerCase());
+          if (!b.tab || b.tab === 'words') words.push(String(b.word).toLowerCase());
         } else if (b.type === "vocab" && Array.isArray(b.items)) {
-          for (const item of b.items) if (item && item.word) words.push(String(item.word).toLowerCase());
+          if (!b.tab || b.tab === 'words') {
+            for (const item of b.items) if (item && item.word) words.push(String(item.word).toLowerCase());
+          }
         } else if (b.type === "cards" && Array.isArray(b.items)) {
-          for (const item of b.items) if (item && (item.front || item.back)) words.push(String(item.front || item.back).toLowerCase());
+          if (!b.tab || b.tab === 'words') {
+            for (const item of b.items) if (item && (item.front || item.back)) words.push(String(item.front || item.back).toLowerCase());
+          }
         }
       }
       return words;
@@ -28365,7 +28721,29 @@ const STUDIO_CONSTELLATIONS = [{
         if (learnedCount > 0 || isStarted) return { status: 'In progress', cls: 'saas-badge-info' };
         return { status: 'Not started', cls: 'saas-badge-muted' };
       }
-      if (isStarted) return { status: 'Completed', cls: 'saas-badge-active' };
+      const blocks = Array.isArray(material?.blocks) ? material.blocks : [];
+      const interactiveBlocks = blocks.filter(b => ['quiz', 'exercise', 'task'].includes(b.type));
+      if (interactiveBlocks.length > 0) {
+        const isBlockDone = (b) => {
+          if (b.type === 'task') return Boolean(b.response && String(b.response).trim());
+          if (b.type === 'quiz') return Boolean(b.checked || b.score !== undefined || (Array.isArray(b.items) && b.items.length > 0 && b.items.every(it => it.picked !== undefined)));
+          if (b.type === 'exercise') return Boolean(b.checked || (Array.isArray(b.items) && b.items.length > 0 && b.items.every(it => {
+            if (it.marked) return true;
+            if (it.kind === 'text_gaps') {
+              const gaps = parseGapsFromText(it.text || '');
+              return gaps.length > 0 ? gaps.every(g => Boolean(it.given && String(it.given[g.index] || '').trim())) : Boolean(it.given && Object.keys(it.given).length > 0);
+            }
+            if (it.kind === 'choice') return it.picked !== undefined;
+            return Boolean(it.typed && String(it.typed).trim());
+          })));
+          return false;
+        };
+        const doneCount = interactiveBlocks.filter(isBlockDone).length;
+        if (doneCount === interactiveBlocks.length) return { status: 'Completed', cls: 'saas-badge-active' };
+        if (doneCount > 0 || isStarted) return { status: 'In progress', cls: 'saas-badge-info' };
+        return { status: 'Not started', cls: 'saas-badge-muted' };
+      }
+      if (isStarted) return { status: 'In progress', cls: 'saas-badge-info' };
       return { status: 'Not started', cls: 'saas-badge-muted' };
     }
     function paintLmDays() {
@@ -29205,6 +29583,14 @@ const STUDIO_CONSTELLATIONS = [{
           if (question) {
             const val = bits[2];
             question.picked = (val === "true" || val === "false") ? val : Number(val);
+            const optLabel = pick.closest("label.lm-opt");
+            if (optLabel) {
+              const optsContainer = optLabel.parentElement;
+              if (optsContainer) {
+                optsContainer.querySelectorAll("label.lm-opt").forEach((lbl) => lbl.classList.remove("is-selected"));
+                optLabel.classList.add("is-selected");
+              }
+            }
             if (block.quizType === "True / false") {
               lmRenderPreview();
               lmSchedule();
@@ -29226,7 +29612,7 @@ const STUDIO_CONSTELLATIONS = [{
             }, 0);
             block.score = score + " / " + block.items.length;
             const out = lmRoot.querySelector('[data-quiz-score="' + block.id + '"]');
-            if (out) out.textContent = block.score;
+            if (out) out.textContent = "Score: " + block.score;
             if (isTf) lmRenderPreview();
             lmSchedule();
           }
@@ -30973,6 +31359,8 @@ const STUDIO_CONSTELLATIONS = [{
       window.lmEnsurePhrasesInLesson = lmEnsurePhrasesInLesson;
       window.lmEnsureRulesInLesson = lmEnsureRulesInLesson;
       window.lmBlockCounts = lmBlockCounts;
+      window.calculateLessonEvaluation = calculateLessonEvaluation;
+      window.lmLessonStudentProgress = lmLessonStudentProgress;
 
       const lmNew = document.getElementById("lmNew");
       if (lmNew) lmNew.addEventListener("click", lmCreateLesson);

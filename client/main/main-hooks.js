@@ -1335,7 +1335,7 @@ if(typeof homeBuckets==='function')homeBuckets=function(rows){
 };
 function stageResponseValue(block,checked=false){
   if(block.type==='task'||block.type==='text'&&block.answerEnabled)return block.responseFormatting?{text:block.response||'',format:block.responseFormatting}:block.response||'';
-  return {items:(block.items||[]).map(item=>({...('picked' in item?{picked:item.picked}:{}),...('typed' in item?{typed:item.typed}:{}),...(item.typedFormatting?{format:item.typedFormatting}:{})})),...(checked?{checked:true}:{})};
+  return {items:(block.items||[]).map(item=>({...('picked' in item?{picked:item.picked}:{}),...('typed' in item?{typed:item.typed}:{}),...(item.typedFormatting?{format:item.typedFormatting}:{}),...('given' in item && item.given ? {given: item.given} : {})})),...(checked?{checked:true}:{})};
 }
 function stageLessonCounts(blocks){
   let words=0,phrases=0,rules=0;
@@ -1621,12 +1621,12 @@ function stageResponseEvent(event){
   if(!input)return;
   const checking=input.hasAttribute('data-quiz-check')||input.hasAttribute('data-ex-check');
   if((checking && event.type!=='click') || (!checking && !['input','change','focusout'].includes(event.type)))return;
+  const raw=(input.dataset.response||input.dataset.write||input.dataset.pick||input.dataset.quizCheck||input.dataset.exCheck)||"";
+  const bits=raw.split(':'),block=(lmState?.blocks||[]).find(row=>row.id===stageDomId(input.dataset.response||input.dataset.quizCheck||input.dataset.exCheck||bits[0]));
+  if(!block || !block.stageBlockRevision)return;
   // Capture before the old lesson-wide persistence handlers.
   event.stopPropagation();
   if(!authUser || viewAccount || viewSwitching || !accountReady){window.LearningMain.notice('Ответы сохраняются только в собственный профиль.',true);return;}
-  const raw=input.dataset.response||input.dataset.write||input.dataset.pick||input.dataset.quizCheck||input.dataset.exCheck;
-  const bits=raw.split(':'),block=(lmState?.blocks||[]).find(row=>row.id===stageDomId(input.dataset.response||input.dataset.quizCheck||input.dataset.exCheck||bits[0]));
-  if(!block || !block.stageBlockRevision){window.LearningMain.notice('Задание не связано с серверным ID. Перезагрузите урок.',true);return;}
   if(input.dataset.response)block.response=input.value;
   if(input.dataset.write && block.items?.[Number(bits[1])])block.items[Number(bits[1])].typed=input.value;
   if(input.dataset.pick){
