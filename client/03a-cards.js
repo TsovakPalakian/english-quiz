@@ -96,6 +96,8 @@
         (list || []).forEach((item) => put(item.en, item.uk, item.us));
       });
       Object.keys(IPA_WORD).forEach((key) => put(key, IPA_WORD[key][0], IPA_WORD[key][1]));
+      const essentialMap = (typeof ESSENTIAL_IPA !== "undefined" ? ESSENTIAL_IPA : null) || (typeof window !== "undefined" && window.ESSENTIAL_IPA) || {};
+      Object.keys(essentialMap).forEach((key) => put(key, essentialMap[key][0], essentialMap[key][1]));
       Object.keys(window.VERB_IPA || {}).forEach((key) => put(key, window.VERB_IPA[key][0], window.VERB_IPA[key][1]));
       ipaBank.cache = map;
       return map;

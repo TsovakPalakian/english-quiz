@@ -157,4 +157,21 @@ test('TASK-13: Dashboard logic, greeting personalization, and mastery track wiri
   const slotBtn = getEl('homeNextLessonSlotBtn');
   assert.equal(slotDate.textContent, '—', 'Empty next lesson slot should show em-dash');
   assert.equal(slotBtn.disabled, true, 'Next lesson button should be disabled when empty');
+
+  // 4. Test first name greeting extraction (e.g. Alice Smith -> Alice, Tsovak Palakian -> Tsovak)
+  assert.equal(getEl('homeStudentName').textContent, 'Alice', 'Must extract first name Alice from Alice Smith');
+  assert.equal(getEl('homeWelcomeHeading').innerHTML, 'Welcome back, <span id="homeStudentName">Alice</span>! 👋');
+
+  mockContext.authUser = { id: 102, name: 'Tsovak Palakian', role: 'USER' };
+  mockContext.paintHomeDashboard({ learned: 2, total: 10, pct: 20 });
+  assert.equal(getEl('homeStudentName').textContent, 'Tsovak', 'Must extract first name Tsovak from Tsovak Palakian');
+  assert.equal(getEl('homeWelcomeHeading').innerHTML, 'Welcome back, <span id="homeStudentName">Tsovak</span>! 👋');
+
+  mockContext.authUser = { id: 103, username: '   John Doe   ', role: 'USER' };
+  mockContext.paintHomeDashboard({ learned: 2, total: 10, pct: 20 });
+  assert.equal(getEl('homeStudentName').textContent, 'John', 'Must trim and extract first name John');
+
+  mockContext.authUser = null;
+  mockContext.paintHomeDashboard({ learned: 0, total: 0, pct: 0 });
+  assert.equal(getEl('homeStudentName').textContent, 'Student', 'Must fall back to Student when unauthenticated');
 });

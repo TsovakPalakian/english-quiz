@@ -89,7 +89,8 @@ test('TASK-13 visual test: Student home dashboard hierarchy, theme contrast, and
     const welcome = page.locator('#homeWelcomeHeading');
     await welcome.waitFor({ state: 'visible', timeout: 5000 });
     const headingText = await welcome.textContent();
-    assert.ok(headingText.includes('Alice Student'), 'Heading must contain student name: ' + headingText);
+    assert.ok(headingText.includes('Alice'), 'Heading must contain student name: ' + headingText);
+    assert.equal(headingText.trim(), 'Welcome back, Alice! 👋', 'Heading must match welcome greeting format');
 
     // 2. Sidebar progress must be hidden on #home
     const sidebarProgress = page.locator('.shell-progress');

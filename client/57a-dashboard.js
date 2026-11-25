@@ -217,11 +217,13 @@
 
     function paintHomeDashboard({learned,total,pct}) {
       const text = (id,value) => { const node=document.getElementById(id);if(node)node.textContent=value; };
+      const rawName = authUser?.name || authUser?.username || 'Student';
+      const firstName = String(rawName).trim().split(/\s+/)[0] || 'Student';
       const nameSpan = document.getElementById('homeStudentName');
-      if (nameSpan) nameSpan.textContent = authUser?.name || authUser?.username || 'Student';
+      if (nameSpan) nameSpan.textContent = firstName;
       const welcomeHeading = document.getElementById('homeWelcomeHeading');
       if (welcomeHeading && authUser && !authUser.firstLogin) {
-        const studentName = typeof esc === 'function' ? esc(authUser.name || authUser.username || 'Student') : (authUser.name || authUser.username || 'Student');
+        const studentName = typeof esc === 'function' ? esc(firstName) : firstName;
         welcomeHeading.innerHTML = 'Welcome back, <span id="homeStudentName">' + studentName + '</span>! 👋';
       }
       text('shellProgressPercent',pct+'%');text('shellProgressCount',learned+' of '+total+' cards learned');
