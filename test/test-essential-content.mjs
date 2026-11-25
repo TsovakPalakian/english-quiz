@@ -18,7 +18,7 @@ function fixture(){
 
 test('Every Essential topic has complete, distinct entries and bilingual examples',()=>{
   const topics=everydayGroups.flatMap(group=>group.topics),entries=topics.flatMap(topic=>topic.entries);
-  assert.equal(everydayGroups.length,3);assert.ok(topics.length>=120);assert.ok(entries.length>=1300);
+  assert.equal(everydayGroups.length,3);assert.ok(topics.length>=120);assert.ok(entries.length>=3000);
   assert.equal(new Set(topics.map(topic=>topic.id)).size,topics.length);
   for(const topic of topics){
     assert.ok(topic.entries.length>0,topic.title);
@@ -29,8 +29,8 @@ test('Every Essential topic has complete, distinct entries and bilingual example
     }
   }
   const find=title=>topics.find(topic=>topic.title===title);
-  assert.equal(find('Fruits and berries').entries.length,40);
-  assert.equal(find('Scientific disciplines').entries.length,30);
+  assert.equal(find('Fruits and berries').entries.length,57);
+  assert.equal(find('Scientific disciplines').entries.length,49);
   assert.equal(find('Question words').entries.find(entry=>entry.en==='who').pos,'pronoun');
   assert.equal(find('Countries and nationalities').entries.find(entry=>entry.en==='French').pos,'adjective');
   assert.deepEqual(topics.find(topic=>topic.id==='basic-1').entries.map(entry=>entry.en),['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']);

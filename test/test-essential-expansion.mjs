@@ -12,7 +12,7 @@ function createMockGroups() {
   ];
 }
 
-test('expandEssential populates all three groups with 116 topics and 1257 vocabulary entries', () => {
+test('expandEssential populates all three groups with 119 topics and 3019 vocabulary entries', () => {
   const groups = createMockGroups();
   expandEssential(groups);
 
@@ -26,7 +26,7 @@ test('expandEssential populates all three groups with 116 topics and 1257 vocabu
 
   assert.equal(speech.topics.length, 15);
   assert.equal(basics.topics.length, 13);
-  assert.equal(topics.topics.length, 88);
+  assert.equal(topics.topics.length, 91);
 
   let totalEntries = 0;
   for (const group of groups) {
@@ -39,7 +39,7 @@ test('expandEssential populates all three groups with 116 topics and 1257 vocabu
     }
   }
 
-  assert.equal(totalEntries, 1257);
+  assert.equal(totalEntries, 3019);
 });
 
 test('expandEssential entries possess valid schema fields and non-empty strings', () => {
@@ -160,5 +160,8 @@ test('everydayGroups export contains integrated essential vocabulary', () => {
   const totalEntries = everydayGroups.reduce((acc, g) => acc + g.topics.reduce((s, t) => s + t.entries.length, 0), 0);
 
   assert.equal(totalTopics, 125);
-  assert.equal(totalEntries, 1338);
+  assert.equal(totalEntries, 3100);
+  assert.equal(speech.topics.reduce((s, t) => s + t.entries.length, 0), 299);
+  assert.equal(basics.topics.reduce((s, t) => s + t.entries.length, 0), 287);
+  assert.equal(topics.topics.reduce((s, t) => s + t.entries.length, 0), 2514);
 });

@@ -1,4 +1,5 @@
 import {grammarDetails} from './grammar-content.mjs';
+import {expandAdditionalEssential} from './essential-expanded-data.mjs';
 
 export function expandEssential(groups){
   const add=(groupId,title,pos,rows,extra={})=>{
@@ -1290,4 +1291,5 @@ opponent~соперник~My opponent played well.~Мой соперник хо�
 strategy~стратегия~We need a strategy.~Нам нужна стратегия.
 puzzle~головоломка~Solve the puzzle.~Реши головоломку.`);
   add('topics','Grammar and language','noun',Object.entries(grammarDetails).map(([en,detail])=>[en.toLowerCase(),detail.ru,detail.en,detail.definition].join('~')).join('\n'),{id:'topic-grammar',source:'Grammatical Categories'});
+  expandAdditionalEssential(groups);
 }
