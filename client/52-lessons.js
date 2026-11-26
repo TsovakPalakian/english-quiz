@@ -1511,9 +1511,10 @@
       return '<div class="lm-read-pdf"><b>' + esc(block.title || block.name || label) + "</b><span>" + esc([block.name && block.title ? block.name : "", block.size || ""].filter(Boolean).join(" · ")) + '</span><div style="margin-top:8px"><button class="lm-btn lm-btn-primary" type="button" ' + attr + '="' + block.id + '">' + action + "</button></div></div>";
     }
     function lmPreviewChoices(block, index, question) {
+      const isLocked = Boolean(block.submitted || block.checked || question.submitted);
       return '<div class="lm-opts">' + (question.options || []).map((opt, oi) => {
         const isPicked = Number(question.picked) === oi;
-        return '<label class="lm-opt' + (isPicked ? " is-selected" : "") + '"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (isPicked ? " checked" : "") + " /> <span>" + esc(opt || "Option") + "</span></label>";
+        return '<label class="lm-opt' + (isPicked ? " is-selected" : "") + (isLocked ? " is-locked" : "") + '"><input type="radio" name="pv-' + block.id + "-" + index + '" data-pick="' + block.id + ":" + index + ":" + oi + '"' + (isPicked ? " checked" : "") + (isLocked ? " disabled" : "") + " /> <span>" + esc(opt || "Option") + "</span></label>";
       }).join("") + '</div>';
     }
     function lmPreviewBlock(block) {
@@ -1573,7 +1574,145 @@
         });
         return (block.title ? "<h3>" + esc(block.title) + "</h3>" : "") + '<div class="lm-copy lm-reading">' + words + "</div>";
       }
-      if (block.type === "task") return "<h3>" + esc(block.title || "Task") + '</h3><p>' + esc(block.text || "") + '</p><label>Your answer<textarea data-response="' + block.id + '">' + esc(block.response || "") + "</textarea></label>";
+      if (block.type === "task") {
+        const isHwOrCw = (block.tab === 'homework') || (block.tab === 'classwork') || (block.stage === 'homework') || (block.stage === 'classwork');
+        const isLocked = Boolean(block.submitted || block.checked || block.teacherVerified);
+        const max = Number(block.weight) || Number(block.maxPoints) || 5;
+        const currentGrade = block.grade != null ? Number(block.grade) : '';
+        const headHtml = '<div class="lm-answer-head">' +
+          '<label class="lm-answer-label">Your answer</label>' +
+          '<div class="voice-tools-row">' +
+            (!isLocked ? '<button type="button" class="voice-mic-btn" data-voice-dictate="' + block.id + '">🎙 Dictate Answer</button>' : '') +
+          '</div>' +
+        '</div>';
+
+        let voicePanel = '';
+        if (block.isRecordingVoice) {
+          const dur = block.recordingDuration || 14;
+          voicePanel = '<div class="voice-recording-panel">' +
+            '<div class="voice-panel-head">' +
+              '<div class="voice-indicator-live"><span class="voice-pulse-dot"></span><span>Recording live speech... 0:' + (dur < 10 ? '0' : '') + dur + '</span></div>' +
+              '<div class="voice-soundwave">' +
+                '<div class="soundwave-bar" style="height:6px;"></div>' +
+                '<div class="soundwave-bar" style="height:14px;"></div>' +
+                '<div class="soundwave-bar" style="height:18px;"></div>' +
+                '<div class="soundwave-bar" style="height:10px;"></div>' +
+                '<div class="soundwave-bar" style="height:16px;"></div>' +
+                '<div class="soundwave-bar" style="height:8px;"></div>' +
+              '</div>' +
+              '<div class="voice-actions">' +
+                '<button type="button" class="lm-btn lm-btn-primary" data-voice-stop="' + block.id + '" style="padding:5px 12px; font-size:12px;">⏹ Stop & Transcribe</button>' +
+                '<button type="button" class="lm-btn" data-voice-cancel="' + block.id + '" style="border:1px solid var(--line); padding:5px 10px; font-size:12px;">✕ Cancel</button>' +
+              '</div>' +
+            '</div>' +
+            '<div style="font-size:12px; color:var(--mute);">Speak clearly into your microphone. Words are transcribed in real time directly into the textarea.</div>' +
+          '</div>';
+        }
+
+        let metricsHtml = '';
+        if (block.speechMetrics) {
+          metricsHtml = '<div style="margin-top:10px;"><div class="voice-metrics-badge">✓ Speech Metrics: ' + block.speechMetrics.wpm + ' WPM (Optimal pace) · Pronunciation Fluency: ' + (block.speechMetrics.fluency || 92) + '%</div></div>';
+        }
+
+        const textarea = '<textarea data-response="' + block.id + '"' + (isLocked ? ' disabled readonly' : '') + '>' + esc(block.response || "") + '</textarea>';
+        const actions = isHwOrCw ? ('<div class="lm-task-actions">' +
+          (!isLocked ? '<button type="button" class="lm-btn lm-btn-primary lm-submit-answer" data-submit-task="' + block.id + '">🔒 Submit Answer</button>' : '<span class="lm-locked-badge">✓ Submitted & Locked</span>') +
+          '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>' +
+        '</div>') : '';
+
+        let inlineReviewHtml = '';
+        if (Array.isArray(block.inlineCorrections) && block.inlineCorrections.length > 0) {
+          const activeCount = block.inlineCorrections.filter(c => !c.accepted).length;
+          const countBadge = activeCount > 0 ? (activeCount + ' Corrections Found') : 'All corrections applied ✓';
+          let canvasText = esc(block.response || '');
+          if (!block.showOriginalView) {
+            block.inlineCorrections.forEach(cor => {
+              if (cor.accepted) return;
+              const popover = '<div class="inline-popover" style="display:' + (cor.isOpen ? 'flex' : 'none') + ';">' +
+                '<div class="inline-popover-tag" style="color:' + (cor.category === 'grammar' ? '#b45309' : '#4f46e5') + ';">' + esc(cor.category === 'grammar' ? 'Grammar Correction' : 'Vocabulary Enhancement') + '</div>' +
+                '<div class="inline-popover-change"><span class="inline-popover-orig">' + esc(cor.original) + '</span><span>➔</span><span class="inline-popover-repl">' + esc(cor.replacement) + '</span></div>' +
+                '<div class="inline-popover-note">' + esc(cor.note || '') + '</div>' +
+                '<button type="button" class="lm-btn lm-btn-primary" data-accept-correction="' + block.id + ':' + cor.id + '" style="margin-top:4px; padding:4px 10px; font-size:11.5px;">✓ Accept Correction</button>' +
+              '</div>';
+              const highlight = '<span class="inline-correction ' + esc(cor.category) + '" data-correction-id="' + block.id + ':' + cor.id + '">' + esc(cor.original) + popover + '</span>';
+              canvasText = canvasText.replace(cor.original, highlight);
+            });
+          }
+          inlineReviewHtml = '<div class="inline-review-card">' +
+            '<div class="inline-review-head">' +
+              '<div><strong style="font-size:14px; color:var(--ink);">Interactive Feedback & Corrections</strong><div style="font-size:12px; color:var(--mute);">Click underlined highlights to view teacher recommendations</div></div>' +
+              '<span style="font-size:12px; font-weight:700; color:var(--acc); background:var(--acc-s); padding:4px 10px; border-radius:6px;">' + countBadge + '</span>' +
+            '</div>' +
+            '<div class="inline-text-canvas">' + canvasText + '</div>' +
+            '<div class="inline-review-foot">' +
+              '<div>' +
+                '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#d97706; margin-right:5px;"></span>Grammar suggestions · ' +
+                '<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#6366f1; margin:0 5px 0 10px;"></span>Vocabulary enhancements' +
+              '</div>' +
+              '<button type="button" class="lm-btn" data-toggle-original="' + block.id + '" style="border:1px solid var(--line); font-size:12px; padding:5px 12px;">' + (block.showOriginalView ? 'Show Reviewed Text' : 'Toggle Original Text') + '</button>' +
+            '</div>' +
+          '</div>';
+        }
+
+        let teacherPanel = '';
+        let rubricHtml = '';
+        if (isHwOrCw) {
+          const aiNote = block.aiFeedback ? ('<div class="lm-ai-feedback-note" style="margin-top:8px; font-size:12px; color:var(--mute); background:var(--bg); padding:6px 10px; border-radius:6px; border:1px solid var(--line);">' + esc(block.aiFeedback) + '</div>') : '';
+          const teacherApproved = block.teacherVerified ? ('<span class="lm-teacher-approved-tag" style="color:#059669; font-weight:700; font-size:12px; margin-left:8px;">✓ Verified by Teacher (' + currentGrade + ' / ' + max + ' pt)</span>') : '';
+          teacherPanel = '<div class="teacher-grading-panel">' +
+            '<div class="grading-input-group">' +
+              '<span>Teacher Evaluation:</span>' +
+              '<input type="number" min="0" max="' + max + '" value="' + esc(currentGrade) + '" data-teacher-grade-input="' + block.id + '" />' +
+              '<span>/ ' + max + ' pts</span>' +
+              teacherApproved +
+            '</div>' +
+            '<div class="grading-btns">' +
+              '<button type="button" class="lm-btn lm-btn-primary" data-approve-grade="' + block.id + '" style="padding:5px 12px; font-size:12px;">✓ Approve Grade</button>' +
+              '<button type="button" class="lm-btn" data-ai-eval="' + block.id + '" style="padding:5px 12px; font-size:12px; border:1px solid var(--line);">🤖 Check with AI</button>' +
+            '</div>' +
+          '</div>' + aiNote;
+
+          const rc = block.rubricCriteria || { grammar: 2, vocabulary: 1, task: 1 };
+          const total = (Number(rc.grammar) || 0) + (Number(rc.vocabulary) || 0) + (Number(rc.task) || 0);
+          const pct = Math.round((total / 5) * 100);
+          const scaleBtns = (crit, curVal, maxVal) => {
+            let btns = '';
+            for (let v = 0; v <= maxVal; v++) {
+              const active = Number(curVal) === v ? ' is-active' : '';
+              const check = Number(curVal) === v ? ' ✓' : '';
+              btns += '<button type="button" class="scale-btn' + active + '" data-rubric-criterion="' + crit + '" data-rubric-block="' + block.id + '" data-rubric-score="' + v + '">' + v + check + '</button>';
+            }
+            return btns;
+          };
+
+          rubricHtml = '<div class="rubric-panel">' +
+            '<div class="rubric-head">' +
+              '<div><strong style="font-size:14px; color:var(--ink);">Evaluation Rubric Breakdown</strong><div style="font-size:12px; color:var(--mute);">Score by individual competency criteria</div></div>' +
+              '<button type="button" class="lm-btn" data-ai-rubric-analysis="' + block.id + '" style="border:1px solid var(--line); padding:5px 12px; font-size:12px;">🤖 AI Rubric Analysis</button>' +
+            '</div>' +
+            '<div class="rubric-criteria-grid">' +
+              '<div class="rubric-criterion">' +
+                '<div class="criterion-title"><span>Grammar Accuracy</span><span style="color:var(--mute);">max 2 pts</span></div>' +
+                '<div class="criterion-scale">' + scaleBtns('grammar', rc.grammar, 2) + '</div>' +
+              '</div>' +
+              '<div class="rubric-criterion">' +
+                '<div class="criterion-title"><span>Vocabulary Range</span><span style="color:var(--mute);">max 2 pts</span></div>' +
+                '<div class="criterion-scale">' + scaleBtns('vocabulary', rc.vocabulary, 2) + '</div>' +
+              '</div>' +
+              '<div class="rubric-criterion">' +
+                '<div class="criterion-title"><span>Task Achievement</span><span style="color:var(--mute);">max 1 pt</span></div>' +
+                '<div class="criterion-scale">' + scaleBtns('task', rc.task, 1) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="rubric-foot">' +
+              '<div style="font-weight:800; font-size:14px; color:var(--ink);">Calculated Total: <span style="color:var(--acc);">' + total + ' / 5 pts (' + pct + '%)</span></div>' +
+              '<button type="button" class="lm-btn lm-btn-primary" data-save-rubric-grade="' + block.id + '" style="padding:6px 14px; font-size:12.5px;">✓ Save Criteria Grade</button>' +
+            '</div>' +
+          '</div>';
+        }
+
+        return "<h3>" + esc(block.title || "Task") + '</h3><p>' + esc(block.text || "") + '</p>' + headHtml + voicePanel + textarea + actions + metricsHtml + inlineReviewHtml + teacherPanel + rubricHtml;
+      }
       if (block.type === "table") {
         const cols = block.columns || [];
         const head = "<tr>" + cols.map((col) => "<th>" + esc(col) + "</th>").join("") + "</tr>";
@@ -1598,31 +1737,51 @@
           if (question.kind === "text_gaps") {
             return lmRenderTextGapsPreview(block, index, question);
           }
-          const body = question.kind === "write" ? '<input type="text" data-write="' + block.id + ":" + index + '" value="' + esc(question.typed || "") + '" placeholder="Your answer" />' : lmPreviewChoices(block, index, question);
+          const isLocked = Boolean(block.submitted || block.checked);
+          const body = question.kind === "write" ? '<input type="text" data-write="' + block.id + ":" + index + '" value="' + esc(question.typed || "") + '" placeholder="Your answer"' + (isLocked ? ' disabled readonly' : '') + ' />' : lmPreviewChoices(block, index, question);
           const mark = question.marked ? '<p class="lm-result ' + (question.correct ? "is-ok" : "is-no") + '">' + (question.correct ? "Correct" : "Not quite") + "</p>" : "";
           const explanation=question.marked&&(block.pdfFeedback||(block.pdfImport?.section==='classwork'&&block.pdfTeacherNotes));
           const feedback=explanation?'<p class="lm-pdf-feedback" data-pdf-feedback="'+block.id+'">'+esc(explanation)+'</p>':'';
           return '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + body + mark + feedback + "</div>";
         }).join("");
         const hasGapsOnly = (block.items || []).length > 0 && (block.items || []).every(q => q.kind === "text_gaps");
-        return questions + (hasGapsOnly ? "" : '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>');
+        const isLocked = Boolean(block.submitted || block.checked);
+        const actionRow = '<div class="lm-block-actions">' +
+          (!isLocked ? '<button type="button" class="lm-btn lm-btn-primary lm-submit-answer" data-submit-task="' + block.id + '">🔒 Submit Answer</button>' : '<span class="lm-locked-badge">✓ Submitted & Locked</span>') +
+          (hasGapsOnly ? "" : '<button class="lm-btn lm-btn-primary lm-check" type="button" data-ex-check="' + block.id + '">Check</button>') +
+          '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>' +
+        '</div>';
+        return questions + actionRow;
       }
       if (block.type === "quiz") {
         const kind = lmQuizType(block);
         const title = block.title ? "<h3>" + esc(block.title) + "</h3>" : "<h3>" + esc(kind) + "</h3>";
         if (kind === "Choice" || (!block.quizType && (block.items || []).some((row) => row.options))) {
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + lmPreviewChoices(block, index, question) + "</div>").join("");
+          const isLocked = Boolean(block.submitted || block.checked);
           const scoreText = block.score ? (String(block.score).startsWith("Score:") ? block.score : "Score: " + block.score) : "";
-          return title + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(scoreText) + "</p>";
+          const actionRow = '<div class="lm-block-actions">' +
+            (!isLocked ? '<button type="button" class="lm-btn lm-btn-primary lm-submit-answer" data-submit-task="' + block.id + '">🔒 Submit Answer</button>' : '<span class="lm-locked-badge">✓ Submitted & Locked</span>') +
+            '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button>' +
+            '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>' +
+          '</div>';
+          return title + questions + actionRow + '<p class="lm-result" data-quiz-score="' + block.id + '">' + esc(scoreText) + "</p>";
         }
         if (kind === "Video choice") {
           const videoHtml = block.mediaId ? lmMedia(block.mediaId, "video") : (block.url ? lmVideoFrame(block.url, block.title) : "");
           const questions = (block.items || []).map((question, index) => '<div class="lm-q"><b>' + esc(question.prompt || "Question") + "</b>" + (question.transcript ? '<p class="hint">Transcript: ' + esc(question.transcript) + '</p>' : '') + lmPreviewChoices(block, index, question) + "</div>").join("");
+          const isLocked = Boolean(block.submitted || block.checked);
           const scoreText = block.score ? (String(block.score).startsWith("Score:") ? block.score : "Score: " + block.score) : "";
-          return title + videoHtml + questions + '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button><p class="lm-result" data-quiz-score="' + block.id + '">' + esc(scoreText) + "</p>";
+          const actionRow = '<div class="lm-block-actions">' +
+            (!isLocked ? '<button type="button" class="lm-btn lm-btn-primary lm-submit-answer" data-submit-task="' + block.id + '">🔒 Submit Answer</button>' : '<span class="lm-locked-badge">✓ Submitted & Locked</span>') +
+            '<button class="lm-btn lm-btn-primary lm-check" type="button" data-quiz-check="' + block.id + '">Check</button>' +
+            '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>' +
+          '</div>';
+          return title + videoHtml + questions + actionRow + '<p class="lm-result" data-quiz-score="' + block.id + '">' + esc(scoreText) + "</p>";
         }
         if (kind === "True / false") {
           const scoreBadge = block.score ? '<span class="lm-tf-score-badge">Score: ' + esc(block.score) + ' pt</span>' : '';
+          const isLocked = Boolean(block.submitted || block.checked);
           const questions = (block.items || []).map((question, index) => {
             const picked = String(question.picked ?? "");
             let promptText = String(question.prompt || "Statement");
@@ -1642,13 +1801,18 @@
               }
             }
             const opts = '<div class="lm-tf-options">' +
-              '<button type="button" class="lm-tf-btn' + (picked === 'true' ? ' selected' : '') + '" data-pick="' + block.id + ':' + index + ':true">True' + (picked === 'true' ? ' ✓' : '') + '</button>' +
-              '<button type="button" class="lm-tf-btn' + (picked === 'false' ? ' selected' : '') + '" data-pick="' + block.id + ':' + index + ':false">False' + (picked === 'false' ? ' ✓' : '') + '</button>' +
+              '<button type="button" class="lm-tf-btn' + (picked === 'true' ? ' selected' : '') + (isLocked ? ' is-locked' : '') + '" data-pick="' + block.id + ':' + index + ':true"' + (isLocked ? ' disabled' : '') + '>True' + (picked === 'true' ? ' ✓' : '') + '</button>' +
+              '<button type="button" class="lm-tf-btn' + (picked === 'false' ? ' selected' : '') + (isLocked ? ' is-locked' : '') + '" data-pick="' + block.id + ':' + index + ':false"' + (isLocked ? ' disabled' : '') + '>False' + (picked === 'false' ? ' ✓' : '') + '</button>' +
               '</div>';
             const mark = question.marked ? '<div class="lm-tf-feedback ' + (question.correct ? 'is-ok' : 'is-no') + '">' + (question.correct ? '✓ Correct! (+1 pt)' : '✗ Incorrect (Correct answer: ' + (String(question.answer).toLowerCase() === 'true' ? 'True' : 'False') + ')') + '</div>' : '';
             return '<div class="lm-tf-card"><div class="lm-tf-statement"><strong>Statement:</strong> ' + esc(promptText) + '</div>' + opts + mark + '</div>';
           }).join("");
-          return '<div class="lm-tf-block">' + scoreBadge + questions + '<div style="margin-top:12px;"><button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button></div></div>';
+          const actionRow = '<div class="lm-block-actions" style="margin-top:12px;">' +
+            (!isLocked ? '<button type="button" class="lm-btn lm-btn-primary lm-submit-answer" data-submit-task="' + block.id + '">🔒 Submit Answer</button>' : '<span class="lm-locked-badge">✓ Submitted & Locked</span>') +
+            '<button class="lm-btn lm-btn-primary lm-check lm-tf-check" type="button" data-quiz-check="' + block.id + '">Check answer</button>' +
+            '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>' +
+          '</div>';
+          return '<div class="lm-tf-block">' + scoreBadge + questions + actionRow + '</div>';
         }
         const cards = (block.items || []).map((item) => {
           if (kind === "Flip" || kind === "Reverse") return '<article class="lm-read-card"><b>' + esc(item.front || "") + "</b><span>" + esc(item.back || "") + "</span></article>";
@@ -1711,12 +1875,19 @@
       const assignments = new Map();
       const taskKeys = new Set((blocks || []).filter(part => ['quiz','exercise','task'].includes(part.type)).map(part => part.assignmentKey || part.assignmentId || ('part-' + part.id)));
       for (const part of blocks || []) { const key = part.assignmentKey || part.assignmentId || ('part-' + part.id); if (taskKeys.has(key) && !assignments.has(key)) assignments.set(key,assignments.size + 1); }
-      return grouped.map(({ key, parts }) => {
+      const contentHtml = grouped.map(({ key, parts }) => {
         const content = lmPreviewPartsFlat(parts), number = assignments.get(key);
         if (!number) return content;
         const leader = parts.find(p => p.assignmentId === key && ['quiz','exercise','task'].includes(p.type)) || parts.find(p => ['quiz','exercise','task'].includes(p.type));
-        return '<div class="lm-assignment lm-assignment-tone-' + ((number - 1) % 4) + '" data-assignment="' + esc(key) + '"><header><h3>Task ' + number + (leader?.title ? ' · ' + esc(leader.title) : '') + '</h3></header>' + content + '</div>';
+        const weight = Number(leader?.weight) || (leader?.type === 'task' ? (Number(leader?.maxPoints) || 5) : ((leader?.items || []).length || 1));
+        const weightBadge = weight ? ('<span class="lm-task-weight-badge">Weight: ' + weight + ' pt' + (weight > 1 ? 's' : '') + '</span>') : '';
+        return '<div class="lm-assignment lm-assignment-tone-' + ((number - 1) % 4) + '" data-assignment="' + esc(key) + '"><header><h3>Task ' + number + (leader?.title ? ' · ' + esc(leader.title) : '') + weightBadge + '</h3></header>' + content + '</div>';
       }).join('');
+      const hasInteractive = (blocks || []).some(b => ['quiz', 'exercise', 'task'].includes(b.type));
+      const tabName = (blocks || [])[0]?.tab || 'homework';
+      const isCwOrHw = tabName === 'classwork' || tabName === 'homework';
+      const selfCheckBar = (hasInteractive && isCwOrHw) ? ('<div class="lm-self-check-bar" data-tab-self-check="' + esc(tabName) + '"><div class="lm-self-check-info"><strong>Self-Check All Tasks</strong><span>Submit and lock your answers, then run self-check with AI.</span></div><button type="button" class="lm-btn lm-btn-primary lm-self-check-btn" data-run-self-check="' + esc(tabName) + '">🔍 Self-Check All Tasks (Check with AI)</button></div>') : '';
+      return contentHtml + selfCheckBar;
     }
     function lmPreviewPartsFlat(blocks) {
       let html = "";
@@ -1817,29 +1988,29 @@
         let badgeText = '';
 
         if (b.type === 'task') {
-          max = Number(b.maxPoints) || 5;
+          max = Number(b.weight) || Number(b.maxPoints) || 5;
           if (b.grade != null) {
             earned = Number(b.grade) || 0;
             isDone = true;
             subtitle = 'Teacher approved response';
             badgeText = 'Teacher approved (' + earned + ' / ' + max + ' pt) ✓';
-          } else if (b.response && String(b.response).trim()) {
-            isDone = true;
-            earned = 2;
-            subtitle = 'Draft saved: "' + (String(b.response).length > 60 ? String(b.response).slice(0, 60) + '...' : String(b.response)) + '"';
-            badgeText = 'Draft saved (Pending teacher review)';
           } else if (isSashaDemo && b.id === 'lm-b1-hw3') {
             isDone = true;
             earned = 2;
-            subtitle = 'Draft saved: "Last summer I went on an unforgettable journey to explore historical cities..."';
+            subtitle = 'Teacher approved response';
             badgeText = 'Teacher approved (2 / 2 pt) ✓';
+          } else if (b.response && String(b.response).trim()) {
+            isDone = false;
+            earned = 0;
+            subtitle = 'Submitted: "' + (String(b.response).length > 60 ? String(b.response).slice(0, 60) + '...' : String(b.response)) + '"';
+            badgeText = 'Submitted (Pending teacher review)';
           } else {
             subtitle = 'Pending submission';
             badgeText = 'Pending (0 / ' + max + ' pt)';
           }
         } else if (b.type === 'quiz') {
           const items = Array.isArray(b.items) ? b.items : [];
-          max = items.length || 1;
+          max = Number(b.weight) || (items.length || 1);
           if (b.score != null) {
             const m = String(b.score).match(/(\d+)\s*\/\s*(\d+)/);
             if (m) {
@@ -1852,9 +2023,10 @@
             subtitle = 'Submitted: ' + earned + ' / ' + max + ' correct answers · Passed';
             badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
           } else if (b.checked) {
-            earned = items.filter(it => it.picked === it.answer).length;
+            const okCount = items.filter(it => it.picked === it.answer).length;
+            earned = Math.round((okCount / (items.length || 1)) * max);
             isDone = true;
-            subtitle = 'Submitted: ' + earned + ' / ' + max + ' correct answers';
+            subtitle = 'Submitted: ' + okCount + ' / ' + items.length + ' correct answers';
             badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
           } else if (isSashaDemo && b.id === 'lm-b1-hw1') {
             earned = 3;
@@ -1865,7 +2037,7 @@
           } else if (items.length > 0 && items.some(it => it.picked !== undefined)) {
             const answered = items.filter(it => it.picked !== undefined).length;
             subtitle = answered + ' of ' + items.length + ' answered · Not checked yet';
-            badgeText = 'In progress (' + answered + ' / ' + max + ')';
+            badgeText = 'In progress (' + answered + ' / ' + (items.length || max) + ')';
           } else {
             subtitle = 'Not started yet';
             badgeText = 'Pending (0 / ' + max + ' pt)';
@@ -1874,13 +2046,14 @@
           const items = Array.isArray(b.items) ? b.items : [];
           if (items.length > 0 && items[0].kind === 'text_gaps') {
             const gaps = typeof parseGapsFromText === 'function' ? parseGapsFromText(items[0].text || '') : [];
-            max = gaps.length || 1;
+            max = Number(b.weight) || (gaps.length || 1);
             const given = items[0].given || {};
             const filledCount = gaps.filter(g => Boolean(given[g.index] && String(given[g.index]).trim())).length;
             if (items[0].marked || b.checked) {
-              earned = gaps.filter(g => String(given[g.index] || '').trim().toLowerCase() === String(g.target || '').trim().toLowerCase()).length;
+              const okCount = gaps.filter(g => String(given[g.index] || '').trim().toLowerCase() === String(g.target || '').trim().toLowerCase()).length;
+              earned = Math.round((okCount / (gaps.length || 1)) * max);
               isDone = true;
-              subtitle = 'Submitted: ' + earned + ' / ' + max + ' correct answers · Passed';
+              subtitle = 'Submitted: ' + okCount + ' / ' + gaps.length + ' correct answers · Passed';
               badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
             } else if (isSashaDemo && b.id === 'lm-b1-hw2') {
               earned = 3;
@@ -1889,16 +2062,17 @@
               subtitle = 'Submitted: 3 / 3 correct answers · Passed';
               badgeText = 'Score: 3 / 3 pt ✓';
             } else if (filledCount > 0) {
-              subtitle = filledCount + ' of ' + max + ' gaps filled · Student has not pressed "Check Answers" yet';
-              badgeText = 'In progress (' + filledCount + ' / ' + max + ')';
+              subtitle = filledCount + ' of ' + gaps.length + ' gaps filled · Student has not pressed "Check Answers" yet';
+              badgeText = 'In progress (' + filledCount + ' / ' + gaps.length + ')';
             } else {
               subtitle = 'Student has not filled gaps yet';
               badgeText = 'Pending (0 / ' + max + ' pt)';
             }
           } else {
-            max = items.length || 1;
+            max = Number(b.weight) || (items.length || 1);
             if (b.checked || (items.length > 0 && items.every(it => it.marked || it.picked !== undefined))) {
-              earned = items.filter(it => it.marked || (it.picked !== undefined && it.picked === it.answer)).length;
+              const okCount = items.filter(it => it.marked || (it.picked !== undefined && it.picked === it.answer)).length;
+              earned = Math.round((okCount / (items.length || 1)) * max);
               isDone = true;
               subtitle = 'Submitted all items';
               badgeText = 'Score: ' + earned + ' / ' + max + ' pt ✓';
@@ -2010,20 +2184,58 @@
       };
     }
     function lmEvaluationHtml(material) {
+      const isViewingHistory = typeof material.viewingAttemptIndex === 'number' && material.attempts && material.attempts[material.viewingAttemptIndex];
+      const historicalAttempt = isViewingHistory ? material.attempts[material.viewingAttemptIndex] : null;
+
       const evalData = calculateLessonEvaluation(material);
       const c = evalData.components;
-      const isCompleted = evalData.isCompleted;
+      const isCompleted = historicalAttempt ? true : evalData.isCompleted;
+      const totalEarned = historicalAttempt ? historicalAttempt.totalEarned : evalData.totalEarned;
+      const totalMax = historicalAttempt ? historicalAttempt.totalMax : evalData.totalMax;
+      const scorePct = historicalAttempt ? historicalAttempt.scorePct : evalData.scorePct;
+
+      const attemptsCount = Array.isArray(material.attempts) ? material.attempts.length : 0;
+      const currentAttemptNum = attemptsCount + 1;
+      const attemptLabel = isViewingHistory
+        ? ('Attempt ' + (historicalAttempt.number || (material.viewingAttemptIndex + 1)) + ' (Archived)')
+        : (attemptsCount > 0 ? ('Attempt ' + currentAttemptNum + ' (Retake)') : '1st submission');
 
       const badgeBg = isCompleted ? 'rgba(16,185,129,0.12)' : 'rgba(14,165,233,0.12)';
       const badgeColor = isCompleted ? '#059669' : '#0284c7';
       const badgeBorder = isCompleted ? 'rgba(16,185,129,0.25)' : 'rgba(14,165,233,0.25)';
 
       const scoreTitle = isCompleted
-        ? 'Overall Score: ' + evalData.totalEarned + ' / ' + evalData.totalMax + ' pts · Target Passed ✓'
-        : 'Overall Score: ' + evalData.totalEarned + ' / ' + evalData.totalMax + ' pts · In progress';
+        ? 'Overall Score: ' + totalEarned + ' / ' + totalMax + ' pts · Target Passed ✓'
+        : 'Overall Score: ' + totalEarned + ' / ' + totalMax + ' pts · In progress';
 
-      const badgeStatus = isCompleted ? 'Status: Completed (' + evalData.scorePct + '%)' : 'Status: In progress (' + evalData.scorePct + '%)';
-      const badgeSub = evalData.completedComponents + ' of ' + evalData.activeComponents + ' components completed · ' + evalData.totalEarned + '/' + evalData.totalMax + ' pts';
+      const badgeStatus = isCompleted ? 'Status: Completed (' + scorePct + '%)' : 'Status: In progress (' + scorePct + '%)';
+      const badgeSub = evalData.completedComponents + ' of ' + evalData.activeComponents + ' components completed · ' + totalEarned + '/' + totalMax + ' pts';
+      const retakeBtnHtml = '<div style="margin-top:8px; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">' +
+        (isCompleted ? '<button type="button" class="lm-btn lm-btn-primary lm-retake-btn" data-retake-lesson="1">🔄 Retake Lesson (New Attempt)</button>' : '') +
+        '<button type="button" class="lm-btn" data-open-pdf-certificate="1" style="border:1px solid var(--line); padding:8px 14px; border-radius:8px; font-weight:700; cursor:pointer;">📄 Download PDF Certificate</button>' +
+      '</div>';
+
+      let archiveBannerHtml = '';
+      if (isViewingHistory) {
+        archiveBannerHtml = '<div class="archived-banner">' +
+          '<span>⚠️ Archive View: Viewing historical Attempt ' + (historicalAttempt.number || (material.viewingAttemptIndex + 1)) + ' (' + totalEarned + ' / ' + totalMax + ' pts · ' + scorePct + '%).</span>' +
+          '<button type="button" class="lm-btn" data-return-latest-attempt="1" style="border:1px solid var(--line); padding:4px 10px; font-size:12px; cursor:pointer; background:var(--card); color:var(--ink); border-radius:6px;">← Return to Latest Attempt</button>' +
+        '</div>';
+      }
+
+      let selectorHtml = '';
+      if (attemptsCount > 0) {
+        let optionsHtml = '';
+        material.attempts.forEach((att, idx) => {
+          const isSel = isViewingHistory && material.viewingAttemptIndex === idx;
+          optionsHtml += '<option value="' + idx + '" ' + (isSel ? 'selected' : '') + '>Attempt ' + (att.number || (idx + 1)) + ' · ' + att.scorePct + '% (' + (att.date ? new Date(att.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '15:20') + ')</option>';
+        });
+        optionsHtml += '<option value="current" ' + (!isViewingHistory ? 'selected' : '') + '>Attempt ' + currentAttemptNum + ' (Current) · ' + evalData.scorePct + '%</option>';
+        selectorHtml = '<div class="attempts-selector-wrap">' +
+          '<label for="attemptsSelect" style="font-size:12px; font-weight:700; color:var(--mute);">Selected Attempt:</label>' +
+          '<select id="attemptsSelect" class="attempts-select" data-select-attempt="1">' + optionsHtml + '</select>' +
+        '</div>';
+      }
 
       const compCard = (num, title, comp) => {
         const bg = comp.isNa ? 'rgba(148,163,184,0.08)' : (comp.completed ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)');
@@ -2037,7 +2249,64 @@
         '</div>';
       };
 
-      const tasksHtml = evalData.tasks.length > 0 ? evalData.tasks.map((t, idx) => {
+      let comparisonHtml = '';
+      if (attemptsCount > 0 && !isViewingHistory) {
+        const prevAttempt = material.attempts[attemptsCount - 1];
+        const currentEarned = evalData.totalEarned;
+        const currentMax = evalData.totalMax;
+        const currentPct = evalData.scorePct;
+        const deltaEarned = currentEarned - prevAttempt.totalEarned;
+        const deltaPct = currentPct - prevAttempt.scorePct;
+        const deltaSign = deltaEarned >= 0 ? '+' : '';
+        const deltaPctSign = deltaPct >= 0 ? '+' : '';
+        const isImproved = deltaEarned >= 0;
+        const deltaBadgeCol = isImproved ? '#059669' : '#dc2626';
+        const deltaBadgeBg = isImproved ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
+        const deltaText = isImproved ? (deltaSign + deltaPct + '% Improvement ▲') : (deltaPct + '% Needs practice ▼');
+
+        const prevTasksMap = new Map((prevAttempt.tasks || []).map(t => [t.id || t.title, t]));
+        const taskDiffHtml = evalData.tasks.map(t => {
+          const prev = prevTasksMap.get(t.id || t.title);
+          if (!prev) return '<div style="font-size:12px; color:var(--mute);">' + esc(t.title) + ': ' + t.earned + ' / ' + t.max + ' pt (new)</div>';
+          const diff = t.earned - prev.earned;
+          const note = diff > 0 ? ('improved from ' + prev.earned + '/' + prev.max) : (diff < 0 ? ('decreased from ' + prev.earned + '/' + prev.max) : 'retained');
+          return '<div style="font-size:12px; color:var(--mute);">' + esc(t.title) + ': ' + t.earned + ' / ' + t.max + ' pt (' + note + ')</div>';
+        }).join('');
+
+        comparisonHtml = '<div class="lm-score-comparison">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">' +
+            '<h4 style="margin:0; font-size:15px; font-weight:800; color:var(--ink);">📊 Score Comparison: Attempt ' + (prevAttempt.number || attemptsCount) + ' vs Attempt ' + currentAttemptNum + '</h4>' +
+            '<span class="lm-delta-badge" style="background:' + deltaBadgeBg + '; color:' + deltaBadgeCol + ';">' + deltaText + '</span>' +
+          '</div>' +
+          '<div class="lm-comparison-grid">' +
+            '<div class="lm-comparison-box">' +
+              '<div class="lm-comparison-label">Attempt ' + (prevAttempt.number || attemptsCount) + ' (Previous)</div>' +
+              '<div class="lm-comparison-val">' + prevAttempt.totalEarned + ' / ' + prevAttempt.totalMax + ' pts (' + prevAttempt.scorePct + '%)</div>' +
+            '</div>' +
+            '<div class="lm-comparison-box">' +
+              '<div class="lm-comparison-label">Attempt ' + currentAttemptNum + ' (Current)</div>' +
+              '<div class="lm-comparison-val" style="color:var(--acc);">' + currentEarned + ' / ' + currentMax + ' pts (' + currentPct + '%)</div>' +
+            '</div>' +
+            '<div class="lm-comparison-box">' +
+              '<div class="lm-comparison-label">Score Delta</div>' +
+              '<div class="lm-comparison-val" style="color:' + deltaBadgeCol + ';">' + deltaSign + deltaEarned + ' pts (' + deltaPctSign + deltaPct + '%)</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="border-top:1px solid var(--line); padding-top:10px; display:flex; flex-direction:column; gap:4px;">' +
+            taskDiffHtml +
+          '</div>' +
+        '</div>';
+      }
+
+      const tasksToRender = isViewingHistory && historicalAttempt.tasks ? historicalAttempt.tasks.map(t => ({
+        title: t.title,
+        subtitle: 'Archived Attempt Result',
+        badgeText: 'Score: ' + t.earned + ' / ' + t.max + ' pt ✓',
+        isDone: true,
+        type: 'task'
+      })) : evalData.tasks;
+
+      const tasksHtml = tasksToRender.length > 0 ? tasksToRender.map((t) => {
         const isDone = t.isDone;
         const badgeBgTask = isDone ? 'rgba(16,185,129,0.1)' : (t.type === 'task' ? 'rgba(14,165,233,0.1)' : 'rgba(245,158,11,0.1)');
         const badgeColTask = isDone ? '#059669' : (t.type === 'task' ? '#0284c7' : '#d97706');
@@ -2051,20 +2320,62 @@
         '</div>';
       }).join('') : '<p style="color:var(--mute); font-size:13px; margin:0;">No interactive tasks in this lesson.</p>';
 
+      let pdfModalHtml = '';
+      if (material.showPdfModal) {
+        pdfModalHtml = '<div class="modal-overlay" data-close-pdf-modal="1">' +
+          '<div class="certificate-modal" onclick="event.stopPropagation()">' +
+            '<div class="certificate-head">' +
+              '<h3 style="margin:0; font-size:16px; font-weight:800; color:var(--ink);">Academic Performance Certificate</h3>' +
+              '<button type="button" class="lm-btn" data-close-pdf-modal="1" style="border:none; background:transparent; font-size:18px; cursor:pointer; color:var(--mute);">✕</button>' +
+            '</div>' +
+            '<div class="certificate-body">' +
+              '<div class="cert-frame">' +
+                '<div style="font-size:24px;">🏛️</div>' +
+                '<div class="cert-title">Lumiscia Language Academy</div>' +
+                '<div class="cert-sub">Certificate of Lesson Completion & Mastery</div>' +
+                '<div class="cert-student">Student: Alex Mercer</div>' +
+                '<p style="font-size:13px; color:var(--mute); margin:4px 0 10px;">has successfully demonstrated required proficiency in</p>' +
+                '<b style="font-size:16px; color:var(--ink);">' + esc(material.title || 'Lesson') + '</b>' +
+                '<div>' +
+                  '<div class="cert-score-box">Final Grade: ' + totalEarned + ' / ' + totalMax + ' pts (' + scorePct + '%) · Target Passed ✓</div>' +
+                '</div>' +
+                '<div class="cert-grid">' +
+                  '<div class="cert-grid-item"><b>Words:</b> ' + c.words.text + '</div>' +
+                  '<div class="cert-grid-item"><b>Phrases:</b> ' + c.phrases.text + '</div>' +
+                  '<div class="cert-grid-item"><b>Classwork:</b> ' + c.classwork.text + '</div>' +
+                  '<div class="cert-grid-item"><b>Homework:</b> ' + c.homework.text + '</div>' +
+                '</div>' +
+                '<div style="margin-top:14px; font-size:11.5px; color:var(--mute); display:flex; justify-content:space-between; border-top:1px dashed var(--line); padding-top:10px;">' +
+                  '<span>Verification ID: LMS-2026-CERT-' + scorePct + '</span>' +
+                  '<span>Teacher: Elena Rostova ✓ Verified</span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="cert-foot">' +
+              '<button type="button" class="lm-btn" data-close-pdf-modal="1" style="border:1px solid var(--line); padding:7px 14px; font-size:13px; border-radius:8px; cursor:pointer;">✕ Close</button>' +
+              '<button type="button" class="lm-btn lm-btn-primary" data-print-pdf-certificate="1" style="padding:7px 16px; font-size:13px; font-weight:800; border-radius:8px; cursor:pointer;">⬇ Download PDF Certificate</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+
       return '<div id="lmEvaluationPanel" class="saas-card" style="margin-top:20px; padding:24px 28px; border-radius:16px; background:var(--card); border:1px solid var(--line); box-shadow:0 4px 16px rgba(0,0,0,0.04);">' +
+        archiveBannerHtml +
         '<div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--line); padding-bottom:16px; margin-bottom:20px;">' +
           '<div>' +
             '<span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--mute);">Performance Summary</span>' +
             '<h2 style="margin:4px 0 2px; font-size:22px; font-weight:800; color:var(--ink);">' + scoreTitle + '</h2>' +
-            '<div style="font-size:13px; color:var(--mute); display:flex; gap:16px; margin-top:4px;">' +
-              '<span><b>Attempt:</b> 1st submission</span>' +
+            '<div style="font-size:13px; color:var(--mute); display:flex; gap:16px; margin-top:4px; flex-wrap:wrap; align-items:center;">' +
+              '<span><b>Attempt:</b> ' + attemptLabel + '</span>' +
               '<span><b>Time in lesson:</b> 38 min</span>' +
               '<span><b>Last activity:</b> Today, 15:24</span>' +
+              selectorHtml +
             '</div>' +
           '</div>' +
           '<div style="text-align:right;">' +
             '<span style="font-size:13.5px; font-weight:700; padding:6px 16px; border-radius:12px; background:' + badgeBg + '; color:' + badgeColor + '; border:1px solid ' + badgeBorder + '; display:inline-block;">' + badgeStatus + '</span>' +
             '<div style="font-size:12px; color:var(--mute); margin-top:5px;">' + badgeSub + '</div>' +
+            retakeBtnHtml +
           '</div>' +
         '</div>' +
         '<div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:24px;">' +
@@ -2073,10 +2384,12 @@
           compCard('3', 'Classwork', c.classwork) +
           compCard('4', 'Homework', c.homework) +
         '</div>' +
-        '<h3 style="font-size:16px; font-weight:700; margin:0 0 14px; color:var(--ink);">Detailed Tasks & Student Submissions</h3>' +
+        comparisonHtml +
+        '<h3 style="font-size:16px; font-weight:700; margin:16px 0 14px; color:var(--ink);">Detailed Tasks & Student Submissions</h3>' +
         '<div style="display:flex; flex-direction:column; gap:10px;">' +
           tasksHtml +
         '</div>' +
+        pdfModalHtml +
       '</div>';
     }
     function lmRenderPreview() {
@@ -2934,6 +3247,16 @@
         }
         const response = event.target.closest("[data-response]");
         if (response) { const block = lmBlock(response.dataset.response); if (block) block.response = response.value; lmSchedule(); return; }
+        const gradeInput = event.target.closest("[data-teacher-grade-input]");
+        if (gradeInput) {
+          const block = lmBlock(gradeInput.dataset.teacherGradeInput);
+          if (block) {
+            const v = parseFloat(gradeInput.value);
+            if (!isNaN(v)) block.grade = v;
+            lmSchedule();
+          }
+          return;
+        }
         const write = event.target.closest("[data-write]");
         if (write) {
           const bits = write.dataset.write.split(":");
@@ -2959,6 +3282,17 @@
         if (rich) { const block = lmBlock(rich.dataset.rich); if (block) block.html = rich.innerHTML; lmSchedule(); }
       });
       lmRoot.addEventListener("change", (event) => {
+        const attemptSel = event.target.closest("[data-select-attempt]");
+        if (attemptSel) {
+          const val = attemptSel.value;
+          if (val === 'current') {
+            delete lmState.viewingAttemptIndex;
+          } else {
+            lmState.viewingAttemptIndex = parseInt(val, 10);
+          }
+          lmRenderPreview();
+          return;
+        }
         const palette=event.target.closest('[data-lm-color]');
         if(palette){
           const rich=palette.closest('.lm-tools').nextElementSibling,block=lmBlock(palette.dataset.lmColor),range=lmActiveFontRange(rich);
@@ -3440,6 +3774,10 @@
         if (pick) {
           const bits = pick.dataset.pick.split(":");
           const block = lmBlock(bits[0]);
+          if (block && (block.submitted || block.checked)) {
+            event.preventDefault();
+            return;
+          }
           const question = block && block.items && block.items[Number(bits[1])];
           if (question) {
             const val = bits[2];
@@ -3457,6 +3795,311 @@
               lmSchedule();
             }
           }
+          return;
+        }
+        const submitTask = event.target.closest("[data-submit-task], [data-submit-answer]");
+        if (submitTask) {
+          const id = submitTask.dataset.submitTask || submitTask.dataset.submitAnswer;
+          const block = lmBlock(id);
+          if (block) {
+            block.submitted = true;
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const sendTeacher = event.target.closest("[data-send-teacher]");
+        if (sendTeacher) {
+          const block = lmBlock(sendTeacher.dataset.sendTeacher);
+          if (block) {
+            const defaultNote = "Teacher, please review my answer for Task: " + (block.title || block.type);
+            const studentNote = (typeof window.prompt === 'function') ? window.prompt("Enter an optional note for your teacher:", defaultNote) : defaultNote;
+            if (studentNote !== null) {
+              block.teacherReviewRequested = true;
+              const lessonTitle = lmState?.title || "Lesson";
+              const studentName = authUser?.name || "Student";
+              const chatText = "⚠️ [Important Review Request] " + studentName + " requests teacher review for \"" + (block.title || block.type) + "\" in " + lessonTitle + ".\nNote: " + (studentNote || "No note provided");
+              if (typeof window.sendGroupChatMessage === 'function') {
+                const groupId = lmState?.groupId || (typeof currentGroupId === 'function' ? currentGroupId() : null);
+                window.sendGroupChatMessage(groupId, chatText, { category: 'important', alert: true }).catch(() => {});
+              }
+              if (typeof feedbackNotice === 'function') {
+                feedbackNotice("Review request sent to teacher in Study Alerts chat!");
+              }
+              lmRenderPreview();
+              lmSchedule();
+            }
+          }
+          return;
+        }
+        const runSelfCheck = event.target.closest("[data-run-self-check]");
+        if (runSelfCheck) {
+          const tab = runSelfCheck.dataset.runSelfCheck;
+          (lmState.blocks || []).forEach(block => {
+            const isTab = (block.tab === tab) || (!block.tab && tab === 'classwork');
+            if (isTab && ['quiz', 'exercise', 'task'].includes(block.type)) {
+              block.submitted = true;
+              block.checked = true;
+              if (block.type === 'quiz') {
+                const isTf = block.quizType === "True / false";
+                const score = (block.items || []).reduce((sum, question) => {
+                  const ok = isTf ? String(question.picked).toLowerCase() === String(question.answer).toLowerCase() : Number(question.picked) === Number(question.answer);
+                  question.marked = true; question.correct = ok;
+                  return sum + (ok ? 1 : 0);
+                }, 0);
+                block.score = score + " / " + (block.items || []).length;
+              } else if (block.type === 'exercise') {
+                (block.items || []).forEach(it => {
+                  it.marked = true;
+                  if (it.kind === 'text_gaps') {
+                    const gaps = typeof parseGapsFromText === 'function' ? parseGapsFromText(it.text || '') : [];
+                    const given = it.given || {};
+                    const correctCount = gaps.filter(g => String(given[g.index] || '').trim().toLowerCase() === String(g.target || '').trim().toLowerCase()).length;
+                    it.correct = correctCount === gaps.length;
+                  }
+                });
+              } else if (block.type === 'task') {
+                if (!block.aiFeedback) {
+                  block.aiFeedback = "AI Evaluation: Good effort. The response addresses the prompt topic and outlines practical steps.";
+                  block.suggestedScore = Math.min(Number(block.weight) || 5, Math.max(3, Math.round((Number(block.weight) || 5) * 0.8)));
+                }
+              }
+            }
+          });
+          lmRenderPreview();
+          lmSchedule();
+          return;
+        }
+        const approveBtn = event.target.closest("[data-approve-grade]");
+        if (approveBtn) {
+          const id = approveBtn.dataset.approveGrade;
+          const block = lmBlock(id);
+          if (block) {
+            const inp = lmRoot.querySelector('[data-teacher-grade-input="' + id + '"]');
+            const val = inp ? parseFloat(inp.value) : (Number(block.weight) || 5);
+            block.grade = isNaN(val) ? 0 : val;
+            block.teacherVerified = true;
+            block.submitted = true;
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const aiBtn = event.target.closest("[data-ai-eval]");
+        if (aiBtn) {
+          const id = aiBtn.dataset.aiEval;
+          const block = lmBlock(id);
+          if (block) {
+            const max = Number(block.weight) || Number(block.maxPoints) || 5;
+            const resp = String(block.response || '').trim();
+            if (!resp) {
+              block.aiFeedback = "AI Evaluation: No response entered yet. Please write an action plan to evaluate.";
+            } else {
+              const suggested = Math.min(max, Math.max(1, Math.round(max * 0.8)));
+              block.suggestedScore = suggested;
+              block.grade = suggested;
+              block.teacherVerified = true;
+              block.submitted = true;
+              block.aiFeedback = "AI Evaluation: Clear actionable plan with relevant vocabulary. Suggested score: " + suggested + " / " + max + " pts.";
+            }
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const rubricBtn = event.target.closest("[data-rubric-criterion]");
+        if (rubricBtn) {
+          const blockId = rubricBtn.dataset.rubricBlock;
+          const crit = rubricBtn.dataset.rubricCriterion;
+          const score = parseInt(rubricBtn.dataset.rubricScore, 10);
+          const block = lmBlock(blockId);
+          if (block) {
+            block.rubricCriteria = block.rubricCriteria || { grammar: 2, vocabulary: 1, task: 1 };
+            block.rubricCriteria[crit] = score;
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const saveRubricBtn = event.target.closest("[data-save-rubric-grade]");
+        if (saveRubricBtn) {
+          const id = saveRubricBtn.dataset.saveRubricGrade;
+          const block = lmBlock(id);
+          if (block) {
+            const rc = block.rubricCriteria || { grammar: 2, vocabulary: 1, task: 1 };
+            const total = (Number(rc.grammar) || 0) + (Number(rc.vocabulary) || 0) + (Number(rc.task) || 0);
+            block.grade = total;
+            block.teacherVerified = true;
+            block.submitted = true;
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const aiRubricBtn = event.target.closest("[data-ai-rubric-analysis]");
+        if (aiRubricBtn) {
+          const id = aiRubricBtn.dataset.aiRubricAnalysis;
+          const block = lmBlock(id);
+          if (block) {
+            block.rubricCriteria = { grammar: 2, vocabulary: 2, task: 1 };
+            block.grade = 5;
+            block.teacherVerified = true;
+            block.submitted = true;
+            block.speechMetrics = { wpm: 118, fluency: 92 };
+            block.inlineCorrections = [
+              { id: 'c1', original: 'less mistakes', replacement: 'fewer mistakes', category: 'grammar', note: 'Countable noun "mistakes" requires quantifier "fewer" rather than "less".', accepted: false, isOpen: false },
+              { id: 'c2', original: 'make better', replacement: 'enhance', category: 'vocab', note: 'Higher register academic verb "enhance" provides greater precision.', accepted: false, isOpen: false }
+            ];
+            block.aiFeedback = "AI Criteria Evaluation: Strong task achievement with clear actionable milestones (1/1 pt). Grammar accuracy demonstrated accurate modal verb structures (2/2 pts). Vocabulary range shows appropriate collocations (2/2 pts). Total: 5/5 pts.";
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const acceptBtn = event.target.closest("[data-accept-correction]");
+        if (acceptBtn) {
+          const parts = acceptBtn.dataset.acceptCorrection.split(':');
+          const block = lmBlock(parts[0]);
+          if (block && Array.isArray(block.inlineCorrections)) {
+            const cor = block.inlineCorrections.find(c => String(c.id) === String(parts[1]));
+            if (cor && !cor.accepted) {
+              cor.accepted = true;
+              cor.isOpen = false;
+              if (block.response && cor.original && cor.replacement) {
+                block.response = block.response.replace(cor.original, cor.replacement);
+              }
+              lmRenderPreview();
+              lmSchedule();
+            }
+          }
+          return;
+        }
+        const corSpan = event.target.closest("[data-correction-id]");
+        if (corSpan) {
+          const parts = corSpan.dataset.correctionId.split(':');
+          const block = lmBlock(parts[0]);
+          if (block && Array.isArray(block.inlineCorrections)) {
+            const cor = block.inlineCorrections.find(c => String(c.id) === String(parts[1]));
+            if (cor) {
+              cor.isOpen = !cor.isOpen;
+              lmRenderPreview();
+            }
+          }
+          return;
+        }
+        const toggleOrigBtn = event.target.closest("[data-toggle-original]");
+        if (toggleOrigBtn) {
+          const id = toggleOrigBtn.dataset.toggleOriginal;
+          const block = lmBlock(id);
+          if (block) {
+            block.showOriginalView = !block.showOriginalView;
+            lmRenderPreview();
+          }
+          return;
+        }
+        const voiceBtn = event.target.closest("[data-voice-dictate]");
+        if (voiceBtn) {
+          const id = voiceBtn.dataset.voiceDictate;
+          const block = lmBlock(id);
+          if (block) {
+            block.isRecordingVoice = true;
+            block.recordingDuration = 14;
+            lmRenderPreview();
+          }
+          return;
+        }
+        const voiceStopBtn = event.target.closest("[data-voice-stop]");
+        if (voiceStopBtn) {
+          const id = voiceStopBtn.dataset.voiceStop;
+          const block = lmBlock(id);
+          if (block) {
+            block.isRecordingVoice = false;
+            const transcribed = "I will dedicate 25 minutes every morning to active vocabulary recall with flashcards and shadow native speaker podcasts to eliminate less mistakes and make better pronunciation.";
+            block.response = block.response ? (block.response + " " + transcribed) : transcribed;
+            block.speechMetrics = { wpm: 118, fluency: 92 };
+            lmRenderPreview();
+            lmSchedule();
+          }
+          return;
+        }
+        const voiceCancelBtn = event.target.closest("[data-voice-cancel]");
+        if (voiceCancelBtn) {
+          const id = voiceCancelBtn.dataset.voiceCancel;
+          const block = lmBlock(id);
+          if (block) {
+            block.isRecordingVoice = false;
+            lmRenderPreview();
+          }
+          return;
+        }
+        const returnAttemptBtn = event.target.closest("[data-return-latest-attempt]");
+        if (returnAttemptBtn) {
+          delete lmState.viewingAttemptIndex;
+          lmRenderPreview();
+          return;
+        }
+        const openPdfReportBtn = event.target.closest("[data-open-pdf-certificate]");
+        if (openPdfReportBtn) {
+          lmState.showPdfModal = true;
+          lmRenderPreview();
+          return;
+        }
+        const closePdfModalBtn = event.target.closest("[data-close-pdf-modal]");
+        if (closePdfModalBtn) {
+          lmState.showPdfModal = false;
+          lmRenderPreview();
+          return;
+        }
+        const printPdfReportBtn = event.target.closest("[data-print-pdf-certificate]");
+        if (printPdfReportBtn) {
+          if (typeof window !== 'undefined' && typeof window.print === 'function') {
+            window.print();
+          }
+          return;
+        }
+        const retakeBtn = event.target.closest("[data-retake-lesson]");
+        if (retakeBtn) {
+          const evalData = calculateLessonEvaluation(lmState);
+          const snapshot = {
+            number: (lmState.attempts?.length || 0) + 1,
+            date: Date.now(),
+            totalEarned: evalData.totalEarned,
+            totalMax: evalData.totalMax,
+            scorePct: evalData.scorePct,
+            tasks: (evalData.tasks || []).map(t => ({ id: t.id, title: t.title, earned: t.earned, max: t.max }))
+          };
+          lmState.attempts = lmState.attempts || [];
+          lmState.attempts.push(snapshot);
+
+          (lmState.blocks || []).forEach(b => {
+            b.submitted = false;
+            b.checked = false;
+            b.teacherVerified = false;
+            b.teacherReviewRequested = false;
+            if (b.type === 'task') {
+              b.response = '';
+              b.grade = null;
+              b.aiFeedback = null;
+              b.suggestedScore = null;
+            } else if (b.type === 'quiz') {
+              b.score = null;
+              (b.items || []).forEach(q => {
+                q.picked = undefined;
+                q.marked = false;
+                q.correct = undefined;
+              });
+            } else if (b.type === 'exercise') {
+              (b.items || []).forEach(it => {
+                it.typed = '';
+                it.given = {};
+                it.marked = false;
+                it.correct = undefined;
+              });
+            }
+          });
+
+          lmRenderPreview();
+          lmSchedule();
           return;
         }
         const quizCheck = event.target.closest("[data-quiz-check]");

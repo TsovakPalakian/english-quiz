@@ -30,7 +30,7 @@
     const single=field.tagName==='INPUT';
     const rich=document.createElement('div');rich.className='text-color-rich'+(single?' is-single-line':'');rich.contentEditable='true';rich.setAttribute('role','textbox');rich.setAttribute('aria-multiline',String(!single));rich.setAttribute('aria-label',field.getAttribute('aria-label')||'Formatted text');
     rich.hidden=true;field.before(wrap);wrap.append(tools,field,rich);tools.append(palette);
-    const head=wrap.parentElement?.querySelector('.lm-field-head');if(head&&!options.richTools)head.append(tools);
+    const head=wrap.parentElement?.querySelector('.lm-field-head, .lm-answer-head') || (wrap.previousElementSibling?.classList?.contains('lm-answer-head') ? wrap.previousElementSibling : null);if(head&&!options.richTools)head.append(tools);
     rich.addEventListener('pointerdown',event=>{event.stopPropagation();});
     rich.addEventListener('click',event=>{event.stopPropagation();});
     const state={field,rich,options,format:options.format,active:false};mounted.set(field,state);
