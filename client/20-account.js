@@ -103,6 +103,14 @@
       refreshAccountsCount();
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
       const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
+      if (student || (typeof canEditLessons === 'function' && !canEditLessons())) {
+        const editor = document.getElementById("lmEditor");
+        if (editor) editor.hidden = true;
+        const saveBtn = document.getElementById("lmSave");
+        if (saveBtn) saveBtn.hidden = true;
+        const publishBtn = document.getElementById("lmPublish");
+        if (publishBtn) publishBtn.hidden = true;
+      }
       if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
       window.LearningWorkbench?.paintEntry();
     }

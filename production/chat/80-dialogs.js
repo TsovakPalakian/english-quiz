@@ -374,16 +374,30 @@
       status('Wait for the connection, then open New chat.');
       return;
     }
-    const contacts = [
-        ...data.contacts,
-        ...data.rooms
-          .filter((r) => r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked)
-          .map((r) => ({ id: r.peerId, name: r.title, role: 'Contact' })),
-      ],
-      rows = [
-        ...data.groups.map((g) => ({ id: g.id, name: g.title, kind: 'group', role: 'Group chat' })),
-        ...[...new Map(contacts.map((p) => [p.id, p])).values()].map((p) => ({ ...p, kind: 'direct' })),
-      ].filter((p) => !onlyPerson || (p.kind === 'direct' && p.id === onlyPerson));
+    const contactMap = new Map();
+    for (const c of data.contacts) {
+      contactMap.set(String(c.id), { ...c, role: c.role || 'Contact' });
+    }
+    for (const r of data.rooms) {
+      if (r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked) {
+        const sid = String(r.peerId);
+        const existing = contactMap.get(sid);
+        contactMap.set(sid, {
+          id: r.peerId,
+          name: existing?.name || r.title,
+          role: existing?.role || r.peerRole || 'Contact',
+          ...existing,
+        });
+      }
+    }
+    const groupMap = new Map();
+    for (const g of data.groups) {
+      groupMap.set(String(g.id), g);
+    }
+    const rows = [
+      ...[...groupMap.values()].map((g) => ({ id: g.id, name: g.title, kind: 'group', role: 'Group chat' })),
+      ...[...contactMap.values()].map((p) => ({ ...p, kind: 'direct' })),
+    ].filter((p) => !onlyPerson || (p.kind === 'direct' && String(p.id) === String(onlyPerson)));
     const node = dialog(
       title,
       details +
@@ -491,16 +505,23 @@
     });
   }
   function createGroupChat() {
-    const people = [
-      ...new Map(
-        [
-          ...data.rooms
-            .filter((r) => r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked)
-            .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
-          ...data.contacts,
-        ].map((p) => [p.id, p]),
-      ).values(),
-    ].filter((p) => String(p.id) !== String(account));
+    const contactMap = new Map();
+    for (const c of data.contacts) {
+      contactMap.set(String(c.id), { ...c, role: c.role || 'Contact' });
+    }
+    for (const r of data.rooms) {
+      if (r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked) {
+        const sid = String(r.peerId);
+        const existing = contactMap.get(sid);
+        contactMap.set(sid, {
+          id: r.peerId,
+          name: existing?.name || r.title,
+          role: existing?.role || r.peerRole || 'Contact',
+          ...existing,
+        });
+      }
+    }
+    const people = [...contactMap.values()].filter((p) => String(p.id) !== String(account));
     if (!people.length) {
       status('Add contacts before creating a group.');
       return;
@@ -508,15 +529,9 @@
     const node = dialog(
       'Create group',
       '<label>Group name<input name="title" required maxlength="80" placeholder="Group name"></label>' +
-        '<fieldset class="chat-group-limits-fields"><legend>Who can send messages</legend>' +
-        '<label class="chat-mute-choice"><input type="radio" name="send" value="everyone" required> Everyone</label>' +
-        '<label class="chat-mute-choice"><input type="radio" name="send" value="admins" required> Admins only</label></fieldset>' +
-        '<fieldset class="chat-group-limits-fields"><legend>Who can add members</legend>' +
-        '<label class="chat-mute-choice"><input type="radio" name="invite" value="everyone" required> Everyone</label>' +
-        '<label class="chat-mute-choice"><input type="radio" name="invite" value="admins" required> Admins only</label></fieldset>' +
-        '<fieldset class="chat-group-limits-fields"><legend>Who can send media</legend>' +
-        '<label class="chat-mute-choice"><input type="radio" name="media" value="everyone" required> Everyone</label>' +
-        '<label class="chat-mute-choice"><input type="radio" name="media" value="admins" required> Admins only</label></fieldset>' +
+        '<div class="chat-limit-row"><span class="chat-limit-label">Who can send messages</span><div class="chat-switch-group" role="radiogroup" aria-label="Who can send messages"><label class="chat-switch-btn"><input type="radio" name="send" value="everyone" required checked><span>Everyone</span></label><label class="chat-switch-btn"><input type="radio" name="send" value="admins" required><span>Admins only</span></label></div></div>' +
+        '<div class="chat-limit-row"><span class="chat-limit-label">Who can add members</span><div class="chat-switch-group" role="radiogroup" aria-label="Who can add members"><label class="chat-switch-btn"><input type="radio" name="invite" value="everyone" required checked><span>Everyone</span></label><label class="chat-switch-btn"><input type="radio" name="invite" value="admins" required><span>Admins only</span></label></div></div>' +
+        '<div class="chat-limit-row"><span class="chat-limit-label">Who can send media</span><div class="chat-switch-group" role="radiogroup" aria-label="Who can send media"><label class="chat-switch-btn"><input type="radio" name="media" value="everyone" required checked><span>Everyone</span></label><label class="chat-switch-btn"><input type="radio" name="media" value="admins" required><span>Admins only</span></label></div></div>' +
         '<label class="chat-search"><input id="msgCreateGroupSearch" type="search" placeholder="Filter members" aria-label="Filter members"></label>' +
         '<div class="chat-new-list chat-create-group-list">' +
         people

@@ -20369,6 +20369,14 @@ const STUDIO_CONSTELLATIONS = [{
       refreshAccountsCount();
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
       const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
+      if (student || (typeof canEditLessons === 'function' && !canEditLessons())) {
+        const editor = document.getElementById("lmEditor");
+        if (editor) editor.hidden = true;
+        const saveBtn = document.getElementById("lmSave");
+        if (saveBtn) saveBtn.hidden = true;
+        const publishBtn = document.getElementById("lmPublish");
+        if (publishBtn) publishBtn.hidden = true;
+      }
       if (typeof paintUserProfilePill === 'function') paintUserProfilePill();
       window.LearningWorkbench?.paintEntry();
     }
@@ -28604,7 +28612,9 @@ const STUDIO_CONSTELLATIONS = [{
       if(speech&&box.querySelector('#lmSpeechPanel')){window.LearningWorkbench?.mountLessonSpeech();return;}
       const parts = evaluation ? lmEvaluationHtml(lmState) : (speech ? '<div id="lmSpeechPanel" role="tabpanel" aria-label="Speech"></div>' : lmPreviewParts(lmBlocksFor()));
       const when = lmLongDate(lmState.date);
-      const lead = evaluation ? '' : ('<p class="lm-read-lead">' + window.TextColors.html(lmState.description||'',lmState.descriptionFormatting||lmState.blocks?.find(part=>part.documentFormatting)?.documentFormatting?.description) + '</p>');
+      const descFormat = lmState.descriptionFormatting || lmState.blocks?.find(part => part.documentFormatting)?.documentFormatting?.description;
+      const descHtml = window.TextColors?.html ? window.TextColors.html(lmState.description || '', descFormat) : esc(lmState.description || '');
+      const lead = evaluation ? '' : ('<p class="lm-read-lead">' + descHtml + '</p>');
       box.innerHTML = '<article class="lm-read">' + (when ? '<p class="lm-read-date">' + esc(when) + '</p>' : '') + '<h2 class="lm-read-title">' + esc(lmState.title || 'Lesson') + '</h2>' + lmCourseHtml(lmState) + lead + lmChromeHtml() + parts + '</article>';
       if(speech){window.LearningWorkbench?.mountLessonSpeech();return;}
       if(evaluation)return;
@@ -28904,11 +28914,11 @@ const STUDIO_CONSTELLATIONS = [{
       if (viewAccount && assessmentActive(lmState)) mode = "preview";
       lmState.mode = mode;
       const editing = mode !== "preview";
-      document.getElementById("lmEditor").hidden = !editing;
-      document.getElementById("lmPreview").hidden = editing;
-      document.getElementById("lmEditBack").hidden = editing || !canEditLessons() || !!viewAccount && assessmentActive(lmState);
-      document.getElementById("lmSave").hidden = !editing;
-      document.getElementById("lmPublish").hidden = !editing;
+      const editorEl = document.getElementById("lmEditor"); if (editorEl) editorEl.hidden = !editing;
+      const previewEl = document.getElementById("lmPreview"); if (previewEl) previewEl.hidden = editing;
+      const editBackEl = document.getElementById("lmEditBack"); if (editBackEl) editBackEl.hidden = editing || !canEditLessons() || !!viewAccount && assessmentActive(lmState);
+      const saveEl = document.getElementById("lmSave"); if (saveEl) saveEl.hidden = !editing;
+      const publishEl = document.getElementById("lmPublish"); if (publishEl) publishEl.hidden = !editing;
       const heading = document.querySelector("#material .lm-meta h1");
       if (heading) heading.textContent = editing ? "Learning material" : (lmState.title || lmLongDate(lmState.date) || "Lesson");
       lmPaintChrome();
@@ -29308,6 +29318,7 @@ const STUDIO_CONSTELLATIONS = [{
     function paintMaterial() {
       lmEnsure();
       if (!lmState) { show("days"); return; }
+      if (!canEditLessons()) lmState.mode = "preview";
       lmShow(lmState.mode === "preview" ? "preview" : "edit");
     }
     window.paintLmDays = paintLmDays;

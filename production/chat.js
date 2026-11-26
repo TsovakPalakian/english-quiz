@@ -1151,16 +1151,23 @@
                 .join('')
             : '<div class="chat-empty">No members found.</div>');
       } else {
-        const contacts = [
-          ...new Map(
-            [
-              ...data.rooms
-                .filter((r) => r.kind === 'direct')
-                .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
-              ...data.contacts,
-            ].map((p) => [p.id, p]),
-          ).values(),
-        ]
+        const contactMap = new Map();
+        for (const c of data.contacts) {
+          contactMap.set(String(c.id), { ...c, role: c.role || 'Contact' });
+        }
+        for (const r of data.rooms) {
+          if (r.kind === 'direct' && r.peerId) {
+            const sid = String(r.peerId);
+            const existing = contactMap.get(sid);
+            contactMap.set(sid, {
+              id: r.peerId,
+              name: existing?.name || r.title,
+              role: existing?.role || r.peerRole || 'Contact',
+              ...existing,
+            });
+          }
+        }
+        const contacts = [...contactMap.values()]
           .filter(
             (p) =>
               !blocked.has(p.id) &&
@@ -1169,10 +1176,14 @@
                 (p.name + ' ' + p.role + ' ' + (p.login || '') + ' ' + (p.email || '') + ' ' + (p.searchQuery || '') + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.name.localeCompare(b.name));
-        const classGroups = data.groups
+        const groupMap = new Map();
+        for (const g of data.groups) {
+          groupMap.set(String(g.id), g);
+        }
+        const classGroups = [...groupMap.values()]
           .filter(
             (g) =>
-              !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
+              !data.rooms.some((r) => String(r.id) === 'group:' + String(g.id) && r.archived) &&
               (!query || g.title.toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.title.localeCompare(b.title));
@@ -4427,16 +4438,30 @@
       status('Wait for the connection, then open New chat.');
       return;
     }
-    const contacts = [
-        ...data.contacts,
-        ...data.rooms
-          .filter((r) => r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked)
-          .map((r) => ({ id: r.peerId, name: r.title, role: 'Contact' })),
-      ],
-      rows = [
-        ...data.groups.map((g) => ({ id: g.id, name: g.title, kind: 'group', role: 'Group chat' })),
-        ...[...new Map(contacts.map((p) => [p.id, p])).values()].map((p) => ({ ...p, kind: 'direct' })),
-      ].filter((p) => !onlyPerson || (p.kind === 'direct' && p.id === onlyPerson));
+    const contactMap = new Map();
+    for (const c of data.contacts) {
+      contactMap.set(String(c.id), { ...c, role: c.role || 'Contact' });
+    }
+    for (const r of data.rooms) {
+      if (r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked) {
+        const sid = String(r.peerId);
+        const existing = contactMap.get(sid);
+        contactMap.set(sid, {
+          id: r.peerId,
+          name: existing?.name || r.title,
+          role: existing?.role || r.peerRole || 'Contact',
+          ...existing,
+        });
+      }
+    }
+    const groupMap = new Map();
+    for (const g of data.groups) {
+      groupMap.set(String(g.id), g);
+    }
+    const rows = [
+      ...[...groupMap.values()].map((g) => ({ id: g.id, name: g.title, kind: 'group', role: 'Group chat' })),
+      ...[...contactMap.values()].map((p) => ({ ...p, kind: 'direct' })),
+    ].filter((p) => !onlyPerson || (p.kind === 'direct' && String(p.id) === String(onlyPerson)));
     const node = dialog(
       title,
       details +
@@ -4544,16 +4569,23 @@
     });
   }
   function createGroupChat() {
-    const people = [
-      ...new Map(
-        [
-          ...data.rooms
-            .filter((r) => r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked)
-            .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
-          ...data.contacts,
-        ].map((p) => [p.id, p]),
-      ).values(),
-    ].filter((p) => String(p.id) !== String(account));
+    const contactMap = new Map();
+    for (const c of data.contacts) {
+      contactMap.set(String(c.id), { ...c, role: c.role || 'Contact' });
+    }
+    for (const r of data.rooms) {
+      if (r.kind === 'direct' && r.peerId && r.access?.state === 'accepted' && !r.access.blocked) {
+        const sid = String(r.peerId);
+        const existing = contactMap.get(sid);
+        contactMap.set(sid, {
+          id: r.peerId,
+          name: existing?.name || r.title,
+          role: existing?.role || r.peerRole || 'Contact',
+          ...existing,
+        });
+      }
+    }
+    const people = [...contactMap.values()].filter((p) => String(p.id) !== String(account));
     if (!people.length) {
       status('Add contacts before creating a group.');
       return;
@@ -4561,15 +4593,9 @@
     const node = dialog(
       'Create group',
       '<label>Group name<input name="title" required maxlength="80" placeholder="Group name"></label>' +
-        '<fieldset class="chat-group-limits-fields"><legend>Who can send messages</legend>' +
-        '<label class="chat-mute-choice"><input type="radio" name="send" value="everyone" required> Everyone</label>' +
-        '<label class="chat-mute-choice"><input type="radio" name="send" value="admins" required> Admins only</label></fieldset>' +
-        '<fieldset class="chat-group-limits-fields"><legend>Who can add members</legend>' +
-        '<label class="chat-mute-choice"><input type="radio" name="invite" value="everyone" required> Everyone</label>' +
-        '<label class="chat-mute-choice"><input type="radio" name="invite" value="admins" required> Admins only</label></fieldset>' +
-        '<fieldset class="chat-group-limits-fields"><legend>Who can send media</legend>' +
-        '<label class="chat-mute-choice"><input type="radio" name="media" value="everyone" required> Everyone</label>' +
-        '<label class="chat-mute-choice"><input type="radio" name="media" value="admins" required> Admins only</label></fieldset>' +
+        '<div class="chat-limit-row"><span class="chat-limit-label">Who can send messages</span><div class="chat-switch-group" role="radiogroup" aria-label="Who can send messages"><label class="chat-switch-btn"><input type="radio" name="send" value="everyone" required checked><span>Everyone</span></label><label class="chat-switch-btn"><input type="radio" name="send" value="admins" required><span>Admins only</span></label></div></div>' +
+        '<div class="chat-limit-row"><span class="chat-limit-label">Who can add members</span><div class="chat-switch-group" role="radiogroup" aria-label="Who can add members"><label class="chat-switch-btn"><input type="radio" name="invite" value="everyone" required checked><span>Everyone</span></label><label class="chat-switch-btn"><input type="radio" name="invite" value="admins" required><span>Admins only</span></label></div></div>' +
+        '<div class="chat-limit-row"><span class="chat-limit-label">Who can send media</span><div class="chat-switch-group" role="radiogroup" aria-label="Who can send media"><label class="chat-switch-btn"><input type="radio" name="media" value="everyone" required checked><span>Everyone</span></label><label class="chat-switch-btn"><input type="radio" name="media" value="admins" required><span>Admins only</span></label></div></div>' +
         '<label class="chat-search"><input id="msgCreateGroupSearch" type="search" placeholder="Filter members" aria-label="Filter members"></label>' +
         '<div class="chat-new-list chat-create-group-list">' +
         people
@@ -6992,6 +7018,354 @@
     el('msgLatest').hidden = true;
     scheduleRead();
   };
+  let dockPos = { x: 24, y: null };
+  let dockDragging = false;
+  let dockDragMoved = false;
+  let dockDragStart = { x: 0, y: 0 };
+  let dockDragOrigin = { x: 0, y: 0 };
+
+  function checkDockCollision() {
+    const dock = el('chatDockWidget');
+    if (!dock || dock.hidden) return;
+    const dockRect = dock.getBoundingClientRect();
+    if (dockRect.width === 0 || dockRect.height === 0) return;
+    const testRight = dock.classList.contains('is-compact-oval') ? dockRect.left + 240 : dockRect.right;
+    const testBottom = dockRect.bottom;
+    const testTop = dockRect.top;
+    const testLeft = dockRect.left;
+    const candidates = document.querySelectorAll('input:not([type="hidden"]),textarea,select,[contenteditable="true"]');
+    let collided = false;
+    for (const item of candidates) {
+      if (dock.contains(item) || item.closest('#messages') || item.closest('#chatMiniWindow')) continue;
+      const s = window.getComputedStyle(item);
+      if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') continue;
+      const r = item.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      if (testLeft < r.right && testRight > r.left && testTop < r.bottom && testBottom > r.top) {
+        collided = true;
+        break;
+      }
+    }
+    dock.classList.toggle('is-compact-oval', collided);
+  }
+
+  function cleanInitials(name) {
+    const raw = String(name || '').split(/[·•]/)[0].trim();
+    return initials(raw);
+  }
+
+  function syncPeerToWidgets() {
+    const r = data.rooms.find((item) => item.id === room);
+    const title = r ? roomTitle(r) : 'Teacher';
+    const initialsText = cleanInitials(title);
+    const dock = el('chatDockWidget');
+    if (dock) {
+      const avatarEl = el('chatDockAvatar');
+      const titleEl = el('chatDockTitle');
+      if (avatarEl) avatarEl.textContent = initialsText;
+      if (titleEl) titleEl.textContent = title;
+    }
+    const mini = el('chatMiniWindow');
+    if (mini) {
+      const miniAvatar = el('miniRoomAvatar');
+      const miniTitle = el('miniRoomTitle');
+      if (miniAvatar) miniAvatar.textContent = initialsText;
+      if (miniTitle) miniTitle.textContent = title;
+      syncMiniTimeline();
+    }
+  }
+
+  function syncMiniTimeline() {
+    const miniTl = el('miniTimeline');
+    if (!miniTl || el('chatMiniWindow')?.hidden) return;
+    const r = data.rooms.find((item) => item.id === room);
+    const peerInitials = cleanInitials(r ? roomTitle(r) : 'Teacher');
+    const msgs = timeline.querySelectorAll('.msg-message');
+    if (!msgs.length) {
+      miniTl.innerHTML = '<p style="color:var(--mute);font-size:12px;text-align:center;margin:auto;">No messages yet</p>';
+      return;
+    }
+    let html = '';
+    msgs.forEach((m) => {
+      const own = m.classList.contains('is-own');
+      const text = m.querySelector('.msg-text')?.innerText || m.innerText || '';
+      const time = m.querySelector('.msg-time')?.innerText || '';
+      if (text) {
+        if (own) {
+          html += '<div class="chat-mini-msg-row own">' +
+            '<div class="chat-mini-msg-bubble">' + escape(text) + '</div>' +
+            (time ? '<span class="chat-mini-msg-time">' + escape(time) + '</span>' : '') +
+            '</div>';
+        } else {
+          html += '<div class="chat-mini-msg-row other">' +
+            '<span class="chat-mini-msg-avatar">' + escape(peerInitials) + '</span>' +
+            '<div class="chat-mini-msg-body">' +
+            '<div class="chat-mini-msg-bubble">' + escape(text) + '</div>' +
+            (time ? '<span class="chat-mini-msg-time">' + escape(time) + '</span>' : '') +
+            '</div>' +
+            '</div>';
+        }
+      }
+    });
+    miniTl.innerHTML = html;
+    miniTl.scrollTop = miniTl.scrollHeight;
+  }
+
+  function openMiniWindowFromDock() {
+    const dock = el('chatDockWidget');
+    const mini = el('chatMiniWindow');
+    if (!mini) return;
+    let anchorLeft = 24;
+    if (dock) {
+      const rect = dock.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const desiredH = 460;
+      const desiredW = 340;
+      anchorLeft = Math.max(12, Math.min(window.innerWidth - desiredW - 12, rect.left));
+      if (spaceBelow >= desiredH || spaceBelow >= spaceAbove) {
+        const topPos = Math.min(window.innerHeight - desiredH - 12, rect.bottom + 8);
+        mini.style.top = topPos + 'px';
+        mini.style.bottom = 'auto';
+      } else {
+        const topPos = Math.max(12, rect.top - desiredH - 8);
+        mini.style.top = topPos + 'px';
+        mini.style.bottom = 'auto';
+      }
+      mini.style.left = anchorLeft + 'px';
+      mini.style.right = 'auto';
+      dock.hidden = true;
+    }
+    mini.hidden = false;
+    syncPeerToWidgets();
+  }
+
+  function restoreDockFromMini() {
+    const mini = el('chatMiniWindow');
+    const dock = el('chatDockWidget');
+    if (mini) mini.hidden = true;
+    if (dock) {
+      dock.hidden = false;
+      if (dockPos.y !== null) {
+        dock.style.left = dockPos.x + 'px';
+        dock.style.top = dockPos.y + 'px';
+        dock.style.bottom = 'auto';
+        dock.style.right = 'auto';
+      }
+      checkDockCollision();
+    }
+  }
+
+  function renderPeerDropdown() {
+    const list = el('miniPeerList');
+    if (!list) return;
+    const availableRooms = data.rooms.filter((r) => !r.archived);
+    if (!availableRooms.length && !data.contacts.length) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--mute);padding:6px 8px;">No conversations</div>';
+      return;
+    }
+    let html = '';
+    for (const r of availableRooms) {
+      const isSel = r.id === room;
+      const title = roomTitle(r);
+      const initialsText = cleanInitials(title);
+      const snippet = r.lastMessage?.text ? escape(r.lastMessage.text.slice(0, 30)) : 'Active';
+      html += '<button type="button" class="chat-mini-peer-item ' + (isSel ? 'selected' : '') + '" data-mini-room-id="' + escape(r.id) + '">' +
+        '<span class="chat-mini-avatar">' + escape(initialsText) + '</span>' +
+        '<div class="chat-mini-peer-meta">' +
+        '<strong>' + escape(title) + '</strong>' +
+        '<small>' + snippet + '</small>' +
+        '</div>' +
+        (isSel ? '<span class="chat-mini-peer-check">✓</span>' : '') +
+        '</button>';
+    }
+    list.innerHTML = html;
+  }
+
+  const dockElem = el('chatDockWidget');
+  if (dockElem) {
+    dockElem.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      dockDragging = true;
+      dockDragMoved = false;
+      dockDragStart = { x: e.clientX, y: e.clientY };
+      const r = dockElem.getBoundingClientRect();
+      dockDragOrigin = { x: r.left, y: r.top };
+      dockElem.setPointerCapture(e.pointerId);
+    });
+
+    dockElem.addEventListener('pointermove', (e) => {
+      if (!dockDragging) return;
+      const dx = e.clientX - dockDragStart.x;
+      const dy = e.clientY - dockDragStart.y;
+      if (!dockDragMoved && Math.hypot(dx, dy) > 4) {
+        dockDragMoved = true;
+        dockElem.classList.add('is-dragging');
+      }
+      if (dockDragMoved) {
+        const r = dockElem.getBoundingClientRect();
+        const minX = 12, maxX = window.innerWidth - r.width - 12;
+        const minY = 12, maxY = window.innerHeight - r.height - 12;
+        const nextX = Math.max(minX, Math.min(maxX, dockDragOrigin.x + dx));
+        const nextY = Math.max(minY, Math.min(maxY, dockDragOrigin.y + dy));
+        dockElem.style.left = nextX + 'px';
+        dockElem.style.top = nextY + 'px';
+        dockElem.style.bottom = 'auto';
+        dockElem.style.right = 'auto';
+        dockPos = { x: nextX, y: nextY };
+        checkDockCollision();
+      }
+    });
+
+    const finishDrag = (e) => {
+      if (!dockDragging) return;
+      dockDragging = false;
+      dockElem.classList.remove('is-dragging');
+      try { dockElem.releasePointerCapture(e.pointerId); } catch {}
+    };
+    dockElem.addEventListener('pointerup', finishDrag);
+    dockElem.addEventListener('pointercancel', finishDrag);
+  }
+
+  window.addEventListener('scroll', checkDockCollision, { passive: true });
+  window.addEventListener('resize', checkDockCollision, { passive: true });
+
+  const winClose = el('msgWinClose');
+  if (winClose) {
+    winClose.onclick = () => {
+      const mini = el('chatMiniWindow');
+      const dock = el('chatDockWidget');
+      if (mini) mini.hidden = true;
+      if (dock) dock.hidden = true;
+      window.enquizVisit('home');
+    };
+  }
+
+  const winMin = el('msgWinMin');
+  if (winMin) {
+    winMin.onclick = () => {
+      syncPeerToWidgets();
+      const mini = el('chatMiniWindow');
+      const dock = el('chatDockWidget');
+      if (mini) mini.hidden = true;
+      if (dock) {
+        dock.hidden = false;
+        checkDockCollision();
+      }
+      window.enquizVisit('home');
+    };
+  }
+
+  const winExpand = el('msgWinExpand');
+  if (winExpand) {
+    winExpand.onclick = () => {
+      openMiniWindowFromDock();
+      window.enquizVisit('home');
+    };
+  }
+
+  const miniClose = el('miniWinClose');
+  if (miniClose) {
+    miniClose.onclick = () => {
+      const mini = el('chatMiniWindow');
+      const dock = el('chatDockWidget');
+      if (mini) mini.hidden = true;
+      if (dock) dock.hidden = true;
+    };
+  }
+
+  const miniMin = el('miniWinMin');
+  if (miniMin) {
+    miniMin.onclick = () => {
+      restoreDockFromMini();
+    };
+  }
+
+  const miniMax = el('miniWinMax');
+  if (miniMax) {
+    miniMax.onclick = () => {
+      const mini = el('chatMiniWindow');
+      const dock = el('chatDockWidget');
+      if (mini) mini.hidden = true;
+      if (dock) dock.hidden = true;
+      window.enquizVisit('messages');
+    };
+  }
+
+  const dockClose = el('chatDockClose');
+  if (dockClose) {
+    dockClose.onclick = (e) => {
+      e.stopPropagation();
+      const dock = el('chatDockWidget');
+      if (dock) dock.hidden = true;
+    };
+  }
+
+  const dockExpand = el('chatDockExpand');
+  if (dockExpand) {
+    dockExpand.onclick = (e) => {
+      e.stopPropagation();
+      openMiniWindowFromDock();
+    };
+  }
+
+  if (dockElem) {
+    dockElem.onclick = (e) => {
+      if (dockDragMoved) {
+        dockDragMoved = false;
+        return;
+      }
+      if (e.target.closest('button')) return;
+      openMiniWindowFromDock();
+    };
+  }
+
+  const peerTrigger = el('miniPeerSelector');
+  const peerDropdown = el('miniPeerDropdown');
+  if (peerTrigger && peerDropdown) {
+    peerTrigger.onclick = (e) => {
+      e.stopPropagation();
+      const isHidden = peerDropdown.hidden;
+      peerDropdown.hidden = !isHidden;
+      peerTrigger.setAttribute('aria-expanded', String(isHidden));
+      if (isHidden) renderPeerDropdown();
+    };
+
+    peerDropdown.onclick = async (e) => {
+      const item = e.target.closest('[data-mini-room-id]');
+      if (!item) return;
+      const targetRoom = item.dataset.miniRoomId;
+      if (targetRoom) {
+        await openRoom(targetRoom);
+        peerDropdown.hidden = true;
+        peerTrigger.setAttribute('aria-expanded', 'false');
+        syncPeerToWidgets();
+      }
+    };
+
+    document.addEventListener('click', (e) => {
+      if (!peerDropdown.hidden && !peerDropdown.contains(e.target) && !peerTrigger.contains(e.target)) {
+        peerDropdown.hidden = true;
+        peerTrigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  const miniForm = el('miniComposer');
+  if (miniForm) {
+    miniForm.onsubmit = async (e) => {
+      e.preventDefault();
+      const input = el('miniInput');
+      if (!input || !input.value.trim()) return;
+      const val = input.value.trim();
+      input.value = '';
+      if (composer) {
+        composer.value = val;
+        await send();
+        syncMiniTimeline();
+      }
+    };
+  }
   document.addEventListener('click', async (event) => {
     const target = event.target.closest(
       '[data-msg-open],[data-msg-original],[data-msg-room],[data-msg-category],[data-msg-reply],[data-msg-forward],[data-contact-id],[data-msg-quote],[data-msg-exam],[data-msg-cancel-reply],[data-remove-file],[data-emoji],[data-emoji-category],[data-info-tab],[data-search-id],[data-msg-menu],[data-reaction],[data-relation],[data-chat-blocked],[data-cancel-upload],[data-msg-unpin]',

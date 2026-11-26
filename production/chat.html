@@ -1,6 +1,17 @@
 <section id="messages" aria-label="Messages">
   <div class="chat-shell saas-card">
     <nav class="chat-rail" aria-label="Chat navigation">
+      <div class="chat-window-controls" aria-label="Window controls">
+        <button type="button" id="msgWinClose" class="chat-win-subtle close" title="Close window" aria-label="Close window">
+          <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+        </button>
+        <button type="button" id="msgWinMin" class="chat-win-subtle minimize" title="Minimize" aria-label="Minimize">
+          <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h8"/></svg>
+        </button>
+        <button type="button" id="msgWinExpand" class="chat-win-subtle expand" title="Compact window" aria-label="Compact window">
+          <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.0" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5H11.5V7M7 11.5H4.5V9M11.5 4.5L8 8M4.5 11.5L8 8"/></svg>
+        </button>
+      </div>
       <button type="button" id="msgProfile" class="chat-avatar saas-btn" title="Settings" aria-label="Settings">Me</button>
       <button type="button" id="msgChats" class="chat-rail-item selected saas-btn" title="Chats"><i data-lucide="message-circle"></i><span>Chats</span></button>
       <button type="button" id="msgContacts" class="chat-rail-item saas-btn" title="Contacts"><i data-lucide="users-round"></i><span>Contacts</span></button>
@@ -59,3 +70,68 @@
   </div>
   <div id="msgContext" class="chat-context" role="menu" aria-label="Message actions" hidden></div>
 </section>
+
+<div id="chatMiniWindow" class="chat-mini-window" role="dialog" aria-label="Compact conversation" hidden>
+  <header class="chat-mini-head">
+    <div class="chat-mini-controls" aria-label="Window controls">
+      <button type="button" id="miniWinClose" class="chat-win-subtle close" title="Close window" aria-label="Close window">
+        <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+      </button>
+      <button type="button" id="miniWinMin" class="chat-win-subtle minimize" title="Minimize" aria-label="Minimize">
+        <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h8"/></svg>
+      </button>
+      <button type="button" id="miniWinMax" class="chat-win-subtle expand" title="Expand to full window" aria-label="Expand to full window">
+        <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.0" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5H11.5V7M7 11.5H4.5V9M11.5 4.5L8 8M4.5 11.5L8 8"/></svg>
+      </button>
+    </div>
+    <button type="button" id="miniPeerSelector" class="chat-mini-peer-select-btn" title="Switch conversation" aria-label="Switch conversation" aria-expanded="false">
+      <div class="chat-mini-avatar-wrap">
+        <span id="miniRoomAvatar" class="chat-mini-avatar">TP</span>
+        <span class="chat-mini-presence"></span>
+      </div>
+      <div class="chat-mini-peer-info">
+        <div class="chat-mini-peer-title-row">
+          <strong id="miniRoomTitle">Teacher</strong>
+          <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor" class="chat-mini-chevron"><path d="M4 6l4 4 4-4H4z"/></svg>
+        </div>
+        <small id="miniRoomSubtitle">Online</small>
+      </div>
+    </button>
+    <div id="miniPeerDropdown" class="chat-mini-peer-dropdown" hidden>
+      <div class="chat-mini-dropdown-head">Switch conversation</div>
+      <div id="miniPeerList" class="chat-mini-peer-list"></div>
+    </div>
+  </header>
+  <div id="miniTimeline" class="chat-mini-timeline" role="log" aria-label="Conversation" aria-live="polite"></div>
+  <form id="miniComposer" class="chat-mini-composer">
+    <button type="button" class="chat-mini-tool-btn" title="Attach file" aria-label="Attach file">
+      <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+    </button>
+    <input id="miniInput" type="text" class="chat-mini-input" placeholder="Enter message..." aria-label="Message text" />
+    <button type="submit" id="miniSend" class="chat-mini-send-btn" title="Send message" aria-label="Send">
+      <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </form>
+  <div class="chat-resize-corner" aria-hidden="true">
+    <svg viewBox="0 0 10 10" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2L2 8M9 5L5 9M9 8L8 9"/></svg>
+  </div>
+</div>
+
+<div id="chatDockWidget" class="chat-dock-bar" role="region" aria-label="Chat widget" title="Drag to move" hidden>
+  <div class="chat-dock-avatar-wrap" id="chatDockAvatarWrap">
+    <span class="chat-dock-avatar" id="chatDockAvatar">TP</span>
+    <span class="chat-dock-presence is-online"></span>
+  </div>
+  <div class="chat-dock-info" id="chatDockInfo">
+    <strong id="chatDockTitle">Teacher</strong>
+    <small id="chatDockSubtitle">Active conversation</small>
+  </div>
+  <div class="chat-dock-actions" id="chatDockActions">
+    <button type="button" id="chatDockExpand" class="chat-dock-btn expand" title="Expand to window" aria-label="Expand to window">
+      <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.0" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5H11.5V7M7 11.5H4.5V9M11.5 4.5L8 8M4.5 11.5L8 8"/></svg>
+    </button>
+    <button type="button" id="chatDockClose" class="chat-dock-btn close" title="Close chat" aria-label="Close chat">
+      <svg viewBox="0 0 16 16" width="8" height="8" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+    </button>
+  </div>
+</div>

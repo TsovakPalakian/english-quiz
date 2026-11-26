@@ -185,7 +185,10 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
         mat.style.display = 'flex';
       }
       const editor = document.getElementById('lmEditor');
-      if (editor) editor.style.display = 'block';
+      if (editor) {
+        editor.removeAttribute('hidden');
+        editor.style.display = 'block';
+      }
       const importFrame = document.getElementById('lmFrameImport');
       if (importFrame) importFrame.style.display = 'block';
       if (typeof window.lmInitImportTabs === 'function') window.lmInitImportTabs();

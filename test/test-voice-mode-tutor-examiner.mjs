@@ -80,6 +80,8 @@ test('Stage 18: Voice Mode interactive browser flows (Playwright)', async () => 
         mat.classList.add('on');
         mat.style.display = 'flex';
       }
+      const ed = document.getElementById('lmEditor');
+      if (ed) ed.hidden = false;
       window.lmState = {
         title: 'Weather and Climate',
         blocks: [

@@ -167,16 +167,23 @@
                 .join('')
             : '<div class="chat-empty">No members found.</div>');
       } else {
-        const contacts = [
-          ...new Map(
-            [
-              ...data.rooms
-                .filter((r) => r.kind === 'direct')
-                .map((r) => ({ id: r.peerId, name: r.title, role: r.peerRole || 'Contact' })),
-              ...data.contacts,
-            ].map((p) => [p.id, p]),
-          ).values(),
-        ]
+        const contactMap = new Map();
+        for (const c of data.contacts) {
+          contactMap.set(String(c.id), { ...c, role: c.role || 'Contact' });
+        }
+        for (const r of data.rooms) {
+          if (r.kind === 'direct' && r.peerId) {
+            const sid = String(r.peerId);
+            const existing = contactMap.get(sid);
+            contactMap.set(sid, {
+              id: r.peerId,
+              name: existing?.name || r.title,
+              role: existing?.role || r.peerRole || 'Contact',
+              ...existing,
+            });
+          }
+        }
+        const contacts = [...contactMap.values()]
           .filter(
             (p) =>
               !blocked.has(p.id) &&
@@ -185,10 +192,14 @@
                 (p.name + ' ' + p.role + ' ' + (p.login || '') + ' ' + (p.email || '') + ' ' + (p.searchQuery || '') + ' ' + (profileViews[p.id]?.username || '')).toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.name.localeCompare(b.name));
-        const classGroups = data.groups
+        const groupMap = new Map();
+        for (const g of data.groups) {
+          groupMap.set(String(g.id), g);
+        }
+        const classGroups = [...groupMap.values()]
           .filter(
             (g) =>
-              !data.rooms.some((r) => r.id === 'group:' + g.id && r.archived) &&
+              !data.rooms.some((r) => String(r.id) === 'group:' + String(g.id) && r.archived) &&
               (!query || g.title.toLocaleLowerCase().includes(query)),
           )
           .sort((a, b) => a.title.localeCompare(b.title));

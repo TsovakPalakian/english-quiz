@@ -242,6 +242,7 @@ test('TASK-53: Visual test with Playwright - verifies clean input, progress bar,
       const total = document.getElementById('lmTaskTotalSummary');
       if (!pane || !header || !info || !badge || !total) return { ok: false, reason: 'missing' };
       for (let node = pane; node && node !== document.body; node = node.parentElement) {
+        if (node.hidden) node.hidden = false;
         if (getComputedStyle(node).display === 'none') node.style.display = 'block';
       }
       pane.style.width = '960px';

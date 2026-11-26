@@ -120,6 +120,8 @@ test('Visual and UI Integration: Manual Script command approval gate and executi
         mat.classList.add('on');
         mat.style.display = 'block';
       }
+      const ed = document.getElementById('lmEditor');
+      if (ed) ed.hidden = false;
 
       // Set initial dummy blocks in lmState
       if (!window.lmState) {
