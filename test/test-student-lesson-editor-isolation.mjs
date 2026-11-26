@@ -182,12 +182,28 @@ test('Stage 3: Playwright UI visual test - student reload on lesson screen rende
     const lessonTitle = await page.locator('.lm-read-title').textContent();
     assert.ok(lessonTitle.includes('B1 Practice: Travel & Daily Life'), 'Lesson title must be displayed in preview');
 
-    // Verify visual verification screenshot exists
+    // Capture and verify visual screenshots across themes
+    // 1. Sky theme (already applied)
     const skyScreenshotPath = path.join(rootDir, 'docs/task-student-lesson-view-sky.png');
+    await page.screenshot({ path: skyScreenshotPath });
     assert.ok(fs.existsSync(skyScreenshotPath), 'Sky verification screenshot must exist in docs/');
+
+    // 2. Dark theme
+    await page.evaluate(() => {
+      if (typeof applyTheme === 'function') applyTheme('dark', { sync: false });
+    });
+    await page.waitForTimeout(200);
     const darkScreenshotPath = path.join(rootDir, 'docs/task-student-lesson-view-dark.png');
+    await page.screenshot({ path: darkScreenshotPath });
     assert.ok(fs.existsSync(darkScreenshotPath), 'Dark verification screenshot must exist in docs/');
+
+    // 3. Sand theme
+    await page.evaluate(() => {
+      if (typeof applyTheme === 'function') applyTheme('sand', { sync: false });
+    });
+    await page.waitForTimeout(200);
     const sandScreenshotPath = path.join(rootDir, 'docs/task-student-lesson-view-sand.png');
+    await page.screenshot({ path: sandScreenshotPath });
     assert.ok(fs.existsSync(sandScreenshotPath), 'Sand verification screenshot must exist in docs/');
 
   } finally {
