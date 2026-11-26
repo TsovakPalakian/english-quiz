@@ -18770,10 +18770,9 @@ const STUDIO_CONSTELLATIONS = [{
         const spikeLen=mag<=3.5?Math.max(5,Math.min(Math.min(28,style.radius*5.5*.75*Math.pow(flux,.15)),spacing*.38)):0;
         dot(slot.x,slot.y,Math.min(style.radius,spacing*.28),style.alpha*slot.opacity*shimmer,style.color,true,brightness.constellation,spacing*.65,spikeLen);
       }
-      const isInspected=!!(inspectedCon&&inspectedCon.abbr===current.abbr);
-      const lineAlpha=isInspected?.85:.65,lineWidth=isInspected?1.8:.8;
+      const lineAlpha=.65,lineWidth=.8;
       if(phase==='morph')drawLines(previous,lineAlpha*(1-t),lineWidth,false);
-      drawLines(current,lineAlpha*t,lineWidth,isInspected);
+      drawLines(current,lineAlpha*t,lineWidth,false);
       if(inspected&&phase==='hold'&&inspected.slot&&inspected.slot.opacity>.5){
         const is=inspected.slot,pulse=motion.matches?1:(.85+.15*Math.sin(clock*.06)),ringR=13;
         ctx.save();
