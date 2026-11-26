@@ -1617,7 +1617,7 @@
         const textarea = '<textarea data-response="' + block.id + '"' + (isLocked ? ' disabled readonly' : '') + '>' + esc(block.response || "") + '</textarea>';
         const actions = isHwOrCw ? ('<div class="lm-task-actions">' +
           (!isLocked ? '<button type="button" class="lm-btn lm-btn-primary lm-submit-answer" data-submit-task="' + block.id + '">🔒 Submit Answer</button>' : '<span class="lm-locked-badge">✓ Submitted & Locked</span>') +
-          '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>' +
+          (block.teacherReviewRequested ? '<span class="student-status-badge" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#b45309; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.25); padding:5px 12px; border-radius:6px;">📩 Review Requested from Teacher</span>' : '<button type="button" class="lm-btn lm-send-teacher-btn" data-send-teacher="' + block.id + '">📩 Send to Teacher for Review</button>') +
         '</div>') : '';
 
         let inlineReviewHtml = '';
@@ -1658,57 +1658,122 @@
         let rubricHtml = '';
         if (isHwOrCw) {
           const aiNote = block.aiFeedback ? ('<div class="lm-ai-feedback-note" style="margin-top:8px; font-size:12px; color:var(--mute); background:var(--bg); padding:6px 10px; border-radius:6px; border:1px solid var(--line);">' + esc(block.aiFeedback) + '</div>') : '';
-          const teacherApproved = block.teacherVerified ? ('<span class="lm-teacher-approved-tag" style="color:#059669; font-weight:700; font-size:12px; margin-left:8px;">✓ Verified by Teacher (' + currentGrade + ' / ' + max + ' pt)</span>') : '';
-          teacherPanel = '<div class="teacher-grading-panel">' +
-            '<div class="grading-input-group">' +
-              '<span>Teacher Evaluation:</span>' +
-              '<input type="number" min="0" max="' + max + '" value="' + esc(currentGrade) + '" data-teacher-grade-input="' + block.id + '" />' +
-              '<span>/ ' + max + ' pts</span>' +
-              teacherApproved +
-            '</div>' +
-            '<div class="grading-btns">' +
-              '<button type="button" class="lm-btn lm-btn-primary" data-approve-grade="' + block.id + '" style="padding:5px 12px; font-size:12px;">✓ Approve Grade</button>' +
-              '<button type="button" class="lm-btn" data-ai-eval="' + block.id + '" style="padding:5px 12px; font-size:12px; border:1px solid var(--line);">🤖 Check with AI</button>' +
-            '</div>' +
-          '</div>' + aiNote;
-
+          const isEvaluated = Boolean(block.teacherVerified || (block.grade !== null && block.grade !== undefined && block.grade !== ''));
           const rc = block.rubricCriteria || { grammar: 2, vocabulary: 1, task: 1 };
           const total = (Number(rc.grammar) || 0) + (Number(rc.vocabulary) || 0) + (Number(rc.task) || 0);
           const pct = Math.round((total / 5) * 100);
-          const scaleBtns = (crit, curVal, maxVal) => {
-            let btns = '';
-            for (let v = 0; v <= maxVal; v++) {
-              const active = Number(curVal) === v ? ' is-active' : '';
-              const check = Number(curVal) === v ? ' ✓' : '';
-              btns += '<button type="button" class="scale-btn' + active + '" data-rubric-criterion="' + crit + '" data-rubric-block="' + block.id + '" data-rubric-score="' + v + '">' + v + check + '</button>';
-            }
-            return btns;
-          };
+          const isStudentViewer = !((authUser && (authUser.role === 'ADMIN' || authUser.role === 'DEVELOPER')) || (typeof canTuneStudentLessons === 'function' && canTuneStudentLessons()));
 
-          rubricHtml = '<div class="rubric-panel">' +
-            '<div class="rubric-head">' +
-              '<div><strong style="font-size:14px; color:var(--ink);">Evaluation Rubric Breakdown</strong><div style="font-size:12px; color:var(--mute);">Score by individual competency criteria</div></div>' +
-              '<button type="button" class="lm-btn" data-ai-rubric-analysis="' + block.id + '" style="border:1px solid var(--line); padding:5px 12px; font-size:12px;">🤖 AI Rubric Analysis</button>' +
-            '</div>' +
-            '<div class="rubric-criteria-grid">' +
-              '<div class="rubric-criterion">' +
-                '<div class="criterion-title"><span>Grammar Accuracy</span><span style="color:var(--mute);">max 2 pts</span></div>' +
-                '<div class="criterion-scale">' + scaleBtns('grammar', rc.grammar, 2) + '</div>' +
-              '</div>' +
-              '<div class="rubric-criterion">' +
-                '<div class="criterion-title"><span>Vocabulary Range</span><span style="color:var(--mute);">max 2 pts</span></div>' +
-                '<div class="criterion-scale">' + scaleBtns('vocabulary', rc.vocabulary, 2) + '</div>' +
-              '</div>' +
-              '<div class="rubric-criterion">' +
-                '<div class="criterion-title"><span>Task Achievement</span><span style="color:var(--mute);">max 1 pt</span></div>' +
-                '<div class="criterion-scale">' + scaleBtns('task', rc.task, 1) + '</div>' +
-              '</div>' +
-            '</div>' +
-            '<div class="rubric-foot">' +
-              '<div style="font-weight:800; font-size:14px; color:var(--ink);">Calculated Total: <span style="color:var(--acc);">' + total + ' / 5 pts (' + pct + '%)</span></div>' +
-              '<button type="button" class="lm-btn lm-btn-primary" data-save-rubric-grade="' + block.id + '" style="padding:6px 14px; font-size:12.5px;">✓ Save Criteria Grade</button>' +
-            '</div>' +
-          '</div>';
+          if (isStudentViewer) {
+            // Student view: Strictly read-only or status banner; no inputs or action buttons.
+            if (isEvaluated) {
+              teacherPanel = '<div class="read-only-evaluation-card" style="margin-top:16px; padding:14px 16px; border-radius:10px; background:var(--bg); border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;">' +
+                '<div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:var(--ink);">' +
+                  '<span>Teacher Evaluation:</span>' +
+                  '<span style="font-size:16px; font-weight:800; color:var(--acc);">' + esc(currentGrade) + ' / ' + max + ' pts</span>' +
+                  '<span style="color:#059669; font-size:12px; font-weight:700; margin-left:8px;">✓ Verified by Teacher</span>' +
+                '</div>' +
+                '<div style="font-size:12px; color:var(--mute);">Graded based on standard rubric criteria</div>' +
+              '</div>' + aiNote;
+
+              rubricHtml = '<div class="read-only-rubric-card" style="margin-top:14px; padding:16px 18px; border-radius:12px; background:var(--bg); border:1px solid var(--line); display:flex; flex-direction:column; gap:12px;">' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:8px;">' +
+                  '<div>' +
+                    '<strong style="font-size:13.5px; color:var(--ink);">Evaluation Rubric Breakdown</strong>' +
+                    '<div style="font-size:11.5px; color:var(--mute);">Official assessment by individual competency criteria</div>' +
+                  '</div>' +
+                  '<span style="font-size:12px; font-weight:700; color:#059669; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); padding:3px 8px; border-radius:6px;">Final Grade Confirmed</span>' +
+                '</div>' +
+                '<div class="rubric-criteria-grid">' +
+                  '<div class="rubric-criterion">' +
+                    '<div class="criterion-title"><span>Grammar Accuracy</span><span style="color:var(--mute);">max 2 pts</span></div>' +
+                    '<div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; background:var(--card); color:var(--acc); border:1px solid var(--line);">' + rc.grammar + ' / 2 pts ✓</span></div>' +
+                  '</div>' +
+                  '<div class="rubric-criterion">' +
+                    '<div class="criterion-title"><span>Vocabulary Range</span><span style="color:var(--mute);">max 2 pts</span></div>' +
+                    '<div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; background:var(--card); color:var(--acc); border:1px solid var(--line);">' + rc.vocabulary + ' / 2 pts ✓</span></div>' +
+                  '</div>' +
+                  '<div class="rubric-criterion">' +
+                    '<div class="criterion-title"><span>Task Achievement</span><span style="color:var(--mute);">max 1 pt</span></div>' +
+                    '<div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; background:var(--card); color:var(--acc); border:1px solid var(--line);">' + rc.task + ' / 1 pt ✓</span></div>' +
+                  '</div>' +
+                '</div>' +
+                '<div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:10px;">' +
+                  '<div style="font-weight:800; font-size:14px; color:var(--ink);">Calculated Total: <span style="color:var(--acc);">' + total + ' / 5 pts (' + pct + '%)</span></div>' +
+                  '<span style="font-size:12px; color:var(--mute);">Read-only Student View</span>' +
+                '</div>' +
+              '</div>';
+            } else if (block.teacherReviewRequested) {
+              teacherPanel = '<div style="margin-top:16px; padding:14px 16px; border-radius:10px; background:var(--bg); border:1px dashed var(--line); display:flex; align-items:center; justify-content:space-between;">' +
+                '<div style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--mute);">' +
+                  '<span>⏳</span>' +
+                  '<span>Review request has been sent to your teacher. Evaluation and rubric breakdown will appear here once verified.</span>' +
+                '</div>' +
+              '</div>';
+              rubricHtml = '';
+            } else {
+              teacherPanel = '';
+              rubricHtml = '';
+            }
+          } else {
+            // Teacher role: If reviewing student account and student hasn't requested review yet
+            const studentReviewPending = Boolean(viewAccount && !block.teacherReviewRequested);
+            if (studentReviewPending) {
+              teacherPanel = '<div style="margin-top:12px; padding:12px 14px; border-radius:8px; background:var(--bg); border:1px dashed var(--line); font-size:13px; color:var(--mute); display:flex; align-items:center; gap:8px;">' +
+                '<span>⏳</span><span>Waiting for student to request review before grading can begin.</span>' +
+              '</div>';
+              rubricHtml = '';
+            } else {
+              const teacherApproved = block.teacherVerified ? ('<span class="lm-teacher-approved-tag" style="color:#059669; font-weight:700; font-size:12px; margin-left:8px;">✓ Verified by Teacher (' + currentGrade + ' / ' + max + ' pt)</span>') : '';
+              teacherPanel = '<div class="teacher-grading-panel">' +
+                '<div class="grading-input-group">' +
+                  '<span>Teacher Evaluation:</span>' +
+                  '<input type="number" min="0" max="' + max + '" value="' + esc(currentGrade) + '" data-teacher-grade-input="' + block.id + '" />' +
+                  '<span>/ ' + max + ' pts</span>' +
+                  teacherApproved +
+                '</div>' +
+                '<div class="grading-btns">' +
+                  '<button type="button" class="lm-btn lm-btn-primary" data-approve-grade="' + block.id + '" style="padding:5px 12px; font-size:12px;">✓ Approve Grade</button>' +
+                  '<button type="button" class="lm-btn" data-ai-eval="' + block.id + '" style="padding:5px 12px; font-size:12px; border:1px solid var(--line);">🤖 Check with AI</button>' +
+                '</div>' +
+              '</div>' + aiNote;
+
+              const scaleBtns = (crit, curVal, maxVal) => {
+                let btns = '';
+                for (let v = 0; v <= maxVal; v++) {
+                  const active = Number(curVal) === v ? ' is-active' : '';
+                  const check = Number(curVal) === v ? ' ✓' : '';
+                  btns += '<button type="button" class="scale-btn' + active + '" data-rubric-criterion="' + crit + '" data-rubric-block="' + block.id + '" data-rubric-score="' + v + '">' + v + check + '</button>';
+                }
+                return btns;
+              };
+
+              rubricHtml = '<div class="rubric-panel">' +
+                '<div class="rubric-head">' +
+                  '<div><strong style="font-size:14px; color:var(--ink);">Evaluation Rubric Breakdown</strong><div style="font-size:12px; color:var(--mute);">Score by individual competency criteria</div></div>' +
+                  '<button type="button" class="lm-btn" data-ai-rubric-analysis="' + block.id + '" style="border:1px solid var(--line); padding:5px 12px; font-size:12px;">🤖 AI Rubric Analysis</button>' +
+                '</div>' +
+                '<div class="rubric-criteria-grid">' +
+                  '<div class="rubric-criterion">' +
+                    '<div class="criterion-title"><span>Grammar Accuracy</span><span style="color:var(--mute);">max 2 pts</span></div>' +
+                    '<div class="criterion-scale">' + scaleBtns('grammar', rc.grammar, 2) + '</div>' +
+                  '</div>' +
+                  '<div class="rubric-criterion">' +
+                    '<div class="criterion-title"><span>Vocabulary Range</span><span style="color:var(--mute);">max 2 pts</span></div>' +
+                    '<div class="criterion-scale">' + scaleBtns('vocabulary', rc.vocabulary, 2) + '</div>' +
+                  '</div>' +
+                  '<div class="rubric-criterion">' +
+                    '<div class="criterion-title"><span>Task Achievement</span><span style="color:var(--mute);">max 1 pt</span></div>' +
+                    '<div class="criterion-scale">' + scaleBtns('task', rc.task, 1) + '</div>' +
+                  '</div>' +
+                '</div>' +
+                '<div class="rubric-foot">' +
+                  '<div style="font-weight:800; font-size:14px; color:var(--ink);">Calculated Total: <span style="color:var(--acc);">' + total + ' / 5 pts (' + pct + '%)</span></div>' +
+                  '<button type="button" class="lm-btn lm-btn-primary" data-save-rubric-grade="' + block.id + '" style="padding:6px 14px; font-size:12.5px;">✓ Save Criteria Grade</button>' +
+                '</div>' +
+              '</div>';
+            }
+          }
         }
 
         return "<h3>" + esc(block.title || "Task") + '</h3><p>' + esc(block.text || "") + '</p>' + headHtml + voicePanel + textarea + actions + metricsHtml + inlineReviewHtml + teacherPanel + rubricHtml;
@@ -3870,11 +3935,14 @@
           lmSchedule();
           return;
         }
+        const canGradeTask = Boolean((authUser && (authUser.role === 'ADMIN' || authUser.role === 'DEVELOPER')) || (typeof canTuneStudentLessons === 'function' && canTuneStudentLessons()));
         const approveBtn = event.target.closest("[data-approve-grade]");
         if (approveBtn) {
+          if (!canGradeTask) return;
           const id = approveBtn.dataset.approveGrade;
           const block = lmBlock(id);
           if (block) {
+            if (viewAccount && !block.teacherReviewRequested) return;
             const inp = lmRoot.querySelector('[data-teacher-grade-input="' + id + '"]');
             const val = inp ? parseFloat(inp.value) : (Number(block.weight) || 5);
             block.grade = isNaN(val) ? 0 : val;
@@ -3887,9 +3955,11 @@
         }
         const aiBtn = event.target.closest("[data-ai-eval]");
         if (aiBtn) {
+          if (!canGradeTask) return;
           const id = aiBtn.dataset.aiEval;
           const block = lmBlock(id);
           if (block) {
+            if (viewAccount && !block.teacherReviewRequested) return;
             const max = Number(block.weight) || Number(block.maxPoints) || 5;
             const resp = String(block.response || '').trim();
             if (!resp) {
@@ -3909,11 +3979,13 @@
         }
         const rubricBtn = event.target.closest("[data-rubric-criterion]");
         if (rubricBtn) {
+          if (!canGradeTask) return;
           const blockId = rubricBtn.dataset.rubricBlock;
           const crit = rubricBtn.dataset.rubricCriterion;
           const score = parseInt(rubricBtn.dataset.rubricScore, 10);
           const block = lmBlock(blockId);
           if (block) {
+            if (viewAccount && !block.teacherReviewRequested) return;
             block.rubricCriteria = block.rubricCriteria || { grammar: 2, vocabulary: 1, task: 1 };
             block.rubricCriteria[crit] = score;
             lmRenderPreview();
@@ -3923,9 +3995,11 @@
         }
         const saveRubricBtn = event.target.closest("[data-save-rubric-grade]");
         if (saveRubricBtn) {
+          if (!canGradeTask) return;
           const id = saveRubricBtn.dataset.saveRubricGrade;
           const block = lmBlock(id);
           if (block) {
+            if (viewAccount && !block.teacherReviewRequested) return;
             const rc = block.rubricCriteria || { grammar: 2, vocabulary: 1, task: 1 };
             const total = (Number(rc.grammar) || 0) + (Number(rc.vocabulary) || 0) + (Number(rc.task) || 0);
             block.grade = total;
@@ -3938,9 +4012,11 @@
         }
         const aiRubricBtn = event.target.closest("[data-ai-rubric-analysis]");
         if (aiRubricBtn) {
+          if (!canGradeTask) return;
           const id = aiRubricBtn.dataset.aiRubricAnalysis;
           const block = lmBlock(id);
           if (block) {
+            if (viewAccount && !block.teacherReviewRequested) return;
             block.rubricCriteria = { grammar: 2, vocabulary: 2, task: 1 };
             block.grade = 5;
             block.teacherVerified = true;

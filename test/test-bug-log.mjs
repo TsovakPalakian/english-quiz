@@ -185,6 +185,8 @@ test('security scanners and administrative probe paths are completely ignored',a
     ['/api/openai/config.js','Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'],
     ['/api/minimax/config.js','Mozilla/5.0 (Windows NT 10.0; Win64; x64)'],
     ['/api/openrouter/config.js','Mozilla/5.0 (X11; Linux x86_64)'],
+    ['/api/health','Mozilla/5.0 (Windows NT 10.0; Win64; x64)'],
+    ['/api/health.json','Mozilla/5.0'],
     ['/api/v2/anything','curl/7.68.0']
   ];
   for(const [path,ua] of probes){

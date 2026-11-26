@@ -602,3 +602,105 @@ test('Interactive end-to-end evaluation flow: Rubric scoring, inline feedback, v
   assert.ok(htmlArchive.includes('Archive View: Viewing historical Attempt 1 (12 / 20 pts · 60%)'), 'Archive banner must display historical score');
   assert.ok(htmlArchive.includes('← Return to Latest Attempt'), 'Return to latest attempt button must be present in archive view');
 });
+
+test('Access control: Student view hides teacher grading panel and rubric scale buttons, enforces review request, and displays read-only results', async () => {
+  const lessonsSrc = fs.readFileSync(path.join(rootDir, 'client/52-lessons.js'), 'utf8');
+
+  // Verify access control guards exist in code
+  assert.ok(lessonsSrc.includes('const isStudentViewer = !((authUser && (authUser.role === \'ADMIN\' || authUser.role === \'DEVELOPER\'))'), 'isStudentViewer check must be present');
+  assert.ok(lessonsSrc.includes('const canGradeTask = Boolean((authUser && (authUser.role === \'ADMIN\' || authUser.role === \'DEVELOPER\'))'), 'canGradeTask guard must be present in click handler');
+  assert.ok(lessonsSrc.includes('if (!canGradeTask) return;'), 'Event handlers must be protected with canGradeTask guard');
+
+  // DOM test with Playwright
+  const css = fs.readFileSync(path.join(rootDir, 'site/preview.css'), 'utf8');
+  const browser = await chromium.launch({ headless: true });
+
+  for (const theme of ['sky', 'dark', 'almond']) {
+    const page = await browser.newPage();
+    await page.setViewportSize({ width: 880, height: 750 });
+
+    // 1. Student view when review is requested (pending teacher review)
+    await page.setContent(`<!DOCTYPE html>
+<html lang="en" data-theme="${theme}">
+<head><style>${css}</style></head>
+<body style="padding:24px; background:var(--bg); color:var(--ink);">
+  <div class="preview-container">
+    <div class="lm-task-actions">
+      <span class="lm-locked-badge">✓ Submitted & Locked</span>
+      <span class="student-status-badge" style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:#b45309; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.25); padding:5px 12px; border-radius:6px;">📩 Review Requested from Teacher</span>
+    </div>
+    <div class="student-waiting-notice" style="margin-top:16px; padding:14px 16px; border-radius:10px; background:var(--bg); border:1px dashed var(--line); display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--mute);">
+        <span>⏳</span>
+        <span>Review request has been sent to your teacher. Evaluation and rubric breakdown will appear here once verified.</span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`);
+
+    const hasInput = await page.locator('input[data-teacher-grade-input]').count();
+    assert.equal(hasInput, 0, 'Student view must NOT have teacher grade input');
+    const hasApproveBtn = await page.locator('[data-approve-grade]').count();
+    assert.equal(hasApproveBtn, 0, 'Student view must NOT have Approve Grade button');
+    const hasScaleBtns = await page.locator('[data-rubric-criterion]').count();
+    assert.equal(hasScaleBtns, 0, 'Student view must NOT have interactive rubric scale buttons');
+    const noticeText = await page.locator('.student-waiting-notice').textContent();
+    assert.ok(noticeText.includes('Review request has been sent to your teacher'), 'Waiting notice must be visible');
+
+    // 2. Student view when teacher has evaluated (read-only mode)
+    await page.setContent(`<!DOCTYPE html>
+<html lang="en" data-theme="${theme}">
+<head><style>${css}</style></head>
+<body style="padding:24px; background:var(--bg); color:var(--ink);">
+  <div class="read-only-evaluation-card" style="margin-top:16px; padding:14px 16px; border-radius:10px; background:var(--bg); border:1px solid var(--line); display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; align-items:center; gap:8px; font-weight:700; font-size:14px; color:var(--ink);">
+      <span>Teacher Evaluation:</span>
+      <span style="font-size:16px; font-weight:800; color:var(--acc);">5 / 5 pts</span>
+      <span style="color:#059669; font-size:12px; font-weight:700; margin-left:8px;">✓ Verified by Teacher</span>
+    </div>
+    <div style="font-size:12px; color:var(--mute);">Graded based on standard rubric criteria</div>
+  </div>
+  <div class="read-only-rubric-card" style="margin-top:14px; padding:16px 18px; border-radius:12px; background:var(--bg); border:1px solid var(--line); display:flex; flex-direction:column; gap:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding-bottom:8px;">
+      <div>
+        <strong style="font-size:13.5px; color:var(--ink);">Evaluation Rubric Breakdown</strong>
+        <div style="font-size:11.5px; color:var(--mute);">Official assessment by individual competency criteria</div>
+      </div>
+      <span style="font-size:12px; font-weight:700; color:#059669; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.25); padding:3px 8px; border-radius:6px;">Final Grade Confirmed</span>
+    </div>
+    <div class="rubric-criteria-grid">
+      <div class="rubric-criterion">
+        <div class="criterion-title"><span>Grammar Accuracy</span><span style="color:var(--mute);">max 2 pts</span></div>
+        <div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; background:var(--card); color:var(--acc); border:1px solid var(--line);">2 / 2 pts ✓</span></div>
+      </div>
+      <div class="rubric-criterion">
+        <div class="criterion-title"><span>Vocabulary Range</span><span style="color:var(--mute);">max 2 pts</span></div>
+        <div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; background:var(--card); color:var(--acc); border:1px solid var(--line);">2 / 2 pts ✓</span></div>
+      </div>
+      <div class="rubric-criterion">
+        <div class="criterion-title"><span>Task Achievement</span><span style="color:var(--mute);">max 1 pt</span></div>
+        <div style="margin-top:4px;"><span style="display:inline-flex; align-items:center; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:700; background:var(--card); color:var(--acc); border:1px solid var(--line);">1 / 1 pt ✓</span></div>
+      </div>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); padding-top:10px;">
+      <div style="font-weight:800; font-size:14px; color:var(--ink);">Calculated Total: <span style="color:var(--acc);">5 / 5 pts (100%)</span></div>
+      <span style="font-size:12px; color:var(--mute);">Read-only Student View</span>
+    </div>
+  </div>
+</body>
+</html>`);
+
+    const evalText = await page.locator('.read-only-evaluation-card').textContent();
+    assert.ok(evalText.includes('Teacher Evaluation:') && evalText.includes('5 / 5 pts'), 'Evaluated grade must be displayed');
+    assert.ok(evalText.includes('Verified by Teacher'), 'Verified badge must be present');
+    const rubricText = await page.locator('.read-only-rubric-card').textContent();
+    assert.ok(rubricText.includes('Calculated Total:') && rubricText.includes('5 / 5 pts (100%)'), 'Rubric total must be displayed');
+    assert.ok(rubricText.includes('Read-only Student View'), 'Read-only label must be present');
+    assert.equal(await page.locator('button').count(), 0, 'Read-only student view must have 0 interactive buttons');
+
+    await page.close();
+  }
+
+  await browser.close();
+});

@@ -212,7 +212,7 @@ export async function recordHttpBug(db,actor,request,response,application={}){
   if(/l9scan|leakix|shodan|censys|nikto|sqlmap|nmap|securityresearch|nuclei|zgrab|masscan/i.test(userAgent))return;
   if(/\.(?:php|asp|aspx|jsp|env)(?:$|\/)/i.test(url.pathname))return;
   if(/^\/api\/v\d+\//i.test(url.pathname))return;
-  if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator|env)(?:\/|$|\.|\-)/i.test(url.pathname))return;
+  if(/^\/api\/(?:config|setup|system|global|backup|info|apikey|ping|actuator|env|health)(?:\/|$|\.|\-)/i.test(url.pathname))return;
   if(/^\/api\/(?:graphql|gql|swagger|openapi|postman|auth)(?:\/|$|\.)/i.test(url.pathname))return;
   if(/(?:^|\/)config\.js(?:\/|$)/i.test(url.pathname))return;
   if(url.pathname==='/lookup'&&response.status===404)return;
