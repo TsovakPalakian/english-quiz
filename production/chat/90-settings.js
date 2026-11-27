@@ -1192,14 +1192,27 @@
       const timeEl = m.querySelector('.chat-message-foot time') || m.querySelector('time');
       const time = timeEl ? (timeEl.innerText || timeEl.textContent || '').trim() : '';
 
+      let textHtml = '';
+      let formatObj = null;
+      let rawText = '';
       let filesHtml = '';
       let msgFiles = [];
       try {
         if (m.dataset.content) {
           const parsed = JSON.parse(m.dataset.content);
+          if (parsed[1]) rawText = parsed[1];
+          if (parsed[2]) formatObj = parsed[2];
           if (Array.isArray(parsed[3])) msgFiles = parsed[3];
         }
       } catch {}
+
+      if (formatObj && window.TextColors && (rawText || text)) {
+        textHtml = window.TextColors.html(rawText || text, formatObj);
+      } else if (textEl && textEl.innerHTML && textEl.innerHTML.includes('style=')) {
+        textHtml = textEl.innerHTML;
+      } else {
+        textHtml = escape(text);
+      }
 
       if (msgFiles.length) {
         filesHtml = msgFiles.map((f) => {
@@ -1208,7 +1221,13 @@
           const furl = f.url ? escape(f.url) : '#';
           const isImg = f.mime?.startsWith('image/') || /\.(heic|heif|jpe?g|png|gif|webp)$/i.test(f.name || '');
           if (isImg && f.url) {
-            return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-image-preview"><img src="' + furl + '" alt="' + fname + '" loading="lazy"></a>';
+            return '<button type="button" class="chat-mini-image-preview" data-photo-preview="' + furl + '" aria-label="' + fname + '"><img src="' + furl + '" alt="' + fname + '" loading="lazy"></button>';
+          }
+          if (f.mime?.startsWith('video/') && /^video-\d+\.(webm|mp4)$/i.test(f.name || '')) {
+            return '<div class="chat-mini-round-video-bubble"><video src="' + furl + '" autoplay muted loop playsinline></video></div>';
+          }
+          if (f.mime?.startsWith('audio/')) {
+            return '<div class="chat-mini-audio-card"><audio src="' + furl + '" controls preload="metadata"></audio></div>';
           }
           return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-file-card">' +
             '<span class="chat-mini-file-icon">' +
@@ -1224,9 +1243,20 @@
         const fileEls = m.querySelectorAll('.chat-file');
         if (fileEls.length) {
           filesHtml = Array.from(fileEls).map((el) => {
+            if (el.classList.contains('chat-round-video')) {
+              const vid = el.querySelector('video');
+              const vsrc = vid ? escape(vid.src) : '#';
+              return '<div class="chat-mini-round-video-bubble"><video src="' + vsrc + '" autoplay muted loop playsinline></video></div>';
+            }
+            if (el.classList.contains('chat-audio')) {
+              const aud = el.querySelector('audio');
+              const asrc = aud ? escape(aud.src) : '#';
+              return '<div class="chat-mini-audio-card"><audio src="' + asrc + '" controls preload="metadata"></audio></div>';
+            }
             const img = el.querySelector('img');
             if (img) {
-              return '<div class="chat-mini-image-preview"><img src="' + escape(img.src) + '" alt="' + escape(img.alt || 'image') + '"></div>';
+              const src = escape(img.src);
+              return '<button type="button" class="chat-mini-image-preview" data-photo-preview="' + src + '" aria-label="' + escape(img.alt || 'image') + '"><img src="' + src + '" alt="' + escape(img.alt || 'image') + '"></button>';
             }
             const label = el.getAttribute('aria-label') || el.innerText || 'File';
             return '<div class="chat-mini-file-card">' +
@@ -1240,7 +1270,7 @@
       }
 
       if (text || filesHtml) {
-        const bubbleInner = filesHtml + (text ? (filesHtml ? '<div class="chat-mini-msg-text">' + escape(text) + '</div>' : escape(text)) : '');
+        const bubbleInner = filesHtml + (textHtml ? '<div class="chat-mini-msg-text">' + textHtml + '</div>' : '');
         if (own) {
           html += '<div class="chat-mini-msg-row own">' +
             '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
@@ -1698,6 +1728,7 @@
     }
   });
 
+  let miniActiveColor = '';
   const miniColorInput = el('miniColorInput');
   const miniColor = el('miniColorIndicator');
   if (miniColor && miniColorInput) {
@@ -1711,10 +1742,21 @@
     };
     miniColorInput.oninput = () => {
       const color = miniColorInput.value;
+      miniActiveColor = color;
       miniColor.style.background = color;
       const input = el('miniInput');
       if (input) input.style.color = color;
     };
+  }
+
+  const miniTlEl = el('miniTimeline');
+  if (miniTlEl) {
+    miniTlEl.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-photo-preview]');
+      if (!button || !miniTlEl.contains(button)) return;
+      event.preventDefault();
+      openPhotoPreview(button.dataset.photoPreview, button.querySelector('img')?.alt || '');
+    });
   }
 
   const miniTimelineObserver = new MutationObserver(() => {
@@ -1737,6 +1779,9 @@
     if (!val && (!files || !files.length)) return;
     input.value = '';
     if (composer) composer.value = val;
+    if (miniActiveColor && val) {
+      format = { runs: [{ text: val, marks: { color: miniActiveColor } }] };
+    }
     autoFitMiniInput();
     await send();
     syncMiniTimeline();

@@ -30,6 +30,12 @@
   }
   function finishRecording(cancel = false) {
     const gesture = recordGesture;
+    const miniFrame = el('miniRecordFrame');
+    const miniStatus = el('miniRecordStatus');
+    const miniPreview = el('miniRecordPreview');
+    if (miniFrame) miniFrame.hidden = true;
+    if (miniStatus) miniStatus.hidden = true;
+    if (miniPreview) miniPreview.srcObject = null;
     if (!gesture) return;
     if(gesture.awaitingPermission&&!cancel){gesture.released=true;gesture.locked=false;return;}
     clearTimeout(recordTimer);
@@ -52,6 +58,12 @@
   function cancelRecording() {
     if(recordPress)clearTimeout(recordPress.timer);
     recordPress=null;
+    const miniFrame = el('miniRecordFrame');
+    const miniStatus = el('miniRecordStatus');
+    const miniPreview = el('miniRecordPreview');
+    if (miniFrame) miniFrame.hidden = true;
+    if (miniStatus) miniStatus.hidden = true;
+    if (miniPreview) miniPreview.srcObject = null;
     finishRecording(true);
   }
   function interruptRecording() {
@@ -101,7 +113,7 @@
         ...(video ? { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } } : {}),
       });
       gesture.awaitingPermission = false;
-      if (recordGesture !== gesture || gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || !active()) {
+      if (recordGesture !== gesture || gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || (!active() && !miniActive())) {
         stream.getTracks().forEach((t) => t.stop());
         if (recordGesture === gesture) finishRecording(true);
         return;
@@ -152,7 +164,13 @@
           paintRecordButtons();
           scheduleInputFit();
         }
-        if (gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || !active()) return;
+        const miniFrame = el('miniRecordFrame');
+        const miniStatus = el('miniRecordStatus');
+        const miniPreview = el('miniRecordPreview');
+        if (miniFrame) miniFrame.hidden = true;
+        if (miniStatus) miniStatus.hidden = true;
+        if (miniPreview) miniPreview.srcObject = null;
+        if (gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || (!active() && !miniActive())) return;
         const blob = new Blob(chunks, { type: mime.split(';')[0] });
         if (!blob.size) {
           recordFrame.hidden = true;
@@ -207,6 +225,31 @@
           recordFrame.style.setProperty('--record-progress', Math.min(60, elapsed) * 6 + 'deg');
           recordFrame.setAttribute('aria-valuenow', String(Math.floor(elapsed)));
         }
+        if (miniActive()) {
+          const miniStatus = el('miniRecordStatus');
+          const miniFrame = el('miniRecordFrame');
+          const miniText = el('miniRecordText');
+          const miniPreview = el('miniRecordPreview');
+          if (miniStatus) miniStatus.hidden = false;
+          if (miniText) {
+            miniText.textContent =
+              (video ? (gesture.locked ? 'Video locked · ' : 'Recording video · ') : (gesture.locked ? 'Audio locked · ' : 'Recording audio · ')) +
+              mm +
+              ':' +
+              ss +
+              ',' +
+              frac;
+          }
+          if (video) {
+            if (miniFrame) miniFrame.hidden = false;
+            if (miniPreview && miniPreview.srcObject !== stream) {
+              miniPreview.srcObject = stream;
+              miniPreview.play().catch(() => {});
+            }
+          } else {
+            if (miniFrame) miniFrame.hidden = true;
+          }
+        }
       };
       tick();
       recordProgressTimer = setInterval(tick, 100);
@@ -218,6 +261,15 @@
         recordFrame.hidden = false;
         recordPreview.play().catch(() => {});
         scheduleInputFit();
+        if (miniActive()) {
+          const miniFrame = el('miniRecordFrame');
+          const miniPreview = el('miniRecordPreview');
+          if (miniFrame) miniFrame.hidden = false;
+          if (miniPreview && miniPreview.srcObject !== stream) {
+            miniPreview.srcObject = stream;
+            miniPreview.play().catch(() => {});
+          }
+        }
       }
       if(video)recordTimer = setTimeout(() => finishRecording(), 60000);
       if(gesture.released&&!gesture.locked)finishRecording(false);
@@ -316,4 +368,8 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') interruptRecording();
   });
+  const miniCancelBtn = el('miniCancelRecord');
+  if (miniCancelBtn) miniCancelBtn.onclick = () => cancelRecording();
+  const miniSendBtn = el('miniSendRecord');
+  if (miniSendBtn) miniSendBtn.onclick = () => finishRecording(false);
   paintRecordButtons();

@@ -109,6 +109,21 @@
       <div class="chat-mini-emoji-grid" id="miniEmojiGrid"></div>
     </div>
     <div id="miniAttachments" class="chat-mini-attachments" hidden></div>
+    <div id="miniRecordFrame" class="chat-mini-record-frame" hidden>
+      <div class="chat-mini-round-video">
+        <video id="miniRecordPreview" autoplay muted loop playsinline></video>
+      </div>
+    </div>
+    <div id="miniRecordStatus" class="chat-mini-record-status" hidden>
+      <div class="chat-mini-record-info">
+        <span class="chat-mini-record-pulse"></span>
+        <span id="miniRecordText">Recording...</span>
+      </div>
+      <div class="chat-mini-record-actions">
+        <button type="button" id="miniCancelRecord" class="chat-mini-btn-sm" title="Cancel recording" aria-label="Cancel recording">Cancel</button>
+        <button type="button" id="miniSendRecord" class="chat-mini-btn-sm chat-mini-btn-primary" title="Send recording" aria-label="Send recording">Send</button>
+      </div>
+    </div>
     <textarea id="miniInput" class="chat-mini-textarea" placeholder="Enter message" rows="2" maxlength="4000" aria-label="Message text"></textarea>
     <div class="chat-mini-tools-row">
       <div class="chat-mini-tools-left">

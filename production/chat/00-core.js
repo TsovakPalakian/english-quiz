@@ -34,6 +34,10 @@
     !databaseResetting && signedIn() && !(typeof viewAccount !== 'undefined' && viewAccount) ? signedIn() : null;
   const reviewer = () => ['ADMIN', 'DEVELOPER'].includes(current()?.role);
   const active = () => section.classList.contains('on');
+  const miniActive = () => {
+    const m = el('chatMiniWindow');
+    return Boolean(m && !m.hidden && !m.hasAttribute('hidden'));
+  };
   const initials = (name) =>
     String(name || '?')
       .split(/\s+/)

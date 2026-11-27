@@ -34,6 +34,10 @@
     !databaseResetting && signedIn() && !(typeof viewAccount !== 'undefined' && viewAccount) ? signedIn() : null;
   const reviewer = () => ['ADMIN', 'DEVELOPER'].includes(current()?.role);
   const active = () => section.classList.contains('on');
+  const miniActive = () => {
+    const m = el('chatMiniWindow');
+    return Boolean(m && !m.hidden && !m.hasAttribute('hidden'));
+  };
   const initials = (name) =>
     String(name || '?')
       .split(/\s+/)
@@ -3796,6 +3800,12 @@
   }
   function finishRecording(cancel = false) {
     const gesture = recordGesture;
+    const miniFrame = el('miniRecordFrame');
+    const miniStatus = el('miniRecordStatus');
+    const miniPreview = el('miniRecordPreview');
+    if (miniFrame) miniFrame.hidden = true;
+    if (miniStatus) miniStatus.hidden = true;
+    if (miniPreview) miniPreview.srcObject = null;
     if (!gesture) return;
     if(gesture.awaitingPermission&&!cancel){gesture.released=true;gesture.locked=false;return;}
     clearTimeout(recordTimer);
@@ -3818,6 +3828,12 @@
   function cancelRecording() {
     if(recordPress)clearTimeout(recordPress.timer);
     recordPress=null;
+    const miniFrame = el('miniRecordFrame');
+    const miniStatus = el('miniRecordStatus');
+    const miniPreview = el('miniRecordPreview');
+    if (miniFrame) miniFrame.hidden = true;
+    if (miniStatus) miniStatus.hidden = true;
+    if (miniPreview) miniPreview.srcObject = null;
     finishRecording(true);
   }
   function interruptRecording() {
@@ -3867,7 +3883,7 @@
         ...(video ? { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } } : {}),
       });
       gesture.awaitingPermission = false;
-      if (recordGesture !== gesture || gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || !active()) {
+      if (recordGesture !== gesture || gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || (!active() && !miniActive())) {
         stream.getTracks().forEach((t) => t.stop());
         if (recordGesture === gesture) finishRecording(true);
         return;
@@ -3918,7 +3934,13 @@
           paintRecordButtons();
           scheduleInputFit();
         }
-        if (gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || !active()) return;
+        const miniFrame = el('miniRecordFrame');
+        const miniStatus = el('miniRecordStatus');
+        const miniPreview = el('miniRecordPreview');
+        if (miniFrame) miniFrame.hidden = true;
+        if (miniStatus) miniStatus.hidden = true;
+        if (miniPreview) miniPreview.srcObject = null;
+        if (gesture.cancelled || room !== gesture.roomId || generation !== gesture.gen || (!active() && !miniActive())) return;
         const blob = new Blob(chunks, { type: mime.split(';')[0] });
         if (!blob.size) {
           recordFrame.hidden = true;
@@ -3973,6 +3995,31 @@
           recordFrame.style.setProperty('--record-progress', Math.min(60, elapsed) * 6 + 'deg');
           recordFrame.setAttribute('aria-valuenow', String(Math.floor(elapsed)));
         }
+        if (miniActive()) {
+          const miniStatus = el('miniRecordStatus');
+          const miniFrame = el('miniRecordFrame');
+          const miniText = el('miniRecordText');
+          const miniPreview = el('miniRecordPreview');
+          if (miniStatus) miniStatus.hidden = false;
+          if (miniText) {
+            miniText.textContent =
+              (video ? (gesture.locked ? 'Video locked · ' : 'Recording video · ') : (gesture.locked ? 'Audio locked · ' : 'Recording audio · ')) +
+              mm +
+              ':' +
+              ss +
+              ',' +
+              frac;
+          }
+          if (video) {
+            if (miniFrame) miniFrame.hidden = false;
+            if (miniPreview && miniPreview.srcObject !== stream) {
+              miniPreview.srcObject = stream;
+              miniPreview.play().catch(() => {});
+            }
+          } else {
+            if (miniFrame) miniFrame.hidden = true;
+          }
+        }
       };
       tick();
       recordProgressTimer = setInterval(tick, 100);
@@ -3984,6 +4031,15 @@
         recordFrame.hidden = false;
         recordPreview.play().catch(() => {});
         scheduleInputFit();
+        if (miniActive()) {
+          const miniFrame = el('miniRecordFrame');
+          const miniPreview = el('miniRecordPreview');
+          if (miniFrame) miniFrame.hidden = false;
+          if (miniPreview && miniPreview.srcObject !== stream) {
+            miniPreview.srcObject = stream;
+            miniPreview.play().catch(() => {});
+          }
+        }
       }
       if(video)recordTimer = setTimeout(() => finishRecording(), 60000);
       if(gesture.released&&!gesture.locked)finishRecording(false);
@@ -4082,6 +4138,10 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') interruptRecording();
   });
+  const miniCancelBtn = el('miniCancelRecord');
+  if (miniCancelBtn) miniCancelBtn.onclick = () => cancelRecording();
+  const miniSendBtn = el('miniSendRecord');
+  if (miniSendBtn) miniSendBtn.onclick = () => finishRecording(false);
   paintRecordButtons();
   async function showInfo(tab = infoTab || 'members') {
     if (!room) return;
@@ -5894,18 +5954,19 @@
   function openPhotoPreview(src, alt) {
     closePhotoPreview();
     section.classList.add('chat-photo-blur');
+    const isVid = /\.(mp4|webm|mov|ogg)$/i.test(src || '');
+    const mediaTag = isVid
+      ? '<video controls autoplay playsinline src="' + escape(src) + '"></video>'
+      : '<img src="' + escape(src) + '" alt="' + escape(alt || '') + '">';
     const overlay = document.createElement('div');
     overlay.id = 'chatPhotoPreview';
     overlay.className = 'chat-photo-preview';
     overlay.innerHTML =
       '<button type="button" class="chat-photo-preview-close" aria-label="Close">' +
       icon('x') +
-      '</button><img src="' +
-      escape(src) +
-      '" alt="' +
-      escape(alt || '') +
-      '">';
-    section.append(overlay);
+      '</button>' +
+      mediaTag;
+    document.body.append(overlay);
     icons();
     overlay.querySelector('.chat-photo-preview-close').onclick = closePhotoPreview;
     overlay.onclick = (event) => {
@@ -7115,14 +7176,27 @@
       const timeEl = m.querySelector('.chat-message-foot time') || m.querySelector('time');
       const time = timeEl ? (timeEl.innerText || timeEl.textContent || '').trim() : '';
 
+      let textHtml = '';
+      let formatObj = null;
+      let rawText = '';
       let filesHtml = '';
       let msgFiles = [];
       try {
         if (m.dataset.content) {
           const parsed = JSON.parse(m.dataset.content);
+          if (parsed[1]) rawText = parsed[1];
+          if (parsed[2]) formatObj = parsed[2];
           if (Array.isArray(parsed[3])) msgFiles = parsed[3];
         }
       } catch {}
+
+      if (formatObj && window.TextColors && (rawText || text)) {
+        textHtml = window.TextColors.html(rawText || text, formatObj);
+      } else if (textEl && textEl.innerHTML && textEl.innerHTML.includes('style=')) {
+        textHtml = textEl.innerHTML;
+      } else {
+        textHtml = escape(text);
+      }
 
       if (msgFiles.length) {
         filesHtml = msgFiles.map((f) => {
@@ -7131,7 +7205,13 @@
           const furl = f.url ? escape(f.url) : '#';
           const isImg = f.mime?.startsWith('image/') || /\.(heic|heif|jpe?g|png|gif|webp)$/i.test(f.name || '');
           if (isImg && f.url) {
-            return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-image-preview"><img src="' + furl + '" alt="' + fname + '" loading="lazy"></a>';
+            return '<button type="button" class="chat-mini-image-preview" data-photo-preview="' + furl + '" aria-label="' + fname + '"><img src="' + furl + '" alt="' + fname + '" loading="lazy"></button>';
+          }
+          if (f.mime?.startsWith('video/') && /^video-\d+\.(webm|mp4)$/i.test(f.name || '')) {
+            return '<div class="chat-mini-round-video-bubble"><video src="' + furl + '" autoplay muted loop playsinline></video></div>';
+          }
+          if (f.mime?.startsWith('audio/')) {
+            return '<div class="chat-mini-audio-card"><audio src="' + furl + '" controls preload="metadata"></audio></div>';
           }
           return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-file-card">' +
             '<span class="chat-mini-file-icon">' +
@@ -7147,9 +7227,20 @@
         const fileEls = m.querySelectorAll('.chat-file');
         if (fileEls.length) {
           filesHtml = Array.from(fileEls).map((el) => {
+            if (el.classList.contains('chat-round-video')) {
+              const vid = el.querySelector('video');
+              const vsrc = vid ? escape(vid.src) : '#';
+              return '<div class="chat-mini-round-video-bubble"><video src="' + vsrc + '" autoplay muted loop playsinline></video></div>';
+            }
+            if (el.classList.contains('chat-audio')) {
+              const aud = el.querySelector('audio');
+              const asrc = aud ? escape(aud.src) : '#';
+              return '<div class="chat-mini-audio-card"><audio src="' + asrc + '" controls preload="metadata"></audio></div>';
+            }
             const img = el.querySelector('img');
             if (img) {
-              return '<div class="chat-mini-image-preview"><img src="' + escape(img.src) + '" alt="' + escape(img.alt || 'image') + '"></div>';
+              const src = escape(img.src);
+              return '<button type="button" class="chat-mini-image-preview" data-photo-preview="' + src + '" aria-label="' + escape(img.alt || 'image') + '"><img src="' + src + '" alt="' + escape(img.alt || 'image') + '"></button>';
             }
             const label = el.getAttribute('aria-label') || el.innerText || 'File';
             return '<div class="chat-mini-file-card">' +
@@ -7163,7 +7254,7 @@
       }
 
       if (text || filesHtml) {
-        const bubbleInner = filesHtml + (text ? (filesHtml ? '<div class="chat-mini-msg-text">' + escape(text) + '</div>' : escape(text)) : '');
+        const bubbleInner = filesHtml + (textHtml ? '<div class="chat-mini-msg-text">' + textHtml + '</div>' : '');
         if (own) {
           html += '<div class="chat-mini-msg-row own">' +
             '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
@@ -7621,6 +7712,7 @@
     }
   });
 
+  let miniActiveColor = '';
   const miniColorInput = el('miniColorInput');
   const miniColor = el('miniColorIndicator');
   if (miniColor && miniColorInput) {
@@ -7634,10 +7726,21 @@
     };
     miniColorInput.oninput = () => {
       const color = miniColorInput.value;
+      miniActiveColor = color;
       miniColor.style.background = color;
       const input = el('miniInput');
       if (input) input.style.color = color;
     };
+  }
+
+  const miniTlEl = el('miniTimeline');
+  if (miniTlEl) {
+    miniTlEl.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-photo-preview]');
+      if (!button || !miniTlEl.contains(button)) return;
+      event.preventDefault();
+      openPhotoPreview(button.dataset.photoPreview, button.querySelector('img')?.alt || '');
+    });
   }
 
   const miniTimelineObserver = new MutationObserver(() => {
@@ -7660,6 +7763,9 @@
     if (!val && (!files || !files.length)) return;
     input.value = '';
     if (composer) composer.value = val;
+    if (miniActiveColor && val) {
+      format = { runs: [{ text: val, marks: { color: miniActiveColor } }] };
+    }
     autoFitMiniInput();
     await send();
     syncMiniTimeline();

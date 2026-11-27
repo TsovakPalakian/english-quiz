@@ -701,18 +701,19 @@
   function openPhotoPreview(src, alt) {
     closePhotoPreview();
     section.classList.add('chat-photo-blur');
+    const isVid = /\.(mp4|webm|mov|ogg)$/i.test(src || '');
+    const mediaTag = isVid
+      ? '<video controls autoplay playsinline src="' + escape(src) + '"></video>'
+      : '<img src="' + escape(src) + '" alt="' + escape(alt || '') + '">';
     const overlay = document.createElement('div');
     overlay.id = 'chatPhotoPreview';
     overlay.className = 'chat-photo-preview';
     overlay.innerHTML =
       '<button type="button" class="chat-photo-preview-close" aria-label="Close">' +
       icon('x') +
-      '</button><img src="' +
-      escape(src) +
-      '" alt="' +
-      escape(alt || '') +
-      '">';
-    section.append(overlay);
+      '</button>' +
+      mediaTag;
+    document.body.append(overlay);
     icons();
     overlay.querySelector('.chat-photo-preview-close').onclick = closePhotoPreview;
     overlay.onclick = (event) => {
