@@ -70,7 +70,7 @@
     }
     lookupTimer = setTimeout(() => {
       performLiveLookup(q);
-    }, 300);
+    }, 150);
   }
   el('msgRoomSearch').onkeydown = (event) => {
     if (event.key === 'Enter' && listMode === 'contacts') {

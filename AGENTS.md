@@ -53,6 +53,24 @@
 - Always remove temporary and service scripts upon task completion; never leave scratch or validation files in the repository workspace.
 - Jira Scope: для проекта `english-quiz` доступна и используется исключительно Jira Atlassian Cloud: `https://lumiscia.atlassian.net` (проект `TASK`, доска `https://lumiscia.atlassian.net/jira/software/projects/TASK/boards/1?filter=&groupBy=none`). Доступ осуществляется через `twg` / Atlassian Cloud. Использование корпоративной Jira (`jira.moscow.alfaintra.net`) в рамках этого проекта строго запрещено.
 
+# Two-Agent Sequential Execution & Verification Protocol
+
+- Mandatory: Every task must be executed through a sequential two-agent pipeline in two separate, isolated chat sessions:
+  1. Agent 1 (Implementer): Executes the scoped task in its own isolated chat session, implements code changes, writes automated unit and visual tests, and verifies the build.
+  2. Agent 2 (Independent Verifier): Never launched automatically. Upon completion of Agent 1, the user must explicitly be asked every time whether to launch the verification agent. Agent 2 is launched sequentially in a completely separate, fresh chat session only upon explicit user confirmation, deterministically auditing all changes against the itemized criteria below and delivering an explicit binary verdict (`PASS` or `FAIL`).
+
+### Itemized Verification Criteria:
+1. Build Integrity: The production asset builder must exit with code 0 with zero compilation errors or syntax warnings.
+2. Test Coverage & Zero Regression: 100% of test suites must pass (0 failed tests). Targeted unit tests must be added for all changed logic. Visual tests must accompany any UI/UX modifications.
+3. Strict Scope Confinement: Changes must strictly touch only the scoped functionality. Zero unauthorized edits to adjacent modules. Existing public API contracts and error handlers must remain intact without destructive changes.
+4. Visual & Theme Fidelity: UI changes must match approved screenshots pixel-perfect. Theme variables must be utilized properly across dark and light themes without hardcoded color literals.
+5. Workspace Hygiene: No scratch scripts, debug dumps, or temporary validation files left in the workspace; all temporary artifacts must be deleted upon completion.
+6. Commit Standards: A single generalized commit message in English past tense with `[task]` or `[bug]` prefix and task key must be provided, followed by the list of modified/added test files without extensions.
+
+- Verdict Routing:
+  - `PASS`: All 6 criteria are verified and green. The final change is presented to the user with the unified commit message.
+  - `FAIL`: Any criterion violation triggers a numbered itemized defect report with exact causes, returning the task to Agent 1 for correction before presenting to the user.
+
 # Zero-Compression Forensic Code Audit Protocol
 
 - Mandatory Operational Mode: Act as a deterministic static code analyzer/compiler, never as a summarizing or generalizing assistant. Code is the sole source of truth; any prose claim without an exact code reference (`file:///path#L123`) is strictly forbidden.

@@ -19,6 +19,10 @@ test('TASK: Constellation inspector positioning directly near title without cons
       for (const abbr of ['Pup', 'Sge', 'Eri']) {
         await t.test(`${vp.name} (${vp.width}x${vp.height}) - Constellation ${abbr}: Inspector is positioned next to title and avoids collisions`, async () => {
           const page = await browser.newPage({ viewport: { width: vp.width, height: vp.height }, reducedMotion: 'reduce' });
+          await page.addInitScript(() => {
+            localStorage.setItem('cookie_consent', 'all');
+            document.cookie = 'cookie_consent=all; Path=/';
+          });
 
           // Intercept preview.js to lock onto tested constellation and immediate hold phase
           await page.route('**/preview.js*', async route => {
@@ -43,7 +47,7 @@ test('TASK: Constellation inspector positioning directly near title without cons
           assert.ok(titleEl, 'Constellation title link is rendered');
 
           // Hover on constellation title to trigger inspection
-          await titleEl.hover();
+          await titleEl.hover({ force: true });
           await page.waitForTimeout(400);
 
           const result = await page.evaluate(() => {
