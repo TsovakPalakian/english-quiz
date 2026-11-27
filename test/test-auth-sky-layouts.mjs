@@ -11,6 +11,12 @@ try{
   browser=await launchChromium(chromium);
   for(const viewport of [{width:1440,height:1000},{width:390,height:844}]){
     const page=await browser.newPage({viewport,reducedMotion:'reduce'});
+    await page.addInitScript(()=>{
+      try{
+        localStorage.setItem('cookie_consent','all');
+        document.cookie='cookie_consent=all; Path=/';
+      }catch{}
+    });
     await page.route('**/preview.js*',async route=>{
       const response=await route.fetch(),body=await response.text();
       const anchor='let current=frozen?.constellation||next(),previous=null';
@@ -20,11 +26,11 @@ try{
     });
     await page.goto(preview.url);await page.waitForSelector('body.guest-home');
     for(const mode of ['home','login','registration','recovery']){
-      if(mode==='login')await page.getByRole('button',{name:'Enter the Learning Studio',exact:true}).click();
-      if(mode==='registration')await page.locator('.auth-create button').click();
+      if(mode==='login')await page.getByRole('button',{name:'Enter the Learning Studio',exact:true}).click({force:true});
+      if(mode==='registration')await page.locator('.auth-create button').click({force:true});
       if(mode==='recovery'){
-        await page.locator('[data-studio-back]').click();
-        await page.locator('[data-password-recovery]').click();
+        await page.locator('[data-studio-back]').click({force:true});
+        await page.locator('[data-password-recovery]').click({force:true});
       }
       const report=await page.evaluate(()=>window.auditSkyLayouts());
       results.push({viewport,mode,figures:report});

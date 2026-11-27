@@ -12,7 +12,7 @@
     if(restore)current.button.focus({preventScroll:true});
   }
   function mount(field){
-    if(bound.has(field)||field.dataset.fullColorPicker)return;bound.add(field);
+    if(bound.has(field)||field.dataset.fullColorPicker||field.closest?.('#messages,#chatMiniWindow,.chat-mini-color-indicator'))return;bound.add(field);
     const button=document.createElement('button');button.type='button';button.className='color-picker-button';button.title=field.title||'Text color';button.setAttribute('aria-label',field.getAttribute('aria-label')||button.title);button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded','false');
     const sample=document.createElement('span');sample.className='color-picker-sample';button.append(sample);field.before(button);field.hidden=true;field.style.display='none';
     const sync=()=>{sample.style.background=field.value;button.disabled=field.disabled;};sync();field.addEventListener('input',sync);

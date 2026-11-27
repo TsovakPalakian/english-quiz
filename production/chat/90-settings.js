@@ -1907,11 +1907,6 @@
       miniColor.style.background = color;
       const input = el('miniInput');
       if (input) input.style.color = color;
-      if (composer) {
-        composer.style.color = color;
-        const colorTools = composer.parentElement?.querySelector('.text-color-tools input[type=color]');
-        if (colorTools) colorTools.value = color;
-      }
     };
   }
 

@@ -25,9 +25,9 @@ test('Unit & Contract: Mini chat audio card, round video sound toggle, and text 
   assert.ok(chatJs.includes('data-mini-audio-play'), 'chat.js must render data-mini-audio-play');
   assert.ok(chatJs.includes('data-mini-round-sound'), 'chat.js must render data-mini-round-sound');
 
-  // Verify client/shared/text-colors.js
-  assert.ok(textColorsJs.includes('field.style.color=color;'), 'text-colors.js must update field.style.color on palette change');
-  assert.ok(textColorsJs.includes('rich.style.color=color;'), 'text-colors.js must update rich.style.color on palette change');
+  // Verify client/shared/text-colors.js scope isolation: does not set blanket container color
+  assert.ok(!textColorsJs.includes('field.style.color=color;'), 'text-colors.js must not force blanket field.style.color on palette change');
+  assert.ok(textColorsJs.includes("document.execCommand('foreColor',false,color)"), 'text-colors.js must apply color via foreColor to formatted text');
 });
 
 test('Functional & Visual: Mini audio player, round video sound toggle, and color sync in themes', async () => {
@@ -142,6 +142,9 @@ test('Functional & Visual: Mini audio player, round video sound toggle, and colo
 
       const indicatorBg = await page.locator('#miniColorIndicator').evaluate((el) => el.style.background);
       assert.ok(indicatorBg.includes('224') || indicatorBg.includes('#e05252'), 'miniColorIndicator background must reflect chosen color');
+
+      const mainComposerColor = await page.locator('#msgText').evaluate((el) => el.style.color);
+      assert.equal(mainComposerColor, '', 'Main chat composer must NOT be mutated when mini chat color changes');
 
       await page.close();
     }

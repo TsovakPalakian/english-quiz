@@ -84,6 +84,7 @@
     (rich || composer).focus();
   }
   window.TextColors?.mount(composer, {
+    fullColorPicker: true,
     onChange: (value) => {
       format = value;
       remember();

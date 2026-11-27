@@ -27,22 +27,19 @@
     const wrap=document.createElement('div');wrap.className='text-color-input';
     const tools=document.createElement('div');tools.className='text-color-tools';
     const palette=document.createElement('input');palette.type='color';palette.value='#173832';palette.title='Text color';palette.setAttribute('aria-label','Text color');
+    if(options.fullColorPicker)palette.dataset.fullColorPicker='true';
     const single=field.tagName==='INPUT';
     const rich=document.createElement('div');rich.className='text-color-rich'+(single?' is-single-line':'');rich.contentEditable='true';rich.setAttribute('role','textbox');rich.setAttribute('aria-multiline',String(!single));rich.setAttribute('aria-label',field.getAttribute('aria-label')||'Formatted text');
     rich.hidden=true;field.before(wrap);wrap.append(tools,field,rich);tools.append(palette);
     const head=wrap.parentElement?.querySelector('.lm-field-head, .lm-answer-head') || (wrap.previousElementSibling?.classList?.contains('lm-answer-head') ? wrap.previousElementSibling : null);if(head&&!options.richTools)head.append(tools);
     rich.addEventListener('pointerdown',event=>{event.stopPropagation();});
     rich.addEventListener('click',event=>{event.stopPropagation();});
-    const state={field,rich,wrap,tools,palette,options,format:options.format,active:false};mounted.set(field,state);
+    const state={field,rich,options,format:options.format,active:false};mounted.set(field,state);
     function update(){if(field.disabled||field.readOnly)return;const format=read(rich,!!options.richTools);field.value=format.runs.map(run=>run.text).join('');state.format=format;options.onChange?.(format);field.dispatchEvent(new Event('input',{bubbles:true}));}
     function activate(){
       if(state.active)return;rich.innerHTML=html(field.value,state.format);field.hidden=true;rich.hidden=false;state.active=true;
     }
-    if(options.format?.runs&&options.format.runs.some(run=>valid(run.marks?.color))){
-      const firstColor=options.format.runs.find(run=>valid(run.marks?.color))?.marks?.color;
-      if(firstColor){field.style.color=firstColor;rich.style.color=firstColor;palette.value=firstColor;}
-      activate();
-    }
+    if(options.format?.runs&&options.format.runs.some(run=>valid(run.marks?.color))){activate();}
     let start=0,end=0,range;
     if(options.richTools){
       activate();wrap.classList.add('has-rich-tools');tools.classList.add('lm-tools');
@@ -70,8 +67,6 @@
       if(field.disabled||field.readOnly)return;
       const color=valid(palette.value)?palette.value.toLowerCase():'';
       if(!color)return;
-      field.style.color=color;
-      if(start===end){rich.style.color=color;}else{rich.style.color='';}
       activate();rich.focus();const selected=getSelection();
       // Native color dialogs emit repeatedly; DOM ranges change when formatting is applied.
       // Rebuild from text offsets so each shade updates the same selection.
@@ -94,7 +89,7 @@
     rich.addEventListener('paste',event=>{event.preventDefault();const text=event.clipboardData.getData('text/plain');document.execCommand('insertText',false,single?text.replace(/[\r\n]+/g,' '):text);update();});
     for(const type of ['keydown','keyup','compositionstart','compositionend'])rich.addEventListener(type,event=>{const forwarded=type.startsWith('composition')?new CompositionEvent(type,{data:event.data}):new KeyboardEvent(type,{key:event.key,code:event.code,shiftKey:event.shiftKey,ctrlKey:event.ctrlKey,metaKey:event.metaKey,isComposing:event.isComposing,cancelable:true});if(!field.dispatchEvent(forwarded))event.preventDefault();});
   }
-  function sync(field,format){const state=mounted.get(field);if(!state)return;if(arguments.length>1)state.format=format;const color=state.format?.runs?.find(run=>valid(run.marks?.color))?.marks?.color||'';field.style.color=color;state.rich.style.color=color;if(state.palette&&color)state.palette.value=color;if(state.active){state.rich.innerHTML=html(field.value,state.format);state.rich.contentEditable=String(!field.disabled&&!field.readOnly);} }
+  function sync(field,format){const state=mounted.get(field);if(!state)return;if(arguments.length>1)state.format=format;if(state.active){state.rich.innerHTML=html(field.value,state.format);state.rich.contentEditable=String(!field.disabled&&!field.readOnly);} }
   function insert(field,text){const state=mounted.get(field);if(!state?.active)return false;state.rich.focus();if(state.range&&state.rich.contains(state.range.commonAncestorContainer)){const selected=getSelection();selected.removeAllRanges();selected.addRange(state.range);}document.execCommand('insertText',false,text);state.rich.dispatchEvent(new Event('input'));return true;}
   function paint(element,part){
     for(const [key,format] of Object.entries(part.textFormatting||{})){
