@@ -118,6 +118,7 @@
       : '';
     el('msgAttachments').replaceChildren();
     paintUploads();
+    if (typeof syncMiniAttachments === 'function') syncMiniAttachments();
     scheduleInputFit();
     icons();
   }

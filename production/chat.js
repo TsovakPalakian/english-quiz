@@ -810,6 +810,7 @@
       : '';
     el('msgAttachments').replaceChildren();
     paintUploads();
+    if (typeof syncMiniAttachments === 'function') syncMiniAttachments();
     scheduleInputFit();
     icons();
   }
@@ -7111,6 +7112,26 @@
     miniTl.scrollTop = miniTl.scrollHeight;
   }
 
+  function syncMiniAttachments() {
+    const container = el('miniAttachments');
+    if (!container) return;
+    if (!files || !files.length) {
+      container.innerHTML = '';
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    let html = '';
+    for (const f of files) {
+      html += '<span class="chat-mini-file-chip">' +
+        '<svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+        '<span>' + escape(f.name || 'file') + '</span>' +
+        '<button type="button" data-mini-remove-file="' + escape(f.id) + '" title="Remove file" aria-label="Remove file">✕</button>' +
+        '</span>';
+    }
+    container.innerHTML = html;
+  }
+
   function openMiniWindowFromDock() {
     const dock = el('chatDockWidget');
     const mini = el('chatMiniWindow');
@@ -7138,6 +7159,8 @@
     }
     mini.hidden = false;
     syncPeerToWidgets();
+    syncMiniAttachments();
+    autoFitMiniInput();
   }
 
   function restoreDockFromMini() {
@@ -7351,20 +7374,176 @@
     });
   }
 
+  const miniWindow = el('chatMiniWindow');
+  const miniHead = miniWindow?.querySelector('.chat-mini-head');
+  let miniDragging = false;
+  let miniDragMoved = false;
+  let miniDragStart = { x: 0, y: 0 };
+  let miniDragOrigin = { x: 0, y: 0 };
+
+  if (miniHead && miniWindow) {
+    miniHead.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button')) return;
+      miniDragging = true;
+      miniDragMoved = false;
+      miniDragStart = { x: e.clientX, y: e.clientY };
+      const r = miniWindow.getBoundingClientRect();
+      miniDragOrigin = { x: r.left, y: r.top };
+      miniHead.setPointerCapture(e.pointerId);
+    });
+
+    miniHead.addEventListener('pointermove', (e) => {
+      if (!miniDragging) return;
+      const dx = e.clientX - miniDragStart.x;
+      const dy = e.clientY - miniDragStart.y;
+      if (!miniDragMoved && Math.hypot(dx, dy) > 4) {
+        miniDragMoved = true;
+        miniWindow.classList.add('is-dragging');
+      }
+      if (miniDragMoved) {
+        const r = miniWindow.getBoundingClientRect();
+        const minX = 12, maxX = window.innerWidth - r.width - 12;
+        const minY = 12, maxY = window.innerHeight - r.height - 12;
+        const nextX = Math.max(minX, Math.min(maxX, miniDragOrigin.x + dx));
+        const nextY = Math.max(minY, Math.min(maxY, miniDragOrigin.y + dy));
+        miniWindow.style.left = nextX + 'px';
+        miniWindow.style.top = nextY + 'px';
+        miniWindow.style.bottom = 'auto';
+        miniWindow.style.right = 'auto';
+      }
+    });
+
+    const finishMiniDrag = (e) => {
+      if (!miniDragging) return;
+      miniDragging = false;
+      miniWindow.classList.remove('is-dragging');
+      try { miniHead.releasePointerCapture(e.pointerId); } catch {}
+    };
+    miniHead.addEventListener('pointerup', finishMiniDrag);
+    miniHead.addEventListener('pointercancel', finishMiniDrag);
+  }
+
+  const miniInput = el('miniInput');
+  const baseMiniHeight = 460;
+
+  function autoFitMiniInput() {
+    if (!miniInput || !miniWindow) return;
+    if (!miniInput.value) {
+      miniInput.style.height = '';
+      miniInput.style.overflowY = 'hidden';
+      miniWindow.style.height = baseMiniHeight + 'px';
+      return;
+    }
+    miniInput.style.height = 'auto';
+    const targetHeight = Math.min(120, Math.max(44, miniInput.scrollHeight));
+    miniInput.style.height = targetHeight + 'px';
+    const delta = targetHeight - 44;
+    const currentTop = miniWindow.getBoundingClientRect().top;
+    const maxH = window.innerHeight - currentTop - 12;
+    const nextH = Math.min(maxH, baseMiniHeight + delta);
+    miniWindow.style.height = nextH + 'px';
+    if (targetHeight >= 120) {
+      miniInput.style.overflowY = 'auto';
+    } else {
+      miniInput.style.overflowY = 'hidden';
+    }
+  }
+
+  if (miniInput) {
+    miniInput.addEventListener('input', autoFitMiniInput);
+  }
+
+  const miniAttachBox = el('miniAttachments');
+  if (miniAttachBox) {
+    miniAttachBox.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-mini-remove-file]');
+      if (!btn) return;
+      const fid = btn.dataset.miniRemoveFile;
+      files = files.filter((f) => f.id !== fid);
+      syncMiniAttachments();
+      paintDraft();
+      remember();
+    });
+  }
+
+  const miniAttachBtn = el('miniAttach');
+  if (miniAttachBtn) {
+    miniAttachBtn.onclick = () => {
+      el('msgFile')?.click();
+    };
+  }
+
+  const miniEmojiBtn = el('miniEmoji');
+  if (miniEmojiBtn) {
+    miniEmojiBtn.onclick = () => {
+      if (typeof emojiPicker === 'function') emojiPicker('smileys');
+      else el('msgEmoji')?.click();
+    };
+  }
+
+  const miniStickersBtn = el('miniStickers');
+  if (miniStickersBtn) {
+    miniStickersBtn.onclick = () => {
+      if (typeof emojiPicker === 'function') emojiPicker('stickers');
+      else el('msgStickers')?.click();
+    };
+  }
+
+  const miniMicBtn = el('miniMic');
+  if (miniMicBtn) {
+    miniMicBtn.onclick = () => {
+      el('msgMic')?.click();
+    };
+  }
+
+  const miniColor = el('miniColorIndicator');
+  if (miniColor) {
+    miniColor.onclick = () => {
+      const colorInput = document.querySelector('#messages .text-color-tools input[type=color]');
+      colorInput?.click();
+    };
+  }
+
+  async function submitMiniMessage() {
+    const input = el('miniInput');
+    if (!input) return;
+    const val = input.value.trim();
+    if (val.length > 4000) {
+      status('Maximum message length is 4000 characters.');
+      return;
+    }
+    if (!val && (!files || !files.length)) return;
+    input.value = '';
+    if (composer) composer.value = val;
+    autoFitMiniInput();
+    await send();
+    syncMiniTimeline();
+    syncMiniAttachments();
+  }
+
   const miniForm = el('miniComposer');
   if (miniForm) {
     miniForm.onsubmit = async (e) => {
       e.preventDefault();
-      const input = el('miniInput');
-      if (!input || !input.value.trim()) return;
-      const val = input.value.trim();
-      input.value = '';
-      if (composer) {
-        composer.value = val;
-        await send();
-        syncMiniTimeline();
-      }
+      await submitMiniMessage();
     };
+  }
+
+  if (miniInput) {
+    let miniComposing = false;
+    let miniShifted = false;
+    miniInput.addEventListener('compositionstart', () => { miniComposing = true; });
+    miniInput.addEventListener('compositionend', () => { miniComposing = false; });
+    miniInput.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter') return;
+      miniShifted = event.shiftKey;
+      if (prefs.enter === false || miniShifted || event.isComposing || miniComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      await submitMiniMessage();
+    });
+    miniInput.addEventListener('keyup', () => {
+      miniShifted = false;
+    });
   }
   document.addEventListener('click', async (event) => {
     const target = event.target.closest(

@@ -18301,11 +18301,6 @@ const STUDIO_CONSTELLATIONS = [{
         const sl=slots[idx];
         if(sl&&Number.isFinite(sl.x)&&Number.isFinite(sl.y))starSlotMap.set(st.id,sl);
       });
-      const figLeft=coreStars.length?Math.min(...coreStars.map(s=>s.x))-16:r.left;
-      const figRight=coreStars.length?Math.max(...coreStars.map(s=>s.x))+16:r.right;
-      const figTop=coreStars.length?Math.min(...coreStars.map(s=>s.y))-16:r.top;
-      const figBottom=coreStars.length?Math.max(...coreStars.map(s=>s.y))+16:r.bottom;
-      const figureBox={left:figLeft,right:figRight,top:figTop,bottom:figBottom};
       const overlaps=(a,b)=>!(a.right<b.left||a.left>b.right||a.bottom<b.top||a.top>b.bottom);
       const clamp=(val,min,max)=>Math.max(min,Math.min(max,val));
       const makeBox=(l,t)=>{
@@ -18313,17 +18308,17 @@ const STUDIO_CONSTELLATIONS = [{
         const top=clamp(t,margin,Math.max(margin,h-cardH-margin));
         return {left,right:left+cardW,top,bottom:top+cardH};
       };
+      const targetX=(r.left+r.right)/2,targetY=(r.top+r.bottom)/2;
       const score=box=>{
         let s=0;
         const hitsStar=coreStars.some(st=>st.x>=box.left-10&&st.x<=box.right+10&&st.y>=box.top-10&&st.y<=box.bottom+10);
-        if(hitsStar)s+=500000;
+        if(hitsStar)s+=2000000;
         const hitsLine=(c.connections||[]).some(([i,j])=>{
           const a=starSlotMap.get(i)||(typeof i==='number'?coreStars[i]:null);
           const b=starSlotMap.get(j)||(typeof j==='number'?coreStars[j]:null);
           return a&&b&&astro.segmentHitsBox(a,b,box);
         });
         if(hitsLine)s+=3000000;
-        if(overlaps(box,figureBox))s+=400000;
         if(overlaps(box,r))s+=10000000;
         for(const u of uiRects){
           if(overlaps(box,u)){
@@ -18332,30 +18327,48 @@ const STUDIO_CONSTELLATIONS = [{
             s+=xOv*yOv*50;
           }
         }
-        if(box.top>=r.bottom&&box.top<=r.bottom+20){
-          s-=100000;
-        }else if(box.top<r.top){
-          s+=200000;
+        if((box.top>=r.bottom&&box.top<=r.bottom+20)||(box.bottom<=r.top&&box.bottom>=r.top-20)){
+          s-=50000;
         }
-        const targetX=(r.left+r.right)/2;
-        const boxX=(box.left+box.right)/2;
-        s+=Math.abs(boxX-targetX)*10;
-        s+=Math.abs(box.top-(r.bottom+8))*15;
+        const boxX=(box.left+box.right)/2,boxY=(box.top+box.bottom)/2;
+        s+=Math.hypot(boxX-targetX,boxY-targetY)*100;
         return s;
       };
       const candidates=[];
-      candidates.push(makeBox(figureBox.right+12,r.top));
-      candidates.push(makeBox(figureBox.left-cardW-12,r.top));
-      candidates.push(makeBox(figureBox.right+12,figureBox.top));
-      candidates.push(makeBox(figureBox.left-cardW-12,figureBox.top));
-      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,r.bottom+8));
+      candidates.push(makeBox(targetX-cardW/2,r.top-cardH-10));
+      candidates.push(makeBox(r.left,r.top-cardH-10));
+      candidates.push(makeBox(r.right-cardW,r.top-cardH-10));
+      candidates.push(makeBox(targetX-cardW/2,r.bottom+8));
       candidates.push(makeBox(r.left,r.bottom+8));
       candidates.push(makeBox(r.right-cardW,r.bottom+8));
       candidates.push(makeBox(r.right+12,r.top));
+      candidates.push(makeBox(r.right+12,targetY-cardH/2));
+      candidates.push(makeBox(r.right+12,r.bottom-cardH));
       candidates.push(makeBox(r.left-cardW-12,r.top));
-      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,r.top-cardH-10));
-      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,figureBox.bottom+10));
-      candidates.push(makeBox(r.left+(r.right-r.left)/2-cardW/2,figureBox.top-cardH-10));
+      candidates.push(makeBox(r.left-cardW-12,targetY-cardH/2));
+      candidates.push(makeBox(r.left-cardW-12,r.bottom-cardH));
+      candidates.push(makeBox(r.right+12,r.bottom+8));
+      candidates.push(makeBox(r.left-cardW-12,r.bottom+8));
+      candidates.push(makeBox(r.right+12,r.top-cardH-10));
+      candidates.push(makeBox(r.left-cardW-12,r.top-cardH-10));
+      candidates.push(makeBox(targetX-cardW/2,r.top-cardH-24));
+      candidates.push(makeBox(targetX-cardW/2,r.bottom+22));
+      candidates.push(makeBox(r.left,r.top-cardH-24));
+      candidates.push(makeBox(r.left,r.bottom+22));
+      candidates.push(makeBox(r.right-cardW,r.top-cardH-24));
+      candidates.push(makeBox(r.right-cardW,r.bottom+22));
+      candidates.push(makeBox(r.right+24,targetY-cardH/2));
+      candidates.push(makeBox(r.left-cardW-24,targetY-cardH/2));
+      candidates.push(makeBox(targetX-cardW/2,r.top-cardH-44));
+      candidates.push(makeBox(targetX-cardW/2,r.bottom+40));
+      candidates.push(makeBox(r.right+44,targetY-cardH/2));
+      candidates.push(makeBox(r.left-cardW-44,targetY-cardH/2));
+      candidates.push(makeBox(targetX-cardW/2,r.top-cardH-64));
+      candidates.push(makeBox(targetX-cardW/2,r.bottom+60));
+      candidates.push(makeBox(r.right+20,r.top-cardH-14));
+      candidates.push(makeBox(r.left-cardW-20,r.top-cardH-14));
+      candidates.push(makeBox(r.right+20,r.bottom+14));
+      candidates.push(makeBox(r.left-cardW-20,r.bottom+14));
       candidates.sort((a,b)=>score(a)-score(b));
       const best=candidates[0]||makeBox(r.left,r.bottom+8);
       conInspector.style.left=Math.round(best.left)+'px';
