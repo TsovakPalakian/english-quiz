@@ -2804,7 +2804,7 @@ test('System errors are masked for USER and ADMIN but kept detailed for DEVELOPE
   assert.equal(userValidationMsg,'Эта карточка уже добавлена на страницу.');
 });
 
-test('Lesson Speech button and speech tab are accessible for USER, ADMIN and DEVELOPER',async()=>{
+test('Lesson Speech button and speech tab are hidden for USER but accessible for ADMIN and DEVELOPER',async()=>{
   const lessonSource=readFileSync(new URL('../client/52-lessons.js',import.meta.url),'utf8');
   const lmTabFn=extractFunction(lessonSource, 'lmTab');
   const lmChromeHtmlFn=extractFunction(lessonSource, 'lmChromeHtml');
@@ -2824,8 +2824,8 @@ test('Lesson Speech button and speech tab are accessible for USER, ADMIN and DEV
     return scope.result;
   };
   const user=runLessonTest('USER','speech');
-  assert.equal(user.html.includes('data-workbench-lesson-speech'),true,'Speech button must be visible for USER');
-  assert.equal(user.activeTab,'speech','Speech tab must be accessible for USER');
+  assert.equal(user.html.includes('data-workbench-lesson-speech'),false,'Speech button must be hidden for USER');
+  assert.equal(user.activeTab,'overview','Speech tab must fall back to overview for USER');
 
   const admin=runLessonTest('ADMIN','speech');
   assert.equal(admin.html.includes('data-workbench-lesson-speech'),true,'Speech button must be visible for ADMIN');

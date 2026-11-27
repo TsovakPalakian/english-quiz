@@ -634,7 +634,8 @@
     }
     function lmTab() {
       const id = lmState && lmState.tab;
-      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
+      const isStudent = (typeof authUser !== 'undefined' && authUser?.role === 'USER') && (typeof viewAccount === 'undefined' || !viewAccount);
+      if(id==='speech'&&!lmState.examOwned&&!isStudent&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf" || id === "evaluation") return id;
       return "overview";
     }
@@ -2486,7 +2487,8 @@
       const tabs = [["overview", "Overview"], ["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
       const tools = [["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
       const tabBtns = tabs.map(pair => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? 'on' : '') + '" role="tab" aria-selected="' + (pair[0] === tab ? 'true' : 'false') + '">' + pair[1] + '</button>').join('');
-      const speechBtn = window.LearningWorkbench?.lessonSpeechButton() || '';
+      const isStudent = (typeof authUser !== 'undefined' && authUser?.role === 'USER') && (typeof viewAccount === 'undefined' || !viewAccount);
+      const speechBtn = (!isStudent && window.LearningWorkbench?.lessonSpeechButton()) || '';
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
           const btn = '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
@@ -2499,7 +2501,7 @@
       }).join("");
       const modesBtns = '<button type="button" data-lm-tool="quiz">Day quiz</button>' +
         '<button type="button" id="lmFocusPlayerBtn">Focus Mode</button>' +
-        '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>' +
+        (isStudent ? '' : '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>') +
         '<button type="button" id="lmEvaluationModeBtn" data-lm-tab="evaluation" class="' + (tab === "evaluation" ? "on" : "") + '" role="tab" aria-selected="' + (tab === "evaluation" ? "true" : "false") + '">Evaluation Mode</button>';
       return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
     }

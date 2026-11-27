@@ -226,12 +226,6 @@
         const studentName = typeof esc === 'function' ? esc(firstName) : firstName;
         welcomeHeading.innerHTML = 'Welcome back, <span id="homeStudentName">' + studentName + '</span>! 👋';
       }
-      text('shellProgressPercent',pct+'%');text('shellProgressCount',learned+' of '+total+' cards learned');
-      const bar=document.getElementById('shellProgressBar');
-      if(bar){bar.style.width=pct+'%';if(bar.parentElement)bar.parentElement.setAttribute('aria-valuenow',String(pct));}
-      const isHomeSection = document.getElementById('home')?.classList.contains('on');
-      const progress=document.querySelector('.shell-progress');
-      if(progress)progress.hidden=!(authUser?.role==='USER'&&!viewAccount)||!!isHomeSection;
       const continueBtns = document.querySelectorAll('[data-home-continue]');
       continueBtns.forEach(btn => {
         btn.textContent = (pct === 0 || !learned) ? 'Start studying' : 'Continue studying';

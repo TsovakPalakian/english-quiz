@@ -62,7 +62,7 @@ test('full local shell exposes one isolated workbench across roles without produ
     await switchRole('teacher');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
     const changes=page.locator('[data-workbench-decision="return"][data-id="'+proposal.id+'"]');await changes.locator('textarea').fill('Use a complete weather sentence.');await changes.getByRole('button').click();
     await page.getByText('Use a complete weather sentence.',{exact:true}).waitFor();
-    await switchRole('u1');await page.locator('[data-workbench-mine]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
+    await switchRole('u1');assert.equal(await page.locator('[data-workbench-mine]:visible').count(),0);await page.evaluate(()=>window.LearningWorkbench.open({mine:true,title:'My quizzes'}));await page.locator('[data-workbench-search]').waitFor();await expandReview();
     await page.locator('[data-review-key="version-'+proposal.id+'"] [data-workbench-edit]').click();await page.locator('[data-field=shown]').fill('A fine ____ is falling.');
     await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
     await switchRole('second');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
@@ -70,7 +70,7 @@ test('full local shell exposes one isolated workbench across roles without produ
     await page.locator('[data-review-key="version-'+proposal.id+'"]').waitFor({state:'detached'});
     const approved=await(await fetch(preview.url+'/api/learning-workbench/proposals/'+proposal.id)).json();assert.equal(approved.quiz.state,'approved');assert.equal(approved.quiz.reviewer.id,'second');
     const templates=await(await fetch(preview.url+'/api/learning-workbench/templates?cardId=1',{headers:{Cookie:'local-workbench-role=u1'}})).json();assert.ok(templates.quizzes.some(row=>row.id===proposal.id),'Reviewed proposal is shared with the student');
-    await switchRole('u1');await page.locator('[data-workbench-mine]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
+    await switchRole('u1');assert.equal(await page.locator('[data-workbench-mine]:visible').count(),0);await page.evaluate(()=>window.LearningWorkbench.open({mine:true,title:'My quizzes'}));await page.locator('[data-workbench-search]').waitFor();await expandReview();
     await page.locator('[data-review-key="version-'+proposal.id+'"]').waitFor({state:'visible'});
     assert.equal(await page.locator('[data-review-key="version-'+proposal.id+'"] [data-workbench-edit]').count(),0,'Approved version has no edit action');
     const immutable=await fetch(preview.url+'/api/learning-workbench/proposals/'+proposal.id+'/edit',{method:'POST',headers:{Origin:preview.url,'Content-Type':'application/json',Cookie:'local-workbench-role=u1'},body:JSON.stringify({mutationId:crypto.randomUUID(),expectedRevision:approved.quiz.revision,content:approved.quiz.content})});assert.equal(immutable.status,403,'Approved version is locked on the server too');

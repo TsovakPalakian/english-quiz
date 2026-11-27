@@ -7157,6 +7157,140 @@
     }
   }
 
+  const miniAudioSet = new WeakSet();
+  function watchMiniAudio(root) {
+    if (!root) return;
+    root.querySelectorAll('[data-mini-audio-card]').forEach((card) => {
+      const audio = card.querySelector('audio');
+      if (!audio || miniAudioSet.has(audio)) return;
+      miniAudioSet.add(audio);
+      const btn = card.querySelector('[data-mini-audio-play]');
+      const wave = card.querySelector('.chat-mini-audio-wave');
+      const dur = card.querySelector('.chat-mini-audio-duration');
+      const formatTime = (v) => {
+        const s = Math.floor(Number.isFinite(v) ? v : 0);
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      };
+      const sync = () => {
+        const isPaused = audio.paused;
+        if (btn) {
+          btn.innerHTML = icon(isPaused ? 'play' : 'pause');
+          btn.setAttribute('aria-label', isPaused ? 'Play audio' : 'Pause audio');
+          btn.title = isPaused ? 'Play audio' : 'Pause audio';
+          icons();
+        }
+        if (dur) {
+          const cur = formatTime(audio.currentTime);
+          const total = Number.isFinite(audio.duration) && audio.duration > 0 ? formatTime(audio.duration) : '';
+          dur.textContent = total ? (isPaused && audio.currentTime === 0 ? total + ' · Voice recording' : cur + ' / ' + total) : (isPaused ? 'Voice recording' : cur);
+        }
+        if (wave) {
+          const pct = Number.isFinite(audio.duration) && audio.duration > 0 ? (audio.currentTime / audio.duration) * 100 : 0;
+          const spans = wave.querySelectorAll('span');
+          spans.forEach((bar, i) => {
+            bar.classList.toggle('played', (i / spans.length) * 100 <= pct);
+          });
+        }
+      };
+      for (const ev of ['loadedmetadata', 'durationchange', 'timeupdate', 'play', 'pause', 'ended']) {
+        audio.addEventListener(ev, sync);
+      }
+      sync();
+    });
+  }
+
+  const miniVideosSet = new WeakSet();
+  function watchMiniRoundVideos(root) {
+    if (!root) return;
+    root.querySelectorAll('.chat-mini-round-video-bubble video').forEach((video) => {
+      if (miniVideosSet.has(video)) return;
+      miniVideosSet.add(video);
+      video.loop = false;
+      video.removeAttribute('loop');
+      video.preload = 'auto';
+      const bubble = video.parentElement;
+      const cover = document.createElement('canvas');
+      cover.className = 'chat-mini-video-cover';
+      cover.width = 240;
+      cover.height = 240;
+      cover.setAttribute('aria-hidden', 'true');
+      video.after(cover);
+      const context = cover.getContext('2d');
+      if (!context) return;
+      const staging = document.createElement('canvas');
+      staging.width = 240;
+      staging.height = 240;
+      const stage = staging.getContext('2d');
+      const probe = document.createElement('canvas');
+      probe.width = 8;
+      probe.height = 8;
+      const pixels = probe.getContext('2d', { willReadFrequently: true });
+      let callback = 0;
+      let restarting = false;
+      const duration = () => (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0);
+      const restart = () => {
+        if (video.seeking || restarting || !video.isConnected) return;
+        restarting = true;
+        video.currentTime = 0;
+        video.play().catch(() => {});
+      };
+      const checkEnd = () => {
+        const end = duration();
+        if (end > 0 && !video.paused && !video.seeking && !restarting && video.currentTime >= end - Math.min(end / 4, 0.08)) {
+          restart();
+        }
+      };
+      const draw = () => {
+        if (video.readyState < 2 || video.seeking || restarting || !video.videoWidth) return;
+        try {
+          const side = Math.min(video.videoWidth, video.videoHeight);
+          stage.drawImage(video, (video.videoWidth - side) / 2, (video.videoHeight - side) / 2, side, side, 0, 0, 240, 240);
+          const end = duration();
+          if (!end || video.currentTime < 0.15 || video.currentTime > end - 0.15) {
+            pixels.drawImage(staging, 0, 0, 8, 8);
+            const data = pixels.getImageData(0, 0, 8, 8).data;
+            let black = true;
+            for (let i = 0; i < data.length; i += 4) {
+              if (data[i] > 6 || data[i + 1] > 6 || data[i + 2] > 6) {
+                black = false;
+                break;
+              }
+            }
+            if (black) return;
+          }
+          context.drawImage(staging, 0, 0);
+          bubble.classList.add('has-video-frame');
+        } catch {}
+      };
+      const loop = () => {
+        if (!video.isConnected) return;
+        draw();
+        checkEnd();
+        if ('requestVideoFrameCallback' in video) {
+          callback = video.requestVideoFrameCallback(() => loop());
+        } else {
+          callback = requestAnimationFrame(loop);
+        }
+      };
+      video.addEventListener('play', () => {
+        restarting = false;
+        loop();
+      });
+      video.addEventListener('pause', () => {
+        if (!restarting) {
+          if ('cancelVideoFrameCallback' in video) video.cancelVideoFrameCallback(callback);
+          else cancelAnimationFrame(callback);
+        }
+      });
+      video.addEventListener('seeked', () => {
+        restarting = false;
+        draw();
+      });
+      video.addEventListener('ended', restart);
+      video.play().catch(() => {});
+    });
+  }
+
   function syncMiniTimeline() {
     const miniTl = el('miniTimeline');
     if (!miniTl || el('chatMiniWindow')?.hidden) return;
@@ -7168,6 +7302,29 @@
       return;
     }
     const miniFormatSize = (s) => (s > 1048576 ? (s / 1048576).toFixed(1) + ' MB' : Math.ceil((s || 0) / 1024) + ' KB');
+    const miniAudioMarkup = (src, label) => {
+      const bars = [4, 7, 12, 16, 9, 14, 18, 11, 7, 13, 16, 9, 12, 17, 14, 9, 7, 12, 8, 5, 10, 14, 8, 4]
+        .map((h) => '<span style="height:' + h + 'px"></span>')
+        .join('');
+      return '<div class="chat-mini-audio-card" data-mini-audio-card>' +
+        '<audio src="' + src + '" preload="metadata"></audio>' +
+        '<button type="button" class="chat-mini-audio-play" data-mini-audio-play aria-label="Play audio" title="Play audio">' +
+        icon('play') +
+        '</button>' +
+        '<div class="chat-mini-audio-track">' +
+        '<div class="chat-mini-audio-wave">' + bars + '</div>' +
+        '<span class="chat-mini-audio-duration">0:00 · ' + escape(label || 'Voice recording') + '</span>' +
+        '</div>' +
+        '</div>';
+    };
+    const miniVideoMarkup = (src, fileId) => {
+      return '<div class="chat-mini-round-video-bubble" data-mini-round-video data-file-id="' + escape(fileId || '') + '">' +
+        '<video src="' + src + '" autoplay muted loop playsinline preload="auto"></video>' +
+        '<button type="button" class="chat-round-sound" data-mini-round-sound aria-label="Enable sound" title="Enable sound" aria-pressed="false">' +
+        icon('volume-x') +
+        '</button>' +
+        '</div>';
+    };
     let html = '';
     msgs.forEach((m) => {
       const own = m.classList.contains('is-own');
@@ -7208,10 +7365,10 @@
             return '<button type="button" class="chat-mini-image-preview" data-photo-preview="' + furl + '" aria-label="' + fname + '"><img src="' + furl + '" alt="' + fname + '" loading="lazy"></button>';
           }
           if (f.mime?.startsWith('video/') && /^video-\d+\.(webm|mp4)$/i.test(f.name || '')) {
-            return '<div class="chat-mini-round-video-bubble"><video src="' + furl + '" autoplay muted loop playsinline></video></div>';
+            return miniVideoMarkup(furl, f.id);
           }
           if (f.mime?.startsWith('audio/')) {
-            return '<div class="chat-mini-audio-card"><audio src="' + furl + '" controls preload="metadata"></audio></div>';
+            return miniAudioMarkup(furl, f.name);
           }
           return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-file-card">' +
             '<span class="chat-mini-file-icon">' +
@@ -7230,12 +7387,14 @@
             if (el.classList.contains('chat-round-video')) {
               const vid = el.querySelector('video');
               const vsrc = vid ? escape(vid.src) : '#';
-              return '<div class="chat-mini-round-video-bubble"><video src="' + vsrc + '" autoplay muted loop playsinline></video></div>';
+              const fid = el.dataset.fileId || '';
+              return miniVideoMarkup(vsrc, fid);
             }
             if (el.classList.contains('chat-audio')) {
               const aud = el.querySelector('audio');
               const asrc = aud ? escape(aud.src) : '#';
-              return '<div class="chat-mini-audio-card"><audio src="' + asrc + '" controls preload="metadata"></audio></div>';
+              const label = aud?.getAttribute('aria-label') || 'Voice recording';
+              return miniAudioMarkup(asrc, label);
             }
             const img = el.querySelector('img');
             if (img) {
@@ -7273,6 +7432,8 @@
     });
     miniTl.innerHTML = html;
     miniTl.scrollTop = miniTl.scrollHeight;
+    watchMiniAudio(miniTl);
+    watchMiniRoundVideos(miniTl);
   }
 
   function syncMiniAttachments() {
@@ -7730,6 +7891,11 @@
       miniColor.style.background = color;
       const input = el('miniInput');
       if (input) input.style.color = color;
+      if (composer) {
+        composer.style.color = color;
+        const colorTools = composer.parentElement?.querySelector('.text-color-tools input[type=color]');
+        if (colorTools) colorTools.value = color;
+      }
     };
   }
 
@@ -7737,9 +7903,42 @@
   if (miniTlEl) {
     miniTlEl.addEventListener('click', (event) => {
       const button = event.target.closest('[data-photo-preview]');
-      if (!button || !miniTlEl.contains(button)) return;
-      event.preventDefault();
-      openPhotoPreview(button.dataset.photoPreview, button.querySelector('img')?.alt || '');
+      if (button && miniTlEl.contains(button)) {
+        event.preventDefault();
+        openPhotoPreview(button.dataset.photoPreview, button.querySelector('img')?.alt || '');
+        return;
+      }
+      const playBtn = event.target.closest('[data-mini-audio-play]');
+      if (playBtn && miniTlEl.contains(playBtn)) {
+        event.preventDefault();
+        const card = playBtn.closest('[data-mini-audio-card]');
+        const audio = card?.querySelector('audio');
+        if (!audio) return;
+        if (audio.paused) {
+          document.querySelectorAll('audio').forEach((a) => {
+            if (a !== audio) a.pause();
+          });
+          audio.play().catch(() => {});
+        } else {
+          audio.pause();
+        }
+        return;
+      }
+      const roundSoundBtn = event.target.closest('[data-mini-round-sound]');
+      if (roundSoundBtn && miniTlEl.contains(roundSoundBtn)) {
+        event.preventDefault();
+        const bubble = roundSoundBtn.closest('[data-mini-round-video]');
+        const video = bubble?.querySelector('video');
+        if (!video) return;
+        video.muted = !video.muted;
+        roundSoundBtn.innerHTML = icon(video.muted ? 'volume-x' : 'volume-2');
+        roundSoundBtn.title = video.muted ? 'Enable sound' : 'Mute';
+        roundSoundBtn.setAttribute('aria-label', roundSoundBtn.title);
+        roundSoundBtn.setAttribute('aria-pressed', String(!video.muted));
+        icons();
+        video.play().catch(() => {});
+        return;
+      }
     });
   }
 

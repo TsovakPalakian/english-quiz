@@ -92,12 +92,7 @@ test('TASK-13 visual test: Student home dashboard hierarchy, theme contrast, and
     assert.ok(headingText.includes('Alice'), 'Heading must contain student name: ' + headingText);
     assert.equal(headingText.trim(), 'Welcome back, Alice! 👋', 'Heading must match welcome greeting format');
 
-    // 2. Sidebar progress must be hidden on #home
-    const sidebarProgress = page.locator('.shell-progress');
-    const isSidebarVisible = await sidebarProgress.isVisible();
-    assert.equal(isSidebarVisible, false, 'Sidebar progress must be hidden on home screen');
-
-    // 3. Priority row: Your group & Next lesson cards
+    // 2. Priority row: Your group & Next lesson cards
     const groupCard = page.locator('#homeDashboard .home-group');
     assert.equal(await groupCard.count(), 1, 'Group priority card must exist');
     const nextLessonCard = page.locator('#homePriorityRow .home-next-lesson-card');

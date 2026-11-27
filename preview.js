@@ -20380,7 +20380,6 @@ const STUDIO_CONSTELLATIONS = [{
       });
       refreshAccountsCount();
       document.querySelectorAll("[data-archive-only]").forEach((el) => { el.hidden = !authUser || !!viewAccount || el.dataset.navRole === 'staff' && !staff; });
-      const progress=document.querySelector('.shell-progress');if(progress)progress.hidden=!student;
       if (student || (typeof canEditLessons === 'function' && !canEditLessons())) {
         const editor = document.getElementById("lmEditor");
         if (editor) editor.hidden = true;
@@ -26793,7 +26792,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmTab() {
       const id = lmState && lmState.tab;
-      if(id==='speech'&&!lmState.examOwned&&window.LearningWorkbench?.lessonSpeechButton())return id;
+      const isStudent = (typeof authUser !== 'undefined' && authUser?.role === 'USER') && (typeof viewAccount === 'undefined' || !viewAccount);
+      if(id==='speech'&&!lmState.examOwned&&!isStudent&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf" || id === "evaluation") return id;
       return "overview";
     }
@@ -28645,7 +28645,8 @@ const STUDIO_CONSTELLATIONS = [{
       const tabs = [["overview", "Overview"], ["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
       const tools = [["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
       const tabBtns = tabs.map(pair => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? 'on' : '') + '" role="tab" aria-selected="' + (pair[0] === tab ? 'true' : 'false') + '">' + pair[1] + '</button>').join('');
-      const speechBtn = window.LearningWorkbench?.lessonSpeechButton() || '';
+      const isStudent = (typeof authUser !== 'undefined' && authUser?.role === 'USER') && (typeof viewAccount === 'undefined' || !viewAccount);
+      const speechBtn = (!isStudent && window.LearningWorkbench?.lessonSpeechButton()) || '';
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
           const btn = '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
@@ -28658,7 +28659,7 @@ const STUDIO_CONSTELLATIONS = [{
       }).join("");
       const modesBtns = '<button type="button" data-lm-tool="quiz">Day quiz</button>' +
         '<button type="button" id="lmFocusPlayerBtn">Focus Mode</button>' +
-        '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>' +
+        (isStudent ? '' : '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>') +
         '<button type="button" id="lmEvaluationModeBtn" data-lm-tab="evaluation" class="' + (tab === "evaluation" ? "on" : "") + '" role="tab" aria-selected="' + (tab === "evaluation" ? "true" : "false") + '">Evaluation Mode</button>';
       return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
     }
@@ -32242,8 +32243,8 @@ const STUDIO_CONSTELLATIONS = [{
       }
       if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff()){button.dataset.jump='workbenchqueue';if(!button.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:button});}}
       let mineButton=nav.querySelector('[data-workbench-mine]');
-      if(!mineButton&&enabled()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
-      if(mineButton){mineButton.hidden=!enabled();if(enabled()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
+      if(!mineButton&&enabled()&&staff()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
+      if(mineButton){mineButton.hidden=!enabled()||!staff();if(enabled()&&staff()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
       let providerButton=nav.querySelector('[data-workbench-providers]');
       if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.dataset.jump='workbenchproviders';providerButton.className='sidebar-nav-ai-btn';providerButton.innerHTML='<svg class="lucide lucide-cpu" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M7 20v2"/><path d="M17 20v2"/><path d="M7 2v2"/><path d="M17 2v2"/><path d="M2 7h2"/><path d="M2 17h2"/><path d="M20 7h2"/><path d="M20 17h2"/></svg>AI providers';nav.append(providerButton);}
       if(providerButton){providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';if(enabled()&&authUser?.role==='DEVELOPER')providerButton.dataset.jump='workbenchproviders';}
@@ -43229,12 +43230,6 @@ if(typeof window!=='undefined'){
         const studentName = typeof esc === 'function' ? esc(firstName) : firstName;
         welcomeHeading.innerHTML = 'Welcome back, <span id="homeStudentName">' + studentName + '</span>! 👋';
       }
-      text('shellProgressPercent',pct+'%');text('shellProgressCount',learned+' of '+total+' cards learned');
-      const bar=document.getElementById('shellProgressBar');
-      if(bar){bar.style.width=pct+'%';if(bar.parentElement)bar.parentElement.setAttribute('aria-valuenow',String(pct));}
-      const isHomeSection = document.getElementById('home')?.classList.contains('on');
-      const progress=document.querySelector('.shell-progress');
-      if(progress)progress.hidden=!(authUser?.role==='USER'&&!viewAccount)||!!isHomeSection;
       const continueBtns = document.querySelectorAll('[data-home-continue]');
       continueBtns.forEach(btn => {
         btn.textContent = (pct === 0 || !learned) ? 'Start studying' : 'Continue studying';

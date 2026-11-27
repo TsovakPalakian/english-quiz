@@ -48,14 +48,10 @@ test('TASK-13: Student home dashboard markup and static elements', () => {
   assert.ok(html.includes('id="homeRecentViewAll"'), 'Must contain #homeRecentViewAll');
 });
 
-test('TASK-13: CSS rules for themes, backdrop blur, and sidebar progress', () => {
+test('TASK-13: CSS rules for themes, backdrop blur, and mastery banner', () => {
   const css = readFileSync(resolve('site/preview.css'), 'utf8');
 
-  // 1. Sidebar progress display and home suppression
-  assert.ok(css.includes('.shell-progress { display: block;'), 'shell-progress must be display: block by default');
-  assert.ok(css.includes('body:has(#home.on) .shell-progress'), 'Must suppress .shell-progress when #home.on is active');
-
-  // 2. Van Gogh / Almond backdrop blur
+  // 1. Van Gogh / Almond backdrop blur
   assert.ok(css.includes(':root[data-theme="almond"] #home .saas-card'), 'Must style cards for almond theme');
   assert.ok(css.includes('backdrop-filter: blur(14px)'), 'Must apply backdrop-filter blur for almond theme');
 

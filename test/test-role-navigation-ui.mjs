@@ -53,13 +53,11 @@ try{
     await page.waitForFunction(()=>accountReady);
     const home=role==='DEVELOPER'?'bugs':role==='ADMIN'?'groups':'home';
     await page.locator('#'+home+'.on').waitFor();
-    const expected=[...(role==='USER'?['Home','Lessons','Exam']:['Groups']),'Words','Grammar','Entertainment','Speakout','Messages',...(role==='USER'?[]:['Accounts','Archive']),...(role==='DEVELOPER'?['Bugs']:[]),'Settings'];
+    const expected=[...(role==='USER'?['Home','Lessons','Exam']:['Groups']),'Words','Grammar','Entertainment',...(role==='USER'?[]:['Speakout']),'Messages',...(role==='USER'?[]:['Accounts','Archive']),...(role==='DEVELOPER'?['Bugs']:[]),'Settings'];
     const labels=await page.locator('.side nav > button:visible').evaluateAll(nodes=>nodes.map(n=>n.textContent.trim().split('·')[0].trim()));
     assert.deepEqual(labels,expected,role+' navigation order');
     assert.equal(await page.locator('.side .brand-account').count(),0,'No account circle below Settings');
     if(role!=='USER')assert.equal(await page.locator('#'+home+' .meta .crumb').isVisible(),false,'Role home has no navigation buttons');
-    yield "02. .shell-progress / checks" + " [" + String(role) + "]";
-    assert.equal(await page.locator('.shell-progress').isVisible(),false);
     await page.locator('.side nav [data-jump="wordcollections"]').click();
     await page.locator('#wordcollections.on').waitFor();
     assert.equal(await page.locator('#wordcollections .file-card').count(),6);
@@ -84,9 +82,8 @@ try{
     await page.locator('.side nav [data-jump="library"]').click();
     assert.deepEqual(await page.locator('#library .file-card b').allTextContents(),['Song lyrics','Text']);
     assert.equal(await page.locator('#library [data-jump="speakout"]').count(),0);
-    yield "07. .side nav [data-jump=\"speakout\"] / click" + " [" + String(role) + "]";
-    await page.locator('.side nav [data-jump="speakout"]').click();await page.locator('#speakout.on').waitFor();
     if(role==='USER'){
+      assert.equal(await page.locator('.side nav [data-jump="speakout"]').isVisible(),false,'Speakout is hidden for students');
       await page.locator('.side nav [data-jump="days"]').click();await page.locator('[data-lm-open="31"]').waitFor();
       assert.equal(await page.locator('[data-group-level]:visible').count(),0);
       await page.locator('.side nav [data-jump="exams"]').click();
@@ -97,6 +94,8 @@ try{
       assert.equal(requests.includes('/api/accounts/group-teachers'),false,'Student does not fetch staff directory');
       assert.equal(await page.locator('[data-admin-tab="invite"]').isVisible(),false,'Students cannot access the Accounts Invite tab');
     }else{
+      yield "07. .side nav [data-jump=\"speakout\"] / click" + " [" + String(role) + "]";
+      await page.locator('.side nav [data-jump="speakout"]').click();await page.locator('#speakout.on').waitFor();
       await page.locator('.side nav [data-jump="groups"]').click();
       await page.locator('[data-group-level="A1"]').waitFor();
       await page.locator('#groups').evaluate(node=>{node.style.minHeight='150vh';});

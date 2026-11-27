@@ -4071,17 +4071,7 @@ body:not(.chat-active) .wrap { padding: 22px 22px 26px; max-width: none; min-hei
   color: #ffffff;
 }
 
-.shell-progress { display: block; margin: 18px 4px 0; padding: 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 5px; }
-.shell-progress[hidden] { display: none !important; }
-body:has(#home.on) .shell-progress,
-.has-home-active .shell-progress { display: none !important; }
 #homeUnreadTile { display: none !important; }
-.shell-progress > div:first-child { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 13px; }
-.shell-progress > div:first-child > span { padding: 3px 8px; border-radius: 3px; background: var(--acc-s); color: var(--acc); font-size: 11px; font-weight: 600; }
-.shell-progress-track { height: 7px; margin: 8px 0; border-radius: 2px; background: var(--line); overflow: hidden; }
-.shell-progress-track i { display: block; width: 0; height: 100%; background: var(--warm); }
-.shell-progress p { margin: 0 0 10px; color: var(--mute); font-size: 12px; }
-.shell-progress .btn { width: 100%; min-height: 36px; font-size: 13px; background: var(--card); color: var(--ink); border: 1px solid var(--line); }
 
 /* -------------------------------------------------------------
    Student Home Dashboard & Mastery Milestone Banner (TASK-13)
