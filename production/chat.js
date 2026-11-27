@@ -3781,6 +3781,17 @@
     el('msgCancelRecording').hidden = !recording;
     el('msgCancelRecording').title = locked ? 'Delete recording' : 'Cancel recording';
     el('msgCancelRecording').setAttribute('aria-label', el('msgCancelRecording').title);
+    const miniMic = el('miniMic');
+    if (miniMic) {
+      miniMic.innerHTML = mode === 'video'
+        ? '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+      miniMic.title = locked ? 'Send recording' : mode === 'video'
+        ? 'Hold to record video; click to switch to voice'
+        : 'Hold to record voice; click to switch to video';
+      miniMic.setAttribute('aria-label', miniMic.title);
+      miniMic.dataset.recordMode = mode;
+    }
     icons();
   }
   function finishRecording(cancel = false) {
@@ -3993,12 +4004,12 @@
       return;
     }
     if (recordGesture||recordPress||recordUploading||busy) return;
-    if(!ready||!room){status('Open a connected conversation before recording.');return;}
-    try{recordButton.setPointerCapture?.(event.pointerId);}catch{}
+    try{(event.currentTarget||recordButton).setPointerCapture?.(event.pointerId);}catch{}
     const press={pointerId:event.pointerId,x:event.clientX,y:event.clientY,started:false};
     recordPress=press;
     press.timer=setTimeout(()=>{
       if(recordPress!==press)return;
+      if(!ready||!room){recordPress=null;status('Open a connected conversation before recording.');return;}
       press.started=true;
       startRecording(recordMode,press.pointerId,press.x,press.y);
     },200);
@@ -4039,6 +4050,15 @@
   recordButton.addEventListener('pointercancel', () => {
     if (!recordGesture?.locked) cancelRecording();
   });
+  const miniMicBtn = el('miniMic');
+  if (miniMicBtn) {
+    miniMicBtn.addEventListener('pointerdown', onRecordPointerDown);
+    miniMicBtn.addEventListener('pointermove', onRecordPointerMove);
+    miniMicBtn.addEventListener('pointerup', onRecordPointerUp);
+    miniMicBtn.addEventListener('pointercancel', () => {
+      if (!recordGesture?.locked) cancelRecording();
+    });
+  }
   recordButton.addEventListener('contextmenu', (event) => event.preventDefault());
   recordButton.addEventListener('keydown', (event) => {
     if ([' ', 'Enter'].includes(event.key)) {
@@ -7086,22 +7106,74 @@
       miniTl.innerHTML = '<p style="color:var(--mute);font-size:12px;text-align:center;margin:auto;">No messages yet</p>';
       return;
     }
+    const miniFormatSize = (s) => (s > 1048576 ? (s / 1048576).toFixed(1) + ' MB' : Math.ceil((s || 0) / 1024) + ' KB');
     let html = '';
     msgs.forEach((m) => {
       const own = m.classList.contains('is-own');
-      const text = m.querySelector('.msg-text')?.innerText || m.innerText || '';
-      const time = m.querySelector('.msg-time')?.innerText || '';
-      if (text) {
+      const textEl = m.querySelector('.chat-message-text');
+      const text = textEl ? (textEl.innerText || textEl.textContent || '').trim() : '';
+      const timeEl = m.querySelector('.chat-message-foot time') || m.querySelector('time');
+      const time = timeEl ? (timeEl.innerText || timeEl.textContent || '').trim() : '';
+
+      let filesHtml = '';
+      let msgFiles = [];
+      try {
+        if (m.dataset.content) {
+          const parsed = JSON.parse(m.dataset.content);
+          if (Array.isArray(parsed[3])) msgFiles = parsed[3];
+        }
+      } catch {}
+
+      if (msgFiles.length) {
+        filesHtml = msgFiles.map((f) => {
+          const fname = escape(f.name || 'File');
+          const fsize = f.size ? miniFormatSize(f.size) : '';
+          const furl = f.url ? escape(f.url) : '#';
+          const isImg = f.mime?.startsWith('image/') || /\.(heic|heif|jpe?g|png|gif|webp)$/i.test(f.name || '');
+          if (isImg && f.url) {
+            return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-image-preview"><img src="' + furl + '" alt="' + fname + '" loading="lazy"></a>';
+          }
+          return '<a href="' + furl + '" target="_blank" rel="noopener" class="chat-mini-file-card">' +
+            '<span class="chat-mini-file-icon">' +
+            '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+            '</span>' +
+            '<div class="chat-mini-file-info">' +
+            '<span class="chat-mini-file-name">' + fname + '</span>' +
+            (fsize ? '<span class="chat-mini-file-size">' + escape(fsize) + '</span>' : '') +
+            '</div>' +
+            '</a>';
+        }).join('');
+      } else {
+        const fileEls = m.querySelectorAll('.chat-file');
+        if (fileEls.length) {
+          filesHtml = Array.from(fileEls).map((el) => {
+            const img = el.querySelector('img');
+            if (img) {
+              return '<div class="chat-mini-image-preview"><img src="' + escape(img.src) + '" alt="' + escape(img.alt || 'image') + '"></div>';
+            }
+            const label = el.getAttribute('aria-label') || el.innerText || 'File';
+            return '<div class="chat-mini-file-card">' +
+              '<span class="chat-mini-file-icon">' +
+              '<svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+              '</span>' +
+              '<div class="chat-mini-file-info"><span class="chat-mini-file-name">' + escape(label) + '</span></div>' +
+              '</div>';
+          }).join('');
+        }
+      }
+
+      if (text || filesHtml) {
+        const bubbleInner = filesHtml + (text ? (filesHtml ? '<div class="chat-mini-msg-text">' + escape(text) + '</div>' : escape(text)) : '');
         if (own) {
           html += '<div class="chat-mini-msg-row own">' +
-            '<div class="chat-mini-msg-bubble">' + escape(text) + '</div>' +
+            '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
             (time ? '<span class="chat-mini-msg-time">' + escape(time) + '</span>' : '') +
             '</div>';
         } else {
           html += '<div class="chat-mini-msg-row other">' +
             '<span class="chat-mini-msg-avatar">' + escape(peerInitials) + '</span>' +
             '<div class="chat-mini-msg-body">' +
-            '<div class="chat-mini-msg-bubble">' + escape(text) + '</div>' +
+            '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
             (time ? '<span class="chat-mini-msg-time">' + escape(time) + '</span>' : '') +
             '</div>' +
             '</div>';
@@ -7473,35 +7545,108 @@
     };
   }
 
+  const miniEmojiList = [
+    '😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰',
+    '😘','😗','😙','😚','😋','😛','😜','🤪','😝','🤗','🤭','🤫','🤔','🤐','🤨','😐',
+    '😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢',
+    '🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','😎','🤓','🧐','😕','😟','🙁','😮',
+    '😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓',
+    '👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','👇','☝️','✋','🤚','🖐️',
+    '🖖','👋','🤙','💪','🦾','🖕','✍️','🙏','🦶','🦵','👏','🙌','👐','🤲','🤝','🙏',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖',
+    '🔥','⭐','✨','⚡','💥','🎉','🎊','🎈','🎁','🏆','🥇','🥈','🥉','🎯','💡','📌'
+  ];
+
+  function toggleMiniEmoji(category) {
+    const picker = el('miniEmojiPicker');
+    const grid = el('miniEmojiGrid');
+    const head = el('miniEmojiHead');
+    if (!picker || !grid) return;
+    if (!picker.hidden && picker.dataset.mode === category) {
+      picker.hidden = true;
+      el('miniEmoji')?.classList.remove('active');
+      el('miniStickers')?.classList.remove('active');
+      return;
+    }
+    picker.dataset.mode = category;
+    if (head) head.textContent = category === 'smileys' ? 'Smileys' : 'Emoji';
+    if (category === 'smileys') {
+      el('miniEmoji')?.classList.add('active');
+      el('miniStickers')?.classList.remove('active');
+      grid.innerHTML = miniEmojiList.slice(0, 80).map((em) => '<button type="button" data-mini-em="' + em + '">' + em + '</button>').join('');
+    } else {
+      el('miniStickers')?.classList.add('active');
+      el('miniEmoji')?.classList.remove('active');
+      grid.innerHTML = miniEmojiList.slice(80).map((em) => '<button type="button" data-mini-em="' + em + '">' + em + '</button>').join('');
+    }
+    picker.hidden = false;
+  }
+
   const miniEmojiBtn = el('miniEmoji');
   if (miniEmojiBtn) {
-    miniEmojiBtn.onclick = () => {
-      if (typeof emojiPicker === 'function') emojiPicker('smileys');
-      else el('msgEmoji')?.click();
-    };
+    miniEmojiBtn.onclick = () => toggleMiniEmoji('smileys');
   }
 
   const miniStickersBtn = el('miniStickers');
   if (miniStickersBtn) {
-    miniStickersBtn.onclick = () => {
-      if (typeof emojiPicker === 'function') emojiPicker('stickers');
-      else el('msgStickers')?.click();
-    };
+    miniStickersBtn.onclick = () => toggleMiniEmoji('emoji');
   }
 
-  const miniMicBtn = el('miniMic');
-  if (miniMicBtn) {
-    miniMicBtn.onclick = () => {
-      el('msgMic')?.click();
-    };
+  const miniEmojiPicker = el('miniEmojiPicker');
+  if (miniEmojiPicker) {
+    miniEmojiPicker.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-mini-em]');
+      if (!btn) return;
+      const em = btn.dataset.miniEm;
+      const input = el('miniInput');
+      if (input) {
+        const start = input.selectionStart != null ? input.selectionStart : input.value.length;
+        const end = input.selectionEnd != null ? input.selectionEnd : input.value.length;
+        input.setRangeText(em, start, end, 'end');
+        input.focus();
+        autoFitMiniInput();
+      }
+      miniEmojiPicker.hidden = true;
+      el('miniEmoji')?.classList.remove('active');
+      el('miniStickers')?.classList.remove('active');
+    });
   }
 
+  document.addEventListener('pointerdown', (e) => {
+    const picker = el('miniEmojiPicker');
+    if (picker && !picker.hidden && !e.target.closest('#miniEmojiPicker,#miniEmoji,#miniStickers')) {
+      picker.hidden = true;
+      el('miniEmoji')?.classList.remove('active');
+      el('miniStickers')?.classList.remove('active');
+    }
+  });
+
+  const miniColorInput = el('miniColorInput');
   const miniColor = el('miniColorIndicator');
-  if (miniColor) {
+  if (miniColor && miniColorInput) {
     miniColor.onclick = () => {
-      const colorInput = document.querySelector('#messages .text-color-tools input[type=color]');
-      colorInput?.click();
+      try {
+        if (typeof miniColorInput.showPicker === 'function') miniColorInput.showPicker();
+        else miniColorInput.click();
+      } catch {
+        miniColorInput.click();
+      }
     };
+    miniColorInput.oninput = () => {
+      const color = miniColorInput.value;
+      miniColor.style.background = color;
+      const input = el('miniInput');
+      if (input) input.style.color = color;
+    };
+  }
+
+  const miniTimelineObserver = new MutationObserver(() => {
+    if (!el('chatMiniWindow')?.hidden) {
+      syncMiniTimeline();
+    }
+  });
+  if (timeline) {
+    miniTimelineObserver.observe(timeline, { childList: true, subtree: true });
   }
 
   async function submitMiniMessage() {

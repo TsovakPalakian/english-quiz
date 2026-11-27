@@ -15,6 +15,17 @@
     el('msgCancelRecording').hidden = !recording;
     el('msgCancelRecording').title = locked ? 'Delete recording' : 'Cancel recording';
     el('msgCancelRecording').setAttribute('aria-label', el('msgCancelRecording').title);
+    const miniMic = el('miniMic');
+    if (miniMic) {
+      miniMic.innerHTML = mode === 'video'
+        ? '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+      miniMic.title = locked ? 'Send recording' : mode === 'video'
+        ? 'Hold to record video; click to switch to voice'
+        : 'Hold to record voice; click to switch to video';
+      miniMic.setAttribute('aria-label', miniMic.title);
+      miniMic.dataset.recordMode = mode;
+    }
     icons();
   }
   function finishRecording(cancel = false) {
@@ -227,12 +238,12 @@
       return;
     }
     if (recordGesture||recordPress||recordUploading||busy) return;
-    if(!ready||!room){status('Open a connected conversation before recording.');return;}
-    try{recordButton.setPointerCapture?.(event.pointerId);}catch{}
+    try{(event.currentTarget||recordButton).setPointerCapture?.(event.pointerId);}catch{}
     const press={pointerId:event.pointerId,x:event.clientX,y:event.clientY,started:false};
     recordPress=press;
     press.timer=setTimeout(()=>{
       if(recordPress!==press)return;
+      if(!ready||!room){recordPress=null;status('Open a connected conversation before recording.');return;}
       press.started=true;
       startRecording(recordMode,press.pointerId,press.x,press.y);
     },200);
@@ -273,6 +284,15 @@
   recordButton.addEventListener('pointercancel', () => {
     if (!recordGesture?.locked) cancelRecording();
   });
+  const miniMicBtn = el('miniMic');
+  if (miniMicBtn) {
+    miniMicBtn.addEventListener('pointerdown', onRecordPointerDown);
+    miniMicBtn.addEventListener('pointermove', onRecordPointerMove);
+    miniMicBtn.addEventListener('pointerup', onRecordPointerUp);
+    miniMicBtn.addEventListener('pointercancel', () => {
+      if (!recordGesture?.locked) cancelRecording();
+    });
+  }
   recordButton.addEventListener('contextmenu', (event) => event.preventDefault());
   recordButton.addEventListener('keydown', (event) => {
     if ([' ', 'Enter'].includes(event.key)) {

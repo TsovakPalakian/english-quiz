@@ -648,8 +648,23 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .chat-mini-msg-time{font-size:10px;color:var(--mute);margin-top:2px}
 .chat-mini-msg-row.other .chat-mini-msg-time{margin-left:4px}
 .chat-mini-msg-row.own .chat-mini-msg-time{align-self:flex-end}
+.chat-mini-file-card{display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(0,0,0,.04);border:1px solid var(--line);border-radius:8px;margin-bottom:4px;font-size:12px;text-decoration:none;color:inherit;transition:background .15s ease}
+.chat-mini-file-card:hover{background:rgba(0,0,0,.08)}
+.chat-mini-file-icon{flex-shrink:0;color:var(--acc);display:flex;align-items:center}
+.chat-mini-file-info{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.chat-mini-file-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.chat-mini-file-size{font-size:10px;color:var(--mute)}
+.chat-mini-image-preview{display:block;max-width:100%;border-radius:8px;overflow:hidden;margin-bottom:4px}
+.chat-mini-image-preview img{display:block;max-width:100%;max-height:160px;object-fit:cover;border-radius:8px}
+.chat-mini-msg-text{margin-top:4px}
 
 .chat-mini-composer{display:flex;flex-direction:column;gap:6px;padding:8px 12px;background:var(--bg);border-top:1px solid var(--line);flex-shrink:0;position:relative}
+.chat-mini-emoji-picker{position:absolute;bottom:48px;left:10px;right:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,.22);z-index:1300;padding:8px;display:flex;flex-direction:column;gap:6px}
+.chat-mini-emoji-picker[hidden]{display:none!important}
+.chat-mini-emoji-picker-head{font-size:11px;font-weight:700;color:var(--mute);padding:2px 4px;text-transform:uppercase;letter-spacing:.5px}
+.chat-mini-emoji-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-height:150px;overflow-y:auto}
+.chat-mini-emoji-grid button{background:transparent;border:0;font-size:20px;cursor:pointer;padding:4px;border-radius:6px;display:flex;align-items:center;justify-content:center;transition:background .15s ease}
+.chat-mini-emoji-grid button:hover{background:var(--acc-s)}
 .chat-mini-attachments{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:2px}
 .chat-mini-attachments[hidden]{display:none!important}
 .chat-mini-file-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px;background:var(--acc-s);border:1px solid var(--acc);border-radius:6px;font-size:11px;color:var(--ink);max-width:100%}

@@ -104,6 +104,10 @@
   </header>
   <div id="miniTimeline" class="chat-mini-timeline" role="log" aria-label="Conversation" aria-live="polite"></div>
   <form id="miniComposer" class="chat-mini-composer">
+    <div id="miniEmojiPicker" class="chat-mini-emoji-picker" hidden>
+      <div class="chat-mini-emoji-picker-head" id="miniEmojiHead">Smileys & Emoji</div>
+      <div class="chat-mini-emoji-grid" id="miniEmojiGrid"></div>
+    </div>
     <div id="miniAttachments" class="chat-mini-attachments" hidden></div>
     <textarea id="miniInput" class="chat-mini-textarea" placeholder="Enter message" rows="2" maxlength="4000" aria-label="Message text"></textarea>
     <div class="chat-mini-tools-row">
@@ -117,10 +121,12 @@
         <button type="button" id="miniStickers" class="chat-mini-tool-btn" title="Emoji" aria-label="Emoji">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         </button>
-        <div id="miniColorIndicator" class="chat-mini-color-indicator" title="Text color"></div>
+        <div id="miniColorIndicator" class="chat-mini-color-indicator" title="Text color">
+          <input type="color" id="miniColorInput" style="opacity:0;width:0;height:0;position:absolute;pointer-events:none;" aria-label="Text color">
+        </div>
       </div>
       <div class="chat-mini-tools-right">
-        <button type="button" id="miniMic" class="chat-mini-tool-btn" title="Record voice message" aria-label="Record voice message">
+        <button type="button" id="miniMic" class="chat-mini-tool-btn" title="Hold to record voice; click to switch to video" aria-label="Record voice message">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
         <div class="chat-mini-tool-sep"></div>
