@@ -1020,16 +1020,36 @@
     conversationChooser(
       'Forward message',
       async (result) => {
-        for (let i = 0; i < messages.length; i++)
-          await request('forward', {
+        const targetRoomId = result.roomId;
+        const targetKey = targetRoomId + ':personal';
+        const targetState = typeof historyCache !== 'undefined' ? historyCache.get(targetKey) : null;
+        for (let i = 0; i < messages.length; i++) {
+          const sentRes = await request('forward', {
             sourceRoomId,
             messageId: messages[i].id,
-            targetRoomId: result.roomId,
+            targetRoomId,
             clientKey: keys[i],
           });
+          if (sentRes?.message) {
+            if (targetState?.rows && !targetState.rows.some((row) => row.id === sentRes.message.id)) {
+              targetState.rows.push(sentRes.message);
+            }
+            const targetRoomRow = data.rooms.find((r) => r.id === targetRoomId);
+            if (targetRoomRow) {
+              targetRoomRow.lastMessage = sentRes.message;
+            }
+          }
+        }
+        if (targetState) {
+          targetState.loaded = false;
+        }
         status('');
         kind = 'personal';
         await openRoom(result.roomId);
+        if (typeof history === 'function') {
+          await history({ refresh: true });
+        }
+        paintRooms();
       },
       '<div class="chat-forward-summary"><strong>' +
         escape(messages.length === 1 ? messages[0].sender : messages.length + ' messages') +

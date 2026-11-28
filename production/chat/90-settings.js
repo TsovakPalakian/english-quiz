@@ -1343,7 +1343,10 @@
     };
     let html = '';
     msgs.forEach((m) => {
-      const own = m.classList.contains('is-own');
+      const sId = m.dataset.senderId != null && String(m.dataset.senderId).trim() !== '' ? String(m.dataset.senderId) : '';
+      const myId = typeof myAccountId === 'function' ? myAccountId() : '';
+      const own = sId && myId ? sId === myId : m.classList.contains('is-own');
+      const initials = cleanInitials(m.dataset.senderName || peerInitials);
       const textEl = m.querySelector('.chat-message-text');
       const text = textEl ? (textEl.innerText || textEl.textContent || '').trim() : '';
       const timeEl = m.querySelector('.chat-message-foot time') || m.querySelector('time');
@@ -1429,15 +1432,28 @@
       }
 
       if (text || filesHtml) {
-        const bubbleInner = filesHtml + (textHtml ? '<div class="chat-mini-msg-text">' + textHtml + '</div>' : '');
+        const fwdBtn = m.querySelector('.chat-forwarded');
+        const fwdText = fwdBtn ? (fwdBtn.innerText || fwdBtn.textContent || '').trim() : '';
+        const fwdHtml = fwdText ? '<div class="chat-mini-forwarded-badge">' + escape(fwdText) + '</div>' : '';
+        const bubbleInner = fwdHtml + filesHtml + (textHtml ? '<div class="chat-mini-msg-text">' + textHtml + '</div>' : '');
         if (own) {
+          let receiptHtml = '';
+          const origReceipt = m.querySelector('.msg-receipt');
+          if (origReceipt) {
+            const isRead = origReceipt.classList.contains('is-read') || origReceipt.classList.contains('is-read-some');
+            const isDelivered = origReceipt.classList.contains('is-delivered') && !isRead;
+            const cls = isRead ? 'is-read' : (isDelivered ? 'is-delivered' : 'is-sent');
+            const ariaLabel = origReceipt.getAttribute('aria-label') || (isRead ? 'Read' : (isDelivered ? 'Delivered' : 'Sent'));
+            const title = origReceipt.getAttribute('title') || ariaLabel;
+            receiptHtml = '<span class="chat-mini-receipt ' + cls + '" aria-label="' + escape(ariaLabel) + '" title="' + escape(title) + '">' + origReceipt.innerHTML + '</span>';
+          }
           html += '<div class="chat-mini-msg-row own">' +
             '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
-            (time ? '<span class="chat-mini-msg-time">' + escape(time) + '</span>' : '') +
+            '<span class="chat-mini-msg-time">' + (time ? escape(time) : '') + (receiptHtml ? ' ' + receiptHtml : '') + '</span>' +
             '</div>';
         } else {
           html += '<div class="chat-mini-msg-row other">' +
-            '<span class="chat-mini-msg-avatar">' + escape(peerInitials) + '</span>' +
+            '<span class="chat-mini-msg-avatar">' + escape(initials) + '</span>' +
             '<div class="chat-mini-msg-body">' +
             '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
             (time ? '<span class="chat-mini-msg-time">' + escape(time) + '</span>' : '') +
@@ -1761,6 +1777,28 @@
     };
     miniHead.addEventListener('pointerup', finishMiniDrag);
     miniHead.addEventListener('pointercancel', finishMiniDrag);
+
+    let miniResizeTimer = null;
+    const miniResizeObs = new ResizeObserver(() => {
+      if (!miniWindow.classList.contains('is-resizing')) {
+        miniWindow.classList.add('is-resizing');
+      }
+      clearTimeout(miniResizeTimer);
+      miniResizeTimer = setTimeout(() => {
+        miniWindow.classList.remove('is-resizing');
+      }, 120);
+    });
+    miniResizeObs.observe(miniWindow);
+
+    miniWindow.addEventListener('pointerdown', (e) => {
+      const rect = miniWindow.getBoundingClientRect();
+      if (e.clientX >= rect.right - 24 && e.clientY >= rect.bottom - 24) {
+        miniWindow.classList.add('is-resizing');
+      }
+    });
+    window.addEventListener('pointerup', () => {
+      miniWindow.classList.remove('is-resizing');
+    });
   }
 
   const miniInput = el('miniInput');
