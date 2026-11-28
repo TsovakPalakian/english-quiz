@@ -15,7 +15,14 @@ test('full local shell exposes one isolated workbench across roles without produ
     page.on('response',response=>{if(response.status()>=400)failed.push(response.status()+' '+response.url());});
     await page.goto(preview.url);await page.waitForFunction(()=>typeof accountReady!=='undefined'&&accountReady);
     await page.locator('#local-workbench-role option').first().waitFor({state:'attached'});
-    await page.locator('.side nav [data-workbench-queue]').waitFor();
+    assert.equal(await page.locator('.side nav [data-workbench-queue]:visible').count(),0,'Teacher does not see review queue');
+    const switchRole=async id=>{
+      const b=page.locator('[data-workbench-close]:visible, .meta:visible [data-nav-back]:visible');if(await b.count())await b.first().click();
+      await page.locator('#local-workbench-role').selectOption(id);await page.waitForFunction(id=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id===id,id);
+      if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
+    };
+    await switchRole('dev');
+    await page.locator('.side nav [data-workbench-queue]:visible').waitFor();
     assert.equal(await page.locator('#learning-main-banner').isVisible(),false,await page.locator('#learning-main-status').textContent()+' '+failed.join('; '));
     await page.locator('[data-group-level="A1"]').click().catch(async error=>{throw Error(error.message+'\n'+await page.locator('#learning-main-status').textContent()+'\n'+failed.join('; '));});await page.locator('[data-group-open="1"]').click();
     await page.locator('[data-detail-lessons]').click();
@@ -53,22 +60,19 @@ test('full local shell exposes one isolated workbench across roles without produ
     const queue=await(await fetch(preview.url+'/api/learning-workbench/queue')).json();assert.equal(queue.quizzes.length,2,'Student proposal enters the same teacher queue');
     const proposal=queue.quizzes.find(row=>row.content.items[0].shown==='There is ____ outside.');assert.ok(proposal);
     await closeWorkbench();await page.setViewportSize({width:1280,height:900});
-    const switchRole=async id=>{
-      const b=page.locator('[data-workbench-close]:visible, .meta:visible [data-nav-back]');if(await b.count())await b.first().click();
-      await page.locator('#local-workbench-role').selectOption(id);await page.waitForFunction(id=>typeof accountReady!=='undefined'&&accountReady&&authUser?.id===id,id);
-      if(await page.locator('#learning-main-banner').isVisible())await page.locator('#learning-main-dismiss').click();
-    };
     const expandReview=()=>page.locator('.learning-kit-dialog details').evaluateAll(nodes=>nodes.forEach(node=>{node.open=true;}));
-    await switchRole('teacher');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
+    await switchRole('teacher');assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0,'Teacher does not see review queue');
+    await switchRole('dev');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
     const changes=page.locator('[data-workbench-decision="return"][data-id="'+proposal.id+'"]');await changes.locator('textarea').fill('Use a complete weather sentence.');await changes.getByRole('button').click();
     await page.getByText('Use a complete weather sentence.',{exact:true}).waitFor();
     await switchRole('u1');assert.equal(await page.locator('[data-workbench-mine]:visible').count(),0);await page.evaluate(()=>window.LearningWorkbench.open({mine:true,title:'My quizzes'}));await page.locator('[data-workbench-search]').waitFor();await expandReview();
     await page.locator('[data-review-key="version-'+proposal.id+'"] [data-workbench-edit]').click();await page.locator('[data-field=shown]').fill('A fine ____ is falling.');
     await page.getByRole('button',{name:'Send for review',exact:true}).click();await page.locator('[data-workbench-search]').waitFor();
-    await switchRole('second');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
+    await switchRole('second');assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0,'Second teacher does not see review queue');
+    await switchRole('dev');await page.locator('[data-workbench-queue]:visible').click();await page.locator('[data-workbench-search]').waitFor();await expandReview();
     const approval=page.locator('[data-workbench-decision="approve"][data-id="'+proposal.id+'"]');for(const key of ['meaning','answers','level'])await approval.locator('[name='+key+']').check();await approval.getByRole('button').click();
     await page.locator('[data-review-key="version-'+proposal.id+'"]').waitFor({state:'detached'});
-    const approved=await(await fetch(preview.url+'/api/learning-workbench/proposals/'+proposal.id)).json();assert.equal(approved.quiz.state,'approved');assert.equal(approved.quiz.reviewer.id,'second');
+    const approved=await(await fetch(preview.url+'/api/learning-workbench/proposals/'+proposal.id)).json();assert.equal(approved.quiz.state,'approved');assert.equal(approved.quiz.reviewer.id,'dev');
     const templates=await(await fetch(preview.url+'/api/learning-workbench/templates?cardId=1',{headers:{Cookie:'local-workbench-role=u1'}})).json();assert.ok(templates.quizzes.some(row=>row.id===proposal.id),'Reviewed proposal is shared with the student');
     await switchRole('u1');assert.equal(await page.locator('[data-workbench-mine]:visible').count(),0);await page.evaluate(()=>window.LearningWorkbench.open({mine:true,title:'My quizzes'}));await page.locator('[data-workbench-search]').waitFor();await expandReview();
     await page.locator('[data-review-key="version-'+proposal.id+'"]').waitFor({state:'visible'});

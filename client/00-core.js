@@ -67,7 +67,8 @@
       document.querySelectorAll('[data-jump]').forEach(button=>{
         if(['groups','exams','library','stats','days','allwords','wordcollections','tenses','speakout'].includes(button.dataset.jump)||button.id==='homeStudy'){
           const role=button.dataset.navRole;
-          const allowed=!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role));
+          const isDevBtn=button.hasAttribute('data-developer-only');
+          const allowed=isDevBtn?(!viewAccount&&authUser?.role==='DEVELOPER'):(!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role)));
           button.hidden=!authUser||!allowed;
         }
       });
@@ -116,7 +117,7 @@
         }
       }
       if (id === "settings") paintSettings();
-      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchqueue" && isDeveloper() && !viewAccount) window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
       if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       const mark = chromeMark(id);
@@ -171,11 +172,12 @@
       // Accounts is teacher-only chrome; never open it while viewing another account.
       if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
+      if (id === "speakout" && (!isDeveloper() || viewAccount)) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "profile") id = "settings";
       if (id === "stats" && !authUser) id = "account";
       if (id === "settings" && !authUser) id = "account";
-      if (id === "workbenchqueue" && (viewAccount || !isTeacher())) id = "home";
+      if (id === "workbenchqueue" && (viewAccount || !isDeveloper())) id = "home";
       if (id === "workbenchmine" && !authUser) id = "account";
       if (id === "workbenchproviders" && (!isDeveloper() || viewAccount)) id = "home";
       if(id==='home')id=roleHome();
@@ -235,7 +237,7 @@
         }
       }
       if (id === "settings") paintSettings();
-      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchqueue" && isDeveloper() && !viewAccount) window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
       if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');

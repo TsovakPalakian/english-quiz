@@ -19,6 +19,7 @@ const schema = [
   `CREATE TABLE IF NOT EXISTS chat_send_budget(account_id TEXT PRIMARY KEY,window_start INTEGER NOT NULL,n INTEGER NOT NULL)`,
 ];
 const ready = new WeakMap();
+const canonical = val => { const s = String(val ?? '').trim(), n = Number(s); return Number.isFinite(n) && s !== '' ? String(n) : s; };
 function signed(actor) { if (!actor?.id || !['USER','ADMIN','DEVELOPER'].includes(actor.role)) fail(401,'Sign in to open messages.'); }
 function key(value) { if (typeof value !== 'string' || !/^[a-zA-Z0-9:_-]{1,180}$/.test(value)) fail(400,'Invalid message reference.'); return value; }
 function category(value) { if (!['personal','learning'].includes(value)) fail(400,'Choose a message category.'); return value; }
@@ -108,10 +109,10 @@ export class MessageService {
     const contacts = await this.contacts(actor), users = await this.directory();
     const rows = await this.db.read(`SELECT r.*,m.joined_seq,m.read_personal,m.read_learning,m.muted,
       (SELECT MAX(id) FROM chat_messages x WHERE x.room_id=r.id) last_id,
-      (SELECT account_id FROM chat_members p WHERE p.room_id=r.id AND p.account_id<>? LIMIT 1) peer
+      (SELECT account_id FROM chat_members p WHERE p.room_id=r.id AND p.account_id<>? AND p.account_id<>? LIMIT 1) peer
       FROM chat_rooms r JOIN chat_members m ON m.room_id=r.id WHERE m.account_id=?
       AND (r.kind='direct' OR EXISTS(SELECT 1 FROM class_groups g WHERE g.id=r.group_id AND g.deleted_at IS NULL AND (?=1 OR EXISTS(SELECT 1 FROM class_group_students c WHERE c.group_id=g.id AND c.account_id=?))))
-      ORDER BY last_id DESC,r.created_at DESC`,[actor.id,actor.id,+staff(actor),actor.id]);
+      ORDER BY last_id DESC,r.created_at DESC`,[String(actor.id),canonical(actor.id),actor.id,+staff(actor),actor.id]);
     const totals = {personal:0,learning:0};
     const countsByRoom = await this.db.read(`SELECT x.room_id,x.category,COUNT(*) total,SUM(CASE WHEN x.sender_id<>? AND x.id>CASE WHEN x.category='learning' THEN m.read_learning ELSE m.read_personal END THEN 1 ELSE 0 END) unread
       FROM chat_messages x JOIN chat_members m ON m.room_id=x.room_id WHERE m.account_id=? AND (x.id>m.joined_seq OR x.category='learning') GROUP BY x.room_id,x.category`,[actor.id,actor.id]);
@@ -140,14 +141,14 @@ export class MessageService {
       (SELECT body FROM chat_messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND (p.id>? OR p.category='learning')) reply_body,
       (SELECT sender_name FROM chat_messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND (p.id>? OR p.category='learning')) reply_name,
       (SELECT category FROM chat_messages p WHERE p.id=m.reply_to AND p.room_id=m.room_id AND (p.id>? OR p.category='learning')) reply_category,
-      (SELECT MIN(CASE WHEN m.category='learning' THEN p.read_learning ELSE p.read_personal END) FROM chat_members p WHERE p.room_id=m.room_id AND p.account_id<>?) peer_read
+      (SELECT MIN(CASE WHEN m.category='learning' THEN p.read_learning ELSE p.read_personal END) FROM chat_members p WHERE p.room_id=m.room_id AND p.account_id<>? AND p.account_id<>?) peer_read
       FROM chat_messages m LEFT JOIN chat_assignments a ON a.id=m.assignment_id
       WHERE m.room_id=? AND m.category=? AND (m.id>? OR m.category='learning')
       AND (?=0 OR m.id<?) AND (?=0 OR m.id>?) AND (?='' OR instr(lower(m.body),lower(?))>0)
-      ORDER BY m.id ${after?'ASC':'DESC'} LIMIT 51`,[member.joined_seq,member.joined_seq,member.joined_seq,actor.id,roomId,kind,member.joined_seq,before,before,after,after,query,query]);
+      ORDER BY m.id ${after?'ASC':'DESC'} LIMIT 51`,[member.joined_seq,member.joined_seq,member.joined_seq,String(actor.id),canonical(actor.id),roomId,kind,member.joined_seq,before,before,after,after,query,query]);
     for(const row of rows){row.body=this.openText(roomId,row.body);row.reply_body=this.openText(roomId,row.reply_body);row.format_json=this.openText(roomId,row.format_json,'format_json');}
     const more = rows.length>50, page = rows.slice(0,50); if (!after) page.reverse();
-    const [receipt] = await this.db.read(`SELECT MIN(${kind==='learning'?'read_learning':'read_personal'}) through FROM chat_members WHERE room_id=? AND account_id<>?`,[roomId,actor.id]);
+    const [receipt] = await this.db.read(`SELECT MIN(${kind==='learning'?'read_learning':'read_personal'}) through FROM chat_members WHERE room_id=? AND account_id<>? AND account_id<>?`,[roomId,String(actor.id),canonical(actor.id)]);
     return {messages:page.map(row => ({id:row.id,senderId:row.sender_id,sender:row.sender_name,category:row.category,text:row.body,format:row.format_json?JSON.parse(row.format_json):null,created:row.created_at,createdMs:row.created_ms,replyTo:row.reply_to,replyText:row.reply_body,replySender:row.reply_name,replyCategory:row.reply_category,examId:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:row.peer_read>=row.id})),more,readThrough:kind==='learning'?member.read_learning:member.read_personal,peerReadThrough:Number(receipt?.through)||0};
   }
   async send(actor,body) {

@@ -970,6 +970,32 @@ test('Direct room opens with string accountId matching numeric contact ID from D
     assert.ok(result.room);
   }finally{await f.drain();f.close();}
 });
+test('ChatRoom calculates read receipts accurately when member IDs are floating-point strings',async()=>{
+  const f=fixture();
+  try{
+    await f.boot();
+    const id=directRoomId('7','8');
+    const student={id:'7.0',name:'Tsovak Palakian',role:'USER',groupId:1};
+    const teacher={id:'8.0',name:'Tsovak Palakian',role:'ADMIN',groupId:1};
+    await chatCall(f.env,'CHAT_ROOM',id,'/configure',{room:{id,kind:'direct'},members:[student,teacher]});
+    await chatCall(f.env,'CHAT_ROOM',id,'/import',{initial:true,complete:true,messages:[]});
+    await f.drain();
+
+    const sendRes=await chatCall(f.env,'CHAT_ROOM',id,'/send',{actor:{id:'7',role:'USER',name:'Tsovak Palakian'},category:'personal',text:'Hello',clientKey:'test-msg-1'});
+    await f.drain();
+
+    const histBefore=await chatCall(f.env,'CHAT_ROOM',id,'/history',{actor:{id:'7',role:'USER'},category:'personal'});
+    assert.equal(histBefore.messages[0].read,false);
+
+    await chatCall(f.env,'CHAT_ROOM',id,'/delivered',{actor:{id:'8',role:'ADMIN'},category:'personal',through:sendRes.message.id});
+    await chatCall(f.env,'CHAT_ROOM',id,'/read',{actor:{id:'8',role:'ADMIN'},category:'personal',through:sendRes.message.id});
+    await f.drain();
+
+    const histAfter=await chatCall(f.env,'CHAT_ROOM',id,'/history',{actor:{id:'7',role:'USER'},category:'personal'});
+    assert.equal(histAfter.messages[0].read,true);
+    assert.equal(histAfter.messages[0].delivered,true);
+  }finally{await f.drain();f.close();}
+});
 test('WebSocket connection route ensures profile bootstrap for student without throwing 403',async()=>{
   const student={id:'student_test_1',login:'student1',name:'Student One',role:'USER',groupId:1};
   let inboxConfigured=false;

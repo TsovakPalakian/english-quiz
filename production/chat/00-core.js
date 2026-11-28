@@ -173,12 +173,24 @@
     listMode = 'chats',
     emojiMode = '';
   const myAccountId = () => String(data?.profile?.id || signedIn()?.id || account || '');
+  const canonicalAccountId = (id) => {
+    const s = String(id ?? '').trim();
+    if (!s) return '';
+    const n = Number(s);
+    return Number.isFinite(n) ? String(n) : s;
+  };
   const isOwnMessage = (m) => {
     if (!m) return false;
     const user = typeof signedIn === 'function' ? signedIn() : null;
     const prof = typeof data !== 'undefined' ? data?.profile : null;
     const me = myAccountId();
     if (me && String(m?.senderId ?? '') === me) return true;
+    const canonical = typeof canonicalAccountId === 'function' ? canonicalAccountId : (id) => {
+      const s = String(id ?? '').trim();
+      if (!s) return '';
+      const n = Number(s);
+      return Number.isFinite(n) ? String(n) : s;
+    };
     const ownIds = new Set([
       String(me || ''),
       String(prof?.id || ''),
@@ -186,10 +198,17 @@
       String(prof?.login || ''),
       String(user?.login || ''),
       String(typeof account !== 'undefined' ? account : ''),
+      canonical(me),
+      canonical(prof?.id),
+      canonical(user?.id),
+      canonical(prof?.login),
+      canonical(user?.login),
     ].filter(Boolean));
     const sId = (m?.senderId != null && String(m.senderId).trim() !== '')
       ? String(m.senderId)
       : (m?.sender_id != null && String(m.sender_id).trim() !== '' ? String(m.sender_id) : '');
+    const cId = canonical(sId);
+    if (cId && ownIds.has(cId)) ownIds.add(sId);
     if (sId) return ownIds.has(sId) || Boolean(m?.pending);
     if (me && String(m?.sender ?? '') === me) return true;
     if (user?.login && String(m?.sender ?? '') === String(user.login)) return true;

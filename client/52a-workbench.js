@@ -6,10 +6,11 @@
   let speechUI=null,providerUI=null;
   const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice','FSRS Flashcard'];
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
+  const dev=()=>authUser?.role==='DEVELOPER';
   const enabled=()=>!!authUser&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
   const speechHost=()=>document.querySelector('#lmEditor:not([hidden]) #lmSpeechPanel,#lmPreview:not([hidden]) #lmSpeechPanel')||document.getElementById('material');
-  const current=entry=>job===entry&&enabled()&&(!entry.lessonSpeech||dialog?.isConnected&&dialog.parentElement===speechHost())&&(!entry.queue||staff())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
+  const current=entry=>job===entry&&enabled()&&(!entry.lessonSpeech||dialog?.isConnected&&dialog.parentElement===speechHost())&&(!entry.queue||dev())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
   function close(){serial++;job?.uploadController?.abort();for(const file of job?.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);speechUI?.reset();providerUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
@@ -120,13 +121,13 @@
   function paintEntry(){
     for(const nav of document.querySelectorAll('.side nav,.tabbar')){
       let button=nav.querySelector('[data-workbench-queue]');
-      if(!button&&enabled()&&staff()){
-        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
+      if(!button&&enabled()&&dev()){
+        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.dataset.developerOnly='';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
       }
-      if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff()){button.dataset.jump='workbenchqueue';if(!button.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:button});}}
+      if(button){button.hidden=!enabled()||!dev();if(enabled()&&dev()){button.dataset.jump='workbenchqueue';if(!button.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:button});}}
       let mineButton=nav.querySelector('[data-workbench-mine]');
-      if(!mineButton&&enabled()&&staff()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
-      if(mineButton){mineButton.hidden=!enabled()||!staff();if(enabled()&&staff()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
+      if(!mineButton&&enabled()&&dev()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.dataset.developerOnly='';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
+      if(mineButton){mineButton.hidden=!enabled()||!dev();if(enabled()&&dev()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
       let providerButton=nav.querySelector('[data-workbench-providers]');
       if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.dataset.jump='workbenchproviders';providerButton.className='sidebar-nav-ai-btn';providerButton.innerHTML='<svg class="lucide lucide-cpu" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M7 20v2"/><path d="M17 20v2"/><path d="M7 2v2"/><path d="M17 2v2"/><path d="M2 7h2"/><path d="M2 17h2"/><path d="M20 7h2"/><path d="M20 17h2"/></svg>AI providers';nav.append(providerButton);}
       if(providerButton){providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';if(enabled()&&authUser?.role==='DEVELOPER')providerButton.dataset.jump='workbenchproviders';}
@@ -446,8 +447,8 @@
       }
       return;
     }
-    if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
-    if(button.hasAttribute('data-workbench-mine')){if(enabled())void open({mine:true,title:'My quizzes'});return;}
+    if(button.hasAttribute('data-workbench-queue')){if(enabled()&&dev())void open({queue:true,title:'Review queue'});return;}
+    if(button.hasAttribute('data-workbench-mine')){if(enabled()&&dev())void open({mine:true,title:'My quizzes'});return;}
     if(button.hasAttribute('data-workbench-lesson-speech')){
       mountLessonSpeech();return;
     }

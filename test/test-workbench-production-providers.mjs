@@ -138,7 +138,10 @@ test('main developer UI manages real-provider selections, budgets and approvals 
     await f.api('/settings/providers',{expectedRevision:2,selections:{review:pick('gemini-quiz-review')},reason:'Fixture review only.'});
     await f.allow((await f.api('/settings/provider-access')).accounts.find(row=>row.provider==='google'),['generation','review']);
     const draft=await f.draft();await f.service.submit(actors.student,draft.id,body({expectedRevision:1}));
-    actor=actors.outsider;await page.evaluate(()=>{authUser={id:'outsider',role:'ADMIN'};viewGen++;LearningWorkbench.reset();});await page.locator('[data-workbench-queue]:visible').click();
+    actor=actors.outsider;await page.evaluate(()=>{authUser={id:'outsider',role:'ADMIN'};viewGen++;LearningWorkbench.reset();});
+    assert.equal(await page.locator('[data-workbench-queue]:visible').count(),0,'Review queue hidden for teacher');
+    actor=actors.dev;await page.evaluate(()=>{authUser={id:'dev',role:'DEVELOPER'};viewGen++;LearningWorkbench.reset();});
+    await page.locator('[data-workbench-queue]:visible').click();
     const row=page.locator('[data-review-key="version-'+draft.id+'"]');await row.waitFor({state:'attached'});await row.evaluate(node=>{for(let parent=node;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;node.querySelector('details').open=true;});
     await row.getByRole('button',{name:'Review history',exact:true}).click();await row.getByText('No AI reviews.',{exact:true}).waitFor();
     await row.getByRole('button',{name:'Request AI review',exact:true}).click();await row.getByText(/completed · incomplete/).waitFor();

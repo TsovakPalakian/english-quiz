@@ -1348,20 +1348,23 @@
       const prof = typeof data !== 'undefined' ? data?.profile : null;
       const myAcc = typeof account !== 'undefined' ? account : '';
       const myId = typeof myAccountId === 'function' ? myAccountId() : '';
+      const canonical = (val) => {
+        const s = String(val ?? '').trim();
+        const n = Number(s);
+        return Number.isFinite(n) && s !== '' ? String(n) : s;
+      };
+      const rawOwn = [myId, myAcc, prof?.id, prof?.login, user?.id, user?.login].filter(Boolean);
       const ownIds = new Set([
-        String(myId || ''),
-        String(myAcc || ''),
-        String(prof?.id || ''),
-        String(prof?.login || ''),
-        String(user?.id || ''),
-        String(user?.login || ''),
+        ...rawOwn.map(String),
+        ...rawOwn.map(canonical),
       ].filter(Boolean));
       const ownNames = new Set([
         String(prof?.name || ''),
         String(user?.name || ''),
         String(user?.login || ''),
       ].filter(Boolean));
-      const own = (sId ? ownIds.has(sId) : (m.classList.contains('is-own') || Boolean(m.dataset.senderName && ownNames.has(m.dataset.senderName)))) ||
+      const cSId = canonical(sId);
+      const own = (sId ? (ownIds.has(sId) || (cSId && ownIds.has(cSId))) : (m.classList.contains('is-own') || Boolean(m.dataset.senderName && ownNames.has(m.dataset.senderName)))) ||
         Boolean(m.dataset.clientKey && typeof pending !== 'undefined' && pending?.clientKey === m.dataset.clientKey);
       const initials = cleanInitials(m.dataset.senderName || peerInitials);
       const textEl = m.querySelector('.chat-message-text');

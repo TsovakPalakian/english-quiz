@@ -9,7 +9,11 @@
           ...new Set([
             ...data.contacts.map((p) => p.id),
             ...data.rooms.map((r) => (isGroupChat(r) ? r.id : r.peerId)),
-            ...[...document.querySelectorAll('[data-avatar-subject]')].map((n) => n.dataset.avatarSubject),
+            ...[...document.querySelectorAll('[data-avatar-subject]')].flatMap((n) => {
+              const sid = n.dataset.avatarSubject;
+              const cid = Number.isFinite(Number(sid)) && String(sid).trim() !== '' ? String(Number(sid)) : sid;
+              return cid && cid !== sid ? [sid, cid] : [sid];
+            }),
           ]),
         ].filter((id) => id && !profileRequested.has(id)),
         gen = generation;
@@ -85,9 +89,13 @@
   function paintProfiles() {
     document.querySelectorAll('[data-avatar-subject]').forEach((node) => {
       const id = node.dataset.avatarSubject;
+      const cid = Number.isFinite(Number(id)) && String(id).trim() !== '' ? String(Number(id)) : id;
       let cachedUrl = '';
-      try { cachedUrl = localStorage.getItem('enquiz-user-avatar:' + id) || ''; } catch {}
-      const p = profileViews[id],
+      try {
+        cachedUrl = localStorage.getItem('enquiz-user-avatar:' + id) ||
+          (cid !== id ? localStorage.getItem('enquiz-user-avatar:' + cid) : '') || '';
+      } catch {}
+      const p = profileViews[id] || (cid !== id ? profileViews[cid] : null),
         group = id.startsWith('group:'),
         url = (p?.avatarUrl?.startsWith('/api/messages/avatar?') ? p.avatarUrl : '') || (cachedUrl?.startsWith('/api/messages/avatar?') ? cachedUrl : ''),
         state = url + '|' + (p ? (p.online ? 'online' : 'offline') : 'unknown') + '|' + node.dataset.avatarName;
@@ -138,7 +146,8 @@
     });
   }
   function openAvatar(subject) {
-    const url = profileViews[subject]?.avatarUrl;
+    const cid = Number.isFinite(Number(subject)) && String(subject).trim() !== '' ? String(Number(subject)) : subject;
+    const url = profileViews[subject]?.avatarUrl || (cid !== subject ? profileViews[cid]?.avatarUrl : null);
     if (!url?.startsWith('/api/messages/avatar?')) return;
     const node = dialog('Photo', '<img class="chat-avatar-full" src="' + escape(url) + '" alt="Profile photo">');
     node.classList.add('chat-avatar-dialog');

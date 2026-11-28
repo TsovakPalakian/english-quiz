@@ -288,18 +288,17 @@
     const prof = typeof data !== 'undefined' ? data?.profile : null;
     const acc = typeof account !== 'undefined' ? account : '';
     const myId = typeof myAccountId === 'function' ? myAccountId() : '';
-    const authorIds = new Set(
-      [
-        String(actor || ''),
-        String(myId || ''),
-        String(prof?.id || ''),
-        String(prof?.login || ''),
-        String(acc || ''),
-        String(user?.id || ''),
-        String(user?.login || ''),
-      ].filter(Boolean),
-    );
-    const peers = (readers || []).filter((r) => !authorIds.has(String(r.id)));
+    const canonical = (val) => {
+      const s = String(val ?? '').trim();
+      const n = Number(s);
+      return Number.isFinite(n) && s !== '' ? String(n) : s;
+    };
+    const rawAuthors = [actor, myId, prof?.id, prof?.login, acc, user?.id, user?.login].filter(Boolean);
+    const authorIds = new Set([
+      ...rawAuthors.map(String),
+      ...rawAuthors.map(canonical),
+    ].filter(Boolean));
+    const peers = (readers || []).filter((r) => !authorIds.has(String(r.id)) && !authorIds.has(canonical(r.id)));
     const memberCount = peers.length;
     const readCount = peers.filter((r) => (r.read || 0) >= messageId).length;
     const deliveredCount = peers.filter((r) => (r.delivered || 0) >= messageId).length;
@@ -881,7 +880,12 @@
     }
   }
   function sameSenderSeries(previous, message) {
-    if (!previous || !message || !message.senderId || previous.senderId !== message.senderId) return false;
+    if (!previous || !message || !message.senderId) return false;
+    const pId = String(previous.senderId || '');
+    const mId = String(message.senderId || '');
+    const pCid = Number.isFinite(Number(pId)) && pId.trim() !== '' ? String(Number(pId)) : pId;
+    const mCid = Number.isFinite(Number(mId)) && mId.trim() !== '' ? String(Number(mId)) : mId;
+    if (pId !== mId && pCid !== mCid) return false;
     if (previous.deleted || message.deleted) return false;
     if (previous.day !== message.day) return false;
     const prevMs = Number(previous.createdMs), msgMs = Number(message.createdMs);

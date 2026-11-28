@@ -11,7 +11,8 @@ const fail=(status,message)=>{throw Object.assign(new Error(message),{status});}
 const staff=actor=>['ADMIN','DEVELOPER'].includes(actor?.role);
 const publicName=actor=>actor.role==='DEVELOPER'?'Support':actor.name||actor.login||'Student';
 const publicRole=actor=>actor.role==='USER'?'Student':actor.role==='DEVELOPER'?'Support':'Teacher';
-const ref=value=>{const str=String(value??'');if(!/^[A-Za-z0-9:_-]{1,180}$/.test(str))fail(400,'Invalid reference.');return str;};
+const canonicalAccountRef=val=>{const s=String(val??'').trim(),n=Number(s);return Number.isFinite(n)&&s!==''?String(n):s;};
+const ref=value=>{const str=canonicalAccountRef(value);if(!/^[A-Za-z0-9:_.-]{1,180}$/.test(str))fail(400,'Invalid reference.');return str;};
 const integer=value=>{if(!Number.isSafeInteger(value)||value<0)fail(400,'Invalid cursor.');return value;};
 const category=value=>{if(!['personal','learning'].includes(value))fail(400,'Invalid category.');return value;};
 export const directRoomId=(a,b)=>'direct:'+ [ref(a),ref(b)].sort().join(':');
@@ -76,8 +77,9 @@ export class ChatRoom extends Store{
   }
   member(actor){
     if(!actor?.id||!this.get('room')?.active)fail(403,'This conversation is unavailable.');
-    const actorId=String(actor.id),actorLogin=String(actor.login||''),actorName=String(actor.name||'');
-    let row=this.one('SELECT * FROM members WHERE (id=? OR (length(?)>0 AND id=?) OR (length(?)>0 AND name=?)) AND active=1',actorId,actorLogin,actorLogin,actorName,actorName);
+    const actorId=String(actor.id),actorCId=canonicalAccountRef(actor.id),actorLogin=String(actor.login||''),actorName=String(actor.name||'');
+    const allMembers=this.rows('SELECT * FROM members WHERE active=1');
+    let row=allMembers.find(m=>m.id===actorId||(actorCId&&canonicalAccountRef(m.id)===actorCId)||(actorLogin&&m.id===actorLogin)||(actorName&&m.name===actorName));
     if(!row&&staff(actor)&&this.get('room').kind==='group'){
       const last=this.one('SELECT COALESCE(MAX(id),0) id FROM messages').id;
       this.sql.exec('INSERT INTO members(id,name,role,read_personal,read_learning) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET active=1,name=excluded.name,role=excluded.role,joined=0',actorId,publicName(actor),actor.role,last,last);
@@ -88,13 +90,14 @@ export class ChatRoom extends Store{
   visibilityFloor(account,joined=0){return Math.max(joined,this.get('cleared:'+String(account),0),this.get('cleared:everyone',0));}
   settings(account){const acc=String(account),value=this.get('settings:'+acc,{}),legacy=this.one('SELECT muted FROM members WHERE id=?',acc);return {...value,muted:value.muteUntil===undefined?!!legacy?.muted:value.muteUntil===-1||value.muteUntil>Date.now()};}
   summary(account){
-    const acc=String(account),m=this.one('SELECT * FROM members WHERE (id=? OR name=?) AND active=1',acc,acc),room=this.get('room');if(!m||!room?.active)return null;
-    const peer=room.kind==='direct'?this.one('SELECT id,name,role FROM members WHERE id<>? LIMIT 1',m.id):null;
+    const acc=String(account),cAcc=canonicalAccountRef(acc),allMembers=this.rows('SELECT * FROM members WHERE active=1'),room=this.get('room');
+    const m=allMembers.find(item=>item.id===acc||(cAcc&&canonicalAccountRef(item.id)===cAcc)||item.name===acc);if(!m||!room?.active)return null;
+    const peer=room.kind==='direct'?allMembers.find(item=>item.id!==m.id&&(!cAcc||canonicalAccountRef(item.id)!==cAcc)):null;
     const floor=this.visibilityFloor(m.id,m.joined),settings=this.settings(m.id);
     const last=this.one("SELECT * FROM messages WHERE deleted=0 AND (id>? OR category='learning') ORDER BY id DESC LIMIT 1",floor);
     const counts=this.get('counts',{personal:0,learning:0});
     const pins=this.pins(m.id);
-    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(m.id),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:this.one('SELECT COUNT(*) n FROM members WHERE active=1').n};
+    return {id:room.id,kind:room.kind,groupId:room.groupId||null,peerId:peer?.id,peerRole:peer?publicRole(peer):null,title:peer?.name||room.title,ownerId:room.ownerId||null,restrictions:room.restrictions||null,access:this.access(m.id),pinned:pins.length?pins[pins.length-1]:null,pins,revision:this.get('revision',0),unread:{personal:m.unread_personal,learning:m.unread_learning},has:{personal:counts.personal>0,learning:counts.learning>0},hadPersonal:counts.personal>0||this.get('hadPersonal',false),...settings,lastId:last?.id||0,lastMessage:last?{id:last.id,text:last.body.slice(0,160),category:last.category,sender:last.name,createdMs:last.created_ms}:null,members:allMembers.length};
   }
   access(account){
     const room=this.get('room'),acc=String(account);
@@ -121,10 +124,12 @@ export class ChatRoom extends Store{
   }
   pinned(account){const list=this.pins(account);return list.length?list[list.length-1]:null;}
   message(row,account){
-    const acc=String(account);
-    const member=this.one('SELECT id,joined FROM members WHERE (id=? OR name=?) AND active=1',acc,acc);
-    const memberId=member?member.id:acc;
-    const cursors=this.rows('SELECT read_'+row.category+' read,delivered_'+row.category+' delivered FROM members WHERE active=1 AND id<>? AND id<>?',acc,memberId);
+    const acc=String(account),cAcc=canonicalAccountRef(acc);
+    const allMembers=this.rows('SELECT * FROM members WHERE active=1');
+    const member=allMembers.find(item=>item.id===acc||(cAcc&&canonicalAccountRef(item.id)===cAcc)||item.name===acc);
+    const memberId=member?member.id:acc,cMemberId=canonicalAccountRef(memberId);
+    const authorIds=new Set([acc,cAcc,memberId,cMemberId].filter(Boolean));
+    const cursors=allMembers.filter(item=>!authorIds.has(item.id)&&!authorIds.has(canonicalAccountRef(item.id))).map(item=>({read:item['read_'+row.category]||0,delivered:item['delivered_'+row.category]||0}));
     const roomKind=this.get('room')?.kind,group=roomKind==='group'||roomKind==='circle';
     const readValues=cursors.map(p=>p.read||0),deliveredValues=cursors.map(p=>p.delivered||0),memberCount=cursors.length;
     const readCount=readValues.filter(v=>v>=row.id).length,deliveredCount=deliveredValues.filter(v=>v>=row.id).length;
@@ -134,15 +139,16 @@ export class ChatRoom extends Store{
     if(reply&&!reply.deleted&&!reply.body)reply.body=this.get('files:'+row.reply,[]).map(file=>file.name).join(', ')||'Message';
     if(reply&&!reply.deleted){const quote=this.get('quote:'+row.id);if(quote)reply.body=quote;}
     const files=this.get('files:'+row.id,[]),forward=this.get('forward:'+row.id);
-    const peers=this.rows('SELECT id,role FROM members WHERE active=1'),sender=peers.find(p=>p.id===row.sender);
-    const isOwn=row.sender===acc||row.sender===memberId;
-    return {id:row.id,senderId:row.sender,sender:row.name,category:row.category,text:row.deleted?'Message deleted':row.body,deleted:!!row.deleted,editedMs:row.edited_ms,canEdit:!row.deleted&&!row.exam_id&&isOwn,canStudyReply:!row.deleted&&row.category==='learning'&&!isOwn&&staff(sender),reactions:row.deleted?[]:Object.entries(this.get('reactions:'+row.id,{})).map(([emoji,ids])=>({emoji,count:ids.length,mine:ids.includes(acc)||ids.includes(memberId)})),format:!row.deleted&&row.format?JSON.parse(row.format):null,files:row.deleted?[]:files,forwarded:row.deleted?null:forward?.label||null,forwardTo:forward?.recipientId||null,createdMs:row.created_ms,created:Math.floor(row.created_ms/1000),clientKey:row.client_key,replyTo:row.deleted?null:row.reply,replyText:reply?.deleted?'Message deleted':reply?.body,replySender:reply?.name,replyCategory:reply?.category,examId:row.deleted?null:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:readAll,delivered:group?deliveredCount>0:deliveredAll,readSome:group?readCount>0:readAll,readCount:group?readCount:readAll?memberCount:0,memberCount};
+    const peers=allMembers,sender=peers.find(p=>p.id===row.sender||(canonicalAccountRef(p.id)===canonicalAccountRef(row.sender)));
+    const isOwn=authorIds.has(row.sender)||authorIds.has(canonicalAccountRef(row.sender));
+    return {id:row.id,senderId:row.sender,sender:row.name,category:row.category,text:row.deleted?'Message deleted':row.body,deleted:!!row.deleted,editedMs:row.edited_ms,canEdit:!row.deleted&&!row.exam_id&&isOwn,canStudyReply:!row.deleted&&row.category==='learning'&&!isOwn&&staff(sender),reactions:row.deleted?[]:Object.entries(this.get('reactions:'+row.id,{})).map(([emoji,ids])=>({emoji,count:ids.length,mine:ids.some(id=>authorIds.has(id)||authorIds.has(canonicalAccountRef(id)))})),format:!row.deleted&&row.format?JSON.parse(row.format):null,files:row.deleted?[]:files,forwarded:row.deleted?null:forward?.label||null,forwardTo:forward?.recipientId||null,createdMs:row.created_ms,created:Math.floor(row.created_ms/1000),clientKey:row.client_key,replyTo:row.deleted?null:row.reply,replyText:reply?.deleted?'Message deleted':reply?.body,replySender:reply?.name,replyCategory:reply?.category,examId:row.deleted?null:row.exam_id,assignmentActive:row.assignment_active==null?null:!!row.assignment_active,read:readAll,delivered:group?deliveredCount>0:deliveredAll,readSome:group?readCount>0:readAll,readCount:group?readCount:readAll?memberCount:0,memberCount};
   }
   emit(key,type,extra={},recipients=null){
     const room=this.get('room');
     this.set('revision',this.get('revision',0)+1);
+    const recipientsSet=recipients?new Set([...[...recipients].map(String),...[...recipients].map(canonicalAccountRef)].filter(Boolean)):null;
     for(const member of this.rows('SELECT id,joined FROM members WHERE active=1')){
-      if(recipients&&!recipients.has(member.id))continue;
+      if(recipientsSet&&!recipientsSet.has(member.id)&&!recipientsSet.has(canonicalAccountRef(member.id)))continue;
       if(extra.message&&extra.message.category==='personal'&&extra.message.id<=this.visibilityFloor(member.id,member.joined))continue;
       const summary=this.summary(member.id),payload={type,room:summary,...extra};
       if(extra.message)payload.message=this.message(this.one('SELECT * FROM messages WHERE id=?',extra.message.id),member.id);
@@ -354,7 +360,8 @@ export class ChatRoom extends Store{
         this.sql.exec('UPDATE members SET '+column+'=?,delivered_'+kind+'=MAX(delivered_'+kind+',?),unread_'+kind+'=? WHERE id=?',cursor,cursor,unread,member.id);
         if(cursor>member[column]){
           const readers=this.rows('SELECT id,read_'+kind+' read,delivered_'+kind+' delivered FROM members WHERE active=1');
-          const recipients=new Set([member.id,...this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],cursor).map(m=>m.sender)]);
+          const senders=this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],cursor).map(m=>m.sender);
+          const recipients=new Set([member.id,canonicalAccountRef(member.id),...senders,...senders.map(canonicalAccountRef)].filter(Boolean));
           this.emit('read:'+member.id+':'+kind+':'+cursor,'receipt',{receipt:{category:kind,readers}},recipients);
         }else this.emit('read:'+member.id+':'+kind+':'+cursor+':unread:'+this.get('revision',0),'room',{},new Set([member.id]));
       });this.deliver();return {read:true,room:this.summary(member.id)};
@@ -362,7 +369,8 @@ export class ChatRoom extends Store{
     this.tx(()=>{
       this.sql.exec('UPDATE members SET '+column+'=? WHERE id=?',last,member.id);
       const readers=this.rows('SELECT id,read_'+kind+' read,delivered_'+kind+' delivered FROM members WHERE active=1');
-      const recipients=new Set([member.id,...this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],last).map(m=>m.sender)]);
+      const senders=this.rows('SELECT DISTINCT sender FROM messages WHERE category=? AND id>? AND id<=?',kind,member[column],last).map(m=>m.sender);
+      const recipients=new Set([member.id,canonicalAccountRef(member.id),...senders,...senders.map(canonicalAccountRef)].filter(Boolean));
       this.emit('delivered:'+member.id+':'+kind+':'+last,'receipt',{receipt:{category:kind,readers}},recipients);
     });this.deliver();return {read:true,room:this.summary(member.id)};
   }

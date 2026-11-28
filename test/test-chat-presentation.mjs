@@ -121,6 +121,21 @@ test('isOwnMessage recognizes messages by senderId, sender account, or profile n
   assert.equal(isOwn({senderId:'diff-id',sender:'Jane Doe'}),false);
   assert.equal(isOwn({pending:true}),true);
 });
+test('isOwnMessage accurately normalizes floating-point senderId like 7.0 to integer account ID 7',()=>{
+  const code=extractFunction(source,'myAccountId')+'\n'+extractFunction(source,'isOwnMessage')+'\nisOwnMessage';
+  const ctx={
+    data:{profile:{id:'7',name:'Tsovak Palakian'}},
+    account:'7',
+    signedIn:()=>({id:'7'}),
+    String,
+    Boolean
+  };
+  const isOwn=runInNewContext(code,ctx);
+  assert.equal(isOwn({senderId:'7.0',sender:'Other'}),true);
+  assert.equal(isOwn({senderId:'7',sender:'Other'}),true);
+  assert.equal(isOwn({senderId:'8.0',sender:'Tsovak Palakian'}),false);
+  assert.equal(isOwn({senderId:'8',sender:'Tsovak Palakian'}),false);
+});
 test('chat cache persists and restores the authenticated profile object',()=>{
   const core=readFileSync(new URL('../production/chat/00-core.js',import.meta.url),'utf8');
   assert.ok(core.includes('profile: target.profile || data?.profile || null'));
@@ -168,6 +183,17 @@ test('chatReceiptMarks accurately filters author across numeric ID and string lo
   const unreadFace=chatReceiptFace(unreadMarks);
   assert.equal(unreadFace.mark,'check');
   assert.equal(unreadFace.label,'Sent');
+
+  const readersFloat=[
+    {id:'9.0',read:0,delivered:0},
+    {id:'10.0',read:25,delivered:25}
+  ];
+  const readMarksFloat=chatReceiptMarks(20,readersFloat,'9',false);
+  assert.equal(readMarksFloat.read,true);
+  assert.equal(readMarksFloat.delivered,true);
+  const readFaceFloat=chatReceiptFace(readMarksFloat);
+  assert.equal(readFaceFloat.mark,'check-check');
+  assert.equal(readFaceFloat.label,'Read');
 });
 test('chatUnreadMerge preserves local 0 for active room when server sends higher revision',()=>{
   const code=extractFunction(source,'chatUnreadMerge')+'\nchatUnreadMerge';

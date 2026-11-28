@@ -161,7 +161,7 @@ test('TASK-44 UI Test: Playwright visual verification of Speakout levels and uni
       let data = {};
       if (path === '/api/database-context') data = { provider: 'd1', revision: 3, scope: 'site' };
       if (path === '/api/auth/providers') data = { google: true, microsoft: false, telegram: false };
-      if (path === '/api/me' || path === '/api/me/account') data = { user: { id: 'teacher-fixture', role: 'TEACHER', name: 'John Doe' } };
+      if (path === '/api/me' || path === '/api/me/account') data = { user: { id: 'developer-fixture', role: 'DEVELOPER', name: 'John Doe' } };
       if (path === '/api/me/state') data = { bootstrap: true, stats: {}, added: [], songs: [], settings: {}, counts: { lessons: 1 }, stageActivity: {} };
       if (path === '/api/me/themes') data = { theme: 'light', themes: [], revision: 0, customRevision: 0 };
       if (path.includes('catalogs')) {

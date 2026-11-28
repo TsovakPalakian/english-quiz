@@ -173,12 +173,24 @@
     listMode = 'chats',
     emojiMode = '';
   const myAccountId = () => String(data?.profile?.id || signedIn()?.id || account || '');
+  const canonicalAccountId = (id) => {
+    const s = String(id ?? '').trim();
+    if (!s) return '';
+    const n = Number(s);
+    return Number.isFinite(n) ? String(n) : s;
+  };
   const isOwnMessage = (m) => {
     if (!m) return false;
     const user = typeof signedIn === 'function' ? signedIn() : null;
     const prof = typeof data !== 'undefined' ? data?.profile : null;
     const me = myAccountId();
     if (me && String(m?.senderId ?? '') === me) return true;
+    const canonical = typeof canonicalAccountId === 'function' ? canonicalAccountId : (id) => {
+      const s = String(id ?? '').trim();
+      if (!s) return '';
+      const n = Number(s);
+      return Number.isFinite(n) ? String(n) : s;
+    };
     const ownIds = new Set([
       String(me || ''),
       String(prof?.id || ''),
@@ -186,10 +198,17 @@
       String(prof?.login || ''),
       String(user?.login || ''),
       String(typeof account !== 'undefined' ? account : ''),
+      canonical(me),
+      canonical(prof?.id),
+      canonical(user?.id),
+      canonical(prof?.login),
+      canonical(user?.login),
     ].filter(Boolean));
     const sId = (m?.senderId != null && String(m.senderId).trim() !== '')
       ? String(m.senderId)
       : (m?.sender_id != null && String(m.sender_id).trim() !== '' ? String(m.sender_id) : '');
+    const cId = canonical(sId);
+    if (cId && ownIds.has(cId)) ownIds.add(sId);
     if (sId) return ownIds.has(sId) || Boolean(m?.pending);
     if (me && String(m?.sender ?? '') === me) return true;
     if (user?.login && String(m?.sender ?? '') === String(user.login)) return true;
@@ -321,7 +340,11 @@
           ...new Set([
             ...data.contacts.map((p) => p.id),
             ...data.rooms.map((r) => (isGroupChat(r) ? r.id : r.peerId)),
-            ...[...document.querySelectorAll('[data-avatar-subject]')].map((n) => n.dataset.avatarSubject),
+            ...[...document.querySelectorAll('[data-avatar-subject]')].flatMap((n) => {
+              const sid = n.dataset.avatarSubject;
+              const cid = Number.isFinite(Number(sid)) && String(sid).trim() !== '' ? String(Number(sid)) : sid;
+              return cid && cid !== sid ? [sid, cid] : [sid];
+            }),
           ]),
         ].filter((id) => id && !profileRequested.has(id)),
         gen = generation;
@@ -397,9 +420,13 @@
   function paintProfiles() {
     document.querySelectorAll('[data-avatar-subject]').forEach((node) => {
       const id = node.dataset.avatarSubject;
+      const cid = Number.isFinite(Number(id)) && String(id).trim() !== '' ? String(Number(id)) : id;
       let cachedUrl = '';
-      try { cachedUrl = localStorage.getItem('enquiz-user-avatar:' + id) || ''; } catch {}
-      const p = profileViews[id],
+      try {
+        cachedUrl = localStorage.getItem('enquiz-user-avatar:' + id) ||
+          (cid !== id ? localStorage.getItem('enquiz-user-avatar:' + cid) : '') || '';
+      } catch {}
+      const p = profileViews[id] || (cid !== id ? profileViews[cid] : null),
         group = id.startsWith('group:'),
         url = (p?.avatarUrl?.startsWith('/api/messages/avatar?') ? p.avatarUrl : '') || (cachedUrl?.startsWith('/api/messages/avatar?') ? cachedUrl : ''),
         state = url + '|' + (p ? (p.online ? 'online' : 'offline') : 'unknown') + '|' + node.dataset.avatarName;
@@ -450,7 +477,8 @@
     });
   }
   function openAvatar(subject) {
-    const url = profileViews[subject]?.avatarUrl;
+    const cid = Number.isFinite(Number(subject)) && String(subject).trim() !== '' ? String(Number(subject)) : subject;
+    const url = profileViews[subject]?.avatarUrl || (cid !== subject ? profileViews[cid]?.avatarUrl : null);
     if (!url?.startsWith('/api/messages/avatar?')) return;
     const node = dialog('Photo', '<img class="chat-avatar-full" src="' + escape(url) + '" alt="Profile photo">');
     node.classList.add('chat-avatar-dialog');
@@ -1821,18 +1849,17 @@
     const prof = typeof data !== 'undefined' ? data?.profile : null;
     const acc = typeof account !== 'undefined' ? account : '';
     const myId = typeof myAccountId === 'function' ? myAccountId() : '';
-    const authorIds = new Set(
-      [
-        String(actor || ''),
-        String(myId || ''),
-        String(prof?.id || ''),
-        String(prof?.login || ''),
-        String(acc || ''),
-        String(user?.id || ''),
-        String(user?.login || ''),
-      ].filter(Boolean),
-    );
-    const peers = (readers || []).filter((r) => !authorIds.has(String(r.id)));
+    const canonical = (val) => {
+      const s = String(val ?? '').trim();
+      const n = Number(s);
+      return Number.isFinite(n) && s !== '' ? String(n) : s;
+    };
+    const rawAuthors = [actor, myId, prof?.id, prof?.login, acc, user?.id, user?.login].filter(Boolean);
+    const authorIds = new Set([
+      ...rawAuthors.map(String),
+      ...rawAuthors.map(canonical),
+    ].filter(Boolean));
+    const peers = (readers || []).filter((r) => !authorIds.has(String(r.id)) && !authorIds.has(canonical(r.id)));
     const memberCount = peers.length;
     const readCount = peers.filter((r) => (r.read || 0) >= messageId).length;
     const deliveredCount = peers.filter((r) => (r.delivered || 0) >= messageId).length;
@@ -2414,7 +2441,12 @@
     }
   }
   function sameSenderSeries(previous, message) {
-    if (!previous || !message || !message.senderId || previous.senderId !== message.senderId) return false;
+    if (!previous || !message || !message.senderId) return false;
+    const pId = String(previous.senderId || '');
+    const mId = String(message.senderId || '');
+    const pCid = Number.isFinite(Number(pId)) && pId.trim() !== '' ? String(Number(pId)) : pId;
+    const mCid = Number.isFinite(Number(mId)) && mId.trim() !== '' ? String(Number(mId)) : mId;
+    if (pId !== mId && pCid !== mCid) return false;
     if (previous.deleted || message.deleted) return false;
     if (previous.day !== message.day) return false;
     const prevMs = Number(previous.createdMs), msgMs = Number(message.createdMs);
@@ -7377,20 +7409,23 @@
       const prof = typeof data !== 'undefined' ? data?.profile : null;
       const myAcc = typeof account !== 'undefined' ? account : '';
       const myId = typeof myAccountId === 'function' ? myAccountId() : '';
+      const canonical = (val) => {
+        const s = String(val ?? '').trim();
+        const n = Number(s);
+        return Number.isFinite(n) && s !== '' ? String(n) : s;
+      };
+      const rawOwn = [myId, myAcc, prof?.id, prof?.login, user?.id, user?.login].filter(Boolean);
       const ownIds = new Set([
-        String(myId || ''),
-        String(myAcc || ''),
-        String(prof?.id || ''),
-        String(prof?.login || ''),
-        String(user?.id || ''),
-        String(user?.login || ''),
+        ...rawOwn.map(String),
+        ...rawOwn.map(canonical),
       ].filter(Boolean));
       const ownNames = new Set([
         String(prof?.name || ''),
         String(user?.name || ''),
         String(user?.login || ''),
       ].filter(Boolean));
-      const own = (sId ? ownIds.has(sId) : (m.classList.contains('is-own') || Boolean(m.dataset.senderName && ownNames.has(m.dataset.senderName)))) ||
+      const cSId = canonical(sId);
+      const own = (sId ? (ownIds.has(sId) || (cSId && ownIds.has(cSId))) : (m.classList.contains('is-own') || Boolean(m.dataset.senderName && ownNames.has(m.dataset.senderName)))) ||
         Boolean(m.dataset.clientKey && typeof pending !== 'undefined' && pending?.clientKey === m.dataset.clientKey);
       const initials = cleanInitials(m.dataset.senderName || peerInitials);
       const textEl = m.querySelector('.chat-message-text');

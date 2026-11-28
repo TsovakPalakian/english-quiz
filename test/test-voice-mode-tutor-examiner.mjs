@@ -72,6 +72,7 @@ test('Stage 18: Voice Mode interactive browser flows (Playwright)', async () => 
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
 
     await page.evaluate(() => {
+      window.authUser = { id: 'dev', role: 'DEVELOPER' };
       document.getElementById('learning-main-banner')?.remove();
       document.body.removeAttribute('data-shell-pending');
       document.querySelectorAll('section.on').forEach(s => s.classList.remove('on'));

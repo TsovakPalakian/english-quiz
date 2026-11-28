@@ -3180,7 +3180,8 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       document.querySelectorAll('[data-jump]').forEach(button=>{
         if(['groups','exams','library','stats','days','allwords','wordcollections','tenses','speakout'].includes(button.dataset.jump)||button.id==='homeStudy'){
           const role=button.dataset.navRole;
-          const allowed=!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role));
+          const isDevBtn=button.hasAttribute('data-developer-only');
+          const allowed=isDevBtn?(!viewAccount&&authUser?.role==='DEVELOPER'):(!role||!viewAccount&&(role==='student'?authUser?.role==='USER':['ADMIN','DEVELOPER'].includes(authUser?.role)));
           button.hidden=!authUser||!allowed;
         }
       });
@@ -3229,7 +3230,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         }
       }
       if (id === "settings") paintSettings();
-      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchqueue" && isDeveloper() && !viewAccount) window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
       if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       const mark = chromeMark(id);
@@ -3284,11 +3285,12 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
       // Accounts is teacher-only chrome; never open it while viewing another account.
       if (["admin","adminuser","admingroup","admingrouplevel","groupdetail","groupteachers","groupstudents"].includes(id) && (viewAccount || !isTeacher())) id = "home";
       if (id === "bugs" && !isDeveloper()) id = "home";
+      if (id === "speakout" && (!isDeveloper() || viewAccount)) id = "home";
       if (id === "archive" && (!authUser || viewAccount)) id = "home";
       if (id === "profile") id = "settings";
       if (id === "stats" && !authUser) id = "account";
       if (id === "settings" && !authUser) id = "account";
-      if (id === "workbenchqueue" && (viewAccount || !isTeacher())) id = "home";
+      if (id === "workbenchqueue" && (viewAccount || !isDeveloper())) id = "home";
       if (id === "workbenchmine" && !authUser) id = "account";
       if (id === "workbenchproviders" && (!isDeveloper() || viewAccount)) id = "home";
       if(id==='home')id=roleHome();
@@ -3348,7 +3350,7 @@ return {emptyReviewItems,renderReviewItems,readReviewItems,editReviewItems,revie
         }
       }
       if (id === "settings") paintSettings();
-      if (id === "workbenchqueue") window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
+      if (id === "workbenchqueue" && isDeveloper() && !viewAccount) window.LearningWorkbench?.open({ queue: true, title: 'Review queue' });
       if (id === "workbenchmine") window.LearningWorkbench?.open({ mine: true, title: 'My quizzes' });
       if (id === "workbenchproviders") window.LearningWorkbench?.open({ providerSettings: true, title: 'AI providers' });
       document.body?.classList.toggle('guest-home',!authUser&&accountChecked&&id==='home');
@@ -26913,8 +26915,8 @@ const STUDIO_CONSTELLATIONS = [{
     }
     function lmTab() {
       const id = lmState && lmState.tab;
-      const isStudent = (typeof authUser !== 'undefined' && authUser?.role === 'USER') && (typeof viewAccount === 'undefined' || !viewAccount);
-      if(id==='speech'&&!lmState.examOwned&&!isStudent&&window.LearningWorkbench?.lessonSpeechButton())return id;
+      const isDev = (typeof isDeveloper === 'function' && isDeveloper()) || (typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER' && (typeof viewAccount === 'undefined' || !viewAccount));
+      if(id==='speech'&&!lmState.examOwned&&isDev&&window.LearningWorkbench?.lessonSpeechButton())return id;
       if (id === "words" || id === "phrases" || id === "rules" || id === "classwork" || id === "homework" || id === "pdf" || id === "evaluation") return id;
       return "overview";
     }
@@ -28766,8 +28768,8 @@ const STUDIO_CONSTELLATIONS = [{
       const tabs = [["overview", "Overview"], ["words", "Words · " + counts.words], ["phrases", "Phrases · " + counts.phrases], ["rules", "Rules · " + counts.rules]];
       const tools = [["classwork", "Classwork", true], ["homework", "Homework", true], ["pdf", "Lesson PDF", true]];
       const tabBtns = tabs.map(pair => '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? 'on' : '') + '" role="tab" aria-selected="' + (pair[0] === tab ? 'true' : 'false') + '">' + pair[1] + '</button>').join('');
-      const isStudent = (typeof authUser !== 'undefined' && authUser?.role === 'USER') && (typeof viewAccount === 'undefined' || !viewAccount);
-      const speechBtn = (!isStudent && window.LearningWorkbench?.lessonSpeechButton()) || '';
+      const isDev = (typeof isDeveloper === 'function' && isDeveloper()) || (typeof authUser !== 'undefined' && authUser?.role === 'DEVELOPER' && (typeof viewAccount === 'undefined' || !viewAccount));
+      const speechBtn = (isDev && window.LearningWorkbench?.lessonSpeechButton()) || '';
       const toolBtns = tools.map((pair) => {
         if (pair[2]) {
           const btn = '<button type="button" data-lm-tab="' + pair[0] + '" class="' + (pair[0] === tab ? "on" : "") + '" role="tab" aria-selected="' + (pair[0] === tab ? "true" : "false") + '">' + pair[1] + "</button>";
@@ -28780,7 +28782,7 @@ const STUDIO_CONSTELLATIONS = [{
       }).join("");
       const modesBtns = '<button type="button" data-lm-tool="quiz">Day quiz</button>' +
         '<button type="button" id="lmFocusPlayerBtn">Focus Mode</button>' +
-        (isStudent ? '' : '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>') +
+        (isDev ? '<button type="button" id="lmVoiceModeBtn">Voice Mode</button>' : '') +
         '<button type="button" id="lmEvaluationModeBtn" data-lm-tab="evaluation" class="' + (tab === "evaluation" ? "on" : "") + '" role="tab" aria-selected="' + (tab === "evaluation" ? "true" : "false") + '">Evaluation Mode</button>';
       return '<div class="lm-chrome"><div class="seg" role="tablist" aria-label="This lesson">' + tabBtns + '</div><div class="lm-daytools seg" role="tablist" aria-label="Lesson tools">' + toolBtns + (window.LearningWorkbench?.examButton() || '') + '</div><div class="lm-modes-bar seg" role="tablist" aria-label="Interactive practice modes">' + modesBtns + '</div></div>';
     }
@@ -32245,10 +32247,11 @@ const STUDIO_CONSTELLATIONS = [{
   let speechUI=null,providerUI=null;
   const quizTypes=['Flip','Choice','Type','Gap','Build','Match','True / false','Tap','Select all','Reverse','Spell','Letters','Listen','Definition','Odd one out','Memory','Hangman','Video choice','FSRS Flashcard'];
   const staff=()=>['ADMIN','DEVELOPER'].includes(authUser?.role);
+  const dev=()=>authUser?.role==='DEVELOPER';
   const enabled=()=>!!authUser&&!viewAccount&&!viewSwitching&&window.LearningMain?.capabilities?.().learningWorkbench===true;
   const identity=()=>String(authUser?.id||'')+':'+authUser?.role+':'+viewGen;
   const speechHost=()=>document.querySelector('#lmEditor:not([hidden]) #lmSpeechPanel,#lmPreview:not([hidden]) #lmSpeechPanel')||document.getElementById('material');
-  const current=entry=>job===entry&&enabled()&&(!entry.lessonSpeech||dialog?.isConnected&&dialog.parentElement===speechHost())&&(!entry.queue||staff())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
+  const current=entry=>job===entry&&enabled()&&(!entry.lessonSpeech||dialog?.isConnected&&dialog.parentElement===speechHost())&&(!entry.queue||dev())&&(!entry.providerSettings||authUser?.role==='DEVELOPER')&&entry.identity===identity()&&entry.screen===document.querySelector('section.on')?.id&&(!entry.lessonId||entry.lessonId===lmState?.id)&&(!entry.examBridge||lmState?.examOwned&&entry.examId===lmState.examId&&entry.blockId===lmState.blockId);
   function close(){serial++;job?.uploadController?.abort();for(const file of job?.report?.files||[])if(file.url)URL.revokeObjectURL(file.url);speechUI?.reset();providerUI?.reset();job=null;observer?.disconnect();observer=null;if(dialog?.open)dialog.close();dialog?.remove();dialog=null;}
   const request=(path)=>window.LearningMain.fetch(prefix+path,{quietBug:true});
   async function write(entry,path,value){
@@ -32359,13 +32362,13 @@ const STUDIO_CONSTELLATIONS = [{
   function paintEntry(){
     for(const nav of document.querySelectorAll('.side nav,.tabbar')){
       let button=nav.querySelector('[data-workbench-queue]');
-      if(!button&&enabled()&&staff()){
-        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
+      if(!button&&enabled()&&dev()){
+        button=document.createElement('button');button.type='button';button.dataset.workbenchQueue='';button.dataset.jump='workbenchqueue';button.dataset.developerOnly='';button.innerHTML='<i data-lucide="clipboard-check" aria-hidden="true"></i>Review queue';nav.append(button);window.lucide?.createIcons({root:button});
       }
-      if(button){button.hidden=!enabled()||!staff();if(enabled()&&staff()){button.dataset.jump='workbenchqueue';if(!button.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:button});}}
+      if(button){button.hidden=!enabled()||!dev();if(enabled()&&dev()){button.dataset.jump='workbenchqueue';if(!button.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:button});}}
       let mineButton=nav.querySelector('[data-workbench-mine]');
-      if(!mineButton&&enabled()&&staff()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
-      if(mineButton){mineButton.hidden=!enabled()||!staff();if(enabled()&&staff()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
+      if(!mineButton&&enabled()&&dev()){mineButton=document.createElement('button');mineButton.type='button';mineButton.dataset.workbenchMine='';mineButton.dataset.jump='workbenchmine';mineButton.dataset.developerOnly='';mineButton.innerHTML='<i data-lucide="notebook-pen" aria-hidden="true"></i>My quizzes';nav.append(mineButton);window.lucide?.createIcons({root:mineButton});}
+      if(mineButton){mineButton.hidden=!enabled()||!dev();if(enabled()&&dev()){mineButton.dataset.jump='workbenchmine';if(!mineButton.querySelector('svg')&&window.lucide)window.lucide.createIcons({root:mineButton});}}
       let providerButton=nav.querySelector('[data-workbench-providers]');
       if(!providerButton&&enabled()&&authUser?.role==='DEVELOPER'){providerButton=document.createElement('button');providerButton.type='button';providerButton.dataset.workbenchProviders='';providerButton.dataset.jump='workbenchproviders';providerButton.className='sidebar-nav-ai-btn';providerButton.innerHTML='<svg class="lucide lucide-cpu" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="8" y="8" width="8" height="8" rx="1"/><path d="M7 20v2"/><path d="M17 20v2"/><path d="M7 2v2"/><path d="M17 2v2"/><path d="M2 7h2"/><path d="M2 17h2"/><path d="M20 7h2"/><path d="M20 17h2"/></svg>AI providers';nav.append(providerButton);}
       if(providerButton){providerButton.hidden=!enabled()||authUser?.role!=='DEVELOPER';if(enabled()&&authUser?.role==='DEVELOPER')providerButton.dataset.jump='workbenchproviders';}
@@ -32685,8 +32688,8 @@ const STUDIO_CONSTELLATIONS = [{
       }
       return;
     }
-    if(button.hasAttribute('data-workbench-queue')){if(enabled()&&staff())void open({queue:true,title:'Review queue'});return;}
-    if(button.hasAttribute('data-workbench-mine')){if(enabled())void open({mine:true,title:'My quizzes'});return;}
+    if(button.hasAttribute('data-workbench-queue')){if(enabled()&&dev())void open({queue:true,title:'Review queue'});return;}
+    if(button.hasAttribute('data-workbench-mine')){if(enabled()&&dev())void open({mine:true,title:'My quizzes'});return;}
     if(button.hasAttribute('data-workbench-lesson-speech')){
       mountLessonSpeech();return;
     }

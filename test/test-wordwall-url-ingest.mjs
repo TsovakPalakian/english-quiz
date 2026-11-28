@@ -385,6 +385,7 @@ test('TASK-53 Visual DOM: verify interactive tabs and pill toggle in browser', a
 
     // Verify Row 3 in lmChromeHtml (.lm-modes-bar.seg)
     const chromeRow3 = await page.evaluate(() => {
+      window.authUser = { id: 'dev', role: 'DEVELOPER' };
       if (typeof window.lmPaintChrome === 'function') window.lmPaintChrome();
       const slot = document.getElementById('lmChromeSlot');
       const modesBar = slot?.querySelector('.lm-modes-bar.seg');
