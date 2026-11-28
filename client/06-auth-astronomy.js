@@ -169,5 +169,61 @@ const StudioSkyAstronomy=(()=>{
   }
   const exposedAlpha=(alpha,gain)=>1-(1-Math.max(0,Math.min(1,alpha)))**gain;
   const controlFactor=(position,maximum=4)=>{const p=Math.max(0,Math.min(1000,position));return p<=500?p/500:maximum**((p-500)/500);};
-  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,alphaStar,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure};
+  function julianDate(date){return(date.getTime()/86400000)+2440587.5;}
+  function gmst(date){
+    const d=julianDate(date)-2451545.0;
+    return((280.46061837+360.98564736629*d)%360+360)%360;
+  }
+  function lst(date,lonDeg){return((gmst(date)+lonDeg)%360+360)%360;}
+  function horizontalCoords(raDeg,decDeg,date,latDeg,lonDeg){
+    const d2r=Math.PI/180,r2d=180/Math.PI;
+    const localSidereal=lst(date,lonDeg);
+    let haDeg=((localSidereal-raDeg)%360+360)%360;
+    if(haDeg>180)haDeg-=360;
+    const phi=latDeg*d2r,dec=decDeg*d2r,H=haDeg*d2r;
+    const sinAlt=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H);
+    const altRad=Math.asin(Math.max(-1,Math.min(1,sinAlt)));
+    const altDeg=altRad*r2d;
+    const sinAz=-Math.cos(dec)*Math.sin(H);
+    const cosAz=(Math.sin(dec)-Math.sin(phi)*Math.sin(altRad))/(Math.cos(phi)*Math.cos(altRad)||1e-6);
+    let azDeg=Math.atan2(sinAz,cosAz)*r2d;
+    azDeg=((azDeg%360)+360)%360;
+    const sinQ=Math.sin(H);
+    const cosQ=Math.tan(phi)*Math.cos(dec)-Math.sin(dec)*Math.cos(H);
+    const qDeg=Math.atan2(sinQ,cosQ)*r2d;
+    return {altitude:altDeg,azimuth:azDeg,tilt:qDeg,hourAngle:haDeg};
+  }
+  function riseCulminationSet(raDeg,decDeg,date,latDeg,lonDeg){
+    const d2r=Math.PI/180,r2d=180/Math.PI;
+    const phi=latDeg*d2r,dec=decDeg*d2r;
+    const maxAlt=90-Math.abs(latDeg-decDeg);
+    const h0=-0.5667*d2r;
+    const cosH0=(Math.sin(h0)-Math.sin(phi)*Math.sin(dec))/(Math.cos(phi)*Math.cos(dec));
+    let circumpolar=false,neverRises=false,H0=0;
+    if(cosH0<-1)circumpolar=true;
+    else if(cosH0>1)neverRises=true;
+    else H0=Math.acos(Math.max(-1,Math.min(1,cosH0)))*r2d;
+
+    const startOfDay=new Date(date);
+    startOfDay.setHours(0,0,0,0);
+    function timeForLST(targetLSTDeg){
+      const lst0=lst(startOfDay,lonDeg);
+      const diffDeg=((targetLSTDeg-lst0)%360+360)%360;
+      const hours=(diffDeg/360.98564736629)*24;
+      return new Date(startOfDay.getTime()+hours*3600000);
+    }
+    const culminationTime=timeForLST(raDeg);
+    let riseTime=null,setTime=null;
+    if(!circumpolar&&!neverRises){
+      riseTime=timeForLST(((raDeg-H0)%360+360)%360);
+      setTime=timeForLST(((raDeg+H0)%360+360)%360);
+    }
+    return {maxAlt,circumpolar,neverRises,culminationTime,riseTime,setTime};
+  }
+  function compassSector(azDeg){
+    const sectors=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const idx=Math.round(((azDeg%360)+360)%360/22.5)%16;
+    return sectors[idx];
+  }
+  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,alphaStar,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure,julianDate,gmst,lst,horizontalCoords,riseCulminationSet,compassSector};
 })();

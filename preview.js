@@ -17243,7 +17243,63 @@ const StudioSkyAstronomy=(()=>{
   }
   const exposedAlpha=(alpha,gain)=>1-(1-Math.max(0,Math.min(1,alpha)))**gain;
   const controlFactor=(position,maximum=4)=>{const p=Math.max(0,Math.min(1000,position));return p<=500?p/500:maximum**((p-500)/500);};
-  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,alphaStar,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure};
+  function julianDate(date){return(date.getTime()/86400000)+2440587.5;}
+  function gmst(date){
+    const d=julianDate(date)-2451545.0;
+    return((280.46061837+360.98564736629*d)%360+360)%360;
+  }
+  function lst(date,lonDeg){return((gmst(date)+lonDeg)%360+360)%360;}
+  function horizontalCoords(raDeg,decDeg,date,latDeg,lonDeg){
+    const d2r=Math.PI/180,r2d=180/Math.PI;
+    const localSidereal=lst(date,lonDeg);
+    let haDeg=((localSidereal-raDeg)%360+360)%360;
+    if(haDeg>180)haDeg-=360;
+    const phi=latDeg*d2r,dec=decDeg*d2r,H=haDeg*d2r;
+    const sinAlt=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H);
+    const altRad=Math.asin(Math.max(-1,Math.min(1,sinAlt)));
+    const altDeg=altRad*r2d;
+    const sinAz=-Math.cos(dec)*Math.sin(H);
+    const cosAz=(Math.sin(dec)-Math.sin(phi)*Math.sin(altRad))/(Math.cos(phi)*Math.cos(altRad)||1e-6);
+    let azDeg=Math.atan2(sinAz,cosAz)*r2d;
+    azDeg=((azDeg%360)+360)%360;
+    const sinQ=Math.sin(H);
+    const cosQ=Math.tan(phi)*Math.cos(dec)-Math.sin(dec)*Math.cos(H);
+    const qDeg=Math.atan2(sinQ,cosQ)*r2d;
+    return {altitude:altDeg,azimuth:azDeg,tilt:qDeg,hourAngle:haDeg};
+  }
+  function riseCulminationSet(raDeg,decDeg,date,latDeg,lonDeg){
+    const d2r=Math.PI/180,r2d=180/Math.PI;
+    const phi=latDeg*d2r,dec=decDeg*d2r;
+    const maxAlt=90-Math.abs(latDeg-decDeg);
+    const h0=-0.5667*d2r;
+    const cosH0=(Math.sin(h0)-Math.sin(phi)*Math.sin(dec))/(Math.cos(phi)*Math.cos(dec));
+    let circumpolar=false,neverRises=false,H0=0;
+    if(cosH0<-1)circumpolar=true;
+    else if(cosH0>1)neverRises=true;
+    else H0=Math.acos(Math.max(-1,Math.min(1,cosH0)))*r2d;
+
+    const startOfDay=new Date(date);
+    startOfDay.setHours(0,0,0,0);
+    function timeForLST(targetLSTDeg){
+      const lst0=lst(startOfDay,lonDeg);
+      const diffDeg=((targetLSTDeg-lst0)%360+360)%360;
+      const hours=(diffDeg/360.98564736629)*24;
+      return new Date(startOfDay.getTime()+hours*3600000);
+    }
+    const culminationTime=timeForLST(raDeg);
+    let riseTime=null,setTime=null;
+    if(!circumpolar&&!neverRises){
+      riseTime=timeForLST(((raDeg-H0)%360+360)%360);
+      setTime=timeForLST(((raDeg+H0)%360+360)%360);
+    }
+    return {maxAlt,circumpolar,neverRises,culminationTime,riseTime,setTime};
+  }
+  function compassSector(azDeg){
+    const sectors=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const idx=Math.round(((azDeg%360)+360)%360/22.5)%16;
+    return sectors[idx];
+  }
+  return {centre,project,angularDistance,catalogue,appearance,layout,labels,caption,exposedAlpha,controlFactor,brightest,alphaStar,intersects,inViewport,landmarkIds,segmentHitsBox,clearFigure,markerSpacing,preferredSize,freeFrames,fitFigure,julianDate,gmst,lst,horizontalCoords,riseCulminationSet,compassSector};
 })();
 const StudioSkyGeometry=(()=>{
   const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -17822,7 +17878,7 @@ const STUDIO_CONSTELLATIONS = [{
   inspector.className='auth-sky-inspector auth-sky-star-inspector is-collapsed';
   inspector.setAttribute('role','tooltip');
   inspector.hidden=true;
-  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag"></span><button type="button" class="auth-sky-inspector-more">more...</button><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div></div><div class="auth-sky-inspector-body"><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div></div>`;
+  inspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-inspector-bayer"></span><span class="auth-sky-inspector-name"></span></div><div class="auth-sky-inspector-bayer-latin"></div><div class="auth-sky-inspector-con"></div></div><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag"></span><button type="button" class="auth-sky-inspector-more">more</button><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="1.5" y1="1.5" x2="8.5" y2="8.5"/><line x1="8.5" y1="1.5" x2="1.5" y2="8.5"/></svg></button></div></div><div class="auth-sky-inspector-body"><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-hemi-val"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Star Cluster:</span><span class="v auth-sky-cluster-val"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Distance:</span><span class="v auth-sky-dist-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Luminosity:</span><span class="v auth-sky-lum-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Spectral Class:</span><span class="v"><span class="auth-sky-spect-dot"></span><span class="auth-sky-spect-val"></span></span></div><div class="auth-sky-inspector-item"><span class="k">Temperature:</span><span class="v auth-sky-temp-val"></span></div><div class="auth-sky-inspector-item"><span class="k">Color Index (B−V):</span><span class="v auth-sky-bv-val"></span></div><div class="auth-sky-inspector-item"><span class="k">System Type:</span><span class="v auth-sky-sys-val"></span></div><div class="auth-sky-inspector-coords"><span class="auth-sky-coords-val"></span><span class="auth-sky-hip-val"></span></div></div><div class="auth-sky-temp-bar-container"><div class="auth-sky-temp-labels"><span>3,000 K</span><span class="auth-sky-temp-bar-val"></span><span>15,000+ K</span></div><div class="auth-sky-temp-bar"><div class="auth-sky-temp-needle"></div></div></div><div class="auth-sky-inspector-desc"></div><div class="auth-sky-inspector-foot"><span>SIMBAD Database</span><a class="auth-sky-inspector-simbad" target="_blank" rel="noopener noreferrer">Open in SIMBAD ↗</a></div></div>`;
   document.body.append(inspector);
   const inspBayer=inspector.querySelector('.auth-sky-inspector-bayer');
   const inspName=inspector.querySelector('.auth-sky-inspector-name');
@@ -17850,7 +17906,7 @@ const STUDIO_CONSTELLATIONS = [{
   conInspector.className='auth-sky-inspector auth-sky-con-inspector is-collapsed';
   conInspector.setAttribute('role','tooltip');
   conInspector.hidden=true;
-  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-meaning"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"><span class="auth-sky-con-gen"></span><span class="auth-sky-con-sub-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><button type="button" class="auth-sky-inspector-more">more...</button><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close">×</button></div><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-body"><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div></div>`;
+  conInspector.innerHTML=`<div class="auth-sky-inspector-head"><div><div class="auth-sky-inspector-title"><span class="auth-sky-con-name-en"></span><span class="auth-sky-con-sep"> · </span><span class="auth-sky-con-meaning"></span></div><div class="auth-sky-inspector-bayer-latin auth-sky-con-sub"><span class="auth-sky-con-gen"></span><span class="auth-sky-con-sub-sep"> · </span><span class="auth-sky-con-name-ru"></span></div><div class="auth-sky-inspector-con auth-sky-con-family"></div></div><div class="auth-sky-con-badges"><div class="auth-sky-con-badge-row"><span class="auth-sky-inspector-mag auth-sky-con-abbr"></span><button type="button" class="auth-sky-inspector-more">more</button><button type="button" class="auth-sky-inspector-close" aria-label="Close" title="Close"><svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="1.5" y1="1.5" x2="8.5" y2="8.5"/><line x1="8.5" y1="1.5" x2="1.5" y2="8.5"/></svg></button></div><span class="auth-sky-con-quad"></span></div></div><div class="auth-sky-inspector-body"><div class="auth-sky-inspector-hemi-cluster"><div class="auth-sky-inspector-row"><span class="k">Celestial Hemisphere:</span><span class="v auth-sky-con-hemi"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Visibility Latitude:</span><span class="v auth-sky-con-vis"></span></div><div class="auth-sky-inspector-row auth-sky-cluster-row"><span class="k">Best Viewing Month:</span><span class="v auth-sky-con-month"></span></div></div><div class="auth-sky-inspector-grid"><div class="auth-sky-inspector-item"><span class="k">Angular Area:</span><span class="v auth-sky-con-area"></span></div><div class="auth-sky-inspector-item"><span class="k">Brightest Star:</span><span class="v auth-sky-con-brightest"></span></div><div class="auth-sky-inspector-item"><span class="k">Exoplanet Hosts:</span><span class="v auth-sky-con-planets"></span></div><div class="auth-sky-inspector-item"><span class="k">Constellation Family:</span><span class="v auth-sky-con-fam-val"></span></div><div class="auth-sky-inspector-coords auth-sky-con-dso-row"><span class="auth-sky-con-dso-label">Key Deep-Sky:</span><span class="auth-sky-con-dso-val"></span></div></div><div class="auth-sky-temp-bar-container auth-sky-size-container"><div class="auth-sky-temp-labels"><span>Crux (68°)</span><span class="auth-sky-temp-bar-val auth-sky-size-bar-val"></span><span>Hydra (1303°)</span></div><div class="auth-sky-temp-bar auth-sky-size-bar"><div class="auth-sky-temp-needle auth-sky-size-needle"></div></div></div><div class="auth-sky-inspector-desc auth-sky-con-desc"></div><button type="button" class="auth-sky-find-action-btn"><span class="find-icon">🧭</span><span>Find in Sky Tonight</span><span class="live-badge">LIVE</span></button><div class="auth-sky-inspector-foot"><span>IAU & Go-Astronomy Atlas</span><a class="auth-sky-inspector-simbad auth-sky-con-link" target="_blank" rel="noopener noreferrer">Explore Constellation ↗</a></div></div>`;
   document.body.append(conInspector);
 
   const conNameEn=conInspector.querySelector('.auth-sky-con-name-en');
@@ -17958,6 +18014,424 @@ const STUDIO_CONSTELLATIONS = [{
     devDialog.close();
   });
   applyBtn.addEventListener('click',()=>devDialog.close());
+  // --- Real Sky Observer Guide Modal ---
+  const skyObserverModal=document.createElement('div');
+  skyObserverModal.id='skyObserverModal';
+  skyObserverModal.className='sky-observer-modal';
+  skyObserverModal.hidden=true;
+  document.body.append(skyObserverModal);
+
+  let activeGuideCon=null;
+  let activeGuideTab='target';
+  let observerLat=40.1872;
+  let observerLon=44.5152;
+  let observerCity='Yerevan';
+  let isGpsActive=false;
+  let isGpsLocating=false;
+  let guideTimerId=null;
+
+  function formatTzOffset(date){
+    const offsetMin=-date.getTimezoneOffset();
+    const sign=offsetMin>=0?'+':'-';
+    const hrs=Math.floor(Math.abs(offsetMin)/60);
+    return `${sign}${hrs}`;
+  }
+  function formatTime(date){
+    return date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false});
+  }
+  function formatCoords(lat,lon){
+    const latDir=lat>=0?'N':'S';
+    const lonDir=lon>=0?'E':'W';
+    return `${Math.abs(lat).toFixed(1)}° ${latDir}, ${Math.abs(lon).toFixed(1)}° ${lonDir}`;
+  }
+  function formatFaceDirection(sector){
+    const map={
+      'N':'Due North','NNE':'North-North-East','NE':'North-East','ENE':'East-South-East',
+      'E':'Due East','ESE':'East-South-East','SE':'South-East','SSE':'South-South-East',
+      'S':'Due South','SSW':'South-South-West','SW':'South-West','WSW':'West-South-West',
+      'W':'Due West','WNW':'West-North-West','NW':'North-West','NNW':'North-North-West'
+    };
+    return map[sector]||sector;
+  }
+  function renderConstellationFigureSVG(con,tiltDeg){
+    const stars=con?.stars||[];
+    const conns=con?.connections||[];
+    if(!stars.length){
+      return `<svg class="tilt-svg" viewBox="0 0 100 100" width="84" height="84"><circle cx="50" cy="50" r="44" stroke="rgba(197,168,104,0.3)" stroke-dasharray="2 3" fill="none"/><line x1="12" y1="84" x2="88" y2="84" stroke="rgba(197,168,104,0.6)" stroke-width="1.5"/><text x="50" y="93" text-anchor="middle" fill="#94a3b8" font-size="7.5">Horizon Line</text></svg>`;
+    }
+    const origin=astro.centre(stars);
+    const points=stars.map(s=>{
+      const p=astro.project(s,origin)||{x:0,y:0};
+      return {id:s.id,x:p.x,y:p.y,mag:s.mag,bayer:s.bayer,name:s.name};
+    });
+    const minX=Math.min(...points.map(p=>p.x)),maxX=Math.max(...points.map(p=>p.x));
+    const minY=Math.min(...points.map(p=>p.y)),maxY=Math.max(...points.map(p=>p.y));
+    const span=Math.max(maxX-minX,maxY-minY,0.05);
+    const scale=50/span;
+    const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+    const byId=new Map(points.map((p,i)=>[p.id,{
+      x:50+(p.x-cx)*scale,
+      y:44+(p.y-cy)*scale,
+      mag:p.mag,
+      bayer:p.bayer
+    }]));
+    const lineElements=conns.map(([id1,id2])=>{
+      const s1=byId.get(id1),s2=byId.get(id2);
+      if(!s1||!s2)return '';
+      return `<line x1="${s1.x.toFixed(1)}" y1="${s1.y.toFixed(1)}" x2="${s2.x.toFixed(1)}" y2="${s2.y.toFixed(1)}" stroke="rgba(255,216,133,0.55)" stroke-width="1.2"/>`;
+    }).join('');
+    const starElements=Array.from(byId.values()).map(s=>{
+      const r=s.bayer==='α'?2.6:(s.mag<2?2.2:1.6);
+      const fill=s.bayer==='α'?'#ffd885':'#ffffff';
+      return `<circle cx="${s.x.toFixed(1)}" cy="${s.y.toFixed(1)}" r="${r}" fill="${fill}"/>`;
+    }).join('');
+    return `
+      <svg class="tilt-svg" viewBox="0 0 100 100" width="84" height="84">
+        <circle cx="50" cy="50" r="44" stroke="rgba(197,168,104,0.3)" stroke-dasharray="2 3" fill="none"/>
+        <line x1="12" y1="84" x2="88" y2="84" stroke="rgba(197,168,104,0.6)" stroke-width="1.5"/>
+        <text x="50" y="93" text-anchor="middle" fill="#94a3b8" font-size="7.5">Horizon Line</text>
+        <g transform="rotate(${Math.round(tiltDeg)} 50 44)">
+          ${lineElements}
+          ${starElements}
+        </g>
+      </svg>
+    `;
+  }
+  function renderCompassSVG(azimuthDeg){
+    return `
+      <svg class="compass-svg" viewBox="0 0 100 100" width="84" height="84">
+        <circle cx="50" cy="50" r="44" fill="rgba(6,11,19,0.85)" stroke="rgba(197,168,104,0.4)" stroke-width="1.2"/>
+        <line x1="50" y1="8" x2="50" y2="15" stroke="#ffd885" stroke-width="1.5"/>
+        <line x1="50" y1="85" x2="50" y2="92" stroke="rgba(197,168,104,0.5)" stroke-width="1"/>
+        <line x1="8" y1="50" x2="15" y2="50" stroke="rgba(197,168,104,0.5)" stroke-width="1"/>
+        <line x1="85" y1="50" x2="92" y2="50" stroke="rgba(197,168,104,0.5)" stroke-width="1"/>
+        <text x="50" y="22" text-anchor="middle" fill="#ffd885" font-size="9" font-weight="700">N</text>
+        <text x="83" y="53" text-anchor="middle" fill="#94a3b8" font-size="8">E</text>
+        <text x="50" y="84" text-anchor="middle" fill="#94a3b8" font-size="8">S</text>
+        <text x="17" y="53" text-anchor="middle" fill="#94a3b8" font-size="8">W</text>
+        <g transform="rotate(${Math.round(azimuthDeg)} 50 50)">
+          <polygon points="50,16 44,50 56,50" fill="#ffd885"/>
+          <polygon points="50,84 44,50 56,50" fill="rgba(197,168,104,0.3)"/>
+          <circle cx="50" cy="50" r="3.5" fill="#ffd885"/>
+        </g>
+      </svg>
+    `;
+  }
+  function renderAltitudeSVG(altDeg){
+    const clampedAlt=Math.max(-30,Math.min(90,altDeg));
+    const isBelow=clampedAlt<0;
+    const rad=Math.abs(clampedAlt)*(Math.PI/180);
+    const len=64;
+    const px=16+len*Math.cos(rad);
+    const py=isBelow?80+len*Math.sin(rad):80-len*Math.sin(rad);
+    const pointerColor=isBelow?'#f59e0b':'#4ade80';
+    return `
+      <svg class="inclinometer-svg" viewBox="0 0 100 100" width="84" height="84">
+        <path d="M 16 80 A 64 64 0 0 1 80 16" fill="none" stroke="rgba(197,168,104,0.3)" stroke-width="1" stroke-dasharray="2 3"/>
+        <line x1="10" y1="80" x2="88" y2="80" stroke="rgba(197,168,104,0.6)" stroke-width="1.5"/>
+        <line x1="16" y1="80" x2="16" y2="10" stroke="rgba(197,168,104,0.3)" stroke-width="1"/>
+        <text x="86" y="77" fill="#94a3b8" font-size="7.5">0°</text>
+        <text x="22" y="16" fill="#94a3b8" font-size="7.5">90°</text>
+        <line x1="16" y1="80" x2="${px.toFixed(1)}" y2="${py.toFixed(1)}" stroke="${pointerColor}" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="16" cy="80" r="3.5" fill="${pointerColor}"/>
+        <circle cx="12" cy="74" r="2.5" fill="rgba(197,168,104,0.5)"/>
+      </svg>
+    `;
+  }
+  function getVisibleConstellations(now){
+    const list=[];
+    for(const c of catalogue){
+      const orig=astro.centre(c.stars);
+      const hc=astro.horizontalCoords(orig.ra,orig.dec,now,observerLat,observerLon);
+      if(hc.altitude>0){
+        list.push({con:c,coords:hc,sector:astro.compassSector(hc.azimuth)});
+      }
+    }
+    list.sort((a,b)=>b.coords.altitude-a.coords.altitude);
+    return list;
+  }
+  function handleGpsClick(){
+    if(isGpsLocating)return;
+    if(!navigator?.geolocation){
+      return;
+    }
+    isGpsLocating=true;
+    renderSkyObserverModal();
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        observerLat=pos.coords.latitude;
+        observerLon=pos.coords.longitude;
+        isGpsActive=true;
+        isGpsLocating=false;
+        renderSkyObserverModal();
+      },
+      err=>{
+        isGpsLocating=false;
+        renderSkyObserverModal();
+      },
+      {enableHighAccuracy:true,timeout:10000,maximumAge:60000}
+    );
+  }
+  function renderSkyObserverModal(){
+    const now=new Date();
+    const visibleList=getVisibleConstellations(now);
+    const targetCon=activeGuideCon||catalogue.find(c=>c.abbr==='Ori')||catalogue[0];
+    const targetOrigin=astro.centre(targetCon.stars);
+    const targetCoords=astro.horizontalCoords(targetOrigin.ra,targetOrigin.dec,now,observerLat,observerLon);
+    const targetSector=astro.compassSector(targetCoords.azimuth);
+    const rcs=astro.riseCulminationSet(targetOrigin.ra,targetOrigin.dec,now,observerLat,observerLon);
+    const isVisible=targetCoords.altitude>=0;
+
+    let bodyHTML='';
+    if(activeGuideTab==='target'){
+      const statusBanner=isVisible?`
+        <div class="sky-obs-status-banner is-visible">
+          <div class="status-indicator-dot"></div>
+          <div class="status-content">
+            <span class="status-title">Visible Now in the Night Sky</span>
+            <span class="status-sub">Elevated +${Math.round(targetCoords.altitude)}° above the horizon · Prime dark-sky observation target</span>
+          </div>
+          <span class="status-badge-ok">Visible</span>
+        </div>
+      `:`
+        <div class="sky-obs-status-banner is-below">
+          <div class="status-indicator-dot is-amber"></div>
+          <div class="status-content">
+            <span class="status-title">Currently Below Horizon</span>
+            <span class="status-sub">At ${Math.round(targetCoords.altitude)}° below the local horizon · Pre-observation setup</span>
+          </div>
+          <span class="status-badge-below">Below Horizon</span>
+        </div>
+      `;
+
+      const inst1=`
+        <div class="instrument-card">
+          <div class="instrument-tag">Step 1: Where to Face</div>
+          <div class="instrument-title">Compass Bearing (Azimuth)</div>
+          <div class="instrument-dial-container">
+            ${renderCompassSVG(targetCoords.azimuth)}
+          </div>
+          <div class="instrument-value">${Math.round(targetCoords.azimuth)}° ${targetSector}</div>
+          <div class="instrument-action">Turn face ${formatFaceDirection(targetSector)}</div>
+        </div>
+      `;
+
+      const inst2=`
+        <div class="instrument-card">
+          <div class="instrument-tag">Step 2: How High to Look</div>
+          <div class="instrument-title">Altitude Angle (Horizon)</div>
+          <div class="instrument-dial-container">
+            ${renderAltitudeSVG(targetCoords.altitude)}
+          </div>
+          <div class="instrument-value">${targetCoords.altitude>=0?'+':''}${Math.round(targetCoords.altitude)}° ${isVisible?'Elevation':'Below Horizon'}</div>
+          <div class="instrument-action">${isVisible?`~${Math.max(1,Math.round(targetCoords.altitude/10))} fist-widths above horizon`:`Rises at ${rcs.riseTime?formatTime(rcs.riseTime):'night'}`}</div>
+        </div>
+      `;
+
+      const inst3=`
+        <div class="instrument-card">
+          <div class="instrument-tag">Step 3: What Shape to See</div>
+          <div class="instrument-title">Constellation Sky Tilt</div>
+          <div class="instrument-dial-container">
+            ${renderConstellationFigureSVG(targetCon,targetCoords.tilt)}
+          </div>
+          <div class="instrument-value">${targetCoords.tilt>=0?'+':''}${Math.round(targetCoords.tilt)}° ${targetCoords.tilt>=0?'Clockwise':'Counter-Clockwise'}</div>
+          <div class="instrument-action">${Math.abs(targetCoords.tilt)>20?'Appears tilted on its side':'Appears nearly upright'}</div>
+        </div>
+      `;
+
+      const timelineHTML=`
+        <div class="sky-obs-timeline-card">
+          <div class="timeline-title">Observation Timeline Tonight (Local Time)</div>
+          <div class="timeline-steps-grid">
+            <div class="timeline-step">
+              <span class="step-time">${rcs.riseTime?formatTime(rcs.riseTime):'Circumpolar'}</span>
+              <span class="step-event">Rises Above Horizon</span>
+              <span class="step-direction">${rcs.riseTime?'East-South-East':'Never Sets'}</span>
+            </div>
+            <div class="timeline-step is-highlight">
+              <span class="step-time">${formatTime(rcs.culminationTime)}</span>
+              <span class="step-event">Highest Culmination</span>
+              <span class="step-direction">+${Math.round(rcs.maxAlt)}° Due South (180°)</span>
+            </div>
+            <div class="timeline-step">
+              <span class="step-time">${rcs.setTime?formatTime(rcs.setTime):'Circumpolar'}</span>
+              <span class="step-event">Sets Below Horizon</span>
+              <span class="step-direction">${rcs.setTime?'West-South-West':'Never Sets'}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const tipHTML=`
+        <div class="sky-obs-tip">
+          <span class="tip-icon">💡</span>
+          <span class="tip-text"><strong>Observer Hint:</strong> Go outside and face <strong>${formatFaceDirection(targetSector)}</strong>. Elevate your gaze <strong>${Math.max(1,Math.round(Math.abs(targetCoords.altitude)/10))} fist-widths</strong> above the horizon. Look for ${targetCon.brightestStar?targetCon.brightestStar+' and ':''}${targetCon.name}'s key pattern to verify your alignment.</span>
+        </div>
+      `;
+
+      bodyHTML=statusBanner+`<div class="sky-obs-instruments-grid">${inst1}${inst2}${inst3}</div>`+timelineHTML+tipHTML;
+    }else{
+      const cardsHTML=visibleList.map(item=>`
+        <div class="visible-con-card ${item.con.abbr===targetCon.abbr?'is-target':''}" data-abbr="${item.con.abbr}">
+          <div class="vcard-info">
+            <div class="vcard-title"><span class="vcard-name">${item.con.name}</span> <span class="vcard-abbr">${item.con.abbr}</span></div>
+            <div class="vcard-sub">${item.con.meaning||conRuNames[item.con.abbr]||''}</div>
+          </div>
+          <div class="vcard-values">
+            <div class="vcard-alt">+${Math.round(item.coords.altitude)}°</div>
+            <div class="vcard-az">${Math.round(item.coords.azimuth)}° ${item.sector}</div>
+          </div>
+        </div>
+      `).join('');
+
+      bodyHTML=`
+        <div style="font-size:11px; color:#94a3b8; display:flex; justify-content:space-between; align-items:center;">
+          <span>Showing ${visibleList.length} constellations with altitude &gt; 0° right now:</span>
+          <span style="font-size:10px; color:#ffd885;">Sorted by highest altitude (zenith)</span>
+        </div>
+        <div class="visible-constellations-grid">${cardsHTML}</div>
+        <div class="sky-obs-instruction-tip">
+          <span style="font-size:14px;">👆</span>
+          <span>Click any visible constellation card to instantly open its real-time 3-Step Horizon Guide.</span>
+        </div>
+      `;
+    }
+
+    skyObserverModal.innerHTML=`
+      <div class="sky-obs-dialog">
+        <div class="sky-obs-header">
+          <div class="sky-obs-title-group">
+            <div class="sky-obs-badge">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+              <span>REAL SKY OBSERVER GUIDE</span>
+            </div>
+            <h3 class="sky-obs-heading">${activeGuideTab==='target'?`Find ${targetCon.name} in the Real Sky Tonight`:`${visibleList.length} Constellations Visible Above Your Horizon`}</h3>
+          </div>
+          <button type="button" class="sky-obs-close" aria-label="Close dialog" title="Close"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1.5" y1="1.5" x2="8.5" y2="8.5"/><line x1="8.5" y1="1.5" x2="1.5" y2="8.5"/></svg></button>
+        </div>
+
+        <div class="sky-obs-tabbar">
+          <button type="button" class="sky-tab-btn ${activeGuideTab==='target'?'is-active':''}" data-tab="target">
+            <span>🧭</span>
+            <span>Target Constellation</span>
+          </button>
+          <button type="button" class="sky-tab-btn ${activeGuideTab==='visible'?'is-active':''}" data-tab="visible">
+            <span>⭐</span>
+            <span>Visible Now in Sky</span>
+            <span class="tab-count-badge">${visibleList.length}</span>
+          </button>
+        </div>
+
+        <div class="sky-obs-content">
+          <div class="sky-obs-meta-bar">
+            <div class="sky-obs-meta-left">
+              <span class="meta-pin">📍</span>
+              <div class="sky-obs-meta-loc">
+                <div class="meta-city">${observerCity}</div>
+                <div class="meta-coords">${formatCoords(observerLat,observerLon)}</div>
+              </div>
+              <button type="button" class="sky-obs-gps-btn ${isGpsActive?'is-active':''} ${isGpsLocating?'is-locating':''}">
+                ${isGpsLocating?'Locating':(isGpsActive?'✓ GPS Active':'⌖ Use GPS')}
+              </button>
+            </div>
+            <div class="sky-obs-meta-divider"></div>
+            <div class="sky-obs-meta-right">
+              <div class="sky-obs-meta-time-block" title="Click to force recalculate coordinates">
+                <div class="meta-time-line">⏱ Tonight at ${formatTime(now)}</div>
+                <div class="meta-tz-line">Local Time (UTC${formatTzOffset(now)})</div>
+              </div>
+              <span class="meta-badge-live">LIVE</span>
+            </div>
+          </div>
+
+          ${bodyHTML}
+        </div>
+
+        <div class="sky-obs-footer">
+          <span class="footer-note">Real-time horizon calculations updated every 60 seconds</span>
+          <button type="button" class="sky-obs-done-btn">Done</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function startSkyObserverTimer(){
+    stopSkyObserverTimer();
+    guideTimerId=setInterval(()=>{
+      if(!skyObserverModal.hidden){
+        renderSkyObserverModal();
+      }
+    },60000);
+  }
+  function stopSkyObserverTimer(){
+    if(guideTimerId){
+      clearInterval(guideTimerId);
+      guideTimerId=null;
+    }
+  }
+  function openSkyObserverModal(con){
+    activeGuideCon=con||activeGuideCon||catalogue.find(c=>c.abbr==='Ori')||catalogue[0];
+    activeGuideTab='target';
+    skyObserverModal.hidden=false;
+    skyObserverModal.classList.add('is-open');
+    renderSkyObserverModal();
+    startSkyObserverTimer();
+  }
+  function closeSkyObserverModal(){
+    skyObserverModal.classList.remove('is-open');
+    skyObserverModal.hidden=true;
+    stopSkyObserverTimer();
+  }
+
+  skyObserverModal.addEventListener('click',e=>{
+    if(e.target===skyObserverModal){
+      closeSkyObserverModal();
+      return;
+    }
+    if(e.target.closest('.sky-obs-close, .sky-obs-done-btn')){
+      closeSkyObserverModal();
+      return;
+    }
+    const tabBtn=e.target.closest('.sky-tab-btn');
+    if(tabBtn){
+      const tab=tabBtn.dataset.tab;
+      if(tab&&tab!==activeGuideTab){
+        activeGuideTab=tab;
+        renderSkyObserverModal();
+      }
+      return;
+    }
+    const card=e.target.closest('.visible-con-card');
+    if(card){
+      const abbr=card.dataset.abbr;
+      const target=catalogue.find(c=>c.abbr===abbr);
+      if(target){
+        activeGuideCon=target;
+        activeGuideTab='target';
+        renderSkyObserverModal();
+        canvas.dispatchEvent(new CustomEvent('sky:select-constellation',{detail:{abbr}}));
+      }
+      return;
+    }
+    const gpsBtn=e.target.closest('.sky-obs-gps-btn');
+    if(gpsBtn){
+      handleGpsClick();
+      return;
+    }
+    const timeBlock=e.target.closest('.sky-obs-meta-time-block');
+    if(timeBlock){
+      renderSkyObserverModal();
+      return;
+    }
+  });
+
+  window.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&!skyObserverModal.hidden){
+      closeSkyObserverModal();
+    }
+  });
+
 
   function isDevActor(){
     if(typeof authUser!=='undefined'&&authUser?.role==='DEVELOPER')return true;
@@ -18306,7 +18780,7 @@ const STUDIO_CONSTELLATIONS = [{
       const ident=star.hip?'HIP '+star.hip:(star.name||star.id);
       inspSimbad.href='https://simbad.cds.unistra.fr/simbad/sim-id?Ident='+encodeURIComponent(ident);
       inspector.classList.add('is-collapsed');
-      if(inspMore)inspMore.textContent='more...';
+      if(inspMore)inspMore.textContent='more';
       inspector.hidden=false;
       const cardW=290,cardH=inspector.offsetHeight||52,margin=14;
       let left=slot.x+20,top=slot.y-24;
@@ -18388,8 +18862,9 @@ const STUDIO_CONSTELLATIONS = [{
       conDesc.textContent=conFallbackDesc(c);
       const url='https://www.go-astronomy.com/constellations.php?Name='+encodeURIComponent(c.name);
       conLink.href=url;
+      conInspector.__con=c;
       conInspector.classList.add('is-collapsed');
-      if(conMore)conMore.textContent='more...';
+      if(conMore)conMore.textContent='more';
       conInspector.hidden=false;
       const cardW=220,cardH=conInspector.offsetHeight||46,margin=12;
       const r=targetNode.getBoundingClientRect();
@@ -19020,7 +19495,7 @@ const STUDIO_CONSTELLATIONS = [{
       if(moreBtn){
         const targetInsp=inspector.contains(moreBtn)?inspector:conInspector;
         const isCollapsed=targetInsp.classList.toggle('is-collapsed');
-        moreBtn.textContent=isCollapsed?'more...':'less';
+        moreBtn.textContent=isCollapsed?'more':'less';
         if(targetInsp===conInspector){
           cancelConHide();
           pauseReturn();
@@ -19029,6 +19504,11 @@ const STUDIO_CONSTELLATIONS = [{
         if(rect.bottom>h-14){
           targetInsp.style.top=Math.max(14,Math.round(h-rect.height-14))+'px';
         }
+        return;
+      }
+      const findBtn=event.target.closest('.auth-sky-find-action-btn');
+      if(findBtn){
+        openSkyObserverModal(conInspector.__con||current);
         return;
       }
       if(inspector.contains(event.target))return;
@@ -19073,7 +19553,7 @@ const STUDIO_CONSTELLATIONS = [{
         lastConTouch=performance.now();
         const targetInsp=inspector.contains(moreBtn)?inspector:conInspector;
         const isCollapsed=targetInsp.classList.toggle('is-collapsed');
-        moreBtn.textContent=isCollapsed?'more...':'less';
+        moreBtn.textContent=isCollapsed?'more':'less';
         if(targetInsp===conInspector){
           cancelConHide();
           pauseReturn();
@@ -19082,6 +19562,12 @@ const STUDIO_CONSTELLATIONS = [{
         if(rect.bottom>h-14){
           targetInsp.style.top=Math.max(14,Math.round(h-rect.height-14))+'px';
         }
+        return;
+      }
+      const findBtn=event.target.closest('.auth-sky-find-action-btn');
+      if(findBtn){
+        lastConTouch=performance.now();
+        openSkyObserverModal(conInspector.__con||current);
         return;
       }
       if(inspector.contains(event.target)||conInspector.contains(event.target))return;
@@ -19133,7 +19619,7 @@ const STUDIO_CONSTELLATIONS = [{
     redraw=()=>render(performance.now());
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;refreshText=null;canvas.removeEventListener('sky:blackhole',triggerBlackHole);delete canvas.__triggerBlackHole;canvas.removeEventListener('sky:select-constellation',onSelectCon);canvas.removeEventListener('sky:resume-cycle',onResumeCycle);delete canvas.__selectConstellation;delete canvas.__resumeCycle;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;canvas.removeEventListener('sky:blackhole',triggerBlackHole);delete canvas.__triggerBlackHole;canvas.removeEventListener('sky:select-constellation',onSelectCon);canvas.removeEventListener('sky:resume-cycle',onResumeCycle);delete canvas.__selectConstellation;delete canvas.__resumeCycle;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);closeSkyObserverModal();window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
   }
   let stop=null,lifecycle='';
   function sync(){
