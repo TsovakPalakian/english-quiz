@@ -581,6 +581,7 @@
     }
     document.addEventListener('click',event=>{
       if(authUser||!event.target.closest('.auth-brand'))return;
+      if(event.target.closest('.brand-mark.dev-interactive,[data-dev-brand-mark]'))return;
       event.preventDefault();event.stopImmediatePropagation();reloadGuestHome();
     },true);
     function logoMottoHeight(motto) {

@@ -65,7 +65,7 @@ try {
 
   // 3. Test clicking Accept all
   await acceptBtn.click();
-  await page.waitForTimeout(300);
+  await banner.waitFor({state: 'detached', timeout: 5000});
   assert.equal(await banner.count(), 0, 'Banner must be removed after clicking Accept all');
 
   const storedConsent = await page.evaluate(() => localStorage.getItem('cookie_consent'));
@@ -93,7 +93,7 @@ try {
   await banner2.waitFor({state: 'visible', timeout: 5000});
 
   await banner2.locator('#cookiePartialBtn').click();
-  await page.waitForTimeout(300);
+  await banner2.waitFor({state: 'detached', timeout: 5000});
   assert.equal(await banner2.count(), 0, 'Banner must be removed after clicking Essential');
 
   const essentialStored = await page.evaluate(() => localStorage.getItem('cookie_consent'));
@@ -112,7 +112,7 @@ try {
   await banner3.waitFor({state: 'visible', timeout: 5000});
 
   await banner3.locator('#cookieDeclineBtn').click();
-  await page.waitForTimeout(300);
+  await banner3.waitFor({state: 'detached', timeout: 5000});
   assert.equal(await banner3.count(), 0, 'Banner must be removed after clicking Decline');
 
   const declineStored = await page.evaluate(() => localStorage.getItem('cookie_consent'));
@@ -129,7 +129,7 @@ try {
   await banner4.waitFor({state: 'visible', timeout: 5000});
 
   await banner4.locator('#cookieDismissBtn').click();
-  await page.waitForTimeout(300);
+  await banner4.waitFor({state: 'detached', timeout: 5000});
   assert.equal(await banner4.count(), 0, 'Banner must be removed after clicking dismiss ✕');
 
   const dismissedFlag = await page.evaluate(() => sessionStorage.getItem('cookie_dismissed'));

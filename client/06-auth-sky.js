@@ -103,6 +103,101 @@
     Vel:'Паруса',Vir:'Дева',Vol:'Летучая Рыба',Vul:'Лисичка'
   };
 
+  const devDialog=document.createElement('dialog');
+  devDialog.id='devConstellationPicker';
+  devDialog.className='dev-constellation-dialog';
+  devDialog.setAttribute('aria-labelledby','devPickerTitle');
+  devDialog.innerHTML=`<div class="dev-picker-head"><div class="dev-picker-title-group"><span class="dev-picker-icon" aria-hidden="true">✦</span><h3 id="devPickerTitle" class="dev-picker-title">Select Constellation</h3><span class="dev-picker-tag">Developer</span></div><button type="button" class="dev-picker-close" aria-label="Close dialog">✕</button></div><div class="dev-picker-search-bar"><input type="search" class="dev-picker-search" placeholder="Search 88 constellations (name, abbreviation, Russian)..." autocomplete="off" spellcheck="false" aria-label="Search constellations"><button type="button" class="dev-picker-btn dev-picker-clear">Clear</button></div><div class="dev-picker-grid">${catalogue.map(c=>`<button type="button" class="dev-con-card" data-abbr="${c.abbr}" data-name="${c.name}" data-ru="${conRuNames[c.abbr]||''}" data-meaning="${c.meaning||''}"><span class="dev-con-abbr">${c.abbr}</span><div class="dev-con-meta"><div class="dev-con-name">${c.name}${c.meaning?' · '+c.meaning:''}</div><div class="dev-con-sub">${conRuNames[c.abbr]||c.name}${c.genitive?' ('+c.genitive+')':''}${c.quadrant?' · '+c.quadrant:''}${c.areaSqDeg?' · '+c.areaSqDeg+' sq deg':''}</div></div></button>`).join('')}<div class="dev-picker-empty" hidden>No constellations found</div></div><div class="dev-picker-foot"><span class="dev-picker-count">88 IAU constellations catalogued</span><div style="display:flex;gap:8px;"><button type="button" class="dev-picker-btn dev-picker-resume">Resume auto-cycle</button><button type="button" class="dev-picker-btn dev-picker-apply">Apply &amp; Freeze</button></div></div>`;
+  document.body.append(devDialog);
+
+  const searchInput=devDialog.querySelector('.dev-picker-search');
+  const clearBtn=devDialog.querySelector('.dev-picker-clear');
+  const closeBtn=devDialog.querySelector('.dev-picker-close');
+  const resumeBtn=devDialog.querySelector('.dev-picker-resume');
+  const applyBtn=devDialog.querySelector('.dev-picker-apply');
+  const emptyMsg=devDialog.querySelector('.dev-picker-empty');
+  const countSpan=devDialog.querySelector('.dev-picker-count');
+  const cards=[...devDialog.querySelectorAll('.dev-con-card')];
+
+  function filterCards(query){
+    const q=query.trim().toLowerCase();
+    let count=0;
+    cards.forEach(card=>{
+      const abbr=card.dataset.abbr.toLowerCase(),name=card.dataset.name.toLowerCase(),ru=card.dataset.ru.toLowerCase(),meaning=card.dataset.meaning.toLowerCase();
+      const match=!q||abbr.includes(q)||name.includes(q)||ru.includes(q)||meaning.includes(q);
+      card.hidden=!match;
+      if(match)count++;
+    });
+    emptyMsg.hidden=count>0;
+    countSpan.textContent=count===catalogue.length?`${catalogue.length} IAU constellations catalogued`:`${count} constellation${count===1?'':'s'} found`;
+  }
+
+  searchInput.addEventListener('input',()=>filterCards(searchInput.value));
+  clearBtn.addEventListener('click',()=>{searchInput.value='';filterCards('');searchInput.focus();});
+  closeBtn.addEventListener('click',()=>devDialog.close());
+  devDialog.addEventListener('click',e=>{
+    if(e.target===devDialog)devDialog.close();
+    const card=e.target.closest('.dev-con-card');
+    if(card){
+      const abbr=card.dataset.abbr;
+      canvas.dispatchEvent(new CustomEvent('sky:select-constellation',{detail:{abbr}}));
+      devDialog.close();
+    }
+  });
+  resumeBtn.addEventListener('click',()=>{
+    canvas.dispatchEvent(new CustomEvent('sky:resume-cycle'));
+    devDialog.close();
+  });
+  applyBtn.addEventListener('click',()=>devDialog.close());
+
+  function isDevActor(){
+    if(typeof authUser!=='undefined'&&authUser?.role==='DEVELOPER')return true;
+    if(typeof isDeveloper==='function'&&isDeveloper())return true;
+    if(document.documentElement.dataset.developer==='1'||document.body.dataset.developer==='1')return true;
+    if(typeof localStorage!=='undefined'&&(localStorage.getItem('enquiz-dev')==='1'||localStorage.getItem('enquiz-dev-stash')!=null))return true;
+    if(typeof location!=='undefined'&&(location.search.includes('dev=1')||location.hostname==='localhost'||location.hostname==='127.0.0.1'))return true;
+    return false;
+  }
+  function openDevPicker(){
+    searchInput.value='';
+    filterCards('');
+    if(typeof devDialog.showModal==='function')devDialog.showModal();
+  }
+  function syncDevBrandMarks(){
+    const isDev=isDevActor();
+    document.querySelectorAll('.studio-brand .brand-mark,.guest-brand .brand-mark,.auth-brand .brand-mark').forEach(node=>{
+      node.classList.toggle('dev-interactive',isDev);
+      if(isDev){
+        node.dataset.devBrandMark='1';
+        node.setAttribute('role','button');
+        node.setAttribute('tabindex','0');
+        node.setAttribute('title','Select constellation (Developer)');
+        node.setAttribute('aria-label','Select constellation (Developer)');
+      }else{
+        delete node.dataset.devBrandMark;
+        node.removeAttribute('role');
+        node.removeAttribute('tabindex');
+        node.removeAttribute('title');
+        node.removeAttribute('aria-label');
+      }
+    });
+  }
+  document.addEventListener('click',event=>{
+    const mark=event.target.closest('.studio-brand .brand-mark,.guest-brand .brand-mark,.auth-brand .brand-mark');
+    if(!mark||!isDevActor())return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openDevPicker();
+  },true);
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Enter'&&event.key!==' ')return;
+    const mark=event.target.closest('.studio-brand .brand-mark,.guest-brand .brand-mark,.auth-brand .brand-mark');
+    if(!mark||!isDevActor())return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openDevPicker();
+  },true);
+
   const starClusters={
     17702:'Pleiades (M45)',17499:'Pleiades (M45)',17573:'Pleiades (M45)',
     17847:'Pleiades (M45)',17743:'Pleiades (M45)',17900:'Pleiades (M45)',
@@ -603,6 +698,30 @@
       if(!inspected&&!inspectedCon)resumeReturn();
       if(motion.matches)render(performance.now());
     }
+    function selectConstellation(abbr){
+      const targetCon=catalogue.find(c=>c.abbr===abbr||c.name.toLowerCase()===String(abbr).toLowerCase());
+      if(!targetCon)return;
+      hideInspector();
+      hideConInspector();
+      previous=current;
+      current=targetCon;
+      layout=chooseLayout(current);
+      phase='morph';
+      target(layout);
+      freezeFigure();
+      if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
+    }
+    function resumeCycle(){
+      frozen=null;
+      advance(performance.now());
+      if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
+    }
+    const onSelectCon=e=>selectConstellation(e.detail?.abbr||e.detail);
+    const onResumeCycle=()=>resumeCycle();
+    canvas.addEventListener('sky:select-constellation',onSelectCon);
+    canvas.addEventListener('sky:resume-cycle',onResumeCycle);
+    canvas.__selectConstellation=selectConstellation;
+    canvas.__resumeCycle=resumeCycle;
     const onVisibility=()=>{if(document.hidden)pauseReturn();else resumeReturn();};
     const ease=t=>t<.5?2*t*t:1-(-2*t+2)**2/2;
     function advance(now){
@@ -1205,10 +1324,11 @@
     redraw=()=>render(performance.now());
     if(motion.matches){phase='hold';labels=layout?.labels||[];phaseStart=performance.now()-2000;render(performance.now());}
     else frameId=requestAnimationFrame(render);
-    return ()=>{stopped=true;redraw=null;refreshText=null;canvas.removeEventListener('sky:blackhole',triggerBlackHole);delete canvas.__triggerBlackHole;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
+    return ()=>{stopped=true;redraw=null;refreshText=null;canvas.removeEventListener('sky:blackhole',triggerBlackHole);delete canvas.__triggerBlackHole;canvas.removeEventListener('sky:select-constellation',onSelectCon);canvas.removeEventListener('sky:resume-cycle',onResumeCycle);delete canvas.__selectConstellation;delete canvas.__resumeCycle;cancelAnimationFrame(frameId);clearTimeout(freezeTimer);cancelConHide();canvas.classList.remove('sky-hover');links.forEach(n=>n.hidden=true);hideInspector();hideConInspector();conInspector.removeEventListener('mouseenter',onConEnter);conInspector.removeEventListener('mouseleave',onConLeave);window.removeEventListener('click',onClick);window.removeEventListener('mousemove',onMove);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('touchend',onTouchEnd);window.removeEventListener('blur',pauseReturn);window.removeEventListener('focus',resumeReturn);document.removeEventListener('visibilitychange',onVisibility);};
   }
   let stop=null,lifecycle='';
   function sync(){
+    syncDevBrandMarks();
     const mode=document.body.matches('.guest-home')?'home':document.body.matches('.guest-auth')?'account':'';
     const boxes=mode?uiBoxes(mode):[],key=JSON.stringify([mode,innerWidth,innerHeight,boxes,motion.matches]);
     if(key===lifecycle){refreshText?.();return;}lifecycle=key;stop?.();stop=null;canvas.hidden=!mode;
