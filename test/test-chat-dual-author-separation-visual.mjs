@@ -88,6 +88,14 @@ test('Chat Dual Author Separation: Main and Mini chat correctly isolate authors 
       assert.equal(mainOwnMsgCount, 1, `Main chat must have exactly 1 own message in ${theme}`);
       assert.equal(mainOtherMsgCount, 1, `Main chat must have exactly 1 other message in ${theme}`);
 
+      // Verify dynamic message evaluation with identical sender name
+      const dynamicPeerIsOwn = await page.evaluate(() => {
+        return typeof isOwnMessage === 'function'
+          ? isOwnMessage({ id: 103, senderId: '1001', sender: 'Tsovak Palakian', text: '1234' })
+          : false;
+      });
+      assert.equal(dynamicPeerIsOwn, false, `Dynamic peer message from sender 1001 must not be marked own in ${theme}`);
+
       // Verify mini timeline has exactly 1 own row and 1 other row
       const ownRows = await page.locator('#miniTimeline .chat-mini-msg-row.own').count();
       const otherRows = await page.locator('#miniTimeline .chat-mini-msg-row.other').count();

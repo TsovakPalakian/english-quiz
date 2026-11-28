@@ -116,7 +116,8 @@ test('isOwnMessage recognizes messages by senderId, sender account, or profile n
   };
   const isOwn=runInNewContext(code,ctx);
   assert.equal(isOwn({senderId:'user-42',sender:'Other'}),true);
-  assert.equal(isOwn({senderId:'diff-id',sender:'Tsovak Palakian'}),true);
+  assert.equal(isOwn({senderId:'diff-id',sender:'Tsovak Palakian'}),false);
+  assert.equal(isOwn({sender:'Tsovak Palakian'}),true);
   assert.equal(isOwn({senderId:'diff-id',sender:'Jane Doe'}),false);
   assert.equal(isOwn({pending:true}),true);
 });

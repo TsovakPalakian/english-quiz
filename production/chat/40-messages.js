@@ -842,7 +842,7 @@
     node.dataset.clientKey = m.clientKey || '';
     node.dataset.content = content;
     node.dataset.day = dateLabel(m.createdMs || m.created * 1000);
-    node.dataset.senderId = m.senderId || '';
+    node.dataset.senderId = m.senderId || m.sender_id || '';
     node.dataset.senderName = m.sender || '';
     node.dataset.createdMs = String(m.createdMs || m.created * 1000);
     if (!m.deleted) decorateLinks(node);

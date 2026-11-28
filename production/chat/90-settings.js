@@ -1344,8 +1344,25 @@
     let html = '';
     msgs.forEach((m) => {
       const sId = m.dataset.senderId != null && String(m.dataset.senderId).trim() !== '' ? String(m.dataset.senderId) : '';
+      const user = typeof signedIn === 'function' ? signedIn() : null;
+      const prof = typeof data !== 'undefined' ? data?.profile : null;
+      const myAcc = typeof account !== 'undefined' ? account : '';
       const myId = typeof myAccountId === 'function' ? myAccountId() : '';
-      const own = sId && myId ? sId === myId : m.classList.contains('is-own');
+      const ownIds = new Set([
+        String(myId || ''),
+        String(myAcc || ''),
+        String(prof?.id || ''),
+        String(prof?.login || ''),
+        String(user?.id || ''),
+        String(user?.login || ''),
+      ].filter(Boolean));
+      const ownNames = new Set([
+        String(prof?.name || ''),
+        String(user?.name || ''),
+        String(user?.login || ''),
+      ].filter(Boolean));
+      const own = (sId ? ownIds.has(sId) : (m.classList.contains('is-own') || Boolean(m.dataset.senderName && ownNames.has(m.dataset.senderName)))) ||
+        Boolean(m.dataset.clientKey && typeof pending !== 'undefined' && pending?.clientKey === m.dataset.clientKey);
       const initials = cleanInitials(m.dataset.senderName || peerInitials);
       const textEl = m.querySelector('.chat-message-text');
       const text = textEl ? (textEl.innerText || textEl.textContent || '').trim() : '';
@@ -1439,14 +1456,15 @@
         if (own) {
           let receiptHtml = '';
           const origReceipt = m.querySelector('.msg-receipt');
-          if (origReceipt) {
-            const isRead = origReceipt.classList.contains('is-read') || origReceipt.classList.contains('is-read-some');
-            const isDelivered = origReceipt.classList.contains('is-delivered') && !isRead;
-            const cls = isRead ? 'is-read' : (isDelivered ? 'is-delivered' : 'is-sent');
-            const ariaLabel = origReceipt.getAttribute('aria-label') || (isRead ? 'Read' : (isDelivered ? 'Delivered' : 'Sent'));
-            const title = origReceipt.getAttribute('title') || ariaLabel;
-            receiptHtml = '<span class="chat-mini-receipt ' + cls + '" aria-label="' + escape(ariaLabel) + '" title="' + escape(title) + '">' + origReceipt.innerHTML + '</span>';
-          }
+          const isRead = origReceipt ? (origReceipt.classList.contains('is-read') || origReceipt.classList.contains('is-read-some')) : false;
+          const isDelivered = origReceipt ? (origReceipt.classList.contains('is-delivered') && !isRead) : false;
+          const cls = isRead ? 'is-read' : (isDelivered ? 'is-delivered' : 'is-sent');
+          const ariaLabel = origReceipt?.getAttribute('aria-label') || (isRead ? 'Read' : (isDelivered ? 'Delivered' : 'Sent'));
+          const title = origReceipt?.getAttribute('title') || ariaLabel;
+          const checkSvg = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg>';
+          const doubleCheckSvg = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6L7 17l-5-5"/><path d="M22 10l-7.5 7.5L13 16"/></svg>';
+          const svgIcon = (isRead || isDelivered) ? doubleCheckSvg : checkSvg;
+          receiptHtml = '<span class="chat-mini-receipt ' + cls + '" aria-label="' + escape(ariaLabel) + '" title="' + escape(title) + '">' + svgIcon + '</span>';
           html += '<div class="chat-mini-msg-row own">' +
             '<div class="chat-mini-msg-bubble">' + bubbleInner + '</div>' +
             '<span class="chat-mini-msg-time">' + (time ? escape(time) : '') + (receiptHtml ? ' ' + receiptHtml : '') + '</span>' +

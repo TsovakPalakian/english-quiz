@@ -175,10 +175,34 @@
   const myAccountId = () => String(data?.profile?.id || signedIn()?.id || account || '');
   const isOwnMessage = (m) => {
     if (!m) return false;
+    const user = typeof signedIn === 'function' ? signedIn() : null;
+    const prof = typeof data !== 'undefined' ? data?.profile : null;
     const me = myAccountId();
     if (me && String(m?.senderId ?? '') === me) return true;
+    const ownIds = new Set([
+      String(me || ''),
+      String(prof?.id || ''),
+      String(user?.id || ''),
+      String(prof?.login || ''),
+      String(user?.login || ''),
+      String(typeof account !== 'undefined' ? account : ''),
+    ].filter(Boolean));
+    const sId = (m?.senderId != null && String(m.senderId).trim() !== '')
+      ? String(m.senderId)
+      : (m?.sender_id != null && String(m.sender_id).trim() !== '' ? String(m.sender_id) : '');
+    if (sId) return ownIds.has(sId) || Boolean(m?.pending);
     if (me && String(m?.sender ?? '') === me) return true;
-    if (data?.profile?.name && m?.sender && String(m.sender) === String(data.profile.name)) return true;
+    if (user?.login && String(m?.sender ?? '') === String(user.login)) return true;
+    if (prof?.name && m?.sender && String(m.sender) === String(prof.name)) {
+      const isDirectPeer = typeof data !== 'undefined' && Array.isArray(data?.rooms) &&
+        typeof room !== 'undefined' && data.rooms.find((r) => r.id === room)?.title === prof.name;
+      return !isDirectPeer;
+    }
+    if (user?.name && m?.sender && String(m.sender) === String(user.name)) {
+      const isDirectPeer = typeof data !== 'undefined' && Array.isArray(data?.rooms) &&
+        typeof room !== 'undefined' && data.rooms.find((r) => r.id === room)?.title === user.name;
+      return !isDirectPeer;
+    }
     return Boolean(m?.pending);
   };
   const chatCacheKey = () => 'english-chat-snapshot:' + account;
