@@ -7750,27 +7750,106 @@
 
   const miniInput = el('miniInput');
   const baseMiniHeight = 460;
+  let miniActiveColor = '';
+  let miniFormat = null;
+  let miniRich = null;
+  let miniStart = 0;
+  let miniEnd = 0;
+  let miniRange = null;
+
+  function syncMiniFromRich() {
+    if (!miniRich) return;
+    const formatObj = window.TextColors ? window.TextColors.read(miniRich) : null;
+    const plain = formatObj?.runs ? formatObj.runs.map((r) => r.text).join('') : (miniRich.textContent || '');
+    if (miniInput) miniInput.value = plain;
+    miniFormat = formatObj;
+    autoFitMiniInput();
+  }
+
+  function activateMiniRich() {
+    if (!miniRich || !miniRich.hidden) return;
+    miniRich.innerHTML = window.TextColors?.html ? window.TextColors.html(miniInput?.value || '', miniFormat) : escape(miniInput?.value || '');
+    if (miniInput) miniInput.hidden = true;
+    miniRich.hidden = false;
+  }
+
+  if (miniInput) {
+    miniRich = document.createElement('div');
+    miniRich.className = 'text-color-rich chat-mini-textarea';
+    miniRich.contentEditable = 'true';
+    miniRich.setAttribute('role', 'textbox');
+    miniRich.setAttribute('aria-multiline', 'true');
+    miniRich.setAttribute('aria-label', miniInput.getAttribute('aria-label') || 'Message text');
+    miniRich.dataset.placeholder = miniInput.getAttribute('placeholder') || 'Enter message';
+    miniRich.hidden = true;
+    miniInput.before(miniRich);
+
+    function captureMiniColorSelection() {
+      if (miniRich.hidden) {
+        miniStart = miniInput.selectionStart || 0;
+        miniEnd = miniInput.selectionEnd || 0;
+        return;
+      }
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && miniRich.contains(sel.anchorNode)) {
+        const next = sel.getRangeAt(0).cloneRange();
+        const prefix = document.createRange();
+        prefix.selectNodeContents(miniRich);
+        prefix.setEnd(next.startContainer, next.startOffset);
+        miniStart = prefix.toString().length;
+        prefix.setEnd(next.endContainer, next.endOffset);
+        miniEnd = prefix.toString().length;
+        miniRange = next.cloneRange();
+      }
+    }
+
+    miniRich.addEventListener('pointerup', captureMiniColorSelection);
+    miniRich.addEventListener('keyup', captureMiniColorSelection);
+    miniRich.addEventListener('blur', () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && miniRich.contains(sel.anchorNode)) {
+        miniRange = sel.getRangeAt(0).cloneRange();
+      }
+    });
+
+    miniRich.addEventListener('input', syncMiniFromRich);
+    miniRich.addEventListener('paste', (event) => {
+      event.preventDefault();
+      const text = event.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+      syncMiniFromRich();
+    });
+
+    miniRich.addEventListener('keydown', async (event) => {
+      if (event.key !== 'Enter') return;
+      if (prefs.enter === false || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      await submitMiniMessage();
+    });
+  }
 
   function autoFitMiniInput() {
-    if (!miniInput || !miniWindow) return;
-    if (!miniInput.value) {
-      miniInput.style.height = '';
-      miniInput.style.overflowY = 'hidden';
+    const activeField = (!miniRich?.hidden && miniRich) || miniInput;
+    if (!activeField || !miniWindow) return;
+    const hasContent = miniRich && !miniRich.hidden ? !!miniRich.textContent : !!miniInput?.value;
+    if (!hasContent) {
+      activeField.style.height = '';
+      activeField.style.overflowY = 'hidden';
       miniWindow.style.height = baseMiniHeight + 'px';
       return;
     }
-    miniInput.style.height = 'auto';
-    const targetHeight = Math.min(120, Math.max(44, miniInput.scrollHeight));
-    miniInput.style.height = targetHeight + 'px';
+    activeField.style.height = 'auto';
+    const targetHeight = Math.min(120, Math.max(44, activeField.scrollHeight));
+    activeField.style.height = targetHeight + 'px';
     const delta = targetHeight - 44;
     const currentTop = miniWindow.getBoundingClientRect().top;
     const maxH = window.innerHeight - currentTop - 12;
     const nextH = Math.min(maxH, baseMiniHeight + delta);
     miniWindow.style.height = nextH + 'px';
     if (targetHeight >= 120) {
-      miniInput.style.overflowY = 'auto';
+      activeField.style.overflowY = 'auto';
     } else {
-      miniInput.style.overflowY = 'hidden';
+      activeField.style.overflowY = 'hidden';
     }
   }
 
@@ -7851,13 +7930,24 @@
       const btn = e.target.closest('[data-mini-em]');
       if (!btn) return;
       const em = btn.dataset.miniEm;
-      const input = el('miniInput');
-      if (input) {
-        const start = input.selectionStart != null ? input.selectionStart : input.value.length;
-        const end = input.selectionEnd != null ? input.selectionEnd : input.value.length;
-        input.setRangeText(em, start, end, 'end');
-        input.focus();
-        autoFitMiniInput();
+      if (miniRich && !miniRich.hidden) {
+        miniRich.focus();
+        if (miniRange && miniRich.contains(miniRange.commonAncestorContainer)) {
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(miniRange);
+        }
+        document.execCommand('insertText', false, em);
+        syncMiniFromRich();
+      } else {
+        const input = el('miniInput');
+        if (input) {
+          const start = input.selectionStart != null ? input.selectionStart : input.value.length;
+          const end = input.selectionEnd != null ? input.selectionEnd : input.value.length;
+          input.setRangeText(em, start, end, 'end');
+          input.focus();
+          autoFitMiniInput();
+        }
       }
       miniEmojiPicker.hidden = true;
       el('miniEmoji')?.classList.remove('active');
@@ -7874,11 +7964,28 @@
     }
   });
 
-  let miniActiveColor = '';
   const miniColorInput = el('miniColorInput');
   const miniColor = el('miniColorIndicator');
   if (miniColor && miniColorInput) {
     miniColor.onclick = () => {
+      if (miniInput && miniRich) {
+        if (!miniRich.hidden) {
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount && miniRich.contains(sel.anchorNode)) {
+            const next = sel.getRangeAt(0).cloneRange();
+            const prefix = document.createRange();
+            prefix.selectNodeContents(miniRich);
+            prefix.setEnd(next.startContainer, next.startOffset);
+            miniStart = prefix.toString().length;
+            prefix.setEnd(next.endContainer, next.endOffset);
+            miniEnd = prefix.toString().length;
+            miniRange = next.cloneRange();
+          }
+        } else {
+          miniStart = miniInput.selectionStart || 0;
+          miniEnd = miniInput.selectionEnd || 0;
+        }
+      }
       try {
         if (typeof miniColorInput.showPicker === 'function') miniColorInput.showPicker();
         else miniColorInput.click();
@@ -7888,10 +7995,60 @@
     };
     miniColorInput.oninput = () => {
       const color = miniColorInput.value;
+      if (!color) return;
       miniActiveColor = color;
       miniColor.style.background = color;
-      const input = el('miniInput');
-      if (input) input.style.color = color;
+
+      if (!miniRich) {
+        if (miniInput) miniInput.style.color = color;
+        return;
+      }
+
+      activateMiniRich();
+      miniRich.focus();
+
+      const sel = window.getSelection();
+      if (sel) {
+        const walker = document.createTreeWalker(miniRich, NodeFilter.SHOW_TEXT);
+        const nodes = [];
+        let node;
+        while ((node = walker.nextNode())) nodes.push(node);
+        let offset = 0;
+        const next = document.createRange();
+        next.selectNodeContents(miniRich);
+        next.collapse(false);
+        for (const text of nodes) {
+          if (miniStart >= offset && miniStart <= offset + text.length) {
+            next.setStart(text, miniStart - offset);
+            break;
+          }
+          offset += text.length;
+        }
+        offset = 0;
+        for (const text of nodes) {
+          if (miniEnd >= offset && miniEnd <= offset + text.length) {
+            next.setEnd(text, miniEnd - offset);
+            break;
+          }
+          offset += text.length;
+        }
+        sel.removeAllRanges();
+        sel.addRange(next);
+        miniRange = next.cloneRange();
+      }
+
+      const previous = document.queryCommandState('styleWithCSS');
+      try {
+        document.execCommand('styleWithCSS', false, true);
+        document.execCommand('foreColor', false, color);
+      } finally {
+        document.execCommand('styleWithCSS', false, previous);
+      }
+      if (sel && sel.rangeCount) {
+        miniRange = sel.getRangeAt(0).cloneRange();
+      }
+      if (miniInput) miniInput.style.color = color;
+      syncMiniFromRich();
     };
   }
 
@@ -7948,19 +8105,33 @@
   }
 
   async function submitMiniMessage() {
-    const input = el('miniInput');
-    if (!input) return;
-    const val = input.value.trim();
+    const activeField = (!miniRich?.hidden && miniRich) || miniInput;
+    if (!activeField) return;
+    const val = (activeField.textContent || miniInput?.value || '').trim();
     if (val.length > 4000) {
       status('Maximum message length is 4000 characters.');
       return;
     }
     if (!val && (!files || !files.length)) return;
-    input.value = '';
-    if (composer) composer.value = val;
-    if (miniActiveColor && val) {
-      format = { runs: [{ text: val, marks: { color: miniActiveColor } }] };
+
+    let messageFormat = null;
+    if (miniRich && !miniRich.hidden && miniFormat?.runs?.length) {
+      messageFormat = window.TextColors?.trim ? window.TextColors.trim(miniFormat, val) : miniFormat;
+    } else if (miniActiveColor && val) {
+      messageFormat = { runs: [{ text: val, marks: { color: miniActiveColor } }] };
     }
+
+    if (miniInput) miniInput.value = '';
+    if (miniRich) {
+      miniRich.innerHTML = '';
+      miniRich.hidden = true;
+      if (miniInput) miniInput.hidden = false;
+    }
+    miniFormat = null;
+
+    if (composer) composer.value = val;
+    format = messageFormat;
+
     autoFitMiniInput();
     await send();
     syncMiniTimeline();

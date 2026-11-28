@@ -676,6 +676,11 @@ html[data-theme="almond"] #messages,html[data-theme="user"] #messages{background
 .chat-mini-file-chip button{display:inline-flex;align-items:center;justify-content:center;color:var(--mute);padding:0;background:transparent;border:0;cursor:pointer;font-size:11px}
 .chat-mini-file-chip button:hover{color:#ef4444}
 .chat-mini-textarea{width:100%!important;display:block!important;min-height:44px;max-height:120px;padding:6px 10px!important;border:1px solid var(--line)!important;border-radius:8px!important;outline:none!important;background:var(--card)!important;color:var(--ink);font-family:inherit;font-size:13px;line-height:1.4;resize:none;box-sizing:border-box;transition:border-color .15s}
+.chat-mini-textarea[hidden]{display:none!important}
+.chat-mini-composer .text-color-rich{width:100%!important;display:block!important;min-height:44px;max-height:120px;padding:6px 10px!important;border:1px solid var(--line)!important;border-radius:8px!important;outline:none!important;background:var(--card)!important;color:var(--ink);font-family:inherit;font-size:13px;line-height:1.4;box-sizing:border-box;overflow-y:auto;white-space:pre-wrap;word-break:break-word;transition:border-color .15s}
+.chat-mini-composer .text-color-rich:focus{border-color:var(--acc)!important}
+.chat-mini-composer .text-color-rich[hidden]{display:none!important}
+.chat-mini-composer .text-color-rich[data-placeholder]:empty::before{content:attr(data-placeholder);color:var(--mute);pointer-events:none}
 .chat-mini-textarea:focus{border-color:var(--acc)!important}
 .chat-mini-tools-row{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:28px}
 .chat-mini-tools-left,.chat-mini-tools-right{display:flex;align-items:center;gap:6px}
